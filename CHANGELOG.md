@@ -1,3 +1,12 @@
+## 3.4.3-wacheee
+
+### Fork/Alternate version from original - Bug fixes
+
+- added an option to remove the "supplemental-metadata" suffix from JSON to prevent issues with metadata #353 #355
+- fixed shortcut issue on Windows platforms #248
+- added more options for date-based folders [year, month, day] #238 (based in this commit [`More granular date folders #299`](https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/pull/299/commits/d06fe73101845acd650bc025d2977b96bbd1bf1d))
+- added reverse-shortcut option, now you can mantain original photo in album folders and create a shortcut in year albums
+
 ## 3.4.3
 
 ### Just a few patches ❤️‍🩹
