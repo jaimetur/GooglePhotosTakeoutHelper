@@ -1,6 +1,18 @@
+## 3.5.0-wacheee
+
+### Fork/Alternate version 
+#### Convert Pixel Motion Photo files Option - More extensions supported 
+
+- added support for moving or copying files with the following extensions to the output folder: .MP, .MV, .DNG, and .CR2
+- added an interactive option to convert Pixel Motion Photo files (.MP or .MV) to .mp4
+
+Limitations:
+- it does not fix issues related to reading JSON files (if necessary) for Motion Photo files; however, if the dates are included in the file name (as with Pixel Motion Photos), the correct dates will be established.
+
 ## 3.4.3-wacheee
 
-### Fork/Alternate version from original - Bug fixes
+### Fork/Alternate version from original 
+#### Bug fixes
 
 - added an option to remove the "supplemental-metadata" suffix from JSON to prevent issues with metadata #353 #355
 - fixed shortcut issue on Windows platforms #248
