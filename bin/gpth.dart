@@ -66,7 +66,14 @@ void main(List<String> arguments) async {
     )
     ..addFlag(
       'transform-pixel-mp', 
-      help: 'Transform Pixel .MP or .MV extensions to ".mp4"');
+      help: 'Transform Pixel .MP or .MV extensions to ".mp4"'
+    )
+    ..addFlag(
+      'update-creation-time', 
+      help: "Set creation time equal to the last "
+      'modification date at the end of the program.'
+      'Only Windows supported'
+    );
   final args = <String, dynamic>{};
   try {
     final res = parser.parse(arguments);
@@ -118,6 +125,10 @@ void main(List<String> arguments) async {
     print('');
     args['transform-pixel-mp'] = await interactive.askTransformPixelMP();
     print('');
+    if (Platform.isWindows){ //Only in windows is going to ask
+      args['update-creation-time'] = await interactive.askChangeCreationTime();
+      print('');
+    }
 
     // @Deprecated('Interactive unzipping is suspended for now!')
     // // calculate approx space required for everything
@@ -432,6 +443,12 @@ void main(List<String> arguments) async {
     print("Couldn't find date for $countPoop photos/videos :/");
   }
   print('');
+  if (args['update-creation-time']) {
+    print('Updating creation time of files to match their modified time in output folder ...');
+    await updateCreationTimeRecursively(output);
+    print('');
+    print('=' * barWidth);
+  }
   print(
     "Last thing - I've spent *a ton* of time on this script - \n"
     "if I saved your time and you want to say thanks, you can send me a tip:\n"
