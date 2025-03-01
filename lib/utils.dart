@@ -10,7 +10,7 @@ import 'package:unorm_dart/unorm_dart.dart' as unorm;
 import 'media.dart';
 
 // remember to bump this
-const version = '3.5.1-wacheee';
+const version = '3.5.2-wacheee';
 
 /// max file size to read for exif/hash/anything
 const maxFileSize = 64 * 1024 * 1024;
