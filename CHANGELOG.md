@@ -1,7 +1,7 @@
 ## 3.5.2-wacheee
 
 ### Fork/Alternate version 
-#### New option to update creation time at the end of program - Windows only #388
+#### New option to update creation time at the end of program - Windows only
 
 - added an interactive option to update the creation times of files in the output folder to match their last modified times at the end of the program #371
 
