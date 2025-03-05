@@ -1,3 +1,4 @@
+import 'dart:ffi';
 import 'dart:io';
 
 import 'package:collection/collection.dart';
@@ -6,6 +7,8 @@ import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
 import 'package:proper_filesize/proper_filesize.dart';
 import 'package:unorm_dart/unorm_dart.dart' as unorm;
+import 'package:ffi/ffi.dart';
+import 'package:win32/win32.dart';
 
 import 'media.dart';
 
@@ -264,5 +267,65 @@ Future<bool> _executePShellCreationTimeCmd(String commandChunk) async {
   } catch (e) {
     print("Error updating creation time: $e");
     return false;
+  }
+}
+
+void createShortcutWin(String shortcutPath, String targetPath) {
+  Pointer<COMObject>? shellLink;
+  Pointer<COMObject>? persistFile;
+  Pointer<Utf16>? shortcutPathPtr;
+  try {
+      // Initialize the COM library on the current thread
+    final hrInit = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+    if (FAILED(hrInit)) {
+      throw ('Error initializing COM: $hrInit');
+    }
+
+    shellLink = calloc<COMObject>();
+
+    // Create IShellLink instance
+    final hr = CoCreateInstance(
+        GUIDFromString(CLSID_ShellLink).cast<GUID>(),
+        nullptr,
+        CLSCTX_INPROC_SERVER,
+        GUIDFromString(IID_IShellLink).cast<GUID>(),
+        shellLink.cast());
+
+    if (FAILED(hr)) {
+      throw ('Error creating IShellLink instance: $hr');
+    }
+
+    final shellLinkPtr = IShellLink(shellLink);
+    shellLinkPtr.SetPath(targetPath.toNativeUtf16().cast());
+
+    // Saving shortcut
+    persistFile = calloc<COMObject>();
+    final hrPersistFile = shellLinkPtr.QueryInterface(
+        GUIDFromString(IID_IPersistFile).cast<GUID>(),
+        persistFile.cast());
+    if (FAILED(hrPersistFile)) {
+      throw ('Error obtaining IPersistFile: $hrPersistFile');
+    }
+    final persistFilePtr = IPersistFile(persistFile);
+    shortcutPathPtr = shortcutPath.toNativeUtf16();
+    final hrSave = persistFilePtr.Save(shortcutPathPtr.cast(), TRUE);
+
+    if (FAILED(hrSave)) {
+      throw ('Error trying to save shortcut: $hrSave');
+    } 
+  } finally {
+    // Free memory
+    if (shortcutPathPtr != null) {
+      free(shortcutPathPtr);
+    }
+    if (persistFile != null) {
+      IPersistFile(persistFile).Release();
+      free(persistFile);
+    }
+    if (shellLink != null) {
+      IShellLink(shellLink).Release();
+      free(shellLink);
+    }
+    CoUninitialize();
   }
 }
