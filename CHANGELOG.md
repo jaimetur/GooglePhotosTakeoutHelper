@@ -1,3 +1,31 @@
+## 3.6.0-wacheee
+
+### Fork/Alternate version 
+#### Windows: 10x faster shortcut creation and other fixes
+
+- if `shortcut` option is selected, shortcut creation will be 10 times faster on Windows platforms (new creation method that avoids using PowerShell). For more details: [TheLastGimbus#390](https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/pull/390)
+- fixed issues with folder names containing emojis  💖🤖🚀on Windows #389
+
+##
+<details>
+<summary>Previous fixes and improvements</summary>
+  
+##### *Previous fixes and improvement (from 3.5.0-wacheee to 3.5.2-wacheee)*
+- *added an interactive option to update the creation times of files in the output folder to match their last modified times at the end of the program (only on Windows) #371*
+- *if a media is not in a year folder it establishes one from an album to move it to ALL_PHOTOS correctly. This will move the original media file directly from the album (or one of those albums) to ALL_PHOTOS and create a shortcut in the output album folder (if shortcut option is selected) #261*
+- *added support for moving or copying files with the following extensions to the output folder: .MP, .MV, .DNG, and .CR2 #381 #324 #180 #271*
+- *added an interactive option to convert Pixel Motion Photo files (.MP or .MV) to .mp4*
+- *added an option to remove the "supplemental-metadata" suffix from JSON to prevent issues with metadata #353 #355*
+- *fixed shortcut issue on Windows platforms #248*
+- *added more options for date-based folders [year, month, day] #238 (based in this commit [`More granular date folders #299`](https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/pull/299/commits/d06fe73101845acd650bc025d2977b96bbd1bf1d))*
+- *added reverse-shortcut option, now you can mantain original photo in album folders and create a shortcut in year albums*
+  
+##### *Limitations (previous fixes):*
+- *if album mode is set to duplicate-copy, it will move the album photos to the album folder (as usual), but ALL_PHOTOS will not contain them if the media is not in a year album.*
+- *it does not fix issues related to reading JSON files (if necessary) for Motion Photo files; however, if the dates are included in the file name (as with Pixel Motion Photos), the correct dates will be established.*
+
+</details>
+
 ## 3.5.2-wacheee
 
 ### Fork/Alternate version 
