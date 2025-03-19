@@ -51,7 +51,8 @@ void main(List<String> arguments) async {
     )
     ..addOption('divide-to-dates',
         help: 'Divide output to folders by nothing/year/month/day',
-        allowed: ['0', '1', '2', '3'])
+        allowed: ['0', '1', '2', '3'],
+        defaultsTo: '0',)
     ..addFlag('skip-extras', help: 'Skip extra images (like -edited etc)')
     ..addFlag(
       'guess-from-name',
@@ -63,6 +64,12 @@ void main(List<String> arguments) async {
       help: "Copy files instead of moving them.\n"
           "This is usually slower, and uses extra space, "
           "but doesn't break your input folder",
+    )
+    ..addFlag(
+      'modify-json', 
+      help: 'Delete the "supplemental-metadata" suffix from '
+      '.json files to ensure that script works correctly',
+      defaultsTo: true,
     )
     ..addFlag(
       'transform-pixel-mp', 
@@ -227,7 +234,7 @@ void main(List<String> arguments) async {
   }
   await output.create(recursive: true);
 
-  if (args['modify-json'].toString() == "0") {
+  if (args['modify-json']) {
     print('Fixing JSON files. Removing suffix (this may take some time)...');
     await renameIncorrectJsonFiles(input);
   }
@@ -420,7 +427,9 @@ void main(List<String> arguments) async {
     media,
     output,
     copy: args['copy'],
-    divideToDates: args['divide-to-dates'],
+    divideToDates: args['divide-to-dates'] is num 
+    ? args['divide-to-dates'] 
+    : num.parse(args['divide-to-dates']),
     albumBehavior: args['albums'],
   ).listen((_) => barCopy.increment()).asFuture();
   print('');
