@@ -434,7 +434,7 @@ void main(List<String> arguments) async {
   ).listen((_) => barCopy.increment()).asFuture();
   print('');
 
-  // @Deprecated('Interactive unzipping is suspended for now!')
+  // @Deprecated('Interactive unzipping is suspended for now!') //TODO: Add functionality to unzip files again
   // // remove unzipped folder if was created
   // if (interactive.indeed) {
   //   print('Removing unzipped folder...');

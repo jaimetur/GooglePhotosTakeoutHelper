@@ -9,7 +9,7 @@ import 'package:mime/mime.dart';
 ///
 /// You can try this with *any* file, it either works or not 🤷
 Future<DateTime?> exifExtractor(File file) async {
-  // if file is not image or >32MiB - DO NOT crash :D
+  // if file is not image or >32MiB - DO NOT crash :D //TODO: Find out why it crashes with larger files. Should be fixed
   if (!(lookupMimeType(file.path)?.startsWith('image/') ?? false) ||
       await file.length() > maxFileSize) {
     return null;
