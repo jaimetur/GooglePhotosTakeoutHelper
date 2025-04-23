@@ -238,9 +238,10 @@ Future<void> updateCreationTimeRecursively(Directory directory) async {
       //If current command + chunk is larger than 32000, commands in currentChunk is executed and current comand is passed for the next execution
       if (currentChunk.length + command.length > maxChunkSize) {
         bool success = await _executePShellCreationTimeCmd(currentChunk);
-        if (success)
+        if (success) {
           changedFiles +=
               currentChunk.split(';').length - 1; // -1 to ignore last ';'
+        }
         currentChunk = command;
       } else {
         currentChunk += command;
@@ -251,9 +252,10 @@ Future<void> updateCreationTimeRecursively(Directory directory) async {
   //Leftover chunk is executed after the for
   if (currentChunk.isNotEmpty) {
     bool success = await _executePShellCreationTimeCmd(currentChunk);
-    if (success)
+    if (success) {
       changedFiles +=
           currentChunk.split(';').length - 1; // -1 to ignore last ';'
+    }
   }
   print("Successfully updated creation time for $changedFiles files!");
 }

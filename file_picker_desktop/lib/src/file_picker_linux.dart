@@ -110,9 +110,7 @@ class FilePickerLinux extends FilePicker {
         return '*.webm *.mpeg *.mkv *.mp4 *.avi *.mov *.flv *.jpg *.jpeg *.bmp *.gif *.png';
       case FileType.video:
         return '*.webm *.mpeg *.mkv *.mp4 *.avi *.mov *.flv';
-      default:
-        throw Exception('unknown file type');
-    }
+      }
   }
 
   List<String> generateCommandLineArguments(

@@ -1,4 +1,4 @@
-library file_picker_desktop;
+library;
 
 export 'src/api.dart';
 export 'src/file_type.dart';

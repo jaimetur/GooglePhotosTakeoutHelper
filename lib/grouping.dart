@@ -1,6 +1,7 @@
 /// This files contains functions for removing duplicates and detecting albums
 ///
 /// That's because their logic looks very similar and they share code
+library;
 
 import 'dart:io';
 

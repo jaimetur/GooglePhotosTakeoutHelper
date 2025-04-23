@@ -101,9 +101,7 @@ class FilePickerWindows extends FilePicker {
         return 'Videos (*.webm,*.wmv,*.mpeg,*.mkv,*.mp4,*.avi,*.mov,*.flv)\x00*.webm;*.wmv;*.mpeg;*.mkv;*mp4;*.avi;*.mov;*.flv\x00Images (*.jpeg,*.png,*.gif)\x00*.jpg;*.jpeg;*.png;*.gif\x00All Files (*.*)\x00*.*\x00\x00';
       case FileType.video:
         return 'Videos (*.webm,*.wmv,*.mpeg,*.mkv,*.mp4,*.avi,*.mov,*.flv)\x00*.webm;*.wmv;*.mpeg;*.mkv;*mp4;*.avi;*.mov;*.flv\x00All Files (*.*)\x00*.*\x00\x00';
-      default:
-        throw Exception('unknown file type');
-    }
+      }
   }
 
   Pointer<OPENFILENAMEW> _instantiateOpenFileNameW(
@@ -219,7 +217,7 @@ class FilePickerWindows extends FilePicker {
     bool lastCharWasNull = false;
 
     while (true) {
-      final char = openFileNameW.lpstrFile.cast<Uint16>().elementAt(i).value;
+      final char = (openFileNameW.lpstrFile.cast<Uint16>() + i).value;
       if (char == 0) {
         if (lastCharWasNull) {
           break;

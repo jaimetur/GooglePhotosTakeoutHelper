@@ -1,5 +1,6 @@
 /// This file contains logic/utils for final act of moving actual files once
 /// we have everything grouped, de-duplicated and sorted
+library;
 
 import 'dart:convert';
 import 'dart:io';
@@ -248,7 +249,7 @@ Stream<int> moveFiles(
 
       if (albumBehavior == 'json') {
         infoJson[p.basename(result.path)] =
-            m.files.keys.whereNotNull().toList();
+            m.files.keys.nonNulls.toList();
       }
     }
     // done with this media - next!

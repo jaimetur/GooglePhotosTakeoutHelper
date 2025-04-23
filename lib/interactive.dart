@@ -11,6 +11,7 @@
 ///    - extra \n are added in main file
 /// - ...detect when something is wrong (f.e. disk space) and quit whole program
 /// - ...are as single-job as it's appropriate - main file calls them one by one
+library;
 import 'dart:async';
 import 'dart:io';
 
