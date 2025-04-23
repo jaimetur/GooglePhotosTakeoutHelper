@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
-
+import 'package:coordinate_converter/coordinate_converter.dart';
 import 'package:collection/collection.dart';
 import 'package:gpth/extras.dart' as extras;
 import 'package:gpth/utils.dart';
@@ -8,7 +8,8 @@ import 'package:path/path.dart' as p;
 import 'package:unorm_dart/unorm_dart.dart' as unorm;
 
 /// Finds corresponding json file with info and gets 'photoTakenTime' from it
-Future<DateTime?> jsonExtractor(File file, {bool tryhard = false}) async {
+Future<DateTime?> jsonDateTimeExtractor(File file,
+    {bool tryhard = false}) async {
   final jsonFile = await _jsonForFile(file, tryhard: tryhard);
   if (jsonFile == null) return null;
   try {
@@ -127,4 +128,35 @@ String _bracketSwap(String filename) {
   // 'image(3).(2)(3).jpg' <- "(3)." repeats twice
   final withoutBracket = filename.replaceLast(bracket, '');
   return '$withoutBracket$bracket';
+}
+
+// This is to get coordinates from the json file
+Future<DMSCoordinates?> jsonCoordinatesExtractor(File file,
+    {bool tryhard = false}) async {
+  final jsonFile = await _jsonForFile(file, tryhard: tryhard);
+  if (jsonFile == null) return null;
+  try {
+    final data = jsonDecode(await jsonFile.readAsString());
+    var lat = double.tryParse(data['geoData']['latitude']);
+    var long = double.tryParse(data['geoData']['longitude']);
+    //var alt = double.tryParse(data['geoData']['altitude']); //Info: Altitude is not used.
+    if (lat == null || long == null) {
+      return null;
+    } else {
+      DDCoordinates ddcoords = DDCoordinates(latitude: lat, longitude: long);
+      DMSCoordinates dmscoords = DMSCoordinates.fromDD(ddcoords);
+      return dmscoords;
+    }
+  } on FormatException catch (_) {
+    // this is when json is bad
+    return null;
+  } on FileSystemException catch (_) {
+    // this happens for issue #143
+    // "Failed to decode data using encoding 'utf-8'"
+    // maybe this will self-fix when dart itself support more encodings
+    return null;
+  } on NoSuchMethodError catch (_) {
+    // this is when tags like photoTakenTime aren't there
+    return null;
+  }
 }

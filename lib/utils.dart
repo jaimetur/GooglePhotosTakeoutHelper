@@ -13,7 +13,7 @@ import 'package:win32/win32.dart';
 import 'media.dart';
 
 // remember to bump this
-const version = '3.4.4';
+const version = '3.4.5';
 
 /// max file size to read for exif/hash/anything
 const maxFileSize = 64 * 1024 * 1024;

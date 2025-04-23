@@ -8,8 +8,8 @@ import 'package:mime/mime.dart';
 /// DateTime from exif data *potentially* hidden within a [file]
 ///
 /// You can try this with *any* file, it either works or not 🤷
-Future<DateTime?> exifExtractor(File file) async {
-  // if file is not image or >32MiB - DO NOT crash :D //TODO: Find out why it crashes with larger files. Should be fixed
+Future<DateTime?> exifDateTimeExtractor(File file) async {
+  // if file is not image or >32MiB - DO NOT crash :D https://github.com/brendan-duncan/image/issues/457#issue-1549020643 TODO: Fix this in the future
   if (!(lookupMimeType(file.path)?.startsWith('image/') ?? false) ||
       await file.length() > maxFileSize) {
     return null;

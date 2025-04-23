@@ -92,51 +92,51 @@ AQACEQMRAD8AIcgXf//Z""";
 
   group('DateTime extractors', () {
     test('json', () async {
-      expect((await jsonExtractor(imgFile1))?.millisecondsSinceEpoch,
+      expect((await jsonDateTimeExtractor(imgFile1))?.millisecondsSinceEpoch,
           1599078832 * 1000);
-      expect((await jsonExtractor(imgFile2))?.millisecondsSinceEpoch,
+      expect((await jsonDateTimeExtractor(imgFile2))?.millisecondsSinceEpoch,
           1683078832 * 1000);
-      expect((await jsonExtractor(imgFile3))?.millisecondsSinceEpoch,
+      expect((await jsonDateTimeExtractor(imgFile3))?.millisecondsSinceEpoch,
           1666942303 * 1000);
       // They *should* fail without tryhard
       // See b38efb5d / #175
       expect(
-        (await jsonExtractor(imgFile4))?.millisecondsSinceEpoch,
+        (await jsonDateTimeExtractor(imgFile4))?.millisecondsSinceEpoch,
         1683074444 * 1000,
       );
-      expect((await jsonExtractor(imgFile4_1))?.millisecondsSinceEpoch, null);
+      expect((await jsonDateTimeExtractor(imgFile4_1))?.millisecondsSinceEpoch, null);
       // Should work *with* tryhard
       expect(
-        (await jsonExtractor(imgFile4, tryhard: true))?.millisecondsSinceEpoch,
+        (await jsonDateTimeExtractor(imgFile4, tryhard: true))?.millisecondsSinceEpoch,
         1683074444 * 1000,
       );
       expect(
-        (await jsonExtractor(imgFile4_1, tryhard: true))
+        (await jsonDateTimeExtractor(imgFile4_1, tryhard: true))
             ?.millisecondsSinceEpoch,
         1683074444 * 1000,
       );
       expect(
-        (await jsonExtractor(imgFile5, tryhard: false))?.millisecondsSinceEpoch,
+        (await jsonDateTimeExtractor(imgFile5, tryhard: false))?.millisecondsSinceEpoch,
         1680289442 * 1000,
       );
       expect(
-        (await jsonExtractor(imgFile6, tryhard: false))?.millisecondsSinceEpoch,
+        (await jsonDateTimeExtractor(imgFile6, tryhard: false))?.millisecondsSinceEpoch,
         1422183600 * 1000,
       );
       expect(
-        (await jsonExtractor(imgFile6_1, tryhard: false))
+        (await jsonDateTimeExtractor(imgFile6_1, tryhard: false))
             ?.millisecondsSinceEpoch,
         null,
       );
       expect(
-        (await jsonExtractor(imgFile6_1, tryhard: true))
+        (await jsonDateTimeExtractor(imgFile6_1, tryhard: true))
             ?.millisecondsSinceEpoch,
         1422183600 * 1000,
       );
     });
     test('exif', () async {
       expect(
-        (await exifExtractor(imgFileGreen)),
+        (await exifDateTimeExtractor(imgFileGreen)),
         DateTime.parse('2022-12-16 16:06:47'),
       );
     });

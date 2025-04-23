@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:console_bars/console_bars.dart';
+import 'package:coordinate_converter/coordinate_converter.dart';
 import 'package:gpth/date_extractor.dart';
 import 'package:gpth/extras.dart';
 import 'package:gpth/folder_classify.dart';
@@ -11,6 +12,7 @@ import 'package:gpth/media.dart';
 import 'package:gpth/moving.dart';
 import 'package:gpth/utils.dart';
 import 'package:path/path.dart' as p;
+import 'package:gpth/exif_writer.dart';
 
 const helpText = """GooglePhotosTakeoutHelper v$version - The Dart successor
 
@@ -49,10 +51,12 @@ void main(List<String> arguments) async {
       allowedHelp: interactive.albumOptions,
       defaultsTo: 'shortcut',
     )
-    ..addOption('divide-to-dates',
-        help: 'Divide output to folders by nothing/year/month/day',
-        allowed: ['0', '1', '2', '3'],
-        defaultsTo: '0',)
+    ..addOption(
+      'divide-to-dates',
+      help: 'Divide output to folders by nothing/year/month/day',
+      allowed: ['0', '1', '2', '3'],
+      defaultsTo: '0',
+    )
     ..addFlag('skip-extras', help: 'Skip extra images (like -edited etc)')
     ..addFlag(
       'guess-from-name',
@@ -66,21 +70,17 @@ void main(List<String> arguments) async {
           "but doesn't break your input folder",
     )
     ..addFlag(
-      'modify-json', 
+      'modify-json',
       help: 'Delete the "supplemental-metadata" suffix from '
-      '.json files to ensure that script works correctly',
+          '.json files to ensure that script works correctly',
       defaultsTo: true,
     )
-    ..addFlag(
-      'transform-pixel-mp', 
-      help: 'Transform Pixel .MP or .MV extensions to ".mp4"'
-    )
-    ..addFlag(
-      'update-creation-time', 
-      help: "Set creation time equal to the last "
-      'modification date at the end of the program.'
-      'Only Windows supported'
-    );
+    ..addFlag('transform-pixel-mp',
+        help: 'Transform Pixel .MP or .MV extensions to ".mp4"')
+    ..addFlag('update-creation-time',
+        help: "Set creation time equal to the last "
+            'modification date at the end of the program.'
+            'Only Windows supported');
   final args = <String, dynamic>{};
   try {
     final res = parser.parse(arguments);
@@ -132,7 +132,8 @@ void main(List<String> arguments) async {
     print('');
     args['transform-pixel-mp'] = await interactive.askTransformPixelMP();
     print('');
-    if (Platform.isWindows){ //Only in windows is going to ask
+    if (Platform.isWindows) {
+      //Only in windows is going to ask
       args['update-creation-time'] = await interactive.askChangeCreationTime();
       print('');
     }
@@ -157,12 +158,12 @@ void main(List<String> arguments) async {
   // those are in order of reliability -
   // if one fails, only then later ones will be used
   final dateExtractors = <DateTimeExtractor>[
-    jsonExtractor,
-    exifExtractor,
+    jsonDateTimeExtractor,
+    exifDateTimeExtractor,
     if (args['guess-from-name']) guessExtractor,
     // this is potentially *dangerous* - see:
     // https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/issues/175
-    (f) => jsonExtractor(f, tryhard: true),
+    (f) => jsonDateTimeExtractor(f, tryhard: true),
   ];
 
   /// ##### Occasional Fix mode #####
@@ -353,7 +354,7 @@ void main(List<String> arguments) async {
 
   final barExtract = FillingBar(
     total: media.length,
-    desc: "Guessing dates from files",
+    desc: "Getting dates from files",
     width: barWidth,
   );
   for (var i = 0; i < media.length; i++) {
@@ -370,8 +371,46 @@ void main(List<String> arguments) async {
       q++;
     }
     if (media[i].dateTaken == null) {
-      print("\nCan't get date on ${media[i].firstFile.path}");
+      // only visible in debug mode. Normal user does not care about this. Just high level about the number at the end.
+      assert(() {
+        print("\nCan't get date on ${media[i].firstFile.path}");
+        return true;
+      }());
     }
+  }
+  print('');
+
+  /// ##############################################################
+
+  /// ##### Json Coordinates and extracted DateTime to EXIF #####
+  
+  /// In this part, we will write coordoninates and dates to EXIF data of the files.
+  /// Currently supported file formats: JPG, PNG/Animated APNG, GIF/Animated GIF, BMP, TIFF, TGA, PVR, ICO.
+  /// This is done after the dates of files have been defined, and before
+  /// the files are moved to the output folder, to avoid shortcuts/symlinks problems.
+
+  final barJsonToExifExtractor = FillingBar(
+    total: media.length,
+    desc: "Getting EXIF data from JSON files and setting it to output files",
+    width: barWidth,
+  );
+  for (var i = 0; i < media.length; i++) {
+    final File currentFile = media[i].firstFile;
+
+    final coords = await jsonCoordinatesExtractor(currentFile); 
+    if (coords != null) { //If coordinates were found in json, write them to exif
+      writeGpsToExif(coords,currentFile);
+    } else {
+      assert(() {
+        print("\nCan't get coordinates on ${media[i].firstFile.path}");
+        return true;
+      }());
+    }
+    if(media[i].dateTaken != null){ //If date was found before through one of the extractors, write it to exif
+    writeDateTimeToExif(media[i].dateTaken!,currentFile);
+    }
+
+    barJsonToExifExtractor.increment();
   }
   print('');
 
@@ -391,7 +430,8 @@ void main(List<String> arguments) async {
   // This is done after the dates of files have been defined, and before
   // the files are moved to the output folder, to avoid shortcuts/symlinks problems
   if (args['transform-pixel-mp']) {
-    print('Changing .MP or .MV extensions to .mp4 (this may take some time) ...');
+    print(
+        'Changing .MP or .MV extensions to .mp4 (this may take some time) ...');
     await changeMPExtensions(media, ".mp4");
   }
   print('');
@@ -404,10 +444,10 @@ void main(List<String> arguments) async {
   // This will move the album file to ALL_PHOTOS and create the shortcut to
   // the output album folder (if shortcut option is selected).
   // (The inverse will happen if the inverse-shortcut option is selected).
-  // If album mode is set to *duplicate-copy* it will not proceed 
+  // If album mode is set to *duplicate-copy* it will not proceed
   // to avoid moving the same file twice (which would throw an exception)
-  if (args['albums'] != 'duplicate-copy'){
-    for (final m in media){
+  if (args['albums'] != 'duplicate-copy') {
+    for (final m in media) {
       final fileWithKey1 = m.files[null];
       if (fileWithKey1 == null) {
         m.files[null] = m.files.values.first;
@@ -427,9 +467,9 @@ void main(List<String> arguments) async {
     media,
     output,
     copy: args['copy'],
-    divideToDates: args['divide-to-dates'] is num 
-    ? args['divide-to-dates'] 
-    : num.parse(args['divide-to-dates']),
+    divideToDates: args['divide-to-dates'] is num
+        ? args['divide-to-dates']
+        : num.parse(args['divide-to-dates']),
     albumBehavior: args['albums'],
   ).listen((_) => barCopy.increment()).asFuture();
   print('');
@@ -453,7 +493,8 @@ void main(List<String> arguments) async {
   }
   print('');
   if (args['update-creation-time']) {
-    print('Updating creation time of files to match their modified time in output folder ...');
+    print(
+        'Updating creation time of files to match their modified time in output folder ...');
     await updateCreationTimeRecursively(output);
     print('');
     print('=' * barWidth);
