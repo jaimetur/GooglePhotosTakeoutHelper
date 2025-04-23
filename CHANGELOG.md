@@ -1,3 +1,16 @@
+## 3.4.4
+
+### Some love by the community 
+
+ - bumped dependencies and 
+ - included file_picker_desktop in project directly (pull request to bump dependencies in the deprecated repo is pending)
+ - various bugfixes
+ - Added support for raw formats and pixel motion photos
+ - Added support of .MV and .MP to MP4 conversion
+ - Added support of folders with emojis
+ - Added support for Apple Silicon Macs
+ - Added the option to divide output folders by year, year/month and year/month/day
+
 ## 3.4.3
 
 ### Just a few patches ❤️‍🩹
