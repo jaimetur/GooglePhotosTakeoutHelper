@@ -13,3 +13,4 @@ photos/
 ALL_PHOTOS/
 output/
 *.log
+pubspec.lock

@@ -40,7 +40,7 @@ extension X on Iterable<FileSystemEntity> {
             // https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/issues/223
             // https://github.com/dart-lang/mime/issues/102
             // 🙃🙃
-            mime == 'model/vnd.mts'||
+            mime == 'model/vnd.mts' ||
             _moreExtensions.contains(fileExtension);
       });
 }
@@ -55,7 +55,7 @@ extension Y on Stream<FileSystemEntity> {
             // https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/issues/223
             // https://github.com/dart-lang/mime/issues/102
             // 🙃🙃
-            mime == 'model/vnd.mts'||
+            mime == 'model/vnd.mts' ||
             _moreExtensions.contains(fileExtension);
       });
 }
@@ -118,11 +118,10 @@ Future<int?> _dfMcOS(String path) async {
   return macSays != null ? macSays * 1024 : null;
 }
 
-String filesize(int bytes) => ProperFilesize.generateHumanReadableFilesize(
-      bytes,
-      base: Bases.Binary,
-      decimals: 2,
-    );
+String filesize(int bytes) {
+  return FileSize.fromBytes(bytes).toString(
+      unit: Unit.auto(size: bytes, baseType: BaseType.metric), decimals: 2);
+}
 
 int outputFileCount(List<Media> media, String albumOption) {
   if (['shortcut', 'duplicate-copy', 'reverse-shortcut']
@@ -184,7 +183,8 @@ Future<void> renameIncorrectJsonFiles(Directory directory) async {
   print('Successfully renamed JSON files (suffix removed): $renamedCount');
 }
 
-Future<void> changeMPExtensions(List<Media> allMedias, String finalExtension) async {
+Future<void> changeMPExtensions(
+    List<Media> allMedias, String finalExtension) async {
   int renamedCount = 0;
   for (final m in allMedias) {
     for (final entry in m.files.entries) {
@@ -193,7 +193,7 @@ Future<void> changeMPExtensions(List<Media> allMedias, String finalExtension) as
       if (ext == '.mv' || ext == '.mp') {
         final originalName = p.basenameWithoutExtension(file.path);
         final normalizedName = unorm.nfc(originalName);
-      
+
         final newName = '$normalizedName$finalExtension';
         if (newName != normalizedName) {
           final newPath = p.join(p.dirname(file.path), newName);
@@ -203,18 +203,20 @@ Future<void> changeMPExtensions(List<Media> allMedias, String finalExtension) as
             m.files[entry.key] = newFile;
             renamedCount++;
           } on FileSystemException catch (e) {
-            print('[Error] Error changing extension to $finalExtension -> ${file.path}: ${e.message}');
+            print(
+                '[Error] Error changing extension to $finalExtension -> ${file.path}: ${e.message}');
           }
-        } 
+        }
       }
     }
   }
-  print('Successfully changed Pixel Motion Photos files extensions (change it to $finalExtension): $renamedCount');
+  print(
+      'Successfully changed Pixel Motion Photos files extensions (change it to $finalExtension): $renamedCount');
 }
 
 /// Recursively traverses the output [directory] and updates
 /// the creation time of files in batches.
-/// For each file, attempts to set the creation date to match 
+/// For each file, attempts to set the creation date to match
 /// the last modification date.
 /// Only Windows support for now, using PowerShell.
 /// In the future MacOS support is possible if the user has XCode installed
@@ -224,28 +226,34 @@ Future<void> updateCreationTimeRecursively(Directory directory) async {
     return;
   }
   int changedFiles = 0;
-  int maxChunkSize = 32000;  //Avoid 32768 char limit in command line with chunks
+  int maxChunkSize = 32000; //Avoid 32768 char limit in command line with chunks
 
-  String currentChunk = "";  
-  await for (final entity in directory.list(recursive: true, followLinks: false)) {
+  String currentChunk = "";
+  await for (final entity
+      in directory.list(recursive: true, followLinks: false)) {
     if (entity is File) {
       //Command for each file
-      final command ="(Get-Item '${entity.path}').CreationTime = (Get-Item '${entity.path}').LastWriteTime;";
+      final command =
+          "(Get-Item '${entity.path}').CreationTime = (Get-Item '${entity.path}').LastWriteTime;";
       //If current command + chunk is larger than 32000, commands in currentChunk is executed and current comand is passed for the next execution
       if (currentChunk.length + command.length > maxChunkSize) {
         bool success = await _executePShellCreationTimeCmd(currentChunk);
-        if (success) changedFiles += currentChunk.split(';').length-1; // -1 to ignore last ';'
+        if (success)
+          changedFiles +=
+              currentChunk.split(';').length - 1; // -1 to ignore last ';'
         currentChunk = command;
       } else {
         currentChunk += command;
       }
     }
   }
-  
+
   //Leftover chunk is executed after the for
   if (currentChunk.isNotEmpty) {
     bool success = await _executePShellCreationTimeCmd(currentChunk);
-    if (success) changedFiles += currentChunk.split(';').length-1; // -1 to ignore last ';'
+    if (success)
+      changedFiles +=
+          currentChunk.split(';').length - 1; // -1 to ignore last ';'
   }
   print("Successfully updated creation time for $changedFiles files!");
 }
@@ -254,9 +262,11 @@ Future<void> updateCreationTimeRecursively(Directory directory) async {
 Future<bool> _executePShellCreationTimeCmd(String commandChunk) async {
   try {
     final result = await Process.run('powershell', [
-      '-ExecutionPolicy', 'Bypass',
+      '-ExecutionPolicy',
+      'Bypass',
       '-NonInteractive',
-      '-Command', commandChunk
+      '-Command',
+      commandChunk
     ]);
 
     if (result.exitCode != 0) {
@@ -275,7 +285,7 @@ void createShortcutWin(String shortcutPath, String targetPath) {
   Pointer<COMObject>? persistFile;
   Pointer<Utf16>? shortcutPathPtr;
   try {
-      // Initialize the COM library on the current thread
+    // Initialize the COM library on the current thread
     final hrInit = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
     if (FAILED(hrInit)) {
       throw ('Error initializing COM: $hrInit');
@@ -296,34 +306,33 @@ void createShortcutWin(String shortcutPath, String targetPath) {
     }
 
     final shellLinkPtr = IShellLink(shellLink);
-    shellLinkPtr.SetPath(targetPath.toNativeUtf16().cast());
+    shellLinkPtr.setPath(targetPath.toNativeUtf16().cast());
 
     // Saving shortcut
     persistFile = calloc<COMObject>();
-    final hrPersistFile = shellLinkPtr.QueryInterface(
-        GUIDFromString(IID_IPersistFile).cast<GUID>(),
-        persistFile.cast());
+    final hrPersistFile = shellLinkPtr.queryInterface(
+        GUIDFromString(IID_IPersistFile).cast<GUID>(), persistFile.cast());
     if (FAILED(hrPersistFile)) {
       throw ('Error obtaining IPersistFile: $hrPersistFile');
     }
     final persistFilePtr = IPersistFile(persistFile);
     shortcutPathPtr = shortcutPath.toNativeUtf16();
-    final hrSave = persistFilePtr.Save(shortcutPathPtr.cast(), TRUE);
+    final hrSave = persistFilePtr.save(shortcutPathPtr.cast(), TRUE);
 
     if (FAILED(hrSave)) {
       throw ('Error trying to save shortcut: $hrSave');
-    } 
+    }
   } finally {
     // Free memory
     if (shortcutPathPtr != null) {
       free(shortcutPathPtr);
     }
     if (persistFile != null) {
-      IPersistFile(persistFile).Release();
+      IPersistFile(persistFile).release();
       free(persistFile);
     }
     if (shellLink != null) {
-      IShellLink(shellLink).Release();
+      IShellLink(shellLink).release();
       free(shellLink);
     }
     CoUninitialize();
