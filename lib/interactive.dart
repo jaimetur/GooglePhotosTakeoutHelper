@@ -23,22 +23,22 @@ import 'package:path/path.dart' as p;
 import 'utils.dart';
 
 const Map<String, String> albumOptions = <String, String>{
-  'shortcut': '[Recommended] Album folders with shortcuts/symlinks to '
-      'original photos. Recommended as it will take the least space, but '
-      'may not be portable when moving across systems/computes/phones etc',
-  'duplicate-copy': 'Album folders with photos copied into them. '
-      'This will work across all systems, but may take wayyy more space!!',
-  'json': 'Put ALL photos (including Archive and Trash) in one folder and '
-      'make a .json file with info about albums. '
-      "Use if you're a programmer, or just want to get everything, "
-      'ignoring lack of year-folders etc.',
-  'nothing': 'Just ignore them and put year-photos into one folder. '
-      'WARNING: This ignores Archive/Trash !!!',
-  'reverse-shortcut': 'Album folders with ORIGINAL photos. "ALL_PHOTOS" folder '
-      'with shortcuts/symlinks to albums. If a photo is not in an album, '
-      'the original is saved. CAUTION: If a photo is in multiple albums, it will '
-      'be duplicated in the other albums, and the shortcuts/symlinks in '
-      '"ALL_PHOTOS" will point only to one album.',
+  'shortcut': '[Recommended] Album folders with shortcuts/symlinks to \n'
+      'original photos. \nRecommended as it will take the least space, but \n'
+      'may not be portable when moving across systems/computes/phones etc\n',
+  'duplicate-copy': 'Album folders with photos copied into them. \n'
+      'This will work across all systems, but may take wayyy more space!!\n',
+  'json': 'Put ALL photos (including Archive and Trash) in one folder and \n'
+      'make a .json file with info about albums. \n'
+      "Use if you're a programmer, or just want to get everything, \n"
+      'ignoring lack of year-folders etc.\n',
+  'nothing': 'Just ignore them and put year-photos into one folder. \n'
+      'WARNING: This ignores Archive/Trash !!!\n',
+  'reverse-shortcut': 'Album folders with ORIGINAL photos. "ALL_PHOTOS" folder \n'
+      'with shortcuts/symlinks to albums. If a photo is not in an album, \n'
+      'the original is saved. CAUTION: If a photo is in multiple albums, it will \n'
+      'be duplicated in the other albums, and the shortcuts/symlinks in \n'
+      '"ALL_PHOTOS" will point only to one album.\n',
 };
 
 /// Whether we are, indeed, running interactive (or not)

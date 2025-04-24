@@ -76,18 +76,18 @@ void main(final List<String> arguments) async {
     ..addFlag('help', abbr: 'h', negatable: false)
     ..addOption(
       'fix',
-      help: 'Folder with any photos to fix dates. '
-          'This skips whole "GoogleTakeout" procedure.'
-          'It is here because gpth has some cool heuristics to determine date '
-          'of a photo, and this can be handy in many situations :)',
+      help: 'Folder with any photos to fix dates. \n'
+          'This skips whole "GoogleTakeout" procedure. \n'
+          'It is here because gpth has some cool heuristics to determine date \n'
+          'of a photo, and this can be handy in many situations :)\n',
     )
     ..addFlag('interactive',
-        help: 'Use interactive mode. Type this in case auto-detection fails, '
-            'or you *really* want to combine advanced options with prompts')
+        help: 'Use interactive mode. Type this in case auto-detection fails, \n'
+            'or you *really* want to combine advanced options with prompts\n')
     ..addOption('input',
-        abbr: 'i', help: 'Input folder with *all* takeouts *extracted*. ')
+        abbr: 'i', help: 'Input folder with *all* takeouts *extracted*.\n')
     ..addOption('output',
-        abbr: 'o', help: 'Output folder where all photos will land')
+        abbr: 'o', help: 'Output folder where all photos will land\n')
     ..addOption(
       'albums',
       help: 'What to do about albums?',
@@ -97,37 +97,37 @@ void main(final List<String> arguments) async {
     )
     ..addOption(
       'divide-to-dates',
-      help: 'Divide output to folders by nothing/year/month/day',
+      help: 'Divide output to folders by nothing/year/month/day\n',
       allowed: <String>['0', '1', '2', '3'],
       defaultsTo: '0',
     )
-    ..addFlag('skip-extras', help: 'Skip extra images (like -edited etc)')
+    ..addFlag('skip-extras', help: 'Skip extra images (like -edited etc)\n')
     ..addFlag(
       'guess-from-name',
-      help: 'Try to guess file dates from their names',
+      help: 'Try to guess file dates from their names\n',
       defaultsTo: true,
     )
     ..addFlag(
       'copy',
       help: 'Copy files instead of moving them.\n'
-          'This is usually slower, and uses extra space, '
-          "but doesn't break your input folder",
+          'This is usually slower, and uses extra space, \n'
+          "but doesn't break your input folder\n",
     )
     ..addFlag(
       'modify-json',
-      help: 'Delete the "supplemental-metadata" suffix from '
-          '.json files to ensure that script works correctly',
+      help: 'Delete the "supplemental-metadata" suffix from \n'
+          '.json files to ensure that script works correctly\n',
       defaultsTo: true,
     )
     ..addFlag('transform-pixel-mp',
-        help: 'Transform Pixel .MP or .MV extensions to ".mp4"')
+        help: 'Transform Pixel .MP or .MV extensions to ".mp4"\n')
     ..addFlag('update-creation-time',
-        help: 'Set creation time equal to the last '
-            'modification date at the end of the program.'
-            'Only Windows supported')
+        help: 'Set creation time equal to the last \n'
+            'modification date at the end of the program. \n'
+            'Only Windows supported\n')
     ..addFlag('write-exif',
         help:
-            'Experimental functionality to Write EXIF data to files'); //TODO Update when EXIF-write is stable
+            'Experimental functionality to Write EXIF data to files\n'); //TODO Update when EXIF-write is stable
   final Map<String, dynamic> args = <String, dynamic>{};
   try {
     final ArgResults res = parser.parse(arguments);
