@@ -146,7 +146,7 @@ Future<DMSCoordinates?> jsonCoordinatesExtractor(File file,
     } else {
       DDCoordinates ddcoords = DDCoordinates(latitude: lat, longitude: long);
       DMSCoordinates dmscoords = DMSCoordinates.fromDD(ddcoords);
-      log("[Step 5/7] Extracted coordinates: ${dmscoords.toString()} from ${file.path}");
+      log("[Step 5/8] Extracted coordinates: ${dmscoords.toString()} from ${file.path}");
       return dmscoords;
     }
   } on FormatException catch (_) {

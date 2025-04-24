@@ -3,14 +3,11 @@
 library;
 
 import 'dart:convert';
-import 'dart:developer';
 import 'dart:io';
-
 import 'package:collection/collection.dart';
 import 'package:gpth/interactive.dart' as interactive;
 import 'package:gpth/utils.dart';
 import 'package:path/path.dart' as p;
-
 import 'media.dart';
 
 /// This will add (1) add end of file name over and over until file with such
@@ -177,7 +174,7 @@ Stream<int> moveFiles(
               : await file.value.rename(freeFile.path);
         } on FileSystemException {
           print(
-            "Uh-uh, it looks like you selected other output drive than\n"
+            "[Step 7/8] Uh-uh, it looks like you selected other output drive than\n"
             "input one - gpth can't move files between them. But, you don't have\n"
             "to do this! Gpth *moves* files, so this doesn't take any extra space!\n"
             "Please run again and select different output location <3",
@@ -191,12 +188,11 @@ Stream<int> moveFiles(
         result = await moveFile();
         mainFile = result;
       } else if (albumBehavior == 'shortcut' && mainFile != null) {
-        log("Condition fulfilled! mainFile is $mainFile");
         try {
           result = await createShortcut(folder, mainFile);
         } catch (e) {
           // in case powershell fails/whatever
-          print('Creating shortcut for '
+          print('[Step 7/8] Creating shortcut for '
               '${p.basename(mainFile.path)} in ${p.basename(folder.path)} '
               'failed :(\n$e\n - copying normal file instead');
           result = await moveFile();
@@ -211,7 +207,7 @@ Stream<int> moveFiles(
             result = await moveFile();
           } else {
             // in case of other exception, print details
-            print('Creating shortcut for '
+            print('[Step 7/8] Creating shortcut for '
                 '${p.basename(mainFile.path)} in ${p.basename(folder.path)} '
                 'failed :(\n$e\n - copying normal file instead');
             result = await moveFile();
@@ -229,7 +225,7 @@ Stream<int> moveFiles(
       var time = m.dateTaken ?? DateTime.now();
       if (Platform.isWindows && time.isBefore(DateTime(1970))) {
         print(
-            'WARNING: ${m.firstFile.path} has date $time, which is before 1970 '
+            '[Step 7/8] [WARNING]: ${m.firstFile.path} has date $time, which is before 1970 '
             '(not supported on Windows) - will be set to 1970-01-01');
         time = DateTime(1970);
       }
@@ -240,10 +236,10 @@ Stream<int> moveFiles(
         // https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/issues/229#issuecomment-1685085899
         // That's why this is here
         if (e.errorCode != 0) {
-          print("WARNING: Can't set modification time on $result: $e");
+          print("[Step 7/8] [WARNING]: Can't set modification time on $result: $e");
         }
       } catch (e) {
-        print("WARNING: Can't set modification time on $result: $e");
+        print("[Step 7/8] [WARNING]: Can't set modification time on $result: $e");
       }
 
       // one copy/move/whatever - one yield

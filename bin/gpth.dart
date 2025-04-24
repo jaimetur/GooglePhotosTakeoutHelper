@@ -14,6 +14,46 @@ import 'package:gpth/utils.dart';
 import 'package:path/path.dart' as p;
 import 'package:gpth/exif_writer.dart';
 
+/// ############################### READ ME #############################
+// Okay, time to explain the structure of things here
+// We create a list of Media objects, and fill it with everything we find
+// in "year folders". Then, we play *mutably* with this list - fill Media's
+// with guess DateTime's, remove duplicates from this list.
+//
+// No shitheads, you did not overhear - we *mutate* the whole list and objects
+// inside it. This is not Flutter-ish, but it's not Flutter - it's a small
+// simple script, and this the best solution 😎💯
+
+// Okay, more details on what will happen here:
+// 1. We find *all* media in either year folders or album folders.
+//    Every single file will be a separate [Media] object.
+//    If given [Media] was found in album folder, it will have it noted
+// 2. We [removeDuplicates] - if two files in same/null album have same hash,
+//    one will be removed. Note that there are still duplicates from different
+//    albums left. This is intentional
+// 3. We guess their dates. Functions in [dateExtractors] are used in order
+//    from most to least accurate
+// 4. Now we [findAlbums]. This will analyze [Media] that have same hashes,
+//    and leave just one with all [albums] filled.
+//    final exampleMedia = [
+//      Media('lonePhoto.jpg'),
+//      Media('photo1.jpg, albums=null),
+//      Media('photo1.jpg, albums={Vacation}),
+//      Media('photo1.jpg, albums={Friends}),
+//    ];
+//    findAlbums(exampleMedia);
+//    exampleMedia == [
+//      Media('lonePhoto.jpg'),
+//      Media('photo1.jpg, albums={Vacation, Friends}),
+//    ];
+//
+//    Steps for all the major functionality have been added. You should always add to the output the step it originated from.
+//    This is done to make it easier to debug and understand the flow of the program.
+//    To find your way around search for "Step X" in the code.
+
+/// ##############################################################
+/// This is the help text that will be shown when user runs gpth --help
+
 const helpText = """GooglePhotosTakeoutHelper v$version - The Dart successor
 
 gpth is ment to help you with exporting your photos from Google Photos.
@@ -26,6 +66,9 @@ Then, run: gpth --input "folder/with/all/takeouts" --output "your/output/folder"
 ...and gpth will parse and organize all photos into one big chronological folder
 """;
 const barWidth = 40;
+
+/// ##############################################################
+/// This is the main function that will be run when user runs gpth
 
 void main(List<String> arguments) async {
   final parser = ArgParser()
@@ -83,7 +126,7 @@ void main(List<String> arguments) async {
             'Only Windows supported')
     ..addFlag('write-exif',
         help:
-            'Experimental functionality to Write EXIF data to files'); //TODO Update when stable
+            'Experimental functionality to Write EXIF data to files'); //TODO Update when EXIF-write is stable
   final args = <String, dynamic>{};
   try {
     final res = parser.parse(arguments);
@@ -107,6 +150,9 @@ void main(List<String> arguments) async {
     print(parser.usage);
     return;
   }
+
+  /// ##############################################################
+  /// Here the Script asks interactively to fill all arguments
 
   if (interactive.indeed) {
     // greet user
@@ -168,7 +214,13 @@ void main(List<String> arguments) async {
     (f) => jsonDateTimeExtractor(f, tryhard: true),
   ];
 
-  /// ##### Occasional Fix mode #####
+  /// ##############################################################
+  /// ######################## Occasional Fix mode #################
+  /// This is a special mode that will go through all files in the given folder
+  /// and try to set each file to correct lastModified value.
+  /// This is useful for files that have been moved or copied and have lost their original lastModified value.
+  /// This is not a part of the main functionality of the script, but it can be accessed by using the --fix flag.
+  /// It is not recommended to use this mode unless you know what you are doing.
 
   if (args['fix'] != null) {
     // i was thing if not to move this to outside file, but let's leave for now
@@ -200,9 +252,9 @@ void main(List<String> arguments) async {
     return;
   }
 
-  /// ###############################
-
-  /// ##### Parse all options and check if alright #####
+  /// ################# Fix mode END ###############################
+  /// ##############################################################
+  /// ##### Parse all options and check if alright #################
 
   if (args['input'] == null) {
     error("No --input folder specified :/");
@@ -237,9 +289,8 @@ void main(List<String> arguments) async {
   }
   await output.create(recursive: true);
 
-  /// ##################################################
-
-  // ##### Global variables #####
+  /// ##############################################################
+  // ##### Really important global variables #######################
 
   // Big global media list that we'll work on
   final media = <Media>[];
@@ -251,50 +302,14 @@ void main(List<String> arguments) async {
   // not matching "Photos from ...." name
   final albumFolders = <Directory>[];
 
-  /// ##################################################
-
-  // Okay, time to explain the structure of things here
-  // We create a list of Media objects, and fill it with everything we find
-  // in "year folders". Then, we play *mutably* with this list - fill Media's
-  // with guess DateTime's, remove duplicates from this list.
-  //
-  // No shitheads, you did not overhear - we *mutate* the whole list and objects
-  // inside it. This is not Flutter-ish, but it's not Flutter - it's a small
-  // simple script, and this the best solution 😎💯
-
-  // Okay, more details on what will happen here:
-  // 1. We find *all* media in either year folders or album folders.
-  //    Every single file will be a separate [Media] object.
-  //    If given [Media] was found in album folder, it will have it noted
-  // 2. We [removeDuplicates] - if two files in same/null album have same hash,
-  //    one will be removed. Note that there are still duplicates from different
-  //    albums left. This is intentional
-  // 3. We guess their dates. Functions in [dateExtractors] are used in order
-  //    from most to least accurate
-  // 4. Now we [findAlbums]. This will analyze [Media] that have same hashes,
-  //    and leave just one with all [albums] filled.
-  //    final exampleMedia = [
-  //      Media('lonePhoto.jpg'),
-  //      Media('photo1.jpg, albums=null),
-  //      Media('photo1.jpg, albums={Vacation}),
-  //      Media('photo1.jpg, albums={Friends}),
-  //    ];
-  //    findAlbums(exampleMedia);
-  //    exampleMedia == [
-  //      Media('lonePhoto.jpg'),
-  //      Media('photo1.jpg, albums={Vacation, Friends}),
-  //    ];
-  //
-  //    Steps for all the major functionality have been added. You should always add to the output the step it originated from.
-  //    This is done to make it easier to debug and understand the flow of the program.
-  //    To find your way around search for "Step X" in the code.
-
+  /// ##############################################################
+  /// #### Here we start the actual work ###########################
   /// ##############################################################
   /// ################# STEP 1 #####################################
   /// ##### Fixing JSON files (if needed) ##########################
   if (args['modify-json']) {
     print(
-        '[Step 1/7] Fixing JSON files. Removing suffix (this may take some time)...');
+        '[Step 1/8] Fixing JSON files. Removing suffix (this may take some time)...');
     await renameIncorrectJsonFiles(input);
   }
 
@@ -302,7 +317,7 @@ void main(List<String> arguments) async {
   /// ################# STEP 2 #####################################
   /// ##### Find literally *all* photos/videos and add to list #####
 
-  print('[Step 2/7] Searching for everything in input folder...');
+  print('[Step 2/8] Searching for everything in input folder...');
 
   // recursive=true makes it find everything nicely even if user id dumb 😋
   await for (final d in input.list(recursive: true).whereType<Directory>()) {
@@ -335,18 +350,18 @@ void main(List<String> arguments) async {
 
   /// ##############################################################
   /// ################# STEP 3 #####################################
-  /// ##### Finding and removing duplicates ########################################
+  /// ##### Finding and removing duplicates ########################
 
-  print('[Step 3/7] Finding duplicates...');
+  print('[Step 3/8] Finding duplicates...');
 
   final countDuplicates = removeDuplicates(media);
 
-  /// ###########################
+  /// ##############################################################
 
   /// ##### Potentially skip extras #####
 
   if (args['skip-extras']) {
-    print('[Step 3/7] Finding "extra" photos (-edited etc)');
+    print('[Step 3/8] Finding "extra" photos (-edited etc)');
   }
   final countExtras = args['skip-extras'] ? removeExtras(media) : 0;
 
@@ -373,7 +388,7 @@ void main(List<String> arguments) async {
 
   final barExtract = FillingBar(
     total: media.length,
-    desc: "[Step 4/7] Extracting dates from files",
+    desc: "[Step 4/8] Extracting dates from files",
     width: barWidth,
   );
   for (var i = 0; i < media.length; i++) {
@@ -391,7 +406,7 @@ void main(List<String> arguments) async {
     }
     if (media[i].dateTaken == null) {
       // only visible in debug mode. Normal user does not care about this. Just high level about the number at the end.
-      log("\n[Step 4/7] Can't get date on ${media[i].firstFile.path}");
+      log("\n[Step 4/8] Can't get date on ${media[i].firstFile.path}");
     }
   }
   print('');
@@ -410,7 +425,7 @@ void main(List<String> arguments) async {
     final barJsonToExifExtractor = FillingBar(
       total: media.length,
       desc:
-          "[Step 5/7] Getting EXIF data from JSON files and applying it to files",
+          "[Step 5/8] Getting EXIF data from JSON files and applying it to files",
       width: barWidth,
     );
 
@@ -424,7 +439,7 @@ void main(List<String> arguments) async {
           ccounter++;
         }
       } else {
-        log("\n[Step 5/7] Can't get coordinates on ${media[i].firstFile.path}");
+        log("\n[Step 5/8] Can't get coordinates on ${media[i].firstFile.path}");
       }
       if (media[i].dateTaken != null) {
         //If date was found before through one of the extractors, write it to exif
@@ -434,11 +449,14 @@ void main(List<String> arguments) async {
       barJsonToExifExtractor.increment();
     }
     print('');
+  } else {
+    print(
+        '[Step 5/8] Skipping writing EXIF data to files (experimental), because --write-exif flag was not set.'); //TODO Update when EXIF-write is stable
   }
 
   /// ##############################################################
   /// ################# STEP 6 #####################################
-  /// ##### Find albums ############################################
+  /// ##### Find albums and rename .MP and .MV extensions ##########
 
   // I'm placing merging duplicate Media into albums after guessing date for
   // each one individually, because they are in different folder.
@@ -446,20 +464,24 @@ void main(List<String> arguments) async {
   // be broken in shithole of big-ass year folders
 
   print(
-      '[Step 6/7] Finding albums (this may take some time, dont worry :) ...');
+      '[Step 6/8] Finding albums (this may take some time, dont worry :) ...');
   findAlbums(media);
+
+  /// ##############################################################
 
   // Change Pixel Motion Photos extension to .mp4 using a list of Medias.
   // This is done after the dates of files have been defined, and before
   // the files are moved to the output folder, to avoid shortcuts/symlinks problems
   if (args['transform-pixel-mp']) {
     print(
-        '[Step 6/7] Changing .MP or .MV extensions to .mp4 (this may take some time) ...');
+        '[Step 6/8] Changing .MP or .MV extensions to .mp4 (this may take some time) ...');
     await changeMPExtensions(media, ".mp4");
+  } else {
+    print("[Step 6/8] Skipped changing .MP or .MV extensions to .mp4");
   }
   print('');
 
-  /// #######################
+  /// ##############################################################
 
   // https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/issues/261
   // If a media is not in a year album (there is no null key) it establishes
@@ -485,7 +507,7 @@ void main(List<String> arguments) async {
   final barCopy = FillingBar(
     total: outputFileCount(media, args['albums']),
     desc:
-        "[Step 7/7] ${args['copy'] ? 'Copying' : 'Moving'} photos to output folder",
+        "[Step 7/8] ${args['copy'] ? 'Copying' : 'Moving'} photos to output folder",
     width: barWidth,
   );
   await moveFiles(
@@ -506,7 +528,23 @@ void main(List<String> arguments) async {
   //   await input.delete(recursive: true);
   // }
 
-  /// ###################################################
+  /// ##############################################################
+  /// ################# STEP 8 #####################################
+  /// ##### Update creation time (Windows only) ####################
+
+  print('');
+  if (args['update-creation-time']) {
+    print(
+        '[Step 8/8] Updating creation time of files to match their modified time in output folder ...');
+    await updateCreationTimeRecursively(output);
+    print('');
+    print('=' * barWidth);
+  } else {
+    print("[Step 8/8] Skipping: Updating creation time (Windows only)");
+  }
+
+  /// ##############################################################
+  /// ################# END ########################################
 
   print('=' * barWidth);
   print('DONE! FREEEEEDOOOOM!!!');
@@ -517,14 +555,7 @@ void main(List<String> arguments) async {
   if (countPoop > 0) {
     print("Couldn't find date for $countPoop photos/videos :/");
   }
-  print('');
-  if (args['update-creation-time']) {
-    print(
-        'Updating creation time of files to match their modified time in output folder ...');
-    await updateCreationTimeRecursively(output);
-    print('');
-    print('=' * barWidth);
-  }
+
   print(
     "Last thing - I've spent *a ton* of time on this script - \n"
     "if I saved your time and you want to say thanks, you can send me a tip:\n"

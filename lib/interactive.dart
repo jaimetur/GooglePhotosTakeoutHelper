@@ -76,7 +76,7 @@ Future<void> greet() async {
 Future<void> nothingFoundMessage() async {
   print('...oh :(');
   print('...');
-  print("I couldn't find any D: reasons for this may be:");
+  print("8 I couldn't find any D: reasons for this may be:");
   if (indeed) {
     print(
       "  - you've already ran gpth and it moved all photos to output -\n"

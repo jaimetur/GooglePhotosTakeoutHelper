@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'dart:ffi';
 import 'dart:io';
 
@@ -97,10 +98,7 @@ Future<int?> _dfWindoza(String path) async {
     '-Command',
     'Get-PSDrive -Name ${driveLetter[0]} | Select-Object -ExpandProperty Free'
   ]);
-  final result = res.exitCode != 0
-      ? null
-      : int.tryParse(
-          res.stdout);
+  final result = res.exitCode != 0 ? null : int.tryParse(res.stdout);
   return result;
 }
 
@@ -165,21 +163,23 @@ Future<void> renameIncorrectJsonFiles(Directory directory) async {
 
           // Verify if the file renamed already exists
           if (await newFile.exists()) {
-            print('[Step 1/7] Skipping: $newPath already exists');
+            print('[Step 1/8] [Skipped]: $newPath already exists');
           } else {
             try {
               await entity.rename(newPath);
               renamedCount++;
-              //print('[Renamed] ${entity.path} -> $newPath');
+              log('[Step 1/8] [Renamed]: ${entity.path} -> $newPath');
             } on FileSystemException catch (e) {
-              print('[Error] Renaming ${entity.path}: ${e.message}');
+              print(
+                  '[Step 1/8] [Error]: While renaming ${entity.path}: ${e.message}');
             }
           }
         }
       }
     }
   }
-  print('[Step 1/7] Successfully renamed JSON files (suffix removed): $renamedCount');
+  print(
+      '[Step 1/8] Successfully renamed JSON files (suffix removed): $renamedCount');
 }
 
 Future<void> changeMPExtensions(
@@ -203,14 +203,14 @@ Future<void> changeMPExtensions(
             renamedCount++;
           } on FileSystemException catch (e) {
             print(
-                '[Error] Error changing extension to $finalExtension -> ${file.path}: ${e.message}');
+                '[Step 6/8] [Error] Error changing extension to $finalExtension -> ${file.path}: ${e.message}');
           }
         }
       }
     }
   }
   print(
-      'Successfully changed Pixel Motion Photos files extensions (change it to $finalExtension): $renamedCount');
+      '[Step 6/8] Successfully changed Pixel Motion Photos files extensions (change it to $finalExtension): $renamedCount');
 }
 
 /// Recursively traverses the output [directory] and updates
@@ -221,7 +221,8 @@ Future<void> changeMPExtensions(
 /// In the future MacOS support is possible if the user has XCode installed
 Future<void> updateCreationTimeRecursively(Directory directory) async {
   if (!Platform.isWindows) {
-    print("Skipping: Updating creation time is only supported on Windows.");
+    print(
+        "[Step 8/8] Skipping: Updating creation time is only supported on Windows.");
     return;
   }
   int changedFiles = 0;
@@ -256,7 +257,8 @@ Future<void> updateCreationTimeRecursively(Directory directory) async {
           currentChunk.split(';').length - 1; // -1 to ignore last ';'
     }
   }
-  print("Successfully updated creation time for $changedFiles files!");
+  print(
+      "[Step 8/8] Successfully updated creation time for $changedFiles files!");
 }
 
 //Execute a chunk of commands in PowerShell related with creation time
@@ -271,12 +273,13 @@ Future<bool> _executePShellCreationTimeCmd(String commandChunk) async {
     ]);
 
     if (result.exitCode != 0) {
-      print("Error updateing creation time in batch: ${result.stderr}");
+      print(
+          "[Step 8/8] Error updateing creation time in batch: ${result.stderr}");
       return false;
     }
     return true;
   } catch (e) {
-    print("Error updating creation time: $e");
+    print("[Step 8/8] Error updating creation time: $e");
     return false;
   }
 }
