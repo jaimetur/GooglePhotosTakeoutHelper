@@ -42,8 +42,8 @@ bool isSupportedToWriteToExif(File file) {
 Future<bool> writeDateTimeToExif(DateTime dateTime, File file) async {
   //Check if the file format supports writing to exif
   if (isSupportedToWriteToExif(file)) {
-    //Check if the file already has EXIF data and if yes, skip.
-    if (await exifDateTimeExtractor(file) != null) {
+    //Check if the file already has EXIF exif data. If function returns a DateTime, skip.
+    if (await exifDateTimeExtractor(file) == null) {
       Image? image;
       try {
         image = decodeNamedImage(

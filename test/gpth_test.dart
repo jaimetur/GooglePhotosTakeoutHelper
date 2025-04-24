@@ -12,6 +12,7 @@ import 'package:gpth/media.dart';
 import 'package:gpth/moving.dart';
 import 'package:gpth/utils.dart';
 import 'package:image/image.dart';
+import 'package:intl/intl.dart';
 import 'package:path/path.dart';
 import 'package:test/test.dart';
 
@@ -35,15 +36,20 @@ AQACEQMRAD8AIcgXf//Z""";
   final imgFile1 = File('${basepath}image-edited.jpg');
   final jsonFile1 = File('${basepath}image-edited.jpg.json');
   // these names are from good old #8 issue...
-  final imgFile2 = File('${basepath}Urlaub in Knaufspesch in der Schneifel (38).JPG');
-  final jsonFile2 = File('${basepath}Urlaub in Knaufspesch in der Schneifel (38).JP.json');
-  final imgFile3 = File('${basepath}Screenshot_2022-10-28-09-31-43-118_com.snapchat.jpg');
-  final jsonFile3 = File('${basepath}Screenshot_2022-10-28-09-31-43-118_com.snapcha.json');
+  final imgFile2 =
+      File('${basepath}Urlaub in Knaufspesch in der Schneifel (38).JPG');
+  final jsonFile2 =
+      File('${basepath}Urlaub in Knaufspesch in der Schneifel (38).JP.json');
+  final imgFile3 =
+      File('${basepath}Screenshot_2022-10-28-09-31-43-118_com.snapchat.jpg');
+  final jsonFile3 =
+      File('${basepath}Screenshot_2022-10-28-09-31-43-118_com.snapcha.json');
   final imgFile4 = File('${basepath}simple_file_20200101-edited.jpg');
   final imgFile4_1 = File('${basepath}simple_file_20200101-edited(1).jpg');
   final jsonFile4 = File('${basepath}simple_file_20200101.jpg.json');
   final imgFile5 = File('${basepath}img_(87).(vacation stuff).lol(87).jpg');
-  final jsonFile5 = File('${basepath}img_(87).(vacation stuff).lol.jpg(87).json');
+  final jsonFile5 =
+      File('${basepath}img_(87).(vacation stuff).lol.jpg(87).json');
   final imgFile6 = File('${basepath}IMG-20150125-WA0003-modifié.jpg');
   final imgFile6_1 = File('${basepath}IMG-20150125-WA0003-modifié(1).jpg');
   final jsonFile6 = File('${basepath}IMG-20150125-WA0003.jpg.json');
@@ -257,7 +263,8 @@ AQACEQMRAD8AIcgXf//Z""";
     });
     test('findNotExistingName()', () {
       expect(findNotExistingName(imgFileGreen).path, '${basepath}green(1).jpg');
-      expect(findNotExistingName(File('${basepath}not-here.jpg')).path, '${basepath}not-here.jpg');
+      expect(findNotExistingName(File('${basepath}not-here.jpg')).path,
+          '${basepath}not-here.jpg');
     });
     test('getDiskFree()', () async {
       expect(await getDiskFree('.'), isNotNull);
@@ -302,7 +309,8 @@ AQACEQMRAD8AIcgXf//Z""";
 
   /// This is complicated, thus those test are not bullet-proof
   group('Moving logic', () {
-    final output = Directory(join(Directory.systemTemp.path, '${basepath}testy-output'));
+    final output =
+        Directory(join(Directory.systemTemp.path, '${basepath}testy-output'));
     setUp(() async {
       await output.create();
       removeDuplicates(media, 40);
@@ -444,15 +452,14 @@ AQACEQMRAD8AIcgXf//Z""";
 
       // Define test GPS coordinates
       testCoordinates = DMSCoordinates(
-        latDegrees: 41,
-        latMinutes: 19,
-        latSeconds: 22.1611,
-        longDegrees: 19,
-        longMinutes: 48,
-        longSeconds: 14.9139,
-        latDirection: DirectionY.north,
-        longDirection: DirectionX.east
-      );
+          latDegrees: 41,
+          latMinutes: 19,
+          latSeconds: 22.1611,
+          longDegrees: 19,
+          longMinutes: 48,
+          longSeconds: 14.9139,
+          latDirection: DirectionY.north,
+          longDirection: DirectionX.east);
     });
 
     tearDown(() {
@@ -474,12 +481,12 @@ AQACEQMRAD8AIcgXf//Z""";
       expect(tags['GPS GPSLatitude'], isNotNull);
       expect(tags['GPS GPSLongitude'], isNotNull);
       expect(tags['GPS GPSLatitudeRef']!.printable, 'N');
-      expect(tags['GPS GPSLongitudeRef']!.printable,'E');
+      expect(tags['GPS GPSLongitudeRef']!.printable, 'E');
     });
 
     test('returns false for unsupported file formats', () async {
       // Create a non-supported file format (e.g., a text file)
-      final unsupportedFile = File('test_file.txt');
+      final unsupportedFile = File('${basepath}test_file.txt');
       unsupportedFile.writeAsStringSync('This is a test file.');
 
       final result = await writeGpsToExif(testCoordinates, unsupportedFile);
@@ -510,6 +517,89 @@ AQACEQMRAD8AIcgXf//Z""";
       testImage.writeAsBytesSync([0, 1, 2, 3, 4]);
 
       final result = await writeGpsToExif(testCoordinates, testImage);
+
+      // Verify that the function returns false
+      expect(result, isFalse);
+    });
+  });
+
+  group('writeDateTimeToExif', () {
+    late File testImage;
+    late DateTime testDateTime;
+
+    setUp(() {
+      // Create a temporary test image file
+      testImage = File('${basepath}test_image.jpg');
+      testImage.writeAsBytesSync(encodeJpg(
+          Image(width: 100, height: 100))); // Create a blank JPG image
+
+      // Define a test DateTime
+      testDateTime =
+          DateTime(2023, 12, 25, 15, 30, 45); // Christmas Day, 3:30:45 PM
+    });
+
+    tearDown(() {
+      // Clean up the test image file
+      if (testImage.existsSync()) {
+        testImage.deleteSync();
+      }
+    });
+
+    test('writes DateTime to EXIF metadata', () async {
+      final result = await writeDateTimeToExif(testDateTime, testImage);
+
+      // Verify that the function returns true
+      expect(result, isTrue);
+
+      // Verify that the DateTime was written to the EXIF metadata
+      final bytes = await testImage.readAsBytes();
+      final tags = await readExifFromBytes(bytes);
+
+      final exifFormat = DateFormat("yyyy:MM:dd HH:mm:ss");
+      final expectedDateTime = exifFormat.format(testDateTime);
+
+      expect(tags['Image DateTime']!.printable, expectedDateTime);
+      expect(tags['EXIF DateTimeOriginal']!.printable, expectedDateTime);
+      expect(tags['EXIF DateTimeDigitized']!.printable, expectedDateTime);
+    });
+
+    test('returns false for unsupported file formats', () async {
+      // Create a non-supported file format (e.g., a text file)
+      final unsupportedFile = File('test_file.txt');
+      unsupportedFile.writeAsStringSync('This is a test file.');
+
+      final result = await writeDateTimeToExif(testDateTime, unsupportedFile);
+
+      // Verify that the function returns false
+      expect(result, isFalse);
+
+      // Clean up the unsupported file
+      unsupportedFile.deleteSync();
+    });
+
+    test('returns false for files with existing DateTime EXIF data', () async {
+      // Simulate a file with existing DateTime EXIF data
+      final image = decodeJpg(testImage.readAsBytesSync());
+      final exifFormat = DateFormat("yyyy:MM:dd HH:mm:ss");
+      final existingDateTime =
+          exifFormat.format(DateTime(2020, 1, 1, 12, 0, 0));
+      image!.exif.imageIfd['DateTime'] = existingDateTime;
+      image.exif.exifIfd['DateTimeOriginal'] = existingDateTime;
+      image.exif.exifIfd['DateTimeDigitized'] = existingDateTime;
+      final newBytes = encodeJpg(image);
+      testImage.writeAsBytesSync(newBytes);
+
+      final result = await writeDateTimeToExif(testDateTime, testImage);
+
+      // Verify that the function returns false
+      expect(result, isFalse);
+    });
+
+    test('returns false for invalid image files', () async {
+      // Create a corrupted image file
+      testImage.writeAsBytesSync([0, 1, 2, 3, 4]);
+
+      final result = await writeDateTimeToExif(testDateTime, testImage);
 
       // Verify that the function returns false
       expect(result, isFalse);
