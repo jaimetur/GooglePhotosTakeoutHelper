@@ -137,10 +137,10 @@ Future<DMSCoordinates?> jsonCoordinatesExtractor(File file,
   if (jsonFile == null) return null;
   try {
     final data = jsonDecode(await jsonFile.readAsString());
-    var lat = double.tryParse(data['geoData']['latitude']);
-    var long = double.tryParse(data['geoData']['longitude']);
+    double lat = data['geoData']['latitude'];
+    double long = data['geoData']['longitude'];
     //var alt = double.tryParse(data['geoData']['altitude']); //Info: Altitude is not used.
-    if (lat == null || long == null) {
+    if (lat == 0.0 || long == 0.0) {
       return null;
     } else {
       DDCoordinates ddcoords = DDCoordinates(latitude: lat, longitude: long);

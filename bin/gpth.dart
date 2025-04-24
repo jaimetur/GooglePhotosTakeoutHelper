@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:console_bars/console_bars.dart';
-import 'package:coordinate_converter/coordinate_converter.dart';
 import 'package:gpth/date_extractor.dart';
 import 'package:gpth/extras.dart';
 import 'package:gpth/folder_classify.dart';
@@ -13,6 +12,7 @@ import 'package:gpth/moving.dart';
 import 'package:gpth/utils.dart';
 import 'package:path/path.dart' as p;
 import 'package:gpth/exif_writer.dart';
+import 'dart:async';
 
 const helpText = """GooglePhotosTakeoutHelper v$version - The Dart successor
 
@@ -383,15 +383,15 @@ void main(List<String> arguments) async {
   /// ##############################################################
 
   /// ##### Json Coordinates and extracted DateTime to EXIF #####
-  
-  /// In this part, we will write coordoninates and dates to EXIF data of the files.
+
+  /// In this part, we will write coordinates and dates to EXIF data of the files.
   /// Currently supported file formats: JPG, PNG/Animated APNG, GIF/Animated GIF, BMP, TIFF, TGA, PVR, ICO.
-  /// This is done after the dates of files have been defined, and before
+  /// This is done after the dates of files have been defined, because here we have to write the files to disk again and before
   /// the files are moved to the output folder, to avoid shortcuts/symlinks problems.
 
   final barJsonToExifExtractor = FillingBar(
     total: media.length,
-    desc: "Getting EXIF data from JSON files and setting it to output files",
+    desc: "Getting EXIF data from JSON files and applying it to files",
     width: barWidth,
   );
   for (var i = 0; i < media.length; i++) {

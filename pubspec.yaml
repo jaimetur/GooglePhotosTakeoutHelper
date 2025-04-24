@@ -19,8 +19,7 @@ dependencies:
   console_bars: ^1.2.0
   image: ^4.5.4
   intl: ^0.20.2
-  file_picker_desktop:
-    path: ./file_picker_desktop/
+  file_picker_desktop: ^1.2.0
   #  archive:
   #    git:
   #      url: https://github.com/TheLastGimbus/archive.git
