@@ -148,7 +148,6 @@ Future<DMSCoordinates?> jsonCoordinatesExtractor(final File file,
     } else {
       final DDCoordinates ddcoords = DDCoordinates(latitude: lat, longitude: long);
       final DMSCoordinates dmscoords = DMSCoordinates.fromDD(ddcoords);
-      log('[Step 5/8] Extracted coordinates: ${dmscoords.toString()} from ${file.path}');
       return dmscoords;
     }
   } on FormatException catch (_) {

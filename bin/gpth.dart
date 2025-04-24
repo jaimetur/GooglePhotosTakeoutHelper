@@ -447,8 +447,6 @@ void main(final List<String> arguments) async {
         if (await writeGpsToExif(coords, currentFile)) {
           exifccounter++;
         }
-      } else {
-        log("\n[Step 5/8] Can't get coordinates on ${media[i].firstFile.path}");
       }
       if (media[i].dateTaken != null) {
         //If date was found before through one of the extractors, write it to exif
