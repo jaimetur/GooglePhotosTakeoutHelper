@@ -55,7 +55,8 @@ import 'package:path/path.dart' as p;
 /// ##############################################################
 /// This is the help text that will be shown when user runs gpth --help
 
-const String helpText = '''GooglePhotosTakeoutHelper v$version - The Dart successor
+const String helpText =
+    '''GooglePhotosTakeoutHelper v$version - The Dart successor
 
 gpth is ment to help you with exporting your photos from Google Photos.
 
@@ -85,7 +86,9 @@ void main(final List<String> arguments) async {
         help: 'Use interactive mode. Type this in case auto-detection fails, \n'
             'or you *really* want to combine advanced options with prompts\n')
     ..addOption('input',
-        abbr: 'i', help: 'Input folder with *all* takeouts *extracted*.\n')
+        abbr: 'i',
+        help: 'Input folder with *all* takeouts *extracted*.\n'
+            '(The folder your "Takeout" folder is within)\n')
     ..addOption('output',
         abbr: 'o', help: 'Output folder where all photos will land\n')
     ..addOption(
@@ -277,13 +280,15 @@ void main(final List<String> arguments) async {
       !await output
           .list()
           // allow input folder to be inside output
-          .where((final FileSystemEntity e) => p.absolute(e.path) != p.absolute(args['input']))
+          .where((final FileSystemEntity e) =>
+              p.absolute(e.path) != p.absolute(args['input']))
           .isEmpty) {
     if (await interactive.askForCleanOutput()) {
       await for (final FileSystemEntity file in output
           .list()
           // delete everything except input folder if there
-          .where((final FileSystemEntity e) => p.absolute(e.path) != p.absolute(args['input']))) {
+          .where((final FileSystemEntity e) =>
+              p.absolute(e.path) != p.absolute(args['input']))) {
         await file.delete(recursive: true);
       }
     }
@@ -321,7 +326,8 @@ void main(final List<String> arguments) async {
   print('[Step 2/8] Searching for everything in input folder...');
 
   // recursive=true makes it find everything nicely even if user id dumb 😋
-  await for (final Directory d in input.list(recursive: true).whereType<Directory>()) {
+  await for (final Directory d
+      in input.list(recursive: true).whereType<Directory>()) {
     if (isYearFolder(d)) {
       yearFolders.add(d);
     } else if (await isAlbumFolder(d)) {
@@ -421,7 +427,8 @@ void main(final List<String> arguments) async {
   // This is done after the dates of files have been defined, because here we have to write the files to disk again and before
   // the files are moved to the output folder, to avoid shortcuts/symlinks problems.
 
-  int ccounter = 0; //Counter for coordinates in EXIF data set
+  int exifccounter = 0; //Counter for coordinates in EXIF data set
+  int exifdtcounter = 0;
   if (args['write-exif']) {
     final FillingBar barJsonToExifExtractor = FillingBar(
       total: media.length,
@@ -433,18 +440,21 @@ void main(final List<String> arguments) async {
     for (int i = 0; i < media.length; i++) {
       final File currentFile = media[i].firstFile;
 
-      final DMSCoordinates? coords = await jsonCoordinatesExtractor(currentFile);
+      final DMSCoordinates? coords =
+          await jsonCoordinatesExtractor(currentFile);
       if (coords != null) {
         //If coordinates were found in json, write them to exif
         if (await writeGpsToExif(coords, currentFile)) {
-          ccounter++;
+          exifccounter++;
         }
       } else {
         log("\n[Step 5/8] Can't get coordinates on ${media[i].firstFile.path}");
       }
       if (media[i].dateTaken != null) {
         //If date was found before through one of the extractors, write it to exif
-        await writeDateTimeToExif(media[i].dateTaken!, currentFile);
+        if (await writeDateTimeToExif(media[i].dateTaken!, currentFile)) {
+          exifdtcounter++;
+        }
       }
 
       barJsonToExifExtractor.increment();
@@ -550,9 +560,11 @@ void main(final List<String> arguments) async {
   print('=' * barWidth);
   print('DONE! FREEEEEDOOOOM!!!');
   if (countDuplicates > 0) print('Skipped $countDuplicates duplicates');
-  if (ccounter > 0) print('Set $ccounter coordinates in EXIF data');
+  if (exifccounter > 0) print('Set coordinates for $exifccounter files in EXIF data');
+  if (exifdtcounter > 0) print('Set date for $exifdtcounter files in EXIF data');
   if (args['skip-extras']) print('Skipped $countExtras extras');
-  final int countPoop = media.where((final Media e) => e.dateTaken == null).length;
+  final int countPoop =
+      media.where((final Media e) => e.dateTaken == null).length;
   if (countPoop > 0) {
     print("Couldn't find date for $countPoop photos/videos :/");
   }
