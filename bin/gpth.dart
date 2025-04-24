@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:console_bars/console_bars.dart';
-import 'package:gpth/date_extractor.dart';
+import 'package:gpth/date_extractors/date_extractor.dart';
 import 'package:gpth/extras.dart';
 import 'package:gpth/folder_classify.dart';
 import 'package:gpth/grouping.dart';
@@ -354,7 +354,7 @@ void main(List<String> arguments) async {
 
   print('[Step 3/8] Finding duplicates...');
 
-  final countDuplicates = removeDuplicates(media);
+  final countDuplicates = removeDuplicates(media, barWidth);
 
   /// ##############################################################
 
@@ -420,7 +420,7 @@ void main(List<String> arguments) async {
   // This is done after the dates of files have been defined, because here we have to write the files to disk again and before
   // the files are moved to the output folder, to avoid shortcuts/symlinks problems.
 
-  int ccounter = 0;
+  int ccounter = 0; //Counter for coordinates in EXIF data set
   if (args['write-exif']) {
     final barJsonToExifExtractor = FillingBar(
       total: media.length,

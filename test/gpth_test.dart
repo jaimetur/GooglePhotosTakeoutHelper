@@ -1,13 +1,17 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:collection/collection.dart';
-import 'package:gpth/date_extractor.dart';
+import 'package:coordinate_converter/coordinate_converter.dart';
+import 'package:exif/exif.dart';
+import 'package:gpth/date_extractors/date_extractor.dart';
+import 'package:gpth/exif_writer.dart';
 import 'package:gpth/extras.dart';
 import 'package:gpth/folder_classify.dart';
 import 'package:gpth/grouping.dart';
 import 'package:gpth/media.dart';
 import 'package:gpth/moving.dart';
 import 'package:gpth/utils.dart';
+import 'package:image/image.dart';
 import 'package:path/path.dart';
 import 'package:test/test.dart';
 
@@ -24,24 +28,25 @@ BAgEBAgQCwkLEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQ
 EBD/wAARCAABAAEDAREAAhEBAxEB/8QAFAABAAAAAAAAAAAAAAAAAAAAA//EABQQAQAAAAAAAAAA
 AAAAAAAAAAD/xAAUAQEAAAAAAAAAAAAAAAAAAAAI/8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAwD
 AQACEQMRAD8AIcgXf//Z""";
+  final String basepath = "/test/"; //Where the test files are created
 
-  final albumDir = Directory('Vacation');
-  final imgFileGreen = File('green.jpg');
-  final imgFile1 = File('image-edited.jpg');
-  final jsonFile1 = File('image-edited.jpg.json');
+  final albumDir = Directory('${basepath}Vacation');
+  final imgFileGreen = File('${basepath}green.jpg');
+  final imgFile1 = File('${basepath}image-edited.jpg');
+  final jsonFile1 = File('${basepath}image-edited.jpg.json');
   // these names are from good old #8 issue...
-  final imgFile2 = File('Urlaub in Knaufspesch in der Schneifel (38).JPG');
-  final jsonFile2 = File('Urlaub in Knaufspesch in der Schneifel (38).JP.json');
-  final imgFile3 = File('Screenshot_2022-10-28-09-31-43-118_com.snapchat.jpg');
-  final jsonFile3 = File('Screenshot_2022-10-28-09-31-43-118_com.snapcha.json');
-  final imgFile4 = File('simple_file_20200101-edited.jpg');
-  final imgFile4_1 = File('simple_file_20200101-edited(1).jpg');
-  final jsonFile4 = File('simple_file_20200101.jpg.json');
-  final imgFile5 = File('img_(87).(vacation stuff).lol(87).jpg');
-  final jsonFile5 = File('img_(87).(vacation stuff).lol.jpg(87).json');
-  final imgFile6 = File('IMG-20150125-WA0003-modifié.jpg');
-  final imgFile6_1 = File('IMG-20150125-WA0003-modifié(1).jpg');
-  final jsonFile6 = File('IMG-20150125-WA0003.jpg.json');
+  final imgFile2 = File('${basepath}Urlaub in Knaufspesch in der Schneifel (38).JPG');
+  final jsonFile2 = File('${basepath}Urlaub in Knaufspesch in der Schneifel (38).JP.json');
+  final imgFile3 = File('${basepath}Screenshot_2022-10-28-09-31-43-118_com.snapchat.jpg');
+  final jsonFile3 = File('${basepath}Screenshot_2022-10-28-09-31-43-118_com.snapcha.json');
+  final imgFile4 = File('${basepath}simple_file_20200101-edited.jpg');
+  final imgFile4_1 = File('${basepath}simple_file_20200101-edited(1).jpg');
+  final jsonFile4 = File('${basepath}simple_file_20200101.jpg.json');
+  final imgFile5 = File('${basepath}img_(87).(vacation stuff).lol(87).jpg');
+  final jsonFile5 = File('${basepath}img_(87).(vacation stuff).lol.jpg(87).json');
+  final imgFile6 = File('${basepath}IMG-20150125-WA0003-modifié.jpg');
+  final imgFile6_1 = File('${basepath}IMG-20150125-WA0003-modifié(1).jpg');
+  final jsonFile6 = File('${basepath}IMG-20150125-WA0003.jpg.json');
   final media = [
     Media({null: imgFile1},
         dateTaken: DateTime(2020, 9, 1), dateTakenAccuracy: 1),
@@ -199,7 +204,7 @@ AQACEQMRAD8AIcgXf//Z""";
     });
   });
   test('Duplicate removal', () {
-    expect(removeDuplicates(media), 1);
+    expect(removeDuplicates(media, 40), 1);
     expect(media.length, 8);
     expect(media.firstWhereOrNull((e) => e.firstFile == imgFile4), null);
   });
@@ -214,7 +219,7 @@ AQACEQMRAD8AIcgXf//Z""";
   test('Album finding', () {
     // sadly, this will still modify [media] some, but won't delete anything
     final copy = media.toList();
-    removeDuplicates(copy);
+    removeDuplicates(copy, 40);
 
     final countBefore = copy.length;
     findAlbums(copy);
@@ -251,8 +256,8 @@ AQACEQMRAD8AIcgXf//Z""";
       );
     });
     test('findNotExistingName()', () {
-      expect(findNotExistingName(imgFileGreen).path, 'green(1).jpg');
-      expect(findNotExistingName(File('not-here.jpg')).path, 'not-here.jpg');
+      expect(findNotExistingName(imgFileGreen).path, '${basepath}green(1).jpg');
+      expect(findNotExistingName(File('${basepath}not-here.jpg')).path, '${basepath}not-here.jpg');
     });
     test('getDiskFree()', () async {
       expect(await getDiskFree('.'), isNotNull);
@@ -297,10 +302,10 @@ AQACEQMRAD8AIcgXf//Z""";
 
   /// This is complicated, thus those test are not bullet-proof
   group('Moving logic', () {
-    final output = Directory(join(Directory.systemTemp.path, 'testy-output'));
+    final output = Directory(join(Directory.systemTemp.path, '${basepath}testy-output'));
     setUp(() async {
       await output.create();
-      removeDuplicates(media);
+      removeDuplicates(media, 40);
       findAlbums(media);
     });
     test('shortcut', () async {
@@ -387,6 +392,7 @@ AQACEQMRAD8AIcgXf//Z""";
         {'ALL_PHOTOS', 'Vacation'},
       );
     });
+
     test('json', () async {
       await moveFiles(
         media,
@@ -424,6 +430,90 @@ AQACEQMRAD8AIcgXf//Z""";
       );
     });
     tearDown(() async => await output.delete(recursive: true));
+  });
+
+  group('writeGpsToExif', () {
+    late File testImage;
+    late DMSCoordinates testCoordinates;
+
+    setUp(() {
+      // Create a temporary test image file
+      testImage = File('${basepath}test_image.jpg');
+      testImage.writeAsBytesSync(encodeJpg(
+          Image(width: 100, height: 100))); // Create a blank JPG image
+
+      // Define test GPS coordinates
+      testCoordinates = DMSCoordinates(
+        latDegrees: 41,
+        latMinutes: 19,
+        latSeconds: 22.1611,
+        longDegrees: 19,
+        longMinutes: 48,
+        longSeconds: 14.9139,
+        latDirection: DirectionY.north,
+        longDirection: DirectionX.east
+      );
+    });
+
+    tearDown(() {
+      // Clean up the test image file
+      if (testImage.existsSync()) {
+        testImage.deleteSync();
+      }
+    });
+
+    test('writes GPS coordinates to EXIF metadata', () async {
+      final result = await writeGpsToExif(testCoordinates, testImage);
+
+      // Verify that the function returns true
+      expect(result, isTrue);
+
+      // Verify that the GPS coordinates were written to the EXIF metadata
+      final tags = await readExifFromFile(testImage);
+
+      expect(tags['GPS GPSLatitude'], isNotNull);
+      expect(tags['GPS GPSLongitude'], isNotNull);
+      expect(tags['GPS GPSLatitudeRef']!.printable, 'N');
+      expect(tags['GPS GPSLongitudeRef']!.printable,'E');
+    });
+
+    test('returns false for unsupported file formats', () async {
+      // Create a non-supported file format (e.g., a text file)
+      final unsupportedFile = File('test_file.txt');
+      unsupportedFile.writeAsStringSync('This is a test file.');
+
+      final result = await writeGpsToExif(testCoordinates, unsupportedFile);
+
+      // Verify that the function returns false
+      expect(result, isFalse);
+
+      // Clean up the unsupported file
+      unsupportedFile.deleteSync();
+    });
+
+    test('returns false for files with existing GPS EXIF data', () async {
+      // Simulate a file with existing GPS EXIF data
+      final image = decodeJpg(testImage.readAsBytesSync());
+      image!.exif.gpsIfd.gpsLatitude = testCoordinates.latSeconds;
+      image.exif.gpsIfd.gpsLongitude = testCoordinates.longSeconds;
+      final newBytes = encodeJpg(image);
+      testImage.writeAsBytesSync(newBytes);
+
+      final result = await writeGpsToExif(testCoordinates, testImage);
+
+      // Verify that the function returns false
+      expect(result, isFalse);
+    });
+
+    test('returns false for invalid image files', () async {
+      // Create a corrupted image file
+      testImage.writeAsBytesSync([0, 1, 2, 3, 4]);
+
+      final result = await writeGpsToExif(testCoordinates, testImage);
+
+      // Verify that the function returns false
+      expect(result, isFalse);
+    });
   });
 
   /// Delete all shitty files as we promised

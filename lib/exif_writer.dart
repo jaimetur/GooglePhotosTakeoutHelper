@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:exif/exif.dart';
-import 'package:gpth/date_extractor.dart';
+import 'package:gpth/date_extractors/date_extractor.dart';
 import 'package:mime/mime.dart';
 import 'package:coordinate_converter/coordinate_converter.dart';
 import 'package:image/image.dart';
@@ -65,9 +65,7 @@ Future<bool> writeDateTimeToExif(DateTime dateTime, File file) async {
           return false; // Failed to encode image while writing DateTime.
         }
       }
-      return false;
     }
-    return false;
   }
   return false;
 }
@@ -76,7 +74,8 @@ Future<bool> writeGpsToExif(DMSCoordinates coordinates, File file) async {
   //Check if the file format supports writing to exif
   if (isSupportedToWriteToExif(file)) {
     //Check if the file already has EXIF data and if yes, skip.
-    if (!(await fileHasExifCoordinates(file))) {
+    bool filehasExifCoordinates = await checkIfFileHasExifCoordinates(file);
+    if (!filehasExifCoordinates) {
       Image? image;
       try {
         image = decodeNamedImage(
@@ -84,7 +83,7 @@ Future<bool> writeGpsToExif(DMSCoordinates coordinates, File file) async {
       } catch (e) {
         return false; // Ignoring errors during image decoding as it may not be a valid image file
       }
-      if (image!.hasExif) {
+      if (image != null && image.hasExif) {
         image.exif.gpsIfd.gpsLatitude = coordinates.latSeconds;
         image.exif.gpsIfd.gpsLongitude = coordinates.longSeconds;
         image.exif.gpsIfd.gpsLatitudeRef =
@@ -106,7 +105,7 @@ Future<bool> writeGpsToExif(DMSCoordinates coordinates, File file) async {
 }
 
 //Check if the file already has EXIF data and if yes, skip.
-Future<bool> fileHasExifCoordinates(File file) async {
+Future<bool> checkIfFileHasExifCoordinates(File file) async {
   // NOTE: reading whole file may seem slower than using readExifFromFile
   // but while testing it was actually 2x faster on my pc 0_o
   // i have nvme + btrfs, but still, will leave as is

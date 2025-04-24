@@ -4,8 +4,8 @@
 library;
 
 import 'dart:io';
-
 import 'package:collection/collection.dart';
+import 'package:console_bars/console_bars.dart';
 import 'package:gpth/media.dart';
 import 'package:path/path.dart' as p;
 
@@ -44,7 +44,14 @@ extension Group on Iterable<Media> {
 /// Uses file size, then sha256 hash to distinct
 ///
 /// Returns count of removed
-int removeDuplicates(List<Media> media) {
+int removeDuplicates(List<Media> media, int barWidth) {
+
+  final barRemoveDuplicates = FillingBar(
+    total: media.length,
+    desc: "[Step 3/8] Finding and removing duplicates",
+    width: barWidth,
+  );
+
   var count = 0;
   final byAlbum = media
       // group by albums as we will merge those later
@@ -72,6 +79,7 @@ int removeDuplicates(List<Media> media) {
       media.remove(e);
       count++;
     }
+    barRemoveDuplicates.increment(); // update progress bar so user sees that something is happening
   }
 
   return count;
