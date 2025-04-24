@@ -3,7 +3,9 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:console_bars/console_bars.dart';
+import 'package:coordinate_converter/src/models/dms_coordinates_model.dart';
 import 'package:gpth/date_extractors/date_extractor.dart';
+import 'package:gpth/exif_writer.dart';
 import 'package:gpth/extras.dart';
 import 'package:gpth/folder_classify.dart';
 import 'package:gpth/grouping.dart';
@@ -12,7 +14,6 @@ import 'package:gpth/media.dart';
 import 'package:gpth/moving.dart';
 import 'package:gpth/utils.dart';
 import 'package:path/path.dart' as p;
-import 'package:gpth/exif_writer.dart';
 
 /// ############################### READ ME #############################
 // Okay, time to explain the structure of things here
@@ -54,7 +55,7 @@ import 'package:gpth/exif_writer.dart';
 /// ##############################################################
 /// This is the help text that will be shown when user runs gpth --help
 
-const helpText = """GooglePhotosTakeoutHelper v$version - The Dart successor
+const String helpText = '''GooglePhotosTakeoutHelper v$version - The Dart successor
 
 gpth is ment to help you with exporting your photos from Google Photos.
 
@@ -64,14 +65,14 @@ When ready, download all .zips, and extract them into *one* folder.
 
 Then, run: gpth --input "folder/with/all/takeouts" --output "your/output/folder"
 ...and gpth will parse and organize all photos into one big chronological folder
-""";
-const barWidth = 40;
+''';
+const int barWidth = 40;
 
 /// ##############################################################
 /// This is the main function that will be run when user runs gpth
 
-void main(List<String> arguments) async {
-  final parser = ArgParser()
+void main(final List<String> arguments) async {
+  final ArgParser parser = ArgParser()
     ..addFlag('help', abbr: 'h', negatable: false)
     ..addOption(
       'fix',
@@ -97,7 +98,7 @@ void main(List<String> arguments) async {
     ..addOption(
       'divide-to-dates',
       help: 'Divide output to folders by nothing/year/month/day',
-      allowed: ['0', '1', '2', '3'],
+      allowed: <String>['0', '1', '2', '3'],
       defaultsTo: '0',
     )
     ..addFlag('skip-extras', help: 'Skip extra images (like -edited etc)')
@@ -108,8 +109,8 @@ void main(List<String> arguments) async {
     )
     ..addFlag(
       'copy',
-      help: "Copy files instead of moving them.\n"
-          "This is usually slower, and uses extra space, "
+      help: 'Copy files instead of moving them.\n'
+          'This is usually slower, and uses extra space, '
           "but doesn't break your input folder",
     )
     ..addFlag(
@@ -121,16 +122,16 @@ void main(List<String> arguments) async {
     ..addFlag('transform-pixel-mp',
         help: 'Transform Pixel .MP or .MV extensions to ".mp4"')
     ..addFlag('update-creation-time',
-        help: "Set creation time equal to the last "
+        help: 'Set creation time equal to the last '
             'modification date at the end of the program.'
             'Only Windows supported')
     ..addFlag('write-exif',
         help:
             'Experimental functionality to Write EXIF data to files'); //TODO Update when EXIF-write is stable
-  final args = <String, dynamic>{};
+  final Map<String, dynamic> args = <String, dynamic>{};
   try {
-    final res = parser.parse(arguments);
-    for (final key in res.options) {
+    final ArgResults res = parser.parse(arguments);
+    for (final String key in res.options) {
       args[key] = res[key];
     }
     interactive.indeed =
@@ -164,13 +165,13 @@ void main(List<String> arguments) async {
     try {
       inDir = await interactive.getInputDir();
     } catch (e) {
-      print("Hmm, interactive selecting input dir crashed... \n"
+      print('Hmm, interactive selecting input dir crashed... \n'
           "it looks like you're running in headless/on Synology/NAS...\n"
           "If so, you have to use cli options - run 'gpth --help' to see them");
       exit(69);
     }
     print('');
-    final out = await interactive.getOutput();
+    final Directory out = await interactive.getOutput();
     print('');
     args['divide-to-dates'] = await interactive.askDivideDates();
     print('');
@@ -205,13 +206,13 @@ void main(List<String> arguments) async {
   // elastic list of extractors - can add/remove with cli flags
   // those are in order of reliability -
   // if one fails, only then later ones will be used
-  final dateExtractors = <DateTimeExtractor>[
+  final List<DateTimeExtractor> dateExtractors = <DateTimeExtractor>[
     jsonDateTimeExtractor,
     exifDateTimeExtractor,
     if (args['guess-from-name']) guessExtractor,
     // this is potentially *dangerous* - see:
     // https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/issues/175
-    (f) => jsonDateTimeExtractor(f, tryhard: true),
+    (final File f) => jsonDateTimeExtractor(f, tryhard: true),
   ];
 
   /// ##############################################################
@@ -227,16 +228,16 @@ void main(List<String> arguments) async {
     print('========== FIX MODE ==========');
     print('I will go through all files in folder that you gave me');
     print('and try to set each file to correct lastModified value');
-    final dir = Directory(args['fix']);
+    final Directory dir = Directory(args['fix']);
     if (!await dir.exists()) {
       error("directory to fix doesn't exist :/");
       quit(11);
     }
-    var set = 0;
-    var notSet = 0;
-    await for (final file in dir.list(recursive: true).wherePhotoVideo()) {
+    int set = 0;
+    int notSet = 0;
+    await for (final File file in dir.list(recursive: true).wherePhotoVideo()) {
       DateTime? date;
-      for (final extractor in dateExtractors) {
+      for (final DateTimeExtractor extractor in dateExtractors) {
         date = await extractor(file);
         if (date != null) {
           await file.setLastModified(date);
@@ -257,17 +258,17 @@ void main(List<String> arguments) async {
   /// ##### Parse all options and check if alright #################
 
   if (args['input'] == null) {
-    error("No --input folder specified :/");
+    error('No --input folder specified :/');
     quit(10);
   }
   if (args['output'] == null) {
-    error("No --output folder specified :/");
+    error('No --output folder specified :/');
     quit(10);
   }
-  final input = Directory(args['input']);
-  final output = Directory(args['output']);
+  final Directory input = Directory(args['input']);
+  final Directory output = Directory(args['output']);
   if (!await input.exists()) {
-    error("Input folder does not exist :/");
+    error('Input folder does not exist :/');
     quit(11);
   }
   // all of this logic is to prevent user easily blowing output folder
@@ -276,13 +277,13 @@ void main(List<String> arguments) async {
       !await output
           .list()
           // allow input folder to be inside output
-          .where((e) => p.absolute(e.path) != p.absolute(args['input']))
+          .where((final FileSystemEntity e) => p.absolute(e.path) != p.absolute(args['input']))
           .isEmpty) {
     if (await interactive.askForCleanOutput()) {
-      await for (final file in output
+      await for (final FileSystemEntity file in output
           .list()
           // delete everything except input folder if there
-          .where((e) => p.absolute(e.path) != p.absolute(args['input']))) {
+          .where((final FileSystemEntity e) => p.absolute(e.path) != p.absolute(args['input']))) {
         await file.delete(recursive: true);
       }
     }
@@ -293,14 +294,14 @@ void main(List<String> arguments) async {
   // ##### Really important global variables #######################
 
   // Big global media list that we'll work on
-  final media = <Media>[];
+  final List<Media> media = <Media>[];
 
   // All "year folders" that we found
-  final yearFolders = <Directory>[];
+  final List<Directory> yearFolders = <Directory>[];
 
   // All album folders - that is, folders that were aside yearFolders and were
   // not matching "Photos from ...." name
-  final albumFolders = <Directory>[];
+  final List<Directory> albumFolders = <Directory>[];
 
   /// ##############################################################
   /// #### Here we start the actual work ###########################
@@ -320,21 +321,21 @@ void main(List<String> arguments) async {
   print('[Step 2/8] Searching for everything in input folder...');
 
   // recursive=true makes it find everything nicely even if user id dumb 😋
-  await for (final d in input.list(recursive: true).whereType<Directory>()) {
+  await for (final Directory d in input.list(recursive: true).whereType<Directory>()) {
     if (isYearFolder(d)) {
       yearFolders.add(d);
     } else if (await isAlbumFolder(d)) {
       albumFolders.add(d);
     }
   }
-  for (final f in yearFolders) {
-    await for (final file in f.list().wherePhotoVideo()) {
-      media.add(Media({null: file}));
+  for (final Directory f in yearFolders) {
+    await for (final File file in f.list().wherePhotoVideo()) {
+      media.add(Media(<String?, File>{null: file}));
     }
   }
-  for (final a in albumFolders) {
-    await for (final file in a.list().wherePhotoVideo()) {
-      media.add(Media({albumName(a): file}));
+  for (final Directory a in albumFolders) {
+    await for (final File file in a.list().wherePhotoVideo()) {
+      media.add(Media(<String?, File>{albumName(a): file}));
     }
   }
 
@@ -354,7 +355,7 @@ void main(List<String> arguments) async {
 
   print('[Step 3/8] Finding duplicates...');
 
-  final countDuplicates = removeDuplicates(media, barWidth);
+  final int countDuplicates = removeDuplicates(media, barWidth);
 
   /// ##############################################################
 
@@ -363,7 +364,7 @@ void main(List<String> arguments) async {
   if (args['skip-extras']) {
     print('[Step 3/8] Finding "extra" photos (-edited etc)');
   }
-  final countExtras = args['skip-extras'] ? removeExtras(media) : 0;
+  final int countExtras = args['skip-extras'] ? removeExtras(media) : 0;
 
   /// ##############################################################
   /// ################# STEP 4 #####################################
@@ -386,15 +387,15 @@ void main(List<String> arguments) async {
 
   /// ##### Extracting/predicting dates using given extractors #####
 
-  final barExtract = FillingBar(
+  final FillingBar barExtract = FillingBar(
     total: media.length,
-    desc: "[Step 4/8] Extracting dates from files",
+    desc: '[Step 4/8] Extracting dates from files',
     width: barWidth,
   );
-  for (var i = 0; i < media.length; i++) {
-    var q = 0;
-    for (final extractor in dateExtractors) {
-      final date = await extractor(media[i].firstFile);
+  for (int i = 0; i < media.length; i++) {
+    int q = 0;
+    for (final DateTimeExtractor extractor in dateExtractors) {
+      final DateTime? date = await extractor(media[i].firstFile);
       if (date != null) {
         media[i].dateTaken = date;
         media[i].dateTakenAccuracy = q;
@@ -422,17 +423,17 @@ void main(List<String> arguments) async {
 
   int ccounter = 0; //Counter for coordinates in EXIF data set
   if (args['write-exif']) {
-    final barJsonToExifExtractor = FillingBar(
+    final FillingBar barJsonToExifExtractor = FillingBar(
       total: media.length,
       desc:
-          "[Step 5/8] Getting EXIF data from JSON files and applying it to files",
+          '[Step 5/8] Getting EXIF data from JSON files and applying it to files',
       width: barWidth,
     );
 
-    for (var i = 0; i < media.length; i++) {
+    for (int i = 0; i < media.length; i++) {
       final File currentFile = media[i].firstFile;
 
-      final coords = await jsonCoordinatesExtractor(currentFile);
+      final DMSCoordinates? coords = await jsonCoordinatesExtractor(currentFile);
       if (coords != null) {
         //If coordinates were found in json, write them to exif
         if (await writeGpsToExif(coords, currentFile)) {
@@ -443,7 +444,7 @@ void main(List<String> arguments) async {
       }
       if (media[i].dateTaken != null) {
         //If date was found before through one of the extractors, write it to exif
-        writeDateTimeToExif(media[i].dateTaken!, currentFile);
+        await writeDateTimeToExif(media[i].dateTaken!, currentFile);
       }
 
       barJsonToExifExtractor.increment();
@@ -475,9 +476,9 @@ void main(List<String> arguments) async {
   if (args['transform-pixel-mp']) {
     print(
         '[Step 6/8] Changing .MP or .MV extensions to .mp4 (this may take some time) ...');
-    await changeMPExtensions(media, ".mp4");
+    await changeMPExtensions(media, '.mp4');
   } else {
-    print("[Step 6/8] Skipped changing .MP or .MV extensions to .mp4");
+    print('[Step 6/8] Skipped changing .MP or .MV extensions to .mp4');
   }
   print('');
 
@@ -492,8 +493,8 @@ void main(List<String> arguments) async {
   // If album mode is set to *duplicate-copy* it will not proceed
   // to avoid moving the same file twice (which would throw an exception)
   if (args['albums'] != 'duplicate-copy') {
-    for (final m in media) {
-      final fileWithKey1 = m.files[null];
+    for (final Media m in media) {
+      final File? fileWithKey1 = m.files[null];
       if (fileWithKey1 == null) {
         m.files[null] = m.files.values.first;
       }
@@ -504,7 +505,7 @@ void main(List<String> arguments) async {
   /// ################# STEP 7 #####################################
   /// ##### Copy/move files to actual output folder ################
 
-  final barCopy = FillingBar(
+  final FillingBar barCopy = FillingBar(
     total: outputFileCount(media, args['albums']),
     desc:
         "[Step 7/8] ${args['copy'] ? 'Copying' : 'Moving'} photos to output folder",
@@ -518,7 +519,7 @@ void main(List<String> arguments) async {
         ? args['divide-to-dates']
         : num.parse(args['divide-to-dates']),
     albumBehavior: args['albums'],
-  ).listen((_) => barCopy.increment()).asFuture();
+  ).listen((final _) => barCopy.increment()).asFuture();
   print('[Step 7/8] Done moving/copying files!');
 
   // @Deprecated('Interactive unzipping is suspended for now!')
@@ -539,7 +540,7 @@ void main(List<String> arguments) async {
     print('');
     print('=' * barWidth);
   } else {
-    print("[Step 8/8] Skipping: Updating creation time (Windows only)");
+    print('[Step 8/8] Skipping: Updating creation time (Windows only)');
   }
   print('');
 
@@ -551,17 +552,17 @@ void main(List<String> arguments) async {
   if (countDuplicates > 0) print('Skipped $countDuplicates duplicates');
   if (ccounter > 0) print('Set $ccounter coordinates in EXIF data');
   if (args['skip-extras']) print('Skipped $countExtras extras');
-  final countPoop = media.where((e) => e.dateTaken == null).length;
+  final int countPoop = media.where((final Media e) => e.dateTaken == null).length;
   if (countPoop > 0) {
     print("Couldn't find date for $countPoop photos/videos :/");
   }
 
   print(
     "Last thing - I've spent *a ton* of time on this script - \n"
-    "if I saved your time and you want to say thanks, you can send me a tip:\n"
-    "https://www.paypal.me/TheLastGimbus\n"
-    "https://ko-fi.com/thelastgimbus\n"
-    "Thank you ❤",
+    'if I saved your time and you want to say thanks, you can send me a tip:\n'
+    'https://www.paypal.me/TheLastGimbus\n'
+    'https://ko-fi.com/thelastgimbus\n'
+    'Thank you ❤',
   );
   print('=' * barWidth);
   quit(0);

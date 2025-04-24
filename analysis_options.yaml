@@ -18,10 +18,8 @@ include: package:lints/recommended.yaml
 linter:
   rules:
     - camel_case_types
-    - camel_case_types
     - prefer_const_constructors
     - prefer_const_literals_to_create_immutables
-    - avoid_print
     - prefer_final_fields
     - unnecessary_this
     - prefer_single_quotes
@@ -32,11 +30,9 @@ linter:
     - avoid_unnecessary_containers
     - avoid_void_async
     - always_declare_return_types
-    - always_specify_types
     - annotate_overrides
     - avoid_annotating_with_dynamic
     - avoid_as
-    - avoid_catches_without_on_clauses
     - avoid_returning_this
     - avoid_types_as_parameter_names
     - avoid_unused_constructor_parameters
@@ -45,7 +41,6 @@ linter:
     - camel_case_extensions
     - cancel_subscriptions
     - close_sinks
-    - comment_references
     - control_flow_in_finally
     - curly_braces_in_flow_control_structures
     - diagnostic_describe_all_properties
@@ -96,7 +91,6 @@ linter:
     - prefer_relative_imports
     - prefer_spread_collections
     - provide_deprecation_message
-    - public_member_api_docs
     - recursive_getters
     - secure_pubspec_urls
     - slash_for_doc_comments
