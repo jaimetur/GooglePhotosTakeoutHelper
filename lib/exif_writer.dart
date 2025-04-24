@@ -1,3 +1,4 @@
+import 'dart:developer' show log;
 import 'dart:io';
 import 'package:exif/exif.dart';
 import 'package:gpth/date_extractors/date_extractor.dart';
@@ -60,6 +61,7 @@ Future<bool> writeDateTimeToExif(DateTime dateTime, File file) async {
             image); //This overwrites the original file with the new Exif data. TODO: This whole thing is too slow and not sufficiently tested.  Code needs to be optimized.
         if (newbytes != null) {
           file.writeAsBytesSync(newbytes);
+          log("[Step 5] New DateTime written to EXIF: ${file.path}");
           return true;
         } else {
           return false; // Failed to encode image while writing DateTime.
@@ -94,6 +96,7 @@ Future<bool> writeGpsToExif(DMSCoordinates coordinates, File file) async {
             image); //This overwrites the original file with the new Exif data. TODO: This whole thing is too slow and not sufficiently tested.  Code needs to be optimized.
         if (newbytes != null) {
           file.writeAsBytesSync(newbytes);
+          log("[Step 5] New GPS coordinates written to EXIF: ${file.path}");
           return true;
         } else {
           return false;

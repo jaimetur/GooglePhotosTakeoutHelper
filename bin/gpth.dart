@@ -519,7 +519,7 @@ void main(List<String> arguments) async {
         : num.parse(args['divide-to-dates']),
     albumBehavior: args['albums'],
   ).listen((_) => barCopy.increment()).asFuture();
-  print('');
+  print('[Step 7/8] Done moving/copying files!');
 
   // @Deprecated('Interactive unzipping is suspended for now!')
   // // remove unzipped folder if was created
@@ -532,7 +532,6 @@ void main(List<String> arguments) async {
   /// ################# STEP 8 #####################################
   /// ##### Update creation time (Windows only) ####################
 
-  print('');
   if (args['update-creation-time']) {
     print(
         '[Step 8/8] Updating creation time of files to match their modified time in output folder ...');
@@ -542,6 +541,7 @@ void main(List<String> arguments) async {
   } else {
     print("[Step 8/8] Skipping: Updating creation time (Windows only)");
   }
+  print('');
 
   /// ##############################################################
   /// ################# END ########################################

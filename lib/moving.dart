@@ -35,7 +35,7 @@ Future<File> createShortcut(Directory location, File target) async {
   if (Platform.isWindows) {
     try {
       createShortcutWin(link.path, targetPath);
-    }catch (e) {
+    } catch (e) {
       final res = await Process.run(
         'powershell.exe',
         [
@@ -236,18 +236,19 @@ Stream<int> moveFiles(
         // https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/issues/229#issuecomment-1685085899
         // That's why this is here
         if (e.errorCode != 0) {
-          print("[Step 7/8] [WARNING]: Can't set modification time on $result: $e");
+          print(
+              "[Step 7/8] [WARNING]: Can't set modification time on $result: $e");
         }
       } catch (e) {
-        print("[Step 7/8] [WARNING]: Can't set modification time on $result: $e");
+        print(
+            "[Step 7/8] [WARNING]: Can't set modification time on $result: $e");
       }
 
       // one copy/move/whatever - one yield
       yield ++i;
 
       if (albumBehavior == 'json') {
-        infoJson[p.basename(result.path)] =
-            m.files.keys.nonNulls.toList();
+        infoJson[p.basename(result.path)] = m.files.keys.nonNulls.toList();
       }
     }
     // done with this media - next!
