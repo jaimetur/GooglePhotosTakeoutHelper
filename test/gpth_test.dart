@@ -282,7 +282,15 @@ AQACEQMRAD8AIcgXf//Z""";
           await output.list(recursive: true, followLinks: false).toSet();
       // 2 folders + media + 1 album-ed shortcut
       expect(outputted.length, 2 + media.length + 1);
-      expect(outputted.whereType<Link>().length, 1);
+      if (Platform.isWindows) {
+        expect(
+          outputted.whereType<File>().where((file) => file.path.endsWith('.lnk')).length,
+          1,
+        );
+      } else {
+        expect(outputted.whereType<Link>().length, 1);
+      }
+
       expect(
         outputted.whereType<Directory>().map((e) => basename(e.path)).toSet(),
         {'ALL_PHOTOS', 'Vacation'},

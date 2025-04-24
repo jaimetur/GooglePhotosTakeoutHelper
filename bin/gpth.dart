@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'dart:io';
 
 import 'package:args/args.dart';
@@ -80,8 +81,9 @@ void main(List<String> arguments) async {
         help: "Set creation time equal to the last "
             'modification date at the end of the program.'
             'Only Windows supported')
-    ..addFlag('write-exif', 
-        help: 'Experimental functionality to Write EXIF data to files'); //TODO Update when stable
+    ..addFlag('write-exif',
+        help:
+            'Experimental functionality to Write EXIF data to files'); //TODO Update when stable
   final args = <String, dynamic>{};
   try {
     final res = parser.parse(arguments);
@@ -373,10 +375,7 @@ void main(List<String> arguments) async {
     }
     if (media[i].dateTaken == null) {
       // only visible in debug mode. Normal user does not care about this. Just high level about the number at the end.
-      assert(() {
-        print("\nCan't get date on ${media[i].firstFile.path}");
-        return true;
-      }());
+      log("\nCan't get date on ${media[i].firstFile.path}");
     }
   }
   print('');
@@ -391,35 +390,32 @@ void main(List<String> arguments) async {
   /// the files are moved to the output folder, to avoid shortcuts/symlinks problems.
   int ccounter = 0;
   if (args['write-exif']) {
-  final barJsonToExifExtractor = FillingBar(
-    total: media.length,
-    desc: "Getting EXIF data from JSON files and applying it to files",
-    width: barWidth,
-  );
-  
-  for (var i = 0; i < media.length; i++) {
-    final File currentFile = media[i].firstFile;
+    final barJsonToExifExtractor = FillingBar(
+      total: media.length,
+      desc: "Getting EXIF data from JSON files and applying it to files",
+      width: barWidth,
+    );
 
-    final coords = await jsonCoordinatesExtractor(currentFile);
-    if (coords != null) {
-      //If coordinates were found in json, write them to exif
-      if (writeGpsToExif(coords, currentFile)) {
-        ccounter++;
+    for (var i = 0; i < media.length; i++) {
+      final File currentFile = media[i].firstFile;
+
+      final coords = await jsonCoordinatesExtractor(currentFile);
+      if (coords != null) {
+        //If coordinates were found in json, write them to exif
+        if (writeGpsToExif(coords, currentFile)) {
+          ccounter++;
+        }
+      } else {
+          log("\nCan't get coordinates on ${media[i].firstFile.path}");
       }
-    } else {
-      assert(() {
-        print("\nCan't get coordinates on ${media[i].firstFile.path}");
-        return true;
-      }());
-    }
-    if (media[i].dateTaken != null) {
-      //If date was found before through one of the extractors, write it to exif
-      writeDateTimeToExif(media[i].dateTaken!, currentFile);
-    }
+      if (media[i].dateTaken != null) {
+        //If date was found before through one of the extractors, write it to exif
+        writeDateTimeToExif(media[i].dateTaken!, currentFile);
+      }
 
-    barJsonToExifExtractor.increment();
-  }
-  print('');
+      barJsonToExifExtractor.increment();
+    }
+    print('');
   }
 
   /// ##############################################################

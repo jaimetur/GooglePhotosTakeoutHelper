@@ -3,6 +3,7 @@
 library;
 
 import 'dart:convert';
+import 'dart:developer';
 import 'dart:io';
 
 import 'package:collection/collection.dart';
@@ -189,7 +190,8 @@ Stream<int> moveFiles(
         // if it's just normal "Photos from .." (null) file, just move it
         result = await moveFile();
         mainFile = result;
-      } else if (albumBehavior == 'shortcut' && mainFile != null) { //TODO: Fix move test. The condition will never be satisfied because mainFile is always null.
+      } else if (albumBehavior == 'shortcut' && mainFile != null) {
+        log("Condition fulfilled! mainFile is $mainFile");
         try {
           result = await createShortcut(folder, mainFile);
         } catch (e) {
