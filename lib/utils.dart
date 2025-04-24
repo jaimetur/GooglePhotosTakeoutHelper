@@ -165,7 +165,7 @@ Future<void> renameIncorrectJsonFiles(Directory directory) async {
 
           // Verify if the file renamed already exists
           if (await newFile.exists()) {
-            print('[Renamed] Skipping: $newPath already exists');
+            print('[Step 1/7] Skipping: $newPath already exists');
           } else {
             try {
               await entity.rename(newPath);
@@ -179,7 +179,7 @@ Future<void> renameIncorrectJsonFiles(Directory directory) async {
       }
     }
   }
-  print('Successfully renamed JSON files (suffix removed): $renamedCount');
+  print('[Step 1/7] Successfully renamed JSON files (suffix removed): $renamedCount');
 }
 
 Future<void> changeMPExtensions(

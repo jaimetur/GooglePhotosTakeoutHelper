@@ -1,17 +1,18 @@
 ## 3.4.5
 
-### Coordinates and date/time of capture in EXIF data 🎉
+### Coordinates and date/time of capture in EXIF data (experimental) 🎉
 
 - Added experimental support to write EXIF data for JPG, PNG/Animated APNG, GIF/Animated GIF, BMP, TIFF, TGA, PVR and ICO file formats from 
   extracted coordinates from Json and from the extracted DateTime. Can only be activated through the flag "write-exif" (Again! Experimental, very slow and not sufficiently tested!)
 - Added dependencies Image, intl and coordinate_converter.
-- file_picker_desktop was updated in original repository and removed locally again.
+- file_picker_desktop was updated in original repository, so it was referenced and removed locally again.
+- fixed tests, so they can run on Windoza
 
 ## 3.4.4
 
 ### Some love by the community 
 
- - bumped dependencies and 
+ - bumped dependencies
  - included file_picker_desktop in project directly (pull request to bump dependencies in the deprecated repo is pending)
  - various bugfixes
  - Added support for raw formats and pixel motion photos

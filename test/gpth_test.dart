@@ -1,10 +1,7 @@
 import 'dart:convert';
-import 'dart:developer';
 import 'dart:io';
-
 import 'package:collection/collection.dart';
 import 'package:gpth/date_extractor.dart';
-import 'package:gpth/exif_writer.dart';
 import 'package:gpth/extras.dart';
 import 'package:gpth/folder_classify.dart';
 import 'package:gpth/grouping.dart';

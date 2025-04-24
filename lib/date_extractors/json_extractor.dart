@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer';
 import 'dart:io';
 import 'package:coordinate_converter/coordinate_converter.dart';
 import 'package:collection/collection.dart';
@@ -145,6 +146,7 @@ Future<DMSCoordinates?> jsonCoordinatesExtractor(File file,
     } else {
       DDCoordinates ddcoords = DDCoordinates(latitude: lat, longitude: long);
       DMSCoordinates dmscoords = DMSCoordinates.fromDD(ddcoords);
+      log("[Step 5/7] Extracted coordinates: ${dmscoords.toString()} from ${file.path}");
       return dmscoords;
     }
   } on FormatException catch (_) {

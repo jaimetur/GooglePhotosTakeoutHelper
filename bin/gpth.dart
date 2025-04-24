@@ -112,9 +112,8 @@ void main(List<String> arguments) async {
     // greet user
     await interactive.greet();
     print('');
-    // ask for everything
     // @Deprecated('Interactive unzipping is suspended for now!')
-    // final zips = await interactive.getZips();
+    // final zips = await interactive.getZips(); //TODO: Add functionality to unzip files again
     late Directory inDir;
     try {
       inDir = await interactive.getInputDir();
@@ -238,10 +237,19 @@ void main(List<String> arguments) async {
   }
   await output.create(recursive: true);
 
-  if (args['modify-json']) {
-    print('Fixing JSON files. Removing suffix (this may take some time)...');
-    await renameIncorrectJsonFiles(input);
-  }
+  /// ##################################################
+
+  // ##### Global variables #####
+
+  // Big global media list that we'll work on
+  final media = <Media>[];
+
+  // All "year folders" that we found
+  final yearFolders = <Directory>[];
+
+  // All album folders - that is, folders that were aside yearFolders and were
+  // not matching "Photos from ...." name
+  final albumFolders = <Directory>[];
 
   /// ##################################################
 
@@ -277,20 +285,24 @@ void main(List<String> arguments) async {
   //      Media('photo1.jpg, albums={Vacation, Friends}),
   //    ];
   //
+  //    Steps for all the major functionality have been added. You should always add to the output the step it originated from.
+  //    This is done to make it easier to debug and understand the flow of the program.
+  //    To find your way around search for "Step X" in the code.
 
-  /// Big global media list that we'll work on
-  final media = <Media>[];
+  /// ##############################################################
+  /// ################# STEP 1 #####################################
+  /// ##### Fixing JSON files (if needed) ##########################
+  if (args['modify-json']) {
+    print(
+        '[Step 1/7] Fixing JSON files. Removing suffix (this may take some time)...');
+    await renameIncorrectJsonFiles(input);
+  }
 
-  /// All "year folders" that we found
-  final yearFolders = <Directory>[];
-
-  /// All album folders - that is, folders that were aside yearFolders and were
-  /// not matching "Photos from ...." name
-  final albumFolders = <Directory>[];
-
+  /// ##############################################################
+  /// ################# STEP 2 #####################################
   /// ##### Find literally *all* photos/videos and add to list #####
 
-  print('Okay, running... searching for everything in input folder...');
+  print('[Step 2/7] Searching for everything in input folder...');
 
   // recursive=true makes it find everything nicely even if user id dumb 😋
   await for (final d in input.list(recursive: true).whereType<Directory>()) {
@@ -321,11 +333,11 @@ void main(List<String> arguments) async {
     quit(13);
   }
 
-  /// ##################################################
+  /// ##############################################################
+  /// ################# STEP 3 #####################################
+  /// ##### Finding and removing duplicates ########################################
 
-  /// ##### Find duplicates #####
-
-  print('Finding duplicates...');
+  print('[Step 3/7] Finding duplicates...');
 
   final countDuplicates = removeDuplicates(media);
 
@@ -333,10 +345,14 @@ void main(List<String> arguments) async {
 
   /// ##### Potentially skip extras #####
 
-  if (args['skip-extras']) print('Finding "extra" photos (-edited etc)');
+  if (args['skip-extras']) {
+    print('[Step 3/7] Finding "extra" photos (-edited etc)');
+  }
   final countExtras = args['skip-extras'] ? removeExtras(media) : 0;
 
-  /// ###################################
+  /// ##############################################################
+  /// ################# STEP 4 #####################################
+  /// ##### Extracting DateTime through Extractors #################
 
   // NOTE FOR MYSELF/whatever:
   // I placed extracting dates *after* removing duplicates.
@@ -357,7 +373,7 @@ void main(List<String> arguments) async {
 
   final barExtract = FillingBar(
     total: media.length,
-    desc: "Getting dates from files",
+    desc: "[Step 4/7] Extracting dates from files",
     width: barWidth,
   );
   for (var i = 0; i < media.length; i++) {
@@ -375,24 +391,26 @@ void main(List<String> arguments) async {
     }
     if (media[i].dateTaken == null) {
       // only visible in debug mode. Normal user does not care about this. Just high level about the number at the end.
-      log("\nCan't get date on ${media[i].firstFile.path}");
+      log("\n[Step 4/7] Can't get date on ${media[i].firstFile.path}");
     }
   }
   print('');
 
   /// ##############################################################
+  /// ################# STEP 5 #####################################
+  /// ##### Json Coordinates and extracted DateTime to EXIF ########
 
-  /// ##### Json Coordinates and extracted DateTime to EXIF #####
+  // In this part, we will write coordinates and dates to EXIF data of the files.
+  // Currently supported file formats: JPG, PNG/Animated APNG, GIF/Animated GIF, BMP, TIFF, TGA, PVR, ICO.
+  // This is done after the dates of files have been defined, because here we have to write the files to disk again and before
+  // the files are moved to the output folder, to avoid shortcuts/symlinks problems.
 
-  /// In this part, we will write coordinates and dates to EXIF data of the files.
-  /// Currently supported file formats: JPG, PNG/Animated APNG, GIF/Animated GIF, BMP, TIFF, TGA, PVR, ICO.
-  /// This is done after the dates of files have been defined, because here we have to write the files to disk again and before
-  /// the files are moved to the output folder, to avoid shortcuts/symlinks problems.
   int ccounter = 0;
   if (args['write-exif']) {
     final barJsonToExifExtractor = FillingBar(
       total: media.length,
-      desc: "Getting EXIF data from JSON files and applying it to files",
+      desc:
+          "[Step 5/7] Getting EXIF data from JSON files and applying it to files",
       width: barWidth,
     );
 
@@ -402,11 +420,11 @@ void main(List<String> arguments) async {
       final coords = await jsonCoordinatesExtractor(currentFile);
       if (coords != null) {
         //If coordinates were found in json, write them to exif
-        if (writeGpsToExif(coords, currentFile)) {
+        if (await writeGpsToExif(coords, currentFile)) {
           ccounter++;
         }
       } else {
-          log("\nCan't get coordinates on ${media[i].firstFile.path}");
+        log("\n[Step 5/7] Can't get coordinates on ${media[i].firstFile.path}");
       }
       if (media[i].dateTaken != null) {
         //If date was found before through one of the extractors, write it to exif
@@ -419,15 +437,16 @@ void main(List<String> arguments) async {
   }
 
   /// ##############################################################
-
-  /// ##### Find albums #####
+  /// ################# STEP 6 #####################################
+  /// ##### Find albums ############################################
 
   // I'm placing merging duplicate Media into albums after guessing date for
   // each one individually, because they are in different folder.
   // I wish that, thanks to this, we may find some jsons in albums that would
   // be broken in shithole of big-ass year folders
 
-  print('Finding albums (this may take some time, dont worry :) ...');
+  print(
+      '[Step 6/7] Finding albums (this may take some time, dont worry :) ...');
   findAlbums(media);
 
   // Change Pixel Motion Photos extension to .mp4 using a list of Medias.
@@ -435,7 +454,7 @@ void main(List<String> arguments) async {
   // the files are moved to the output folder, to avoid shortcuts/symlinks problems
   if (args['transform-pixel-mp']) {
     print(
-        'Changing .MP or .MV extensions to .mp4 (this may take some time) ...');
+        '[Step 6/7] Changing .MP or .MV extensions to .mp4 (this may take some time) ...');
     await changeMPExtensions(media, ".mp4");
   }
   print('');
@@ -459,12 +478,14 @@ void main(List<String> arguments) async {
     }
   }
 
-  /// #######################
-  /// ##### Copy/move files to actual output folder #####
+  /// ##############################################################
+  /// ################# STEP 7 #####################################
+  /// ##### Copy/move files to actual output folder ################
 
   final barCopy = FillingBar(
     total: outputFileCount(media, args['albums']),
-    desc: "${args['copy'] ? 'Copying' : 'Moving'} photos to output folder",
+    desc:
+        "[Step 7/7] ${args['copy'] ? 'Copying' : 'Moving'} photos to output folder",
     width: barWidth,
   );
   await moveFiles(
@@ -478,7 +499,7 @@ void main(List<String> arguments) async {
   ).listen((_) => barCopy.increment()).asFuture();
   print('');
 
-  // @Deprecated('Interactive unzipping is suspended for now!') //TODO: Add functionality to unzip files again
+  // @Deprecated('Interactive unzipping is suspended for now!')
   // // remove unzipped folder if was created
   // if (interactive.indeed) {
   //   print('Removing unzipped folder...');
