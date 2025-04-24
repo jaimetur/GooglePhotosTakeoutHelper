@@ -2,11 +2,10 @@
 
 ### Coordinates and date/time of capture in EXIF data 🎉
 
-- Added support for EXIF for JPG, PNG/Animated APNG, GIF/Animated GIF, BMP, TIFF, TGA, PVR and ICO file formats.
-- Added functionality to extract coordinates from Json and write them into EXIF of above mentioned formats.
-- Added functionality to write the prior extracted DateTime to the EXIF as well.
-- This is all done automatically. There is currently no argument. If it is supported, it's done. Simple.
+- Added experimental support to write EXIF data for JPG, PNG/Animated APNG, GIF/Animated GIF, BMP, TIFF, TGA, PVR and ICO file formats from 
+  extracted coordinates from Json and from the extracted DateTime. Can only be activated through the flag "write-exif" (Again! Experimental, very slow and not sufficiently tested!)
 - Added dependencies Image, intl and coordinate_converter.
+- file_picker_desktop was updated in original repository and removed locally again.
 
 ## 3.4.4
 

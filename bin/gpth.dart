@@ -12,7 +12,6 @@ import 'package:gpth/moving.dart';
 import 'package:gpth/utils.dart';
 import 'package:path/path.dart' as p;
 import 'package:gpth/exif_writer.dart';
-import 'dart:async';
 
 const helpText = """GooglePhotosTakeoutHelper v$version - The Dart successor
 
@@ -80,7 +79,9 @@ void main(List<String> arguments) async {
     ..addFlag('update-creation-time',
         help: "Set creation time equal to the last "
             'modification date at the end of the program.'
-            'Only Windows supported');
+            'Only Windows supported')
+    ..addFlag('write-exif', 
+        help: 'Experimental functionality to Write EXIF data to files'); //TODO Update when stable
   final args = <String, dynamic>{};
   try {
     final res = parser.parse(arguments);
@@ -388,31 +389,38 @@ void main(List<String> arguments) async {
   /// Currently supported file formats: JPG, PNG/Animated APNG, GIF/Animated GIF, BMP, TIFF, TGA, PVR, ICO.
   /// This is done after the dates of files have been defined, because here we have to write the files to disk again and before
   /// the files are moved to the output folder, to avoid shortcuts/symlinks problems.
-
+  int ccounter = 0;
+  if (args['write-exif']) {
   final barJsonToExifExtractor = FillingBar(
     total: media.length,
     desc: "Getting EXIF data from JSON files and applying it to files",
     width: barWidth,
   );
+  
   for (var i = 0; i < media.length; i++) {
     final File currentFile = media[i].firstFile;
 
-    final coords = await jsonCoordinatesExtractor(currentFile); 
-    if (coords != null) { //If coordinates were found in json, write them to exif
-      writeGpsToExif(coords,currentFile);
+    final coords = await jsonCoordinatesExtractor(currentFile);
+    if (coords != null) {
+      //If coordinates were found in json, write them to exif
+      if (writeGpsToExif(coords, currentFile)) {
+        ccounter++;
+      }
     } else {
       assert(() {
         print("\nCan't get coordinates on ${media[i].firstFile.path}");
         return true;
       }());
     }
-    if(media[i].dateTaken != null){ //If date was found before through one of the extractors, write it to exif
-    writeDateTimeToExif(media[i].dateTaken!,currentFile);
+    if (media[i].dateTaken != null) {
+      //If date was found before through one of the extractors, write it to exif
+      writeDateTimeToExif(media[i].dateTaken!, currentFile);
     }
 
     barJsonToExifExtractor.increment();
   }
   print('');
+  }
 
   /// ##############################################################
 
@@ -486,6 +494,7 @@ void main(List<String> arguments) async {
   print('=' * barWidth);
   print('DONE! FREEEEEDOOOOM!!!');
   if (countDuplicates > 0) print('Skipped $countDuplicates duplicates');
+  if (ccounter > 0) print('Set $ccounter coordinates in EXIF data');
   if (args['skip-extras']) print('Skipped $countExtras extras');
   final countPoop = media.where((e) => e.dateTaken == null).length;
   if (countPoop > 0) {

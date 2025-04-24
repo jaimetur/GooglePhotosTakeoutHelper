@@ -53,14 +53,15 @@ bool writeDateTimeToExif(DateTime dateTime, File file) {
       image.exif.exifIfd['DateTimeOriginal'] = exifFormat.format(dateTime);
       image.exif.exifIfd['DateTimeDigitized'] = exifFormat.format(dateTime);
       final newbytes = encodeNamedImage(file.path,
-          image); //This overwrites the original file with the new Exif data. TODO: Check if this changes last modified
-      if (newbytes != null) {
+          image); //This overwrites the original file with the new Exif data. TODO: This whole thing is too slow and not sufficiently tested.  Code needs to be optimized.
+          if (newbytes != null) {
         file.writeAsBytesSync(newbytes);
         return true;
       } else {
         return false; // Failed to encode image while writing DateTime.
       }
     }
+      return false;
   }
   return false;
 }
@@ -80,7 +81,7 @@ bool writeGpsToExif(DMSCoordinates coordinates, File file) {
     image.exif.gpsIfd.gpsLatitudeRef = coordinates.latDirection.abbreviation;
     image.exif.gpsIfd.gpsLongitudeRef = coordinates.longDirection.abbreviation;
     final newbytes = encodeNamedImage(file.path,
-        image); //This overwrites the original file with the new Exif data. TODO: Check if this changes last modified
+        image); //This overwrites the original file with the new Exif data. TODO: This whole thing is too slow and not sufficiently tested.  Code needs to be optimized.
     if (newbytes != null) {
       file.writeAsBytesSync(newbytes);
     } else {
