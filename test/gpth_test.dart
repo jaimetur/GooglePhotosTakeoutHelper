@@ -104,10 +104,12 @@ AQACEQMRAD8AIcgXf//Z""";
         (await jsonDateTimeExtractor(imgFile4))?.millisecondsSinceEpoch,
         1683074444 * 1000,
       );
-      expect((await jsonDateTimeExtractor(imgFile4_1))?.millisecondsSinceEpoch, null);
+      expect((await jsonDateTimeExtractor(imgFile4_1))?.millisecondsSinceEpoch,
+          null);
       // Should work *with* tryhard
       expect(
-        (await jsonDateTimeExtractor(imgFile4, tryhard: true))?.millisecondsSinceEpoch,
+        (await jsonDateTimeExtractor(imgFile4, tryhard: true))
+            ?.millisecondsSinceEpoch,
         1683074444 * 1000,
       );
       expect(
@@ -116,11 +118,13 @@ AQACEQMRAD8AIcgXf//Z""";
         1683074444 * 1000,
       );
       expect(
-        (await jsonDateTimeExtractor(imgFile5, tryhard: false))?.millisecondsSinceEpoch,
+        (await jsonDateTimeExtractor(imgFile5, tryhard: false))
+            ?.millisecondsSinceEpoch,
         1680289442 * 1000,
       );
       expect(
-        (await jsonDateTimeExtractor(imgFile6, tryhard: false))?.millisecondsSinceEpoch,
+        (await jsonDateTimeExtractor(imgFile6, tryhard: false))
+            ?.millisecondsSinceEpoch,
         1422183600 * 1000,
       );
       expect(
@@ -222,12 +226,23 @@ AQACEQMRAD8AIcgXf//Z""";
     });
   });
   group('folder_classify', () {
-    final dirs = [
-      Directory('./Photos from 2025'),
-      Directory('./Photos from 1969'),
-      Directory('./Photos from vacation'),
-      Directory('/tmp/very-random-omg'),
-    ];
+    List<Directory> tmpdirs;
+    if (Platform.isWindows) {
+      tmpdirs = [
+        Directory('./Photos from 2025'),
+        Directory('./Photos from 1969'),
+        Directory('./Photos from vacation'),
+        Directory('C:/Windows/Temp/very-random-omg'),
+      ];
+    } else {
+      tmpdirs = [
+        Directory('./Photos from 2025'),
+        Directory('./Photos from 1969'),
+        Directory('./Photos from vacation'),
+        Directory('/tmp/very-random-omg'),
+      ];
+    }
+    final dirs = tmpdirs;
     setUpAll(() async {
       for (var d in dirs) {
         await d.create();

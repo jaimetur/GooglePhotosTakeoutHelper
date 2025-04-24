@@ -91,18 +91,17 @@ Future<int?> _dfLinux(String path) async {
 }
 
 Future<int?> _dfWindoza(String path) async {
-  final res = await Process.run('wmic', [
-    'LogicalDisk',
-    'Where',
-    'DeviceID="${p.rootPrefix(p.absolute(path)).replaceAll('\\', '')}"',
-    'Get',
-    'FreeSpace'
+  final driveLetter =
+      p.rootPrefix(p.absolute(path)).replaceAll('\\', '').replaceAll(':', '');
+  final res = await Process.run('powershell', [
+    '-Command',
+    'Get-PSDrive -Name ${driveLetter[0]} | Select-Object -ExpandProperty Free'
   ]);
-  return res.exitCode != 0
+  final result = res.exitCode != 0
       ? null
       : int.tryParse(
-          res.stdout.toString().split('\n').elementAtOrNull(1) ?? '',
-        );
+          res.stdout);
+  return result;
 }
 
 Future<int?> _dfMcOS(String path) async {

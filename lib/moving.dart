@@ -189,7 +189,7 @@ Stream<int> moveFiles(
         // if it's just normal "Photos from .." (null) file, just move it
         result = await moveFile();
         mainFile = result;
-      } else if (albumBehavior == 'shortcut' && mainFile != null) {
+      } else if (albumBehavior == 'shortcut' && mainFile != null) { //TODO: Fix move test. The condition will never be satisfied because mainFile is always null.
         try {
           result = await createShortcut(folder, mainFile);
         } catch (e) {
