@@ -84,6 +84,7 @@ bool writeGpsToExif(DMSCoordinates coordinates, File file) {
         image); //This overwrites the original file with the new Exif data. TODO: This whole thing is too slow and not sufficiently tested.  Code needs to be optimized.
     if (newbytes != null) {
       file.writeAsBytesSync(newbytes);
+      return true;
     } else {
       return false;
     }

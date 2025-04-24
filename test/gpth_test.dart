@@ -1,8 +1,10 @@
 import 'dart:convert';
+import 'dart:developer';
 import 'dart:io';
 
 import 'package:collection/collection.dart';
 import 'package:gpth/date_extractor.dart';
+import 'package:gpth/exif_writer.dart';
 import 'package:gpth/extras.dart';
 import 'package:gpth/folder_classify.dart';
 import 'package:gpth/grouping.dart';
@@ -80,8 +82,42 @@ AQACEQMRAD8AIcgXf//Z""";
     imgFile5.writeAsBytesSync([12, 13, 14]);
     imgFile6.writeAsBytesSync([15, 16, 17]);
     imgFile6_1.writeAsBytesSync([18, 19, 20]);
-    writeJson(File file, int time) =>
-        file.writeAsStringSync('{"photoTakenTime": {"timestamp": "$time"}}');
+    writeJson(File file, int time) {
+      file.createSync(recursive: true);
+      file.writeAsStringSync(jsonEncode({
+        "title": "test.jpg",
+        "description": "",
+        "imageViews": "1",
+        "creationTime": {
+          "timestamp": "1702198242",
+          "formatted": "10.12.2023, 08:50:42 UTC"
+        },
+        "photoTakenTime": {
+          "timestamp": "$time",
+          "formatted": "01.05.2023, 14:32:37 UTC"
+        },
+        "geoData": {
+          "latitude": 41.3221611,
+          "longitude": 19.8149139,
+          "altitude": 143.09,
+          "latitudeSpan": 0.0,
+          "longitudeSpan": 0.0
+        },
+        "geoDataExif": {
+          "latitude": 41.3221611,
+          "longitude": 19.8149139,
+          "altitude": 143.09,
+          "latitudeSpan": 0.0,
+          "longitudeSpan": 0.0
+        },
+        "archived": true,
+        "url": "https://photos.google.com/photo/xyz",
+        "googlePhotosOrigin": {
+          "mobileUpload": {"deviceType": "IOS_PHONE"}
+        }
+      }));
+    }
+
     writeJson(jsonFile1, 1599078832);
     writeJson(jsonFile2, 1683078832);
     writeJson(jsonFile3, 1666942303);
@@ -284,7 +320,10 @@ AQACEQMRAD8AIcgXf//Z""";
       expect(outputted.length, 2 + media.length + 1);
       if (Platform.isWindows) {
         expect(
-          outputted.whereType<File>().where((file) => file.path.endsWith('.lnk')).length,
+          outputted
+              .whereType<File>()
+              .where((file) => file.path.endsWith('.lnk'))
+              .length,
           1,
         );
       } else {
