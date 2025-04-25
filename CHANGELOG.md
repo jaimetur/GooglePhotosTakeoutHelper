@@ -21,6 +21,7 @@
 - moved step 8 (update creation time) before final output
 - added output how often DateTime and Coordinates have been written in EXIF at the final output
 - changed that tests data will be created in test subfolder instead of project root directory
+- moved from the stale "exif" package to the exif_reader package which is a maintained fork of the exif package
 
 #### Bug fixes
 
