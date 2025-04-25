@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'dart:math';
 
-import 'package:exif/exif.dart';
+import 'package:exif_reader/exif_reader.dart';
 import 'package:mime/mime.dart';
 
 import '../utils.dart';
@@ -15,7 +15,8 @@ Future<DateTime?> exifDateTimeExtractor(final File file) async {
       await file.length() > maxFileSize) {
     return null;
   }
-  final Map<String, IfdTag> tags = await readExifFromFile(file);
+  final Map<String, IfdTag> tags 
+  = await readExifFromFile(file);
   String? datetime;
   // try if any of these exists
   datetime ??= tags['Image DateTime']?.printable;

@@ -65,6 +65,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.2"
+  brotli:
+    dependency: transitive
+    description:
+      name: brotli
+      sha256: "7f891558ed779aab2bed874f0a36b8123f9ff3f19cf6efbee89e18ed294945ae"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.6.0"
   cli_config:
     dependency: transitive
     description:
@@ -129,14 +137,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.6"
-  exif:
+  exif_reader:
     dependency: "direct main"
     description:
-      name: exif
-      sha256: a7980fdb3b7ffcd0b035e5b8a5e1eef7cadfe90ea6a4e85ebb62f87b96c7a172
+      name: exif_reader
+      sha256: "548ccc25be936e508c6a20706ae5e2796687b55b9db851962db1cd20fe6abfd9"
       url: "https://pub.dev"
     source: hosted
-    version: "3.3.0"
+    version: "3.16.1"
   ffi:
     dependency: "direct main"
     description:
@@ -225,6 +233,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.5"
+  iso_base_media:
+    dependency: transitive
+    description:
+      name: iso_base_media
+      sha256: "72100254c851f7283dbcb8091159dd72c2f39f5511d468c64c90481ec3a6c90c"
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.4.0"
   js:
     dependency: transitive
     description:
@@ -233,14 +249,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.7.2"
-  json_annotation:
-    dependency: transitive
-    description:
-      name: json_annotation
-      sha256: "1ce844379ca14835a50d2f019a3099f419082cfdd231cd86a142af94dd5c6bb1"
-      url: "https://pub.dev"
-    source: hosted
-    version: "4.9.0"
   latinize:
     dependency: transitive
     description:
@@ -377,6 +385,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.2.0"
+  random_access_source:
+    dependency: transitive
+    description:
+      name: random_access_source
+      sha256: dc86934da2cc4777334f43916234410f232032738c519c0c3452147c5d4fec89
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.1.0"
   shelf:
     dependency: transitive
     description:

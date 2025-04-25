@@ -23,13 +23,16 @@ extension Group on Iterable<Media> {
     final Map<String, List<Media>> output = <String, List<Media>>{};
     // group files by size - can't have same hash with diff size
     // ignore: unnecessary_this
-    for (final MapEntry<int, List<Media>> sameSize in this.groupListsBy((final Media e) => e.size).entries) {
+    for (final MapEntry<int, List<Media>> sameSize
+        in this.groupListsBy((final Media e) => e.size).entries) {
       // just add with "...bytes" key if just one
       if (sameSize.value.length <= 1) {
         output['${sameSize.key}bytes'] = sameSize.value;
       } else {
         // ...calculate their full hashes and group by them
-        output.addAll(sameSize.value.groupListsBy((final Media e) => e.hash.toString()));
+        output.addAll(
+          sameSize.value.groupListsBy((final Media e) => e.hash.toString()),
+        );
       }
     }
     return output;
@@ -46,13 +49,6 @@ extension Group on Iterable<Media> {
 ///
 /// Returns count of removed
 int removeDuplicates(final List<Media> media, final int barWidth) {
-
-  final FillingBar barRemoveDuplicates = FillingBar(
-    total: media.length,
-    desc: '[Step 3/8] Finding and removing duplicates',
-    width: barWidth,
-  );
-
   int count = 0;
   final Iterable<Iterable<List<Media>>> byAlbum = media
       // group by albums as we will merge those later
@@ -60,9 +56,18 @@ int removeDuplicates(final List<Media> media, final int barWidth) {
       .groupListsBy((final Media e) => e.files.keys.first)
       .values
       // group by hash
-      .map((final List<Media> albumGroup) => albumGroup.groupIdentical().values);
+      .map(
+        (final List<Media> albumGroup) => albumGroup.groupIdentical().values,
+      );
   // we don't care about album organization now - flatten
   final Iterable<List<Media>> hashGroups = byAlbum.flattened;
+
+  final FillingBar barRemoveDuplicates = FillingBar(
+    total: hashGroups.length,
+    desc: '[Step 3/8] Finding and removing duplicates',
+    width: barWidth,
+  );
+
   for (final List<Media> group in hashGroups) {
     // sort by best date extraction, then file name length
     // using strings to sort by two values is a sneaky trick i learned at
@@ -70,17 +75,23 @@ int removeDuplicates(final List<Media> media, final int barWidth) {
 
     // note: we are comparing accuracy here tho we do know that *all*
     // of them have it null - i'm leaving this just for sake
-    group.sort((final Media a, final Media b) =>
-        '${a.dateTakenAccuracy ?? 999}${p.basename(a.firstFile.path).length}'
-            .compareTo(
-                '${b.dateTakenAccuracy ?? 999}${p.basename(b.firstFile.path).length}'));
+    group.sort(
+      (
+        final Media a,
+        final Media b,
+      ) => '${a.dateTakenAccuracy ?? 999}${p.basename(a.firstFile.path).length}'
+          .compareTo(
+            '${b.dateTakenAccuracy ?? 999}${p.basename(b.firstFile.path).length}',
+          ),
+    );
     // get list of all except first
     for (final Media e in group.sublist(1)) {
       // remove them from media
       media.remove(e);
       count++;
     }
-    barRemoveDuplicates.increment(); // update progress bar so user sees that something is happening
+    barRemoveDuplicates
+        .increment(); // update progress bar so user sees that something is happening
   }
 
   return count;
@@ -97,11 +108,14 @@ void findAlbums(final List<Media> allMedia) {
 
     final Map<String?, File> allFiles = group.fold(
       <String?, File>{},
-      (final Map<String?, File> allFiles, final Media e) => allFiles..addAll(e.files),
+      (final Map<String?, File> allFiles, final Media e) =>
+          allFiles..addAll(e.files),
     );
     // sort by best date extraction
-    group.sort((final Media a, final Media b) =>
-        (a.dateTakenAccuracy ?? 999).compareTo(b.dateTakenAccuracy ?? 999));
+    group.sort(
+      (final Media a, final Media b) =>
+          (a.dateTakenAccuracy ?? 999).compareTo(b.dateTakenAccuracy ?? 999),
+    );
     // remove original dirty ones
     allMedia.removeWhere(group.contains);
     // set the first (best) one complete album list

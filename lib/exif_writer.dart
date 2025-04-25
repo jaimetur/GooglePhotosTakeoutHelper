@@ -2,7 +2,7 @@ import 'dart:developer' show log;
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:coordinate_converter/coordinate_converter.dart';
-import 'package:exif/exif.dart';
+import 'package:exif_reader/exif_reader.dart';
 import 'package:image/image.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;

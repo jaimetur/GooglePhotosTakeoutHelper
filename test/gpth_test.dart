@@ -3,7 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:collection/collection.dart';
 import 'package:coordinate_converter/coordinate_converter.dart';
-import 'package:exif/exif.dart';
+import 'package:exif_reader/exif_reader.dart';
 import 'package:gpth/date_extractors/date_extractor.dart';
 import 'package:gpth/exif_writer.dart';
 import 'package:gpth/extras.dart';
