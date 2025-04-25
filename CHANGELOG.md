@@ -4,6 +4,12 @@
 
 ### This change is a big overhaul of the project, so only the major improvements or potential breaking changes are mentioned
 
+#### Tl;dr
+
+- Added support for reading exif data from JXL (JPEG XL), ARW, RAW, DNG, CRW, CR3, NRW, NEF and RAF files
+- Added a "--write-exif" flag which will write missing exif information (coordinates and DateTime) from json to exif for jpg and jpeg files
+- Added support to get DateTime from .MOV, .MP4 and probably many other video formats through ffprobe. You need to download it yourself (e.g. from here: https://ffbinaries.com/downloads) and make sure the folder you keep it in is in your $PATH variable.
+
 #### General improvements
 
 - upgraded dependencies and fixed breaking changes
@@ -36,6 +42,9 @@
 
 - Moved from the stale "exif" package to the exif_reader package which is a maintained fork of the exif package
   - This adds support for extracting DateTime from JXL (JPEG XL), ARW, RAW, DNG, CRW, CR3, NRW, NEF and RAF files
+
+- Added the ffmpeg_cli package and logic to attempt to extract exif data from videos using ffprobe.
+  - ffprobe needs to be in $PATH variable. If not, that's okay. But if you have ffprobe locally, Google Photos Takeout Helper now supports reading CreatedDateTime exif data from a variety of video file formats.
 
   
 ##### *Previous fixes and improvement (from 3.4.3-wacheee to 3.7.0-wacheee)*

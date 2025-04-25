@@ -24,8 +24,10 @@ void error(final Object? object) => stderr.write('$object\n');
 
 Never quit([final int code = 1]) {
   if (interactive.indeed) {
-    print('[gpth ${code != 0 ? 'quitted :(' : 'finished :)'} (code $code) - '
-        'press enter to close]');
+    print(
+      '[gpth ${code != 0 ? 'quitted :(' : 'finished :)'} (code $code) - '
+      'press enter to close]',
+    );
     stdin.readLineSync();
   }
   exit(code);
@@ -34,31 +36,31 @@ Never quit([final int code = 1]) {
 extension X on Iterable<FileSystemEntity> {
   /// Easy extension allowing you to filter for files that are photo or video
   Iterable<File> wherePhotoVideo() => whereType<File>().where((final File e) {
-        final String mime = lookupMimeType(e.path) ?? '';
-        final String fileExtension = p.extension(e.path).toLowerCase();
-        return mime.startsWith('image/') ||
-            mime.startsWith('video/') ||
-            // https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/issues/223
-            // https://github.com/dart-lang/mime/issues/102
-            // 🙃🙃
-            mime == 'model/vnd.mts' ||
-            _moreExtensions.contains(fileExtension);
-      });
+    final String mime = lookupMimeType(e.path) ?? '';
+    final String fileExtension = p.extension(e.path).toLowerCase();
+    return mime.startsWith('image/') ||
+        mime.startsWith('video/') ||
+        // https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/issues/223
+        // https://github.com/dart-lang/mime/issues/102
+        // 🙃🙃
+        mime == 'model/vnd.mts' ||
+        _moreExtensions.contains(fileExtension);
+  });
 }
 
 extension Y on Stream<FileSystemEntity> {
   /// Easy extension allowing you to filter for files that are photo or video
   Stream<File> wherePhotoVideo() => whereType<File>().where((final File e) {
-        final String mime = lookupMimeType(e.path) ?? '';
-        final String fileExtension = p.extension(e.path).toLowerCase();
-        return mime.startsWith('image/') ||
-            mime.startsWith('video/') ||
-            // https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/issues/223
-            // https://github.com/dart-lang/mime/issues/102
-            // 🙃🙃
-            mime == 'model/vnd.mts' ||
-            _moreExtensions.contains(fileExtension);
-      });
+    final String mime = lookupMimeType(e.path) ?? '';
+    final String fileExtension = p.extension(e.path).toLowerCase();
+    return mime.startsWith('image/') ||
+        mime.startsWith('video/') ||
+        // https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/issues/223
+        // https://github.com/dart-lang/mime/issues/102
+        // 🙃🙃
+        mime == 'model/vnd.mts' ||
+        _moreExtensions.contains(fileExtension);
+  });
 }
 
 //Support raw formats (dng, cr2) and Pixel motion photos (mp, mv)
@@ -82,21 +84,27 @@ Future<int?> getDiskFree([String? path]) async {
 }
 
 Future<int?> _dfLinux(final String path) async {
-  final ProcessResult res = await Process.run('df', <String>['-B1', '--output=avail', path]);
+  final ProcessResult res = await Process.run('df', <String>[
+    '-B1',
+    '--output=avail',
+    path,
+  ]);
   return res.exitCode != 0
       ? null
       : int.tryParse(
-          res.stdout.toString().split('\n').elementAtOrNull(1) ?? '',
-          radix: 10, // to be sure
-        );
+        res.stdout.toString().split('\n').elementAtOrNull(1) ?? '',
+        radix: 10, // to be sure
+      );
 }
 
 Future<int?> _dfWindoza(final String path) async {
-  final String driveLetter =
-      p.rootPrefix(p.absolute(path)).replaceAll('\\', '').replaceAll(':', '');
+  final String driveLetter = p
+      .rootPrefix(p.absolute(path))
+      .replaceAll('\\', '')
+      .replaceAll(':', '');
   final ProcessResult res = await Process.run('powershell', <String>[
     '-Command',
-    'Get-PSDrive -Name ${driveLetter[0]} | Select-Object -ExpandProperty Free'
+    'Get-PSDrive -Name ${driveLetter[0]} | Select-Object -ExpandProperty Free',
   ]);
   final int? result = res.exitCode != 0 ? null : int.tryParse(res.stdout);
   return result;
@@ -107,7 +115,8 @@ Future<int?> _dfMcOS(final String path) async {
   if (res.exitCode != 0) return null;
   final String? line2 = res.stdout.toString().split('\n').elementAtOrNull(1);
   if (line2 == null) return null;
-  final List<String> elements = line2.split(' ')..removeWhere((final String e) => e.isEmpty);
+  final List<String> elements = line2.split(' ')
+    ..removeWhere((final String e) => e.isEmpty);
   final int? macSays = int.tryParse(
     elements.elementAtOrNull(3) ?? '',
     radix: 10, // to be sure
@@ -116,12 +125,20 @@ Future<int?> _dfMcOS(final String path) async {
 }
 
 String filesize(final int bytes) => FileSize.fromBytes(bytes).toString(
-      unit: Unit.auto(size: bytes, baseType: BaseType.metric), decimals: 2);
+  unit: Unit.auto(size: bytes, baseType: BaseType.metric),
+  decimals: 2,
+);
 
 int outputFileCount(final List<Media> media, final String albumOption) {
-  if (<String>['shortcut', 'duplicate-copy', 'reverse-shortcut']
-      .contains(albumOption)) {
-    return media.fold(0, (final int prev, final Media e) => prev + e.files.length);
+  if (<String>[
+    'shortcut',
+    'duplicate-copy',
+    'reverse-shortcut',
+  ].contains(albumOption)) {
+    return media.fold(
+      0,
+      (final int prev, final Media e) => prev + e.files.length,
+    );
   } else if (albumOption == 'json') {
     return media.length;
   } else if (albumOption == 'nothing') {
@@ -169,7 +186,8 @@ Future<void> renameIncorrectJsonFiles(final Directory directory) async {
               log('[Step 1/8] [Renamed]: ${entity.path} -> $newPath');
             } on FileSystemException catch (e) {
               print(
-                  '[Step 1/8] [Error]: While renaming ${entity.path}: ${e.message}');
+                '[Step 1/8] [Error]: While renaming ${entity.path}: ${e.message}',
+              );
             }
           }
         }
@@ -177,11 +195,14 @@ Future<void> renameIncorrectJsonFiles(final Directory directory) async {
     }
   }
   print(
-      '[Step 1/8] Successfully renamed JSON files (suffix removed): $renamedCount');
+    '[Step 1/8] Successfully renamed JSON files (suffix removed): $renamedCount',
+  );
 }
 
 Future<void> changeMPExtensions(
-    final List<Media> allMedias, final String finalExtension) async {
+  final List<Media> allMedias,
+  final String finalExtension,
+) async {
   int renamedCount = 0;
   for (final Media m in allMedias) {
     for (final MapEntry<String?, File> entry in m.files.entries) {
@@ -201,14 +222,16 @@ Future<void> changeMPExtensions(
             renamedCount++;
           } on FileSystemException catch (e) {
             print(
-                '[Step 6/8] [Error] Error changing extension to $finalExtension -> ${file.path}: ${e.message}');
+              '[Step 6/8] [Error] Error changing extension to $finalExtension -> ${file.path}: ${e.message}',
+            );
           }
         }
       }
     }
   }
   print(
-      '[Step 6/8] Successfully changed Pixel Motion Photos files extensions (change it to $finalExtension): $renamedCount');
+    '[Step 6/8] Successfully changed Pixel Motion Photos files extensions (change it to $finalExtension): $renamedCount',
+  );
 }
 
 /// Recursively traverses the output [directory] and updates
@@ -220,15 +243,19 @@ Future<void> changeMPExtensions(
 Future<void> updateCreationTimeRecursively(final Directory directory) async {
   if (!Platform.isWindows) {
     print(
-        '[Step 8/8] Skipping: Updating creation time is only supported on Windows.');
+      '[Step 8/8] Skipping: Updating creation time is only supported on Windows.',
+    );
     return;
   }
   int changedFiles = 0;
-  const int maxChunkSize = 32000; //Avoid 32768 char limit in command line with chunks
+  const int maxChunkSize =
+      32000; //Avoid 32768 char limit in command line with chunks
 
   String currentChunk = '';
-  await for (final FileSystemEntity entity
-      in directory.list(recursive: true, followLinks: false)) {
+  await for (final FileSystemEntity entity in directory.list(
+    recursive: true,
+    followLinks: false,
+  )) {
     if (entity is File) {
       //Command for each file
       final String command =
@@ -256,7 +283,8 @@ Future<void> updateCreationTimeRecursively(final Directory directory) async {
     }
   }
   print(
-      '[Step 8/8] Successfully updated creation time for $changedFiles files!');
+    '[Step 8/8] Successfully updated creation time for $changedFiles files!',
+  );
 }
 
 //Execute a chunk of commands in PowerShell related with creation time
@@ -267,12 +295,13 @@ Future<bool> _executePShellCreationTimeCmd(final String commandChunk) async {
       'Bypass',
       '-NonInteractive',
       '-Command',
-      commandChunk
+      commandChunk,
     ]);
 
     if (result.exitCode != 0) {
       print(
-          '[Step 8/8] Error updateing creation time in batch: ${result.stderr}');
+        '[Step 8/8] Error updateing creation time in batch: ${result.stderr}',
+      );
       return false;
     }
     return true;
@@ -297,14 +326,15 @@ void createShortcutWin(final String shortcutPath, final String targetPath) {
 
     // Create IShellLink instance
     final int hr = CoCreateInstance(
-        GUIDFromString(CLSID_ShellLink).cast<GUID>(),
-        nullptr,
-        CLSCTX_INPROC_SERVER,
-        GUIDFromString(IID_IShellLink).cast<GUID>(),
-        shellLink.cast());
+      GUIDFromString(CLSID_ShellLink).cast<GUID>(),
+      nullptr,
+      CLSCTX_INPROC_SERVER,
+      GUIDFromString(IID_IShellLink).cast<GUID>(),
+      shellLink.cast(),
+    );
 
     if (FAILED(hr)) {
-      throw  Exception('Error creating IShellLink instance: $hr');
+      throw Exception('Error creating IShellLink instance: $hr');
     }
 
     final IShellLink shellLinkPtr = IShellLink(shellLink);
@@ -313,9 +343,11 @@ void createShortcutWin(final String shortcutPath, final String targetPath) {
     // Saving shortcut
     persistFile = calloc<COMObject>();
     final int hrPersistFile = shellLinkPtr.queryInterface(
-        GUIDFromString(IID_IPersistFile).cast<GUID>(), persistFile.cast());
+      GUIDFromString(IID_IPersistFile).cast<GUID>(),
+      persistFile.cast(),
+    );
     if (FAILED(hrPersistFile)) {
-      throw  Exception('Error obtaining IPersistFile: $hrPersistFile');
+      throw Exception('Error obtaining IPersistFile: $hrPersistFile');
     }
     final IPersistFile persistFilePtr = IPersistFile(persistFile);
     shortcutPathPtr = shortcutPath.toNativeUtf16();

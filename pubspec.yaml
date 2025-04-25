@@ -20,6 +20,7 @@ dependencies:
   image: ^4.5.4
   intl: ^0.20.2
   file_picker_desktop: ^1.2.0
+  ffmpeg_cli: ^0.3.0
   #  archive:
   #    git:
   #      url: https://github.com/TheLastGimbus/archive.git
