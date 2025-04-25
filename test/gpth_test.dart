@@ -504,6 +504,32 @@ group('isSupportedToWriteToExif', () {
       }
     });
 
+    test('extracts GPS coordinates from valid JSON', () async {
+      final result = await jsonCoordinatesExtractor(jsonFile6);
+
+      expect(result, isNotNull);
+      expect(result!.latSeconds, 19.779960000008714);
+      expect(result.longSeconds, 53.690040000001886);
+      expect(result.latDirection, DirectionY.north);
+      expect(result.longDirection, DirectionX.east);
+    });
+
+    test('returns null for invalid JSON', () async {
+      jsonFile6.writeAsStringSync('Invalid JSON');
+
+      final result = await jsonCoordinatesExtractor(jsonFile6);
+
+      expect(result, isNull);
+    });
+
+    test('returns null for missing GPS data', () async {
+      jsonFile6.writeAsStringSync('{}');
+
+      final result = await jsonCoordinatesExtractor(jsonFile6);
+
+      expect(result, isNull);
+    });
+
     test('writes GPS coordinates to EXIF metadata', () async {
       final bool result = await writeGpsToExif(testCoordinates, testImage);
 
