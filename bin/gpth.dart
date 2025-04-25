@@ -130,7 +130,8 @@ void main(final List<String> arguments) async {
             'Only Windows supported\n')
     ..addFlag('write-exif',
         help:
-            'Experimental functionality to Write EXIF data to files\n'); //TODO Update when EXIF-write is stable
+            'Writes Geo data from json files and the extracted DateTime to EXIF\n'
+            'only confirmed to work on jpg and jpeg'); //TODO Update when EXIF-write is fixed for png files
   final Map<String, dynamic> args = <String, dynamic>{};
   try {
     final ArgResults res = parser.parse(arguments);
@@ -413,7 +414,7 @@ void main(final List<String> arguments) async {
     }
     if (media[i].dateTaken == null) {
       // only visible in debug mode. Normal user does not care about this. Just high level about the number at the end.
-      log("\n[Step 4/8] Can't get date on ${media[i].firstFile.path}");
+      log("\n[Step 4/8] Couldn't get date with any extractor on ${media[i].firstFile.path}");
     }
   }
   print('');
@@ -460,7 +461,7 @@ void main(final List<String> arguments) async {
     print('');
   } else {
     print(
-        '[Step 5/8] Skipping writing EXIF data to files (experimental), because --write-exif flag was not set.'); //TODO Update when EXIF-write is stable
+        '[Step 5/8] Skipping writing data to EXIF.');
   }
 
   /// ##############################################################

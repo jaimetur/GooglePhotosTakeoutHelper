@@ -62,7 +62,7 @@ Future<bool> writeDateTimeToExif(final DateTime dateTime, final File file) async
         image.exif.exifIfd['DateTimeOriginal'] = exifFormat.format(dateTime);
         image.exif.exifIfd['DateTimeDigitized'] = exifFormat.format(dateTime);
         final Uint8List? newbytes = encodeNamedImage(file.path,
-            image); //This overwrites the original file with the new Exif data. TODO: This whole thing is too slow and not sufficiently tested.  Code needs to be optimized.
+            image); //This overwrites the original file with the new Exif data.
         if (newbytes != null) {
           file.writeAsBytesSync(newbytes);
           log('[Step 5/8] New DateTime written to EXIF: ${file.path}');
@@ -82,13 +82,14 @@ Future<bool> writeGpsToExif(final DMSCoordinates coordinates, final File file) a
     //Check if the file already has EXIF data and if yes, skip.
     final bool filehasExifCoordinates = await checkIfFileHasExifCoordinates(file);
     if (!filehasExifCoordinates) {
-       log('[Step 5/8] Found GPS coordinates in json, but missing in EXIF for file: ${file.path}');
+       log('[Step 5/8] Found coordinates in json, but missing in EXIF for file: ${file.path}');
+       // This is an edgecase where the json file has coordinates but the image file doesn't have EXIF data.
       Image? image;
       try {
         image = decodeNamedImage(
-            file.path, file.readAsBytesSync()); //Decode the image
+            file.path, file.readAsBytesSync()); //Decode the image TODO Fix: doesn't work for png files but for jpg and jpeg.
       } catch (e) {
-        return false; // Ignoring errors during image decoding as it may not be a valid image file
+        return false; // Ignoring errors during image decoding. Currently happens for png files.
       }
       if (image != null && image.hasExif) {
         image.exif.gpsIfd.gpsLatitude = coordinates.latSeconds;
@@ -98,10 +99,10 @@ Future<bool> writeGpsToExif(final DMSCoordinates coordinates, final File file) a
         image.exif.gpsIfd.gpsLongitudeRef =
             coordinates.longDirection.abbreviation;
         final Uint8List? newbytes = encodeNamedImage(file.path,
-            image); //This overwrites the original file with the new Exif data. TODO: This whole thing is too slow and not sufficiently tested.  Code needs to be optimized.
+            image); //This overwrites the original file with the new Exif data.
         if (newbytes != null) {
           file.writeAsBytesSync(newbytes);
-          log('[Step 5/8] New GPS coordinates written to EXIF: ${file.path}');
+          log('[Step 5/8] New coordinates written to EXIF: ${file.path}');
           return true;
         } else {
           return false;
