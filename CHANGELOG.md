@@ -10,8 +10,8 @@
 - updated dart to a minimum version of 3.7.0
 - included image, intl and coordinate_converter packages
 - applied a list of coding best practices through lint rules to code
-- added/edited a bunch of comments and changed unnecessary print() to log() for debugging
-- Divided code in stepts through comments and included steps in output for readability, debuggability and to make it easier to follow the code
+- added/edited a bunch of comments and changed unnecessary print() to log() for debugging and a better user experience
+- Divided code in steps through comments and included steps in output for readability, debuggability and to make it easier to follow the code
 - checked TODOs in README.md
 - Added TODOs to look into in code through //TODO comments
 - moved json_extractor file into date_extractor folder
@@ -20,19 +20,22 @@
 - renamed some variables/functions to better reflect their purpose
 - moved step 8 (update creation time) before final output
 - added output how often DateTime and Coordinates have been written in EXIF at the final output
-- changed that tests data will be created in test subfolder instead of project root directory
-- moved from the stale "exif" package to the exif_reader package which is a maintained fork of the exif package
+- changed that test data will be created in test subfolder instead of project root directory
 
 #### Bug fixes
 
 - fixed existing unit tests which would fail on windows
 
-#### Support for writing coordinates and DateTime to EXIF
+#### Added functionality
 
-- Added new CLI option "--write-exif".
-- When enabled, the script will check if the associated json of any given file contains coordinates and if the file does not yet have them in its EXIF data, the script will add them.
-- When enabled, the cript will check if a DateTime has been extracted from any of the given extraction methods and if the file has no EXIF DateTime set, it will add the DateTime to the EXIF data 'DateTime', 'DateTimeOriginal'and 'DateTimeDigitized'.
-- Currently supported file types are in theory JPG, PNG, Animated APNG, GIF, Animated GIF, BMP, TIFF, TGA, PVR and ICO (based on pub package Image 4.5.4). Howver only jpg and jpeg are confirmed to work. Others might work or will silently fail without problems.
+- Support for writing coordinates and DateTime to EXIF
+  - Added new CLI option "--write-exif".
+  - When enabled, the script will check if the associated json of any given file contains coordinates and if the file does not yet have them in its EXIF data, the script will add them.
+  - When enabled, the cript will check if a DateTime has been extracted from any of the given extraction methods and if the file has no EXIF DateTime set, it will add the DateTime to the EXIF data 'DateTime', 'DateTimeOriginal'and 'DateTimeDigitized'.
+  - Currently supported file types are in theory JPG, PNG, Animated APNG, GIF, Animated GIF, BMP, TIFF, TGA, PVR and ICO (based on pub package Image 4.5.4). Howver only jpg and jpeg are confirmed to work. Others might work or will silently fail without problems.
+
+- Moved from the stale "exif" package to the exif_reader package which is a maintained fork of the exif package
+  - This adds support for extracting DateTime from JXL (JPEG XL), ARW, RAW, DNG, CRW, CR3, NRW, NEF and RAF files
 
   
 ##### *Previous fixes and improvement (from 3.4.3-wacheee to 3.7.0-wacheee)*
@@ -53,9 +56,9 @@
 ##### *Limitations:*
 - *if album mode is set to duplicate-copy, it will move the album photos to the album folder (as usual), but ALL_PHOTOS will not contain them if the media is not in a year album.*
 - *it does not fix issues related to reading JSON files (if necessary) for Motion Photo files; however, if the dates are included in the file name (as with Pixel Motion Photos), the correct dates will be established.*
-- *writing exif to png files does not work. Other file types may or may notz work (only jpg and jpeg are confirmed working). If it doesn't work, it will just fail silently and continue. So it's okay.
-- *No interactive mode for setting write-exif argument
-- *No interactive unzipping
+- *writing exif to png files does not work. Other file types may or may not work (only jpg and jpeg are confirmed working). If it doesn't work, it will just fail silently and continue. So it's okay.*
+- *No interactive mode for setting write-exif argument*
+- *No interactive unzipping*
 
 ## 3.6.2-wacheee
 

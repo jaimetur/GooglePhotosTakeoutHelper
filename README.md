@@ -138,3 +138,4 @@ Yeah, the whole thing got re-written in Dart, and now it's way more stable and f
 - [x] Some way to handle albums - THANK YOU @bitsondatadev 😘 🎉 💃
 - [ ] Bringing back interactive unzipping
 - [ ] Integrating upload to Nextcloud
+- [ ] Add extractor for CR2 and .MOV file types
