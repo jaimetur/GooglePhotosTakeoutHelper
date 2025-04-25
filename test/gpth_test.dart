@@ -441,6 +441,40 @@ AQACEQMRAD8AIcgXf//Z''';
     tearDown(() async => output.delete(recursive: true));
   });
 
+group('isSupportedToWriteToExif', () {
+    test('returns true for supported file formats', () {
+      final supportedFiles = [
+        File('test.jpg'),
+        File('test.jpeg'),
+        File('test.png'),
+        File('test.gif'),
+        File('test.bmp'),
+        File('test.tiff'),
+        File('test.tga'),
+        File('test.pvr'),
+        File('test.ico'),
+      ];
+
+      for (final file in supportedFiles) {
+        expect(isSupportedToWriteToExif(file), isTrue);
+      }
+    });
+
+    test('returns false for unsupported file formats', () {
+      final unsupportedFiles = [
+        File('test.txt'),
+        File('test.pdf'),
+        File('test.docx'),
+        File('test.mp4'),
+        File('test.json')
+      ];
+
+      for (final file in unsupportedFiles) {
+        expect(isSupportedToWriteToExif(file), isFalse);
+      }
+    });
+  });
+
   group('writeGpsToExif', () {
     late File testImage;
     late DMSCoordinates testCoordinates;

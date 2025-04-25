@@ -1,58 +1,59 @@
 import 'dart:developer' show log;
 import 'dart:io';
 import 'dart:typed_data';
-
 import 'package:coordinate_converter/coordinate_converter.dart';
 import 'package:exif/exif.dart';
 import 'package:image/image.dart';
 import 'package:intl/intl.dart';
-import 'package:mime/mime.dart';
-
+import 'package:path/path.dart' as p;
 import 'date_extractors/date_extractor.dart';
 
 //Check if it is a supported file format by the Image library to write to EXIF.
 //Currently supported formats are: JPG, PNG/Animated APNG, GIF/Animated GIF, BMP, TIFF, TGA, PVR, ICO (as of Image 4.5.4)
 bool isSupportedToWriteToExif(final File file) {
-  final String? mimetype = lookupMimeType(file.path);
-  if (mimetype != null) {
-    final String? extension = extensionFromMime(mimetype);
+  final String extension = p.extension(file.path).toLowerCase();
 
-    switch (extension) {
-      case 'jpg':
-        return true;
-      case 'jpeg':
-        return true;
-      case 'png':
-        return true;
-      case 'gif':
-        return true;
-      case 'bmp':
-        return true;
-      case 'tiff':
-        return true;
-      case 'tga':
-        return true;
-      case 'pvr':
-        return true;
-      case 'ico':
-        return true;
-      default:
-        return false;
-    }
+  switch (extension) {
+    case '.jpg':
+      return true;
+    case '.jpeg':
+      return true;
+    case '.png':
+      return true;
+    case '.gif':
+      return true;
+    case '.bmp':
+      return true;
+    case '.tiff':
+      return true;
+    case '.tga':
+      return true;
+    case '.pvr':
+      return true;
+    case '.ico':
+      return true;
+    default:
+      return false;
   }
-  return false;
 }
 
-Future<bool> writeDateTimeToExif(final DateTime dateTime, final File file) async {
+Future<bool> writeDateTimeToExif(
+  final DateTime dateTime,
+  final File file,
+) async {
   //Check if the file format supports writing to exif
   if (isSupportedToWriteToExif(file)) {
     //Check if the file already has EXIF exif data. If function returns a DateTime, skip.
     if (await exifDateTimeExtractor(file) == null) {
-      log('[Step 5/8] Found DateTime in json, but missing in EXIF for file: ${file.path}');
+      log(
+        '[Step 5/8] Found DateTime in json, but missing in EXIF for file: ${file.path}',
+      );
       Image? image;
       try {
         image = decodeNamedImage(
-            file.path, file.readAsBytesSync()); //Decode the image
+          file.path,
+          file.readAsBytesSync(),
+        ); //Decode the image
       } catch (e) {
         return false; // Ignoring errors during image decoding as it may not be a valid image file
       }
@@ -61,8 +62,10 @@ Future<bool> writeDateTimeToExif(final DateTime dateTime, final File file) async
         image.exif.imageIfd['DateTime'] = exifFormat.format(dateTime);
         image.exif.exifIfd['DateTimeOriginal'] = exifFormat.format(dateTime);
         image.exif.exifIfd['DateTimeDigitized'] = exifFormat.format(dateTime);
-        final Uint8List? newbytes = encodeNamedImage(file.path,
-            image); //This overwrites the original file with the new Exif data.
+        final Uint8List? newbytes = encodeNamedImage(
+          file.path,
+          image,
+        ); //This overwrites the original file with the new Exif data.
         if (newbytes != null) {
           file.writeAsBytesSync(newbytes);
           log('[Step 5/8] New DateTime written to EXIF: ${file.path}');
@@ -76,18 +79,27 @@ Future<bool> writeDateTimeToExif(final DateTime dateTime, final File file) async
   return false;
 }
 
-Future<bool> writeGpsToExif(final DMSCoordinates coordinates, final File file) async {
+Future<bool> writeGpsToExif(
+  final DMSCoordinates coordinates,
+  final File file,
+) async {
   //Check if the file format supports writing to exif
   if (isSupportedToWriteToExif(file)) {
     //Check if the file already has EXIF data and if yes, skip.
-    final bool filehasExifCoordinates = await checkIfFileHasExifCoordinates(file);
+    final bool filehasExifCoordinates = await checkIfFileHasExifCoordinates(
+      file,
+    );
     if (!filehasExifCoordinates) {
-       log('[Step 5/8] Found coordinates in json, but missing in EXIF for file: ${file.path}');
-       // This is an edgecase where the json file has coordinates but the image file doesn't have EXIF data.
+      log(
+        '[Step 5/8] Found coordinates in json, but missing in EXIF for file: ${file.path}',
+      );
+      // This is an edgecase where the json file has coordinates but the image file doesn't have EXIF data.
       Image? image;
       try {
         image = decodeNamedImage(
-            file.path, file.readAsBytesSync()); //Decode the image TODO Fix: doesn't work for png files but for jpg and jpeg.
+          file.path,
+          file.readAsBytesSync(),
+        ); //Decode the image TODO Fix: doesn't work for png files but for jpg and jpeg.
       } catch (e) {
         return false; // Ignoring errors during image decoding. Currently happens for png files.
       }
@@ -98,8 +110,10 @@ Future<bool> writeGpsToExif(final DMSCoordinates coordinates, final File file) a
             coordinates.latDirection.abbreviation;
         image.exif.gpsIfd.gpsLongitudeRef =
             coordinates.longDirection.abbreviation;
-        final Uint8List? newbytes = encodeNamedImage(file.path,
-            image); //This overwrites the original file with the new Exif data.
+        final Uint8List? newbytes = encodeNamedImage(
+          file.path,
+          image,
+        ); //This overwrites the original file with the new Exif data.
         if (newbytes != null) {
           file.writeAsBytesSync(newbytes);
           log('[Step 5/8] New coordinates written to EXIF: ${file.path}');
