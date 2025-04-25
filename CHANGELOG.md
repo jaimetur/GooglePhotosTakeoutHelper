@@ -1,4 +1,4 @@
-## 3.7.0-wacheee (by Xentraxx)
+## 4.0.0-wacheee (by Xentraxx)
 
 ### Fork/Alternate version 
 
@@ -47,7 +47,7 @@
   - ffprobe needs to be in $PATH variable. If not, that's okay. But if you have ffprobe locally, Google Photos Takeout Helper now supports reading CreatedDateTime exif data from a variety of video file formats.
 
   
-##### *Previous fixes and improvement (from 3.4.3-wacheee to 3.7.0-wacheee)*
+##### *Previous fixes and improvement (from 3.4.3-wacheee to 4.0.0-wacheee)*
 - *added macOS executables supporting both ARM64 and Intel architectures https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/issues/310 https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/issues/396#issuecomment-2787459117*
 - *fixed an exception when using GPTH with command-line arguments https://github.com/Wacheee/GooglePhotosTakeoutHelper/issues/5 https://github.com/Wacheee/GooglePhotosTakeoutHelper/issues/8*
 - *the "fix JSON metadata files" option can now be configured using command-line arguments https://github.com/Wacheee/GooglePhotosTakeoutHelper/issues/7 https://github.com/Wacheee/GooglePhotosTakeoutHelper/issues/9*

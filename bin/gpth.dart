@@ -1,7 +1,5 @@
 import 'dart:developer';
-import 'dart:ffi';
 import 'dart:io';
-
 import 'package:args/args.dart';
 import 'package:console_bars/console_bars.dart';
 import 'package:coordinate_converter/src/models/dms_coordinates_model.dart';
