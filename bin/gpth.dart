@@ -557,14 +557,15 @@ void main(final List<String> arguments) async {
 
   print('=' * barWidth);
   print('DONE! FREEEEEDOOOOM!!!');
-  if (countDuplicates > 0) print('Skipped $countDuplicates duplicates');
-  if (exifccounter > 0) print('Set coordinates for $exifccounter files in EXIF data');
-  if (exifdtcounter > 0) print('Set date for $exifdtcounter files in EXIF data');
-  if (args['skip-extras']) print('Skipped $countExtras extras');
+  print('Some statistics for the archivement hunters:');
+  if (countDuplicates > 0) print('$countDuplicates duplicates were found and skipped');
+  if (exifccounter > 0) print('$exifccounter files their coordinates set in EXIF data (from json)');
+  if (exifdtcounter > 0) print('$exifdtcounter got their DateTime set in EXIF data');
+  if (args['skip-extras']) print('$countExtras extras were skipped');
   final int countPoop =
       media.where((final Media e) => e.dateTaken == null).length;
   if (countPoop > 0) {
-    print("Couldn't find date for $countPoop photos/videos :/");
+    print('For $countPoop photos/videos we were unable to find any DateTime :/');
   }
 
   print(
