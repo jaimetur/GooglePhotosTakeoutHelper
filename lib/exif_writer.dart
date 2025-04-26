@@ -45,9 +45,6 @@ Future<bool> writeDateTimeToExif(
   if (isSupportedToWriteToExif(file)) {
     //Check if the file already has EXIF exif data. If function returns a DateTime, skip.
     if (await exifDateTimeExtractor(file) == null) {
-      log(
-        '[Step 5/8] Found DateTime in json, but missing in EXIF for file: ${file.path}',
-      );
       Image? image;
       try {
         image = decodeNamedImage(
@@ -55,6 +52,7 @@ Future<bool> writeDateTimeToExif(
           file.readAsBytesSync(),
         ); //Decode the image
       } catch (e) {
+        log('[Step 5/8] [Error] Found DateTime in json, but missing in EXIF for file: ${file.path}. Failed to write because of error during decoding: $e',);
         return false; // Ignoring errors during image decoding as it may not be a valid image file
       }
       if (image != null && image.hasExif) {
@@ -68,9 +66,10 @@ Future<bool> writeDateTimeToExif(
         ); //This overwrites the original file with the new Exif data.
         if (newbytes != null) {
           file.writeAsBytesSync(newbytes);
-          log('[Step 5/8] New DateTime written to EXIF: ${file.path}');
+          log('[Step 5/8] [Info] New DateTime written ${dateTime.toString()} to EXIF: ${file.path}');
           return true;
         } else {
+          log('[Step 5/8] [Error] Found DateTime in json, but missing in EXIF for file: ${file.path}. Failed to write because encoding returned null');
           return false; // Failed to encode image while writing DateTime.
         }
       }
@@ -91,7 +90,7 @@ Future<bool> writeGpsToExif(
     );
     if (!filehasExifCoordinates) {
       log(
-        '[Step 5/8] Found coordinates in json, but missing in EXIF for file: ${file.path}',
+        '[Step 5/8] [Info] Found coordinates in json, but missing in EXIF for file: ${file.path}',
       );
       // This is an edgecase where the json file has coordinates but the image file doesn't have EXIF data.
       Image? image;
@@ -99,8 +98,9 @@ Future<bool> writeGpsToExif(
         image = decodeNamedImage(
           file.path,
           file.readAsBytesSync(),
-        ); //Decode the image TODO Fix: doesn't work for png files but for jpg and jpeg.
+        ); //FIXME image decoding doesn't work for png files but only for jpg and jpeg.
       } catch (e) {
+        log('[Step 5/8] [Error] Could not decode: ${file.path}. Failed with error: $e');
         return false; // Ignoring errors during image decoding. Currently happens for png files.
       }
       if (image != null && image.hasExif) {
@@ -116,7 +116,7 @@ Future<bool> writeGpsToExif(
         ); //This overwrites the original file with the new Exif data.
         if (newbytes != null) {
           file.writeAsBytesSync(newbytes);
-          log('[Step 5/8] New coordinates written to EXIF: ${file.path}');
+          log('[Step 5/8] [Info] New coordinates written to EXIF: ${file.path}');
           return true;
         } else {
           return false;

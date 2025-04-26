@@ -130,7 +130,7 @@ void main(final List<String> arguments) async {
     ..addFlag('write-exif',
         help:
             'Writes Geo data from json files and the extracted DateTime to EXIF\n'
-            'only confirmed to work on jpg and jpeg'); //TODO Update when EXIF-write is fixed for png files
+            'only confirmed to work on jpg and jpeg'); //FIXME Update when EXIF-write is fixed for png files
   final Map<String, dynamic> args = <String, dynamic>{};
   try {
     final ArgResults res = parser.parse(arguments);
@@ -413,7 +413,7 @@ void main(final List<String> arguments) async {
     }
     if (media[i].dateTaken == null) {
       // only visible in debug mode. Normal user does not care about this. Just high level about the number at the end.
-      log("\n[Step 4/8] Couldn't get date with any extractor on ${media[i].firstFile.path}");
+      log("\n[Step 4/8] [Info] Couldn't get date with any extractor on ${media[i].firstFile.path}");
     }
   }
   print('');
@@ -427,8 +427,8 @@ void main(final List<String> arguments) async {
   // This is done after the dates of files have been defined, because here we have to write the files to disk again and before
   // the files are moved to the output folder, to avoid shortcuts/symlinks problems.
 
-  int exifccounter = 0; //Counter for coordinates in EXIF data set
-  int exifdtcounter = 0;
+  int exifccounter = 0; //Counter for coordinates set in EXIF
+  int exifdtcounter = 0; //Counter for DateTime set in EXIF
   if (args['write-exif']) {
     final FillingBar barJsonToExifExtractor = FillingBar(
       total: media.length,

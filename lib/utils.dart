@@ -178,15 +178,15 @@ Future<void> renameIncorrectJsonFiles(final Directory directory) async {
 
           // Verify if the file renamed already exists
           if (await newFile.exists()) {
-            log('[Step 1/8] [Skipped]: $newPath already exists');
+            log('[Step 1/8] [Info] Skipped renaming of json because it already exists: $newPath');
           } else {
             try {
               await entity.rename(newPath);
               renamedCount++;
-              log('[Step 1/8] [Renamed]: ${entity.path} -> $newPath');
+              log('[Step 1/8] [Info] Renamed: ${entity.path} -> $newPath');
             } on FileSystemException catch (e) {
               print(
-                '[Step 1/8] [Error]: While renaming ${entity.path}: ${e.message}',
+                '[Step 1/8] [Error]: While renaming json ${entity.path}: ${e.message}',
               );
             }
           }

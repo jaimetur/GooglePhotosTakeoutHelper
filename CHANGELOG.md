@@ -6,14 +6,14 @@
 
 #### Tl;dr
 
-- Added support for reading exif data from JXL (JPEG XL), ARW, RAW, DNG, CRW, CR3, NRW, NEF and RAF files
-- Added a "--write-exif" flag which will write missing exif information (coordinates and DateTime) from json to exif for jpg and jpeg files
+- Added support for reading EXIF data from JXL (JPEG XL), ARW, RAW, DNG, CRW, CR3, NRW, NEF and RAF files
+- Added a "--write-exif" flag which will write missing EXIF information (coordinates and DateTime) from json to EXIF for jpg and jpeg files
 - Added support to get DateTime from .MOV, .MP4 and probably many other video formats through ffprobe. You need to download it yourself (e.g. from here: https://ffbinaries.com/downloads) and make sure the folder you keep it in is in your $PATH variable.
 
 #### General improvements
 
 - upgraded dependencies and fixed breaking changes
-- updated dart to a minimum version of 3.7.0
+- updated dart to a minimum version of 3.7.0 pf the dart SDK
 - included image, intl and coordinate_converter packages
 - applied a list of coding best practices through lint rules to code
 - added/edited a bunch of comments and changed unnecessary print() to log() for debugging and a better user experience
@@ -44,7 +44,7 @@
   - This adds support for extracting DateTime from JXL (JPEG XL), ARW, RAW, DNG, CRW, CR3, NRW, NEF and RAF files
 
 - Added the ffmpeg_cli package and logic to attempt to extract exif data from videos using ffprobe.
-  - ffprobe needs to be in $PATH variable. If not, that's okay. But if you have ffprobe locally, Google Photos Takeout Helper now supports reading CreatedDateTime exif data from a variety of video file formats.
+  - ffprobe needs to be in $PATH variable. If not, that's okay. But if you have ffprobe locally, Google Photos Takeout Helper now supports reading CreatedDateTime EXIF data from a variety of video file formats.
 
   
 ##### *Previous fixes and improvement (from 3.4.3-wacheee to 4.0.0-wacheee)*
@@ -66,7 +66,7 @@
 - *if album mode is set to duplicate-copy, it will move the album photos to the album folder (as usual), but ALL_PHOTOS will not contain them if the media is not in a year album.*
 - *it does not fix issues related to reading JSON files (if necessary) for Motion Photo files; however, if the dates are included in the file name (as with Pixel Motion Photos), the correct dates will be established.*
 - *writing exif to png files does not work. Other file types may or may not work (only jpg and jpeg are confirmed working). If it doesn't work, it will just fail silently and continue. So it's okay.*
-- *No interactive mode for setting write-exif argument*
+- *No interactive mode for setting write-exif flag*
 - *No interactive unzipping*
 
 ## 3.6.2-wacheee
