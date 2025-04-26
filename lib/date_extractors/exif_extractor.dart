@@ -34,7 +34,7 @@ Future<DateTime?> exifDateTimeExtractor(final File file) async {
           videoCreationString,
         );
         log(
-          '[Step 4/8] Extracted DateTime from EXIF through ffprobe for ${file.path}',
+          '[Step 4/8] [Info] Extracted DateTime from EXIF through ffprobe for ${file.path}',
         );
         return videoCreationDateTime;
       }

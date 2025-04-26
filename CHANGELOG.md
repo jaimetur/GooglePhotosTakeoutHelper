@@ -13,7 +13,7 @@
 #### General improvements
 
 - upgraded dependencies and fixed breaking changes
-- updated dart to a minimum version of 3.7.0 pf the dart SDK
+- updated dart to a minimum version of 3.7.0 of the dart SDK
 - included image, intl and coordinate_converter packages
 - applied a list of coding best practices through lint rules to code
 - added/edited a bunch of comments and changed unnecessary print() to log() for debugging and a better user experience
@@ -27,6 +27,7 @@
 - moved step 8 (update creation time) before final output
 - added output how often DateTime and Coordinates have been written in EXIF at the final output
 - changed that test data will be created in test subfolder instead of project root directory
+- Added consistent log levels to log output to quickly differenciate between informational and error logs
 
 #### Bug fixes
 
@@ -68,6 +69,7 @@
 - *writing exif to png files does not work. Other file types may or may not work (only jpg and jpeg are confirmed working). If it doesn't work, it will just fail silently and continue. So it's okay.*
 - *No interactive mode for setting write-exif flag*
 - *No interactive unzipping*
+- *['The hardcoded maximum file size'](https://github.com/brendan-duncan/image/issues/457#issuecomment-1423923998) limits functionality to read DateTime from exif data to image and video! files smaller than 64 MB*
 
 ## 3.6.2-wacheee
 
