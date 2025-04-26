@@ -1,5 +1,7 @@
 /// This file contains logic/utils for final act of moving actual files once
 /// we have everything grouped, de-duplicated and sorted
+// ignore_for_file: prefer_single_quotes
+
 library;
 
 import 'dart:convert';
@@ -49,10 +51,10 @@ Future<File> createShortcut(final Directory location, final File target) async {
           '-NonInteractive',
           '-NoProfile',
           '-Command',
-          '\$ws = New-Object -ComObject WScript.Shell; ',
-          '\$s = \$ws.CreateShortcut(\'${link.path}\'); ',
-          '\$s.TargetPath = \'$targetPath\'; ',
-          '\$s.Save()',
+          "\$ws = New-Object -ComObject WScript.Shell; ",
+          "\$s = \$ws.CreateShortcut(\"${link.path}\"); ",
+          "\$s.TargetPath = \"$targetPath\"; ",
+          "\$s.Save()",
         ],
       );
       if (res.exitCode != 0) {

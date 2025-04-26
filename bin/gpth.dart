@@ -73,65 +73,85 @@ const int barWidth = 40;
 /// This is the main function that will be run when user runs gpth
 
 void main(final List<String> arguments) async {
-  final ArgParser parser = ArgParser()
-    ..addFlag('help', abbr: 'h', negatable: false)
-    ..addOption(
-      'fix',
-      help: 'Folder with any photos to fix dates. \n'
-          'This skips whole "GoogleTakeout" procedure. \n'
-          'It is here because gpth has some cool heuristics to determine date \n'
-          'of a photo, and this can be handy in many situations :)\n',
-    )
-    ..addFlag('interactive',
-        help: 'Use interactive mode. Type this in case auto-detection fails, \n'
-            'or you *really* want to combine advanced options with prompts\n')
-    ..addOption('input',
-        abbr: 'i',
-        help: 'Input folder with *all* takeouts *extracted*.\n'
-            '(The folder your "Takeout" folder is within)\n')
-    ..addOption('output',
-        abbr: 'o', help: 'Output folder where all photos will land\n')
-    ..addOption(
-      'albums',
-      help: 'What to do about albums?',
-      allowed: interactive.albumOptions.keys,
-      allowedHelp: interactive.albumOptions,
-      defaultsTo: 'shortcut',
-    )
-    ..addOption(
-      'divide-to-dates',
-      help: 'Divide output to folders by nothing/year/month/day\n',
-      allowed: <String>['0', '1', '2', '3'],
-      defaultsTo: '0',
-    )
-    ..addFlag('skip-extras', help: 'Skip extra images (like -edited etc)\n')
-    ..addFlag(
-      'guess-from-name',
-      help: 'Try to guess file dates from their names\n',
-      defaultsTo: true,
-    )
-    ..addFlag(
-      'copy',
-      help: 'Copy files instead of moving them.\n'
-          'This is usually slower, and uses extra space, \n'
-          "but doesn't break your input folder\n",
-    )
-    ..addFlag(
-      'modify-json',
-      help: 'Delete the "supplemental-metadata" suffix from \n'
-          '.json files to ensure that script works correctly\n',
-      defaultsTo: true,
-    )
-    ..addFlag('transform-pixel-mp',
-        help: 'Transform Pixel .MP or .MV extensions to ".mp4"\n')
-    ..addFlag('update-creation-time',
-        help: 'Set creation time equal to the last \n'
-            'modification date at the end of the program. \n'
-            'Only Windows supported\n')
-    ..addFlag('write-exif',
-        help:
-            'Writes geodata from json files and the extracted DateTime to EXIF\n'
-            'only confirmed to work on jpg and jpeg'); //FIXME Update when EXIF-write is fixed for png files
+  final ArgParser parser =
+      ArgParser()
+        ..addFlag('help', abbr: 'h', negatable: false)
+        ..addOption(
+          'fix',
+          help:
+              'Folder with any photos to fix dates. \n'
+              'This skips whole "GoogleTakeout" procedure. \n'
+              'It is here because gpth has some cool heuristics to determine date \n'
+              'of a photo, and this can be handy in many situations :)\n',
+        )
+        ..addFlag(
+          'interactive',
+          help:
+              'Use interactive mode. Type this in case auto-detection fails, \n'
+              'or you *really* want to combine advanced options with prompts\n',
+        )
+        ..addOption(
+          'input',
+          abbr: 'i',
+          help:
+              'Input folder with *all* takeouts *extracted*.\n'
+              '(The folder your "Takeout" folder is within)\n',
+        )
+        ..addOption(
+          'output',
+          abbr: 'o',
+          help: 'Output folder where all photos will land\n',
+        )
+        ..addOption(
+          'albums',
+          help: 'What to do about albums?',
+          allowed: interactive.albumOptions.keys,
+          allowedHelp: interactive.albumOptions,
+          defaultsTo: 'shortcut',
+        )
+        ..addOption(
+          'divide-to-dates',
+          help: 'Divide output to folders by nothing/year/month/day\n',
+          allowed: <String>['0', '1', '2', '3'],
+          defaultsTo: '0',
+        )
+        ..addFlag('skip-extras', help: 'Skip extra images (like -edited etc)\n')
+        ..addFlag(
+          'guess-from-name',
+          help: 'Try to guess file dates from their names\n',
+          defaultsTo: true,
+        )
+        ..addFlag(
+          'copy',
+          help:
+              'Copy files instead of moving them.\n'
+              'This is usually slower, and uses extra space, \n'
+              "but doesn't break your input folder\n",
+        )
+        ..addFlag(
+          'modify-json',
+          help:
+              'Delete the "supplemental-metadata" suffix from \n'
+              '.json files to ensure that script works correctly\n',
+          defaultsTo: true,
+        )
+        ..addFlag(
+          'transform-pixel-mp',
+          help: 'Transform Pixel .MP or .MV extensions to ".mp4"\n',
+        )
+        ..addFlag(
+          'update-creation-time',
+          help:
+              'Set creation time equal to the last \n'
+              'modification date at the end of the program. \n'
+              'Only Windows supported\n',
+        )
+        ..addFlag(
+          'write-exif',
+          help:
+              'Writes geodata from json files and the extracted DateTime to EXIF\n'
+              'only confirmed to work on jpg and jpeg',
+        ); //FIXME Update when EXIF-write is fixed for png files
   final Map<String, dynamic> args = <String, dynamic>{};
   try {
     final ArgResults res = parser.parse(arguments);
@@ -169,9 +189,11 @@ void main(final List<String> arguments) async {
     try {
       inDir = await interactive.getInputDir();
     } catch (e) {
-      print('Hmm, interactive selecting input dir crashed... \n'
-          "it looks like you're running in headless/on Synology/NAS...\n"
-          "If so, you have to use cli options - run 'gpth --help' to see them");
+      print(
+        'Hmm, interactive selecting input dir crashed... \n'
+        "it looks like you're running in headless/on Synology/NAS...\n"
+        "If so, you have to use cli options - run 'gpth --help' to see them",
+      );
       exit(69);
     }
     print('');
@@ -281,15 +303,18 @@ void main(final List<String> arguments) async {
       !await output
           .list()
           // allow input folder to be inside output
-          .where((final FileSystemEntity e) =>
-              p.absolute(e.path) != p.absolute(args['input']))
+          .where(
+            (final FileSystemEntity e) =>
+                p.absolute(e.path) != p.absolute(args['input']),
+          )
           .isEmpty) {
     if (await interactive.askForCleanOutput()) {
-      await for (final FileSystemEntity file in output
-          .list()
-          // delete everything except input folder if there
-          .where((final FileSystemEntity e) =>
-              p.absolute(e.path) != p.absolute(args['input']))) {
+      await for (final FileSystemEntity file in output.list()
+      // delete everything except input folder if there
+      .where(
+        (final FileSystemEntity e) =>
+            p.absolute(e.path) != p.absolute(args['input']),
+      )) {
         await file.delete(recursive: true);
       }
     }
@@ -316,7 +341,8 @@ void main(final List<String> arguments) async {
   /// ##### Fixing JSON files (if needed) ##########################
   if (args['modify-json']) {
     print(
-        '[Step 1/8] Fixing JSON files. Removing suffix (this may take some time)...');
+      '[Step 1/8] Fixing JSON files. Removing suffix (this may take some time)...',
+    );
     await renameIncorrectJsonFiles(input);
   }
 
@@ -414,7 +440,9 @@ void main(final List<String> arguments) async {
     }
     if (media[i].dateTaken == null) {
       // only visible in debug mode. Normal user does not care about this. Just high level about the number at the end.
-      log("\n[Step 4/8] [Info] Couldn't get date with any extractor on ${media[i].firstFile.path}");
+      log(
+        "\n[Step 4/8] [Info] Couldn't get date with any extractor on ${media[i].firstFile.path}",
+      );
     }
   }
   print('');
@@ -441,8 +469,9 @@ void main(final List<String> arguments) async {
     for (int i = 0; i < media.length; i++) {
       final File currentFile = media[i].firstFile;
 
-      final DMSCoordinates? coords =
-          await jsonCoordinatesExtractor(currentFile);
+      final DMSCoordinates? coords = await jsonCoordinatesExtractor(
+        currentFile,
+      );
       if (coords != null) {
         //If coordinates were found in json, write them to exif
         if (await writeGpsToExif(coords, currentFile)) {
@@ -460,8 +489,7 @@ void main(final List<String> arguments) async {
     }
     print('');
   } else {
-    print(
-        '[Step 5/8] Skipping writing data to EXIF.');
+    print('[Step 5/8] Skipping writing data to EXIF.');
   }
 
   /// ##############################################################
@@ -474,7 +502,8 @@ void main(final List<String> arguments) async {
   // be broken in shithole of big-ass year folders
 
   print(
-      '[Step 6/8] Finding albums (this may take some time, dont worry :) ...');
+    '[Step 6/8] Finding albums (this may take some time, dont worry :) ...',
+  );
   findAlbums(media);
 
   /// ##############################################################
@@ -484,7 +513,8 @@ void main(final List<String> arguments) async {
   // the files are moved to the output folder, to avoid shortcuts/symlinks problems
   if (args['transform-pixel-mp']) {
     print(
-        '[Step 6/8] Changing .MP or .MV extensions to .mp4 (this may take some time) ...');
+      '[Step 6/8] Changing .MP or .MV extensions to .mp4 (this may take some time) ...',
+    );
     await changeMPExtensions(media, '.mp4');
   } else {
     print('[Step 6/8] Skipped changing .MP or .MV extensions to .mp4');
@@ -517,19 +547,20 @@ void main(final List<String> arguments) async {
   final FillingBar barCopy = FillingBar(
     total: outputFileCount(media, args['albums']),
     desc:
-        "[Step 7/8] ${args['copy'] ? 'Copying' : 'Moving'} photos to output folder",
+        "[Step 7/8] ${args['copy'] ? 'Copying' : 'Moving'} media to output folder",
     width: barWidth,
   );
   await moveFiles(
     media,
     output,
     copy: args['copy'],
-    divideToDates: args['divide-to-dates'] is num
-        ? args['divide-to-dates']
-        : num.parse(args['divide-to-dates']),
+    divideToDates:
+        args['divide-to-dates'] is num
+            ? args['divide-to-dates']
+            : num.parse(args['divide-to-dates']),
     albumBehavior: args['albums'],
   ).listen((final _) => barCopy.increment()).asFuture();
-  print('[Step 7/8] Done moving/copying files!');
+  print('[Step 7/8] Done moving/copying media!');
 
   // @Deprecated('Interactive unzipping is suspended for now!')
   // // remove unzipped folder if was created
@@ -544,7 +575,8 @@ void main(final List<String> arguments) async {
 
   if (args['update-creation-time']) {
     print(
-        '[Step 8/8] Updating creation time of files to match their modified time in output folder ...');
+      '[Step 8/8] Updating creation time of media files to match their modified time in output folder ...',
+    );
     await updateCreationTimeRecursively(output);
     print('');
     print('=' * barWidth);
@@ -555,18 +587,36 @@ void main(final List<String> arguments) async {
 
   /// ##############################################################
   /// ################# END ########################################
+  /// Now just the last message ofthe program, just displaying some stats so you have an overview of what happened.
+  /// Also helps with testing because you can run a diverse and large dataset with the same options through a new version and expect the same (or better) stats.
+  /// If they got worse, you did smth wrong.
 
   print('=' * barWidth);
   print('DONE! FREEEEEDOOOOM!!!');
-  print('Some statistics for the archivement hunters:');
-  if (countDuplicates > 0) print('$countDuplicates duplicates were found and skipped');
-  if (exifccounter > 0) print('$exifccounter files their coordinates set in EXIF data (from json)');
-  if (exifdtcounter > 0) print('$exifdtcounter got their DateTime set in EXIF data');
+  print('Some statistics for the archievement hunters:');
+  //This check will print an error if no stats are available.
+  if (countDuplicates > 0 &&
+      exifccounter > 0 &&
+      exifdtcounter > 0 &&
+      args['skip-extras']) {
+    print('Error! No stats available (This is weird!)');
+  }
+  if (countDuplicates > 0) {
+    print('$countDuplicates duplicates were found and skipped');
+  }
+  if (exifccounter > 0) {
+    print('$exifccounter files their coordinates set in EXIF data (from json)');
+  }
+  if (exifdtcounter > 0) {
+    print('$exifdtcounter got their DateTime set in EXIF data');
+  }
   if (args['skip-extras']) print('$countExtras extras were skipped');
   final int countPoop =
       media.where((final Media e) => e.dateTaken == null).length;
   if (countPoop > 0) {
-    print('For $countPoop photos/videos we were unable to find any DateTime :/');
+    print(
+      'For $countPoop photos/videos we were unable to find any DateTime :/',
+    );
   }
 
   print(

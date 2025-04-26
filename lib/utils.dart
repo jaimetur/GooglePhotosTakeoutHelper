@@ -177,7 +177,9 @@ Future<void> renameIncorrectJsonFiles(final Directory directory) async {
 
           // Verify if the file renamed already exists
           if (await newFile.exists()) {
-            log('[Step 1/8] [Info] Skipped renaming of json because it already exists: $newPath');
+            log(
+              '[Step 1/8] [Info] Skipped renaming of json because it already exists: $newPath',
+            );
           } else {
             try {
               await entity.rename(newPath);
@@ -311,63 +313,27 @@ Future<bool> _executePShellCreationTimeCmd(final String commandChunk) async {
 }
 
 void createShortcutWin(final String shortcutPath, final String targetPath) {
-  Pointer<COMObject>? shellLink;
-  Pointer<COMObject>? persistFile;
-  Pointer<Utf16>? shortcutPathPtr;
-  try {
-    // Initialize the COM library on the current thread
-    final int hrInit = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
-    if (FAILED(hrInit)) {
-      throw Exception('Error initializing COM: $hrInit');
-    }
-
-    shellLink = calloc<COMObject>();
-
-    // Create IShellLink instance
-    final int hr = CoCreateInstance(
-      GUIDFromString(CLSID_ShellLink).cast<GUID>(),
-      nullptr,
-      CLSCTX_INPROC_SERVER,
-      GUIDFromString(IID_IShellLink).cast<GUID>(),
-      shellLink.cast(),
-    );
-
-    if (FAILED(hr)) {
-      throw Exception('Error creating IShellLink instance: $hr');
-    }
-
-    final IShellLink shellLinkPtr = IShellLink(shellLink);
-    shellLinkPtr.setPath(targetPath.toNativeUtf16().cast());
-
-    // Saving shortcut
-    persistFile = calloc<COMObject>();
-    final int hrPersistFile = shellLinkPtr.queryInterface(
-      GUIDFromString(IID_IPersistFile).cast<GUID>(),
-      persistFile.cast(),
-    );
-    if (FAILED(hrPersistFile)) {
-      throw Exception('Error obtaining IPersistFile: $hrPersistFile');
-    }
-    final IPersistFile persistFilePtr = IPersistFile(persistFile);
-    shortcutPathPtr = shortcutPath.toNativeUtf16();
-    final int hrSave = persistFilePtr.save(shortcutPathPtr.cast(), TRUE);
-
-    if (FAILED(hrSave)) {
-      throw Exception('Error trying to save shortcut: $hrSave');
-    }
-  } finally {
-    // Free memory
-    if (shortcutPathPtr != null) {
-      free(shortcutPathPtr);
-    }
-    if (persistFile != null) {
-      IPersistFile(persistFile).release();
-      free(persistFile);
-    }
-    if (shellLink != null) {
-      IShellLink(shellLink).release();
-      free(shellLink);
-    }
-    CoUninitialize();
+  final Pointer<Pointer<COMObject>> pShellLink = calloc<Pointer<COMObject>>();
+  final int hr = CoCreateInstance(
+    GUIDFromString(CLSID_ShellLink).cast<GUID>(),
+    nullptr,
+    CLSCTX_INPROC_SERVER,
+    GUIDFromString(IID_IShellLink).cast<GUID>(),
+    pShellLink.cast(),
+  );
+  if (FAILED(hr)) {
+    calloc.free(pShellLink);
+    throw Exception('Error creating IShellLink instance: $hr');
   }
+  final Pointer<COMObject> shellLink = pShellLink.value;
+  calloc.free(pShellLink);
+
+  final IShellLink shellLinkPtr = IShellLink(shellLink);
+
+  final Pointer<Utf16> targetPathPtr = targetPath.toNativeUtf16();
+
+  shellLinkPtr.setPath(targetPathPtr);
+
+  // Freeing memory
+  free(targetPathPtr);
 }
