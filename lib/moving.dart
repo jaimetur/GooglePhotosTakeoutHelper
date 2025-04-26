@@ -183,8 +183,8 @@ Stream<int> moveFiles(
               : await file.value.rename(freeFile.path);
         } on FileSystemException {
           print(
-            '[Step 7/8] Uh-uh, it looks like you selected other output drive than\n'
-            "input one - gpth can't move files between them. But, you don't have\n"
+            '[Step 7/8] [Error] Uh-uh, it looks like you selected another output drive than\n'
+            "your input drive - gpth can't move files between them. But, you don't have\n"
             "to do this! Gpth *moves* files, so this doesn't take any extra space!\n"
             'Please run again and select different output location <3',
           );
@@ -201,7 +201,7 @@ Stream<int> moveFiles(
           result = await createShortcut(folder, mainFile);
         } catch (e) {
           // in case powershell fails/whatever
-          print('[Step 7/8] Creating shortcut for '
+          print('[Step 7/8] [Error] Creating shortcut for '
               '${p.basename(mainFile.path)} in ${p.basename(folder.path)} '
               'failed :(\n$e\n - copying normal file instead');
           result = await moveFile();
@@ -216,7 +216,7 @@ Stream<int> moveFiles(
             result = await moveFile();
           } else {
             // in case of other exception, print details
-            print('[Step 7/8] Creating shortcut for '
+            print('[Step 7/8] [Error] Creating shortcut for '
                 '${p.basename(mainFile.path)} in ${p.basename(folder.path)} '
                 'failed :(\n$e\n - copying normal file instead');
             result = await moveFile();
@@ -234,7 +234,7 @@ Stream<int> moveFiles(
       DateTime time = m.dateTaken ?? DateTime.now();
       if (Platform.isWindows && time.isBefore(DateTime(1970))) {
         print(
-            '[Step 7/8] [WARNING]: ${m.firstFile.path} has date $time, which is before 1970 '
+            '[Step 7/8] [Info]: ${m.firstFile.path} has date $time, which is before 1970 '
             '(not supported on Windows) - will be set to 1970-01-01');
         time = DateTime(1970);
       }

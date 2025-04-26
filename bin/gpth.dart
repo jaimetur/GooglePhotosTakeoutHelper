@@ -61,7 +61,8 @@ gpth is ment to help you with exporting your photos from Google Photos.
 
 First, go to https://takeout.google.com/ , deselect all and select only Photos.
 When ready, download all .zips, and extract them into *one* folder.
-(Auto-extracting works only in interactive mode)
+To read the creation date and time from video files, you need to download ffprobe (e.g. from here https://ffbinaries.com/downloads)
+for your OS and make sure the executable is in a folder in the \$PATH.
 
 Then, run: gpth --input "folder/with/all/takeouts" --output "your/output/folder"
 ...and gpth will parse and organize all photos into one big chronological folder
@@ -129,7 +130,7 @@ void main(final List<String> arguments) async {
             'Only Windows supported\n')
     ..addFlag('write-exif',
         help:
-            'Writes Geo data from json files and the extracted DateTime to EXIF\n'
+            'Writes geodata from json files and the extracted DateTime to EXIF\n'
             'only confirmed to work on jpg and jpeg'); //FIXME Update when EXIF-write is fixed for png files
   final Map<String, dynamic> args = <String, dynamic>{};
   try {

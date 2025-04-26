@@ -11,56 +11,88 @@ import '../utils.dart';
 /// You can try this with *any* file, it either works or not 🤷
 /// You should only use this function after checking wherePhotoVideo() on the File(s) for performance reasons.
 Future<DateTime?> exifDateTimeExtractor(final File file) async {
-  // if file is not image or >32MiB - DO NOT crash :D https://github.com/brendan-duncan/image/issues/457#issue-1549020643 
-  if (!(lookupMimeType(file.path)?.startsWith('image/') ?? false) ||
-      await file.length() > maxFileSize) {
-    //Getting CreationDateTime of video files through ffprobe https://flutter-bounty-hunters.github.io/ffmpeg_cli/. MTS is handled in a special way because of https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/issues/223
-    if ((lookupMimeType(file.path)?.startsWith('video/') ?? false) || (lookupMimeType(file.path)?.startsWith('model/vnd.mts') ?? false) || 
-      await file.length() > maxFileSize) { // FIXME As videos are usually larger, the maxFileSize check is quite limiting. We need to give the user the control (depending on if the script is run on a NAS or on a beefy computer). I suggest not limiting the file size by default but giving the option to set a maxFileSize through a CLI argument. Implemented the check for now to keep support for shitty computers
-      //running ffprobe
+  //If file is >maxFileSize - return null. https://github.com/brendan-duncan/image/issues/457#issue-1549020643
+  if (await file.length() > maxFileSize) {
+    //FIXME As videos are usually larger, the maxFileSize check is quite limiting. We need to give the user the control (depending on if the script is run on a NAS or on a beefy computer). I suggest not limiting the file size by default but giving the option to set a maxFileSize through a CLI argument. Implemented the check for now to keep support for shitty computers
+    log(
+      '[Step 4/8] [Error] The file is larger than the maximum supported file size of ${maxFileSize.toString()} bytes. File: ${file.path}',
+    );
+    return null;
+  }
+
+  //Getting mimeType.
+  final String? mimeType = lookupMimeType(file.path);
+
+  //Now we need to see what we got and depending on what we got, we need to handle it quite differently.
+  switch (mimeType) {
+    case null: // if lookupMimeType does not support file type
+      log(
+        '[Step 4/8] [Error] MimeType is null, which means the mime package can\'t extract the MimeType of file: ${file.path}',
+      );
+      return null;
+    case final String _
+        when mimeType.startsWith('image/'): //If file is an image
+      // NOTE: reading whole file may seem slower than using readExifFromFile
+      // but while testing it was actually 2x faster (confirmed on different devices)
+      final bytes = await file.readAsBytes();
+      // this returns empty {} if file doesn't have exif so don't worry
+      final tags = await readExifFromBytes(bytes);
+      String? datetime;
+      // try if any of these exists
+      datetime ??= tags['Image DateTime']?.printable;
+      datetime ??= tags['EXIF DateTimeOriginal']?.printable;
+      datetime ??= tags['EXIF DateTimeDigitized']?.printable;
+      if (datetime == null) return null;
+      // replace all shitty separators that are sometimes met
+      datetime = datetime
+          .replaceAll('-', ':')
+          .replaceAll('/', ':')
+          .replaceAll('.', ':')
+          .replaceAll('\\', ':')
+          .replaceAll(': ', ':0')
+          .substring(0, math.min(datetime.length, 19))
+          .replaceFirst(':', '-') // replace two : year/month to comply with iso
+          .replaceFirst(':', '-');
+      // now date is like: "1999-06-23 23:55"
+      return DateTime.tryParse(datetime);
+    case final String _
+        when (mimeType.startsWith('video/')) ||
+            (mimeType.startsWith(
+              'model/vnd.mts',
+            )): //If file is a video (mts is handled seperately because it's weird and different (can you relate?) :P)
       FfprobeResult? ffprobeResult;
       try {
+        //running ffprobe
         ffprobeResult = await Ffprobe.run(file.path);
       } catch (e) {
         log(
-          '[Step 4/8] [Error] Extracting DateTimeCreated EXIF value with ffprobe failed. Is ffprobe present locally and in \$PATH variable? Error: ${e.toString()}'
+          '[Step 4/8] [Error] Extracting DateTimeCreated EXIF value with ffprobe failed. Is ffprobe present locally and in \$PATH variable? Error: ${e.toString()}',
         );
         return null;
       }
-      final String? videoCreationString =
+      final String? videoCreationDateTimeString =
           ffprobeResult.format?.tags?.creationTime;
-      if (videoCreationString != null) {
+      if (videoCreationDateTimeString != null) {
         final DateTime videoCreationDateTime = DateTime.parse(
-          videoCreationString,
+          videoCreationDateTimeString,
         );
         log(
           '[Step 4/8] [Info] Extracted DateTime from EXIF through ffprobe for ${file.path}',
         );
         return videoCreationDateTime;
+      } else {
+        //if the video file was decoded by ffprobe, but it did not contain a DateTime in CreationTime
+        log(
+          '[Step 4/8] [Info] Extracted null DateTime from EXIF through ffprobe for ${file.path}. This is expected behaviour if your video file does not contain a CreationDate.',
+        );
+        return null;
       }
-    }
-    print(
-      '[Step 4/8] [Error] MimeType ${lookupMimeType(file.path)} is not an image but also no supported video file format or larger than the maximum file size of ${maxFileSize.toString()} bytes. Please create an issue if you encounter this error, as we should handle whatever you got there. This happened for file: ${file.path}', //Satisfies wherePhotoVideo() but is not image/ or video/ mime type. //TODO rewrite when maxFileSize is exposed as arg
-    );
-    return null; //if it's not an image or video.
+
+    default: //if it's not an image or video or null or too large.
+      //if it's not an image or video or null or too large.
+      print(
+        '[Step 4/8] [Error] MimeType ${lookupMimeType(file.path)} is not handled yet. Please create an issue if you encounter this error, as we should handle whatever you got there. This happened for file: ${file.path}', //Satisfies wherePhotoVideo() but is not image/ or video/ mime type. //TODO rewrite when maxFileSize is exposed as arg
+      );
+      return null;
   }
-  final Map<String, IfdTag> tags = await readExifFromFile(file);
-  String? datetime;
-  // try if any of these exists
-  datetime ??= tags['Image DateTime']?.printable;
-  datetime ??= tags['EXIF DateTimeOriginal']?.printable;
-  datetime ??= tags['EXIF DateTimeDigitized']?.printable;
-  if (datetime == null) return null;
-  // replace all shitty separators that are sometimes met
-  datetime = datetime
-      .replaceAll('-', ':')
-      .replaceAll('/', ':')
-      .replaceAll('.', ':')
-      .replaceAll('\\', ':')
-      .replaceAll(': ', ':0')
-      .substring(0, math.min(datetime.length, 19))
-      .replaceFirst(':', '-') // replace two : year/month to comply with iso
-      .replaceFirst(':', '-');
-  // now date is like: "1999-06-23 23:55"
-  return DateTime.tryParse(datetime);
 }
