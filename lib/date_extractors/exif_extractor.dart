@@ -26,8 +26,8 @@ Future<DateTime?> exifDateTimeExtractor(final File file) async {
   //Now we need to see what we got and depending on what we got, we need to handle it quite differently.
   switch (mimeType) {
     case null: // if lookupMimeType does not support file type
-      log(
-        '[Step 4/8] [Error] MimeType is null, which means the mime package can\'t extract the MimeType of file: ${file.path}',
+      print(
+        '[Step 4/8] [Error] MimeType is null, which means we do not support reading from Exif for the filetype of file: ${file.path}',
       );
       return null;
     case final String _

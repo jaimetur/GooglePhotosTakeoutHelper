@@ -5,6 +5,7 @@ import 'package:collection/collection.dart';
 import 'package:ffi/ffi.dart';
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
+import 'package:path/path.dart' as path;
 import 'package:proper_filesize/proper_filesize.dart';
 import 'package:unorm_dart/unorm_dart.dart' as unorm;
 import 'package:win32/win32.dart';
@@ -312,28 +313,33 @@ Future<bool> _executePShellCreationTimeCmd(final String commandChunk) async {
   }
 }
 
-void createShortcutWin(final String shortcutPath, final String targetPath) {
-  final Pointer<Pointer<COMObject>> pShellLink = calloc<Pointer<COMObject>>();
-  final int hr = CoCreateInstance(
-    GUIDFromString(CLSID_ShellLink).cast<GUID>(),
-    nullptr,
-    CLSCTX_INPROC_SERVER,
-    GUIDFromString(IID_IShellLink).cast<GUID>(),
-    pShellLink.cast(),
-  );
-  if (FAILED(hr)) {
-    calloc.free(pShellLink);
-    throw Exception('Error creating IShellLink instance: $hr');
+Future<void> createShortcutWin(final String shortcutPath, final String targetPath) async {
+  // Make sure parent directory exists
+  final Directory parentDir = Directory(p.dirname(shortcutPath));
+  if (!parentDir.existsSync()) {
+    parentDir.createSync(recursive: true);
   }
-  final Pointer<COMObject> shellLink = pShellLink.value;
-  calloc.free(pShellLink);
 
-  final IShellLink shellLinkPtr = IShellLink(shellLink);
+  // Use PowerShell for reliable shortcut creation
+  final ProcessResult res = await Process.run('powershell.exe', <String>[
+    '-ExecutionPolicy',
+    'Bypass',
+    '-NoLogo',
+    '-NonInteractive',
+    '-NoProfile',
+    '-Command',
+    // ignore: no_adjacent_strings_in_list
+    '\$ws = New-Object -ComObject WScript.Shell; '
+        '\$s = \$ws.CreateShortcut("$shortcutPath"); '
+        '\$s.TargetPath = "$targetPath"; '
+        '\$s.Save()',
+  ]);
 
-  final Pointer<Utf16> targetPathPtr = targetPath.toNativeUtf16();
+  if (res.exitCode != 0) {
+    throw Exception('PowerShell failed to create shortcut: ${res.stderr}');
+  }
 
-  shellLinkPtr.setPath(targetPathPtr);
-
-  // Freeing memory
-  free(targetPathPtr);
+  // Wait a moment for Windows to register the file
+  // This can help with subsequent operations on the file
+  //sleep(Duration(milliseconds: 100));
 }
