@@ -248,11 +248,11 @@ Stream<int> moveFiles(
         // That's why this is here
         if (e.errorCode != 0) {
           print(
-              "[Step 7/8] [WARNING]: Can't set modification time on $result: $e");
+              "[Step 7/8] [Error]: Can't set modification time on $result: $e");
         }
       } catch (e) {
-        print(
-            "[Step 7/8] [WARNING]: Can't set modification time on $result: $e");
+        log(
+            "[Step 7/8]: Can't set modification time on $result: $e",level: 'warning'); //If error code 0, no need to notify user. Only log.
       }
 
       // one copy/move/whatever - one yield
