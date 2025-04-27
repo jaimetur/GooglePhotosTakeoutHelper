@@ -1,4 +1,3 @@
-import 'dart:developer';
 import 'dart:io';
 import 'dart:math' as math;
 import 'package:exif_reader/exif_reader.dart';
@@ -15,7 +14,7 @@ Future<DateTime?> exifDateTimeExtractor(final File file) async {
   if (await file.length() > maxFileSize) {
     //FIXME As videos are usually larger, the maxFileSize check is quite limiting. We need to give the user the control (depending on if the script is run on a NAS or on a beefy computer). I suggest not limiting the file size by default but giving the option to set a maxFileSize through a CLI argument. Implemented the check for now to keep support for shitty computers
     log(
-      '[Step 4/8] [Error] The file is larger than the maximum supported file size of ${maxFileSize.toString()} bytes. File: ${file.path}',
+      '[Step 4/8] The file is larger than the maximum supported file size of ${maxFileSize.toString()} bytes. File: ${file.path}',level: 'error'
     );
     return null;
   }
@@ -27,7 +26,7 @@ Future<DateTime?> exifDateTimeExtractor(final File file) async {
   switch (mimeType) {
     case null: // if lookupMimeType does not support file type
       log(
-        '[Step 4/8] [Error] MimeType is null, which means we do not support reading from Exif for the filetype of file: ${file.path}',
+        '[Step 4/8] MimeType is null, which means we do not support reading from Exif for the filetype of file: ${file.path}', level: 'error'
       );
       return null;
     case final String _
@@ -66,7 +65,7 @@ Future<DateTime?> exifDateTimeExtractor(final File file) async {
         ffprobeResult = await Ffprobe.run(file.path);
       } catch (e) {
         log(
-          '[Step 4/8] [Error] Extracting DateTimeCreated EXIF value with ffprobe failed. Is ffprobe present locally and in \$PATH variable? Error: ${e.toString()}',
+          '[Step 4/8] Extracting DateTimeCreated EXIF value with ffprobe failed. Is ffprobe present locally and in \$PATH variable? Error: ${e.toString()}', level: 'error'
         );
         return null;
       }
@@ -77,21 +76,21 @@ Future<DateTime?> exifDateTimeExtractor(final File file) async {
           videoCreationDateTimeString,
         );
         log(
-          '[Step 4/8] [Info] Extracted DateTime from EXIF through ffprobe for ${file.path}',
+          '[Step 4/8] Extracted DateTime from EXIF through ffprobe for ${file.path}',
         );
         return videoCreationDateTime;
       } else {
         //if the video file was decoded by ffprobe, but it did not contain a DateTime in CreationTime
         log(
-          '[Step 4/8] [Info] Extracted null DateTime from EXIF through ffprobe for ${file.path}. This is expected behaviour if your video file does not contain a CreationDate.',
+          '[Step 4/8] Extracted null DateTime from EXIF through ffprobe for ${file.path}. This is expected behaviour if your video file does not contain a CreationDate.',level: 'warning'
         );
         return null;
       }
 
     default: //if it's not an image or video or null or too large.
       //if it's not an image or video or null or too large.
-      print(
-        '[Step 4/8] [Error] MimeType ${lookupMimeType(file.path)} is not handled yet. Please create an issue if you encounter this error, as we should handle whatever you got there. This happened for file: ${file.path}', //Satisfies wherePhotoVideo() but is not image/ or video/ mime type. //TODO rewrite when maxFileSize is exposed as arg
+      log(
+        '[Step 4/8] MimeType ${lookupMimeType(file.path)} is not handled yet. Please create an issue if you encounter this error, as we should handle whatever you got there. This happened for file: ${file.path}',level: 'error' //Satisfies wherePhotoVideo() but is not image/ or video/ mime type. //TODO rewrite when maxFileSize is exposed as arg
       );
       return null;
   }

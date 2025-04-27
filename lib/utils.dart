@@ -1,4 +1,3 @@
-import 'dart:developer';
 import 'dart:io';
 import 'package:collection/collection.dart';
 import 'package:mime/mime.dart';
@@ -13,6 +12,9 @@ const String version = '4.0.0';
 
 /// max file size to read for exif/hash/anything
 const int maxFileSize = 64 * 1024 * 1024;
+
+//initialising verbose as a global variable
+bool isVerbose = false;
 
 /// convenient print for errors
 void error(final Object? object) => stderr.write('$object\n');
@@ -174,16 +176,17 @@ Future<void> renameIncorrectJsonFiles(final Directory directory) async {
           // Verify if the file renamed already exists
           if (await newFile.exists()) {
             log(
-              '[Step 1/8] [Info] Skipped renaming of json because it already exists: $newPath',
+              '[Step 1/8] Skipped renaming of json because it already exists: $newPath',
             );
           } else {
             try {
               await entity.rename(newPath);
               renamedCount++;
-              log('[Step 1/8] [Info] Renamed: ${entity.path} -> $newPath');
+              log('[Step 1/8] Renamed: ${entity.path} -> $newPath');
             } on FileSystemException catch (e) {
-              print(
-                '[Step 1/8] [Error]: While renaming json ${entity.path}: ${e.message}',
+              log(
+                '[Step 1/8] While renaming json ${entity.path}: ${e.message}',
+                level: 'error',
               );
             }
           }
@@ -308,7 +311,10 @@ Future<bool> _executePShellCreationTimeCmd(final String commandChunk) async {
   }
 }
 
-Future<void> createShortcutWin(final String shortcutPath, final String targetPath) async {
+Future<void> createShortcutWin(
+  final String shortcutPath,
+  final String targetPath,
+) async {
   // Make sure parent directory exists
   final Directory parentDir = Directory(p.dirname(shortcutPath));
   if (!parentDir.existsSync()) {
@@ -333,8 +339,27 @@ Future<void> createShortcutWin(final String shortcutPath, final String targetPat
   if (res.exitCode != 0) {
     throw Exception('PowerShell failed to create shortcut: ${res.stderr}');
   }
+}
 
-  // Wait a moment for Windows to register the file
-  // This can help with subsequent operations on the file
-  //sleep(Duration(milliseconds: 100));
+///This little helper function replaces the default log function, so it can be used with compiled code and a -v argument
+///Default log level is 'info'. Possible values for 'level' are: 'error', 'warning' and 'info'
+void log(final String message, {final String level = 'info'}) {
+  if (isVerbose) {
+    final String color;
+    switch (level.toLowerCase()) {
+      case 'error':
+        color = '\x1B[31m'; // Red for errors
+        break;
+      case 'warning':
+        color = '\x1B[33m'; // Yellow for warnings
+        break;
+      case 'info':
+      default:
+        color = '\x1B[32m'; // Green for info
+        break;
+    }
+    print(
+      '$color[${level.toUpperCase()}] $message\x1B[0m',
+    ); // Reset color after the message
+  }
 }

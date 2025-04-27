@@ -1,4 +1,3 @@
-import 'dart:developer';
 import 'dart:io';
 import 'package:args/args.dart';
 import 'package:console_bars/console_bars.dart';
@@ -91,6 +90,13 @@ void main(final List<String> arguments) async {
               'or you *really* want to combine advanced options with prompts\n',
         )
         ..addOption(
+          'verbose',
+          abbr: 'v',
+          help:
+              'Show extensive logging.\n'
+              'This can help with troubleshooting\n',
+        )
+        ..addOption(
           'input',
           abbr: 'i',
           help:
@@ -174,6 +180,17 @@ void main(final List<String> arguments) async {
     print(helpText);
     print(parser.usage);
     return;
+  }
+
+  // here we check if in debug profile or in verbose mode to activate logging.
+  bool isDebugMode = false;
+  // ignore: prefer_asserts_with_message
+  assert(() {
+    isDebugMode = true;
+    return true;
+  }());
+  if (args['interactive'] || isDebugMode) {
+    isVerbose = true;
   }
 
   /// ##############################################################
@@ -441,7 +458,7 @@ void main(final List<String> arguments) async {
     if (media[i].dateTaken == null) {
       // only visible in debug mode. Normal user does not care about this. Just high level about the number at the end.
       log(
-        "\n[Step 4/8] [Info] Couldn't get date with any extractor on ${media[i].firstFile.path}",
+        "\n[Step 4/8] Couldn't get date with any extractor on ${media[i].firstFile.path}",
       );
     }
   }
