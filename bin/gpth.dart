@@ -158,7 +158,12 @@ void main(final List<String> arguments) async {
           help:
               'Writes geodata from json files and the extracted DateTime to EXIF\n'
               'only confirmed to work on jpg and jpeg',
-        ); //FIXME Update when EXIF-write is fixed for png files
+        ) //FIXME Update when EXIF-write is fixed for png files
+        ..addFlag(
+          'enforce-max-filesize',
+          help:
+              'Enforces a maximum size of 64MB per file for systems with low RAM (e.g. NAS). DateTime will not be extracted or written to larger files.',
+        );
   final Map<String, dynamic> args = <String, dynamic>{};
   try {
     final ArgResults res = parser.parse(arguments);
@@ -193,6 +198,10 @@ void main(final List<String> arguments) async {
   if (args['verbose'] || isDebugMode) {
     isVerbose = true;
     log('Verbose mode active!');
+  }
+
+  if (args['enforce-max-filesize']) {
+    enforceMaxFileSize = true;
   }
 
   /// ##############################################################
@@ -506,8 +515,7 @@ void main(final List<String> arguments) async {
   if (args['write-exif']) {
     final FillingBar barJsonToExifExtractor = FillingBar(
       total: media.length,
-      desc:
-          '[Step 5/8] Getting EXIF data from JSON files and applying it to files',
+      desc: '[Step 5/8] Getting EXIF data from JSONs and applying it to media',
       width: barWidth,
     );
 
@@ -683,7 +691,9 @@ void main(final List<String> arguments) async {
       'For $countPoop photos/videos we were unable to find any DateTime :/',
     );
   }
-  print('In total the script took ${(sw1.elapsed+sw2.elapsed+sw3.elapsed+sw4.elapsed+sw5.elapsed+sw6.elapsed+sw7.elapsed+sw8.elapsed).inMinutes} minutes to complete.');
+  print(
+    'In total the script took ${(sw1.elapsed + sw2.elapsed + sw3.elapsed + sw4.elapsed + sw5.elapsed + sw6.elapsed + sw7.elapsed + sw8.elapsed).inMinutes} minutes to complete',
+  );
   print(
     "Last thing - I've spent *a ton* of time on this script - \n"
     'if I saved your time and you want to say thanks, you can send me a tip:\n'

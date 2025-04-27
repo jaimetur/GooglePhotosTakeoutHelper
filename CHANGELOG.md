@@ -31,6 +31,7 @@
 - Added consistent log levels to log output to quickly differenciate between informational and error logs
 - Create symlinks with powershell on windows now which fixed heap corruption on newer win32/ffi
 - Added logging of elapsed time for each step.
+- Exposed the maxFileSize flag as an argument to set if necessary, It's now deactivated by default to support larger files like videos
 
 #### Bug fixes
 

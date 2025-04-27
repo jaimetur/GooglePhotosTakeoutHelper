@@ -11,8 +11,7 @@ import '../utils.dart';
 /// You should only use this function after checking wherePhotoVideo() on the File(s) for performance reasons.
 Future<DateTime?> exifDateTimeExtractor(final File file) async {
   //If file is >maxFileSize - return null. https://github.com/brendan-duncan/image/issues/457#issue-1549020643
-  if (await file.length() > maxFileSize) {
-    //FIXME As videos are usually larger, the maxFileSize check is quite limiting. We need to give the user the control (depending on if the script is run on a NAS or on a beefy computer). I suggest not limiting the file size by default but giving the option to set a maxFileSize through a CLI argument. Implemented the check for now to keep support for shitty computers
+  if (await file.length() > maxFileSize && enforceMaxFileSize) {
     log(
       '[Step 4/8] The file is larger than the maximum supported file size of ${maxFileSize.toString()} bytes. File: ${file.path}',level: 'error'
     );
@@ -90,7 +89,7 @@ Future<DateTime?> exifDateTimeExtractor(final File file) async {
     default: //if it's not an image or video or null or too large.
       //if it's not an image or video or null or too large.
       log(
-        '[Step 4/8] MimeType ${lookupMimeType(file.path)} is not handled yet. Please create an issue if you encounter this error, as we should handle whatever you got there. This happened for file: ${file.path}',level: 'error' //Satisfies wherePhotoVideo() but is not image/ or video/ mime type. //TODO rewrite when maxFileSize is exposed as arg
+        '[Step 4/8] MimeType ${lookupMimeType(file.path)} is not handled yet. Please create an issue if you encounter this error, as we should handle whatever you got there. This happened for file: ${file.path}',level: 'error' //Satisfies wherePhotoVideo() but is not image/ or video/ mime type.
       );
       return null;
   }

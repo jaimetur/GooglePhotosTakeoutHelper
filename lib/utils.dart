@@ -16,6 +16,8 @@ const int maxFileSize = 64 * 1024 * 1024;
 //initialising verbose as a global variable
 bool isVerbose = false;
 
+bool enforceMaxFileSize = false;
+
 /// convenient print for errors
 void error(final Object? object) => stderr.write('$object\n');
 

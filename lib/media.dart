@@ -12,12 +12,8 @@ import 'utils.dart';
 /// you find a duplicate, use one that has lower [dateTakenAccuracy] number.
 /// this and [dateTaken] should either both be null or both filled
 class Media {
+  Media(this.files, {this.dateTaken, this.dateTakenAccuracy});
 
-  Media(
-    this.files, {
-    this.dateTaken,
-    this.dateTakenAccuracy,
-  });
   /// First file with media, used in early stage when albums are not merged
   ///
   /// BE AWARE OF HOW YOU USE IT
@@ -55,12 +51,15 @@ class Media {
 
   /// will be used for finding duplicates/albums
   /// WARNING: Returns same value for files > [maxFileSize]
-  Digest get hash => _hash ??= firstFile.lengthSync() > maxFileSize
-      ? Digest(<int>[0])
-      : sha256.convert(firstFile.readAsBytesSync());
+  Digest get hash =>
+      _hash ??=
+          ((firstFile.lengthSync() > maxFileSize) && enforceMaxFileSize)
+              ? Digest(<int>[0])
+              : sha256.convert(firstFile.readAsBytesSync());
 
   @override
-  String toString() => 'Media('
+  String toString() =>
+      'Media('
       '$firstFile, '
       'dateTaken: $dateTaken'
       '${files.keys.length > 1 ? ', albums: ${files.keys}' : ''}'
