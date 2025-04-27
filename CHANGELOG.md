@@ -29,6 +29,7 @@
 - added output how often DateTime and Coordinates have been written in EXIF at the final output
 - changed that test data will be created in test subfolder instead of project root directory
 - Added consistent log levels to log output to quickly differenciate between informational and error logs
+- Create symlinks with powershell on windows now which fixed heap corruption on newer win32/ffi
 
 #### Bug fixes
 

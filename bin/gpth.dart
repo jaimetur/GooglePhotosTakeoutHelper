@@ -89,11 +89,11 @@ void main(final List<String> arguments) async {
               'Use interactive mode. Type this in case auto-detection fails, \n'
               'or you *really* want to combine advanced options with prompts\n',
         )
-        ..addOption(
+        ..addFlag(
           'verbose',
           abbr: 'v',
           help:
-              'Show extensive logging.\n'
+              'Shows extensive output for debugging and analysis.\n'
               'This can help with troubleshooting\n',
         )
         ..addOption(
@@ -189,8 +189,9 @@ void main(final List<String> arguments) async {
     isDebugMode = true;
     return true;
   }());
-  if (args['interactive'] || isDebugMode) {
+  if (args['verbose'] || isDebugMode) {
     isVerbose = true;
+    log('Verbose mode active!');
   }
 
   /// ##############################################################
