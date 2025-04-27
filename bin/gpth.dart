@@ -404,8 +404,7 @@ void main(final List<String> arguments) async {
   /// ################# STEP 3 #####################################
   /// ##### Finding and removing duplicates ########################
 
-  print('[Step 3/8] Finding duplicates...');
-
+  print('[Step 3/8] Finding duplicates... (This may take some time)');
   final int countDuplicates = removeDuplicates(media, barWidth);
 
   /// ##############################################################

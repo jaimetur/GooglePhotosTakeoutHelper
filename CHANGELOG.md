@@ -40,7 +40,7 @@
 - Support for writing coordinates and DateTime to EXIF
   - Added new CLI option "--write-exif".
   - When enabled, the script will check if the associated json of any given file contains coordinates and if the file does not yet have them in its EXIF data, the script will add them.
-  - When enabled, the cript will check if a DateTime has been extracted from any of the given extraction methods and if the file has no EXIF DateTime set, it will add the DateTime to the EXIF data 'DateTime', 'DateTimeOriginal'and 'DateTimeDigitized'.
+  - When enabled, the script will check if a DateTime has been extracted from any of the given extraction methods and if the file has no EXIF DateTime set, it will add the DateTime to the EXIF data 'DateTime', 'DateTimeOriginal'and 'DateTimeDigitized'.
   - Currently supported file types are in theory JPG, PNG, Animated APNG, GIF, Animated GIF, BMP, TIFF, TGA, PVR and ICO (based on pub package Image 4.5.4). Howver only jpg and jpeg are confirmed to work. Others might work or will silently fail without problems.
   - Added verbose mode (--verbose or -v) with log levels info, warning and error.
 

@@ -9,6 +9,7 @@ import 'package:console_bars/console_bars.dart';
 import 'package:path/path.dart' as p;
 import 'media.dart' show Media;
 import 'media.dart';
+import 'utils.dart';
 
 extension Group on Iterable<Media> {
   /// This groups your media into map where key is something that they share
@@ -50,6 +51,7 @@ extension Group on Iterable<Media> {
 /// Returns count of removed
 int removeDuplicates(final List<Media> media, final int barWidth) {
   int count = 0;
+
   final Iterable<Iterable<List<Media>>> byAlbum = media
       // group by albums as we will merge those later
       // (to *not* compare hashes between albums)
@@ -59,14 +61,10 @@ int removeDuplicates(final List<Media> media, final int barWidth) {
       .map(
         (final List<Media> albumGroup) => albumGroup.groupIdentical().values,
       );
+
+  final Stopwatch stopwatch = Stopwatch()..start();
   // we don't care about album organization now - flatten
   final Iterable<List<Media>> hashGroups = byAlbum.flattened;
-
-  final FillingBar barRemoveDuplicates = FillingBar(
-    total: hashGroups.length,
-    desc: '[Step 3/8] Finding and removing duplicates',
-    width: barWidth,
-  );
 
   for (final List<Media> group in hashGroups) {
     // sort by best date extraction, then file name length
@@ -88,12 +86,14 @@ int removeDuplicates(final List<Media> media, final int barWidth) {
     for (final Media e in group.sublist(1)) {
       // remove them from media
       media.remove(e);
+      log('[Step 3/8] Skipping duplicate: ${e.firstFile.path}');
       count++;
     }
-    barRemoveDuplicates
-        .increment(); // update progress bar so user sees that something is happening
   }
-
+  stopwatch.stop();
+  log(
+    '[Step 3/8] Finding and removing duplicates took ${stopwatch.elapsed.toString()}',
+  );
   return count;
 }
 
