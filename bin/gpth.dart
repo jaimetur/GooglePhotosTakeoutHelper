@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:args/args.dart';
 import 'package:console_bars/console_bars.dart';
 import 'package:coordinate_converter/src/models/dms_coordinates_model.dart';
+import 'package:ffmpeg_cli/ffmpeg_cli.dart';
 import 'package:gpth/date_extractors/date_extractor.dart';
 import 'package:gpth/exif_writer.dart';
 import 'package:gpth/extras.dart';
@@ -357,17 +358,24 @@ void main(final List<String> arguments) async {
   /// ##############################################################
   /// ################# STEP 1 #####################################
   /// ##### Fixing JSON files (if needed) ##########################
+  final Stopwatch sw1 =
+      Stopwatch()..start(); //Creation of our debugging stopwatch for each step.
   if (args['modify-json']) {
     print(
       '[Step 1/8] Fixing JSON files. Removing suffix (this may take some time)...',
     );
     await renameIncorrectJsonFiles(input);
   }
+  sw1.stop();
+  log(
+    '[Step 1/8] Step 1 took ${sw1.elapsed.inMinutes} minutes or ${sw1.elapsed.toSeconds()} seconds to complete.',
+  );
 
   /// ##############################################################
   /// ################# STEP 2 #####################################
   /// ##### Find literally *all* photos/videos and add to list #####
-
+  final Stopwatch sw2 =
+      Stopwatch()..start(); //Creation of our debugging stopwatch for each step.
   print('[Step 2/8] Searching for everything in input folder...');
 
   // recursive=true makes it find everything nicely even if user id dumb 😋
@@ -399,11 +407,16 @@ void main(final List<String> arguments) async {
     // }
     quit(13);
   }
+  sw2.stop();
+  log(
+    '[Step 2/8] Step 2 took ${sw2.elapsed.inMinutes} minutes or ${sw2.elapsed.toSeconds()} seconds to complete.',
+  );
 
   /// ##############################################################
   /// ################# STEP 3 #####################################
   /// ##### Finding and removing duplicates ########################
-
+  final Stopwatch sw3 =
+      Stopwatch()..start(); //Creation of our debugging stopwatch for each step.
   print('[Step 3/8] Finding duplicates... (This may take some time)');
   final int countDuplicates = removeDuplicates(media, barWidth);
 
@@ -415,6 +428,10 @@ void main(final List<String> arguments) async {
     print('[Step 3/8] Finding "extra" photos (-edited etc)');
   }
   final int countExtras = args['skip-extras'] ? removeExtras(media) : 0;
+  sw3.stop();
+  log(
+    '[Step 3/8] Step 3 took ${sw3.elapsed.inMinutes} minutes or ${sw3.elapsed.toSeconds()} seconds to complete.',
+  );
 
   /// ##############################################################
   /// ################# STEP 4 #####################################
@@ -436,6 +453,9 @@ void main(final List<String> arguments) async {
   // Ps. BUT i've put album merging *after* guess date - notes below
 
   /// ##### Extracting/predicting dates using given extractors #####
+
+  final Stopwatch sw4 =
+      Stopwatch()..start(); //Creation of our debugging stopwatch for each step.
 
   final FillingBar barExtract = FillingBar(
     total: media.length,
@@ -464,6 +484,11 @@ void main(final List<String> arguments) async {
   }
   print('');
 
+  sw4.stop();
+  log(
+    '[Step 4/8] Step 4 took ${sw4.elapsed.inMinutes} minutes or ${sw4.elapsed.toSeconds()} seconds to complete.',
+  );
+
   /// ##############################################################
   /// ################# STEP 5 #####################################
   /// ##### Json Coordinates and extracted DateTime to EXIF ########
@@ -472,6 +497,9 @@ void main(final List<String> arguments) async {
   // Currently supported file formats: JPG, PNG/Animated APNG, GIF/Animated GIF, BMP, TIFF, TGA, PVR, ICO.
   // This is done after the dates of files have been defined, because here we have to write the files to disk again and before
   // the files are moved to the output folder, to avoid shortcuts/symlinks problems.
+
+  final Stopwatch sw5 =
+      Stopwatch()..start(); //Creation of our debugging stopwatch for each step.
 
   int exifccounter = 0; //Counter for coordinates set in EXIF
   int exifdtcounter = 0; //Counter for DateTime set in EXIF
@@ -508,6 +536,10 @@ void main(final List<String> arguments) async {
   } else {
     print('[Step 5/8] Skipping writing data to EXIF.');
   }
+  sw5.stop();
+  log(
+    '[Step 5/8] Step 5 took ${sw5.elapsed.inMinutes} minutes or ${sw5.elapsed.toSeconds()} seconds to complete.',
+  );
 
   /// ##############################################################
   /// ################# STEP 6 #####################################
@@ -517,7 +549,8 @@ void main(final List<String> arguments) async {
   // each one individually, because they are in different folder.
   // I wish that, thanks to this, we may find some jsons in albums that would
   // be broken in shithole of big-ass year folders
-
+  final Stopwatch sw6 =
+      Stopwatch()..start(); //Creation of our debugging stopwatch for each step.
   print(
     '[Step 6/8] Finding albums (this may take some time, dont worry :) ...',
   );
@@ -557,10 +590,16 @@ void main(final List<String> arguments) async {
     }
   }
 
+  sw6.stop();
+  log(
+    '[Step 6/8] Step 6 took ${sw6.elapsed.inMinutes} minutes or ${sw6.elapsed.toSeconds()} seconds to complete.',
+  );
+
   /// ##############################################################
   /// ################# STEP 7 #####################################
   /// ##### Copy/move files to actual output folder ################
-
+  final Stopwatch sw7 =
+      Stopwatch()..start(); //Creation of our debugging stopwatch for each step.
   final FillingBar barCopy = FillingBar(
     total: outputFileCount(media, args['albums']),
     desc:
@@ -585,11 +624,16 @@ void main(final List<String> arguments) async {
   //   print('Removing unzipped folder...');
   //   await input.delete(recursive: true);
   // }
+  sw7.stop();
+  log(
+    '[Step 7/8] Step 7 took ${sw7.elapsed.inMinutes} minutes or ${sw7.elapsed.toSeconds()} seconds to complete.',
+  );
 
   /// ##############################################################
   /// ################# STEP 8 #####################################
   /// ##### Update creation time (Windows only) ####################
-
+  final Stopwatch sw8 =
+      Stopwatch()..start(); //Creation of our debugging stopwatch for each step.
   if (args['update-creation-time']) {
     print(
       '[Step 8/8] Updating creation time of media files to match their modified time in output folder ...',
@@ -601,6 +645,10 @@ void main(final List<String> arguments) async {
     print('[Step 8/8] Skipping: Updating creation time (Windows only)');
   }
   print('');
+  sw8.stop();
+  log(
+    '[Step 8/8] Step 6 took ${sw8.elapsed.inMinutes} minutes or ${sw8.elapsed.toSeconds()} seconds to complete.',
+  );
 
   /// ##############################################################
   /// ################# END ########################################
@@ -635,7 +683,7 @@ void main(final List<String> arguments) async {
       'For $countPoop photos/videos we were unable to find any DateTime :/',
     );
   }
-
+  print('In total the script took ${(sw1.elapsed+sw2.elapsed+sw3.elapsed+sw4.elapsed+sw5.elapsed+sw6.elapsed+sw7.elapsed+sw8.elapsed).inMinutes} minutes to complete.');
   print(
     "Last thing - I've spent *a ton* of time on this script - \n"
     'if I saved your time and you want to say thanks, you can send me a tip:\n'

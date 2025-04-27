@@ -30,6 +30,7 @@
 - changed that test data will be created in test subfolder instead of project root directory
 - Added consistent log levels to log output to quickly differenciate between informational and error logs
 - Create symlinks with powershell on windows now which fixed heap corruption on newer win32/ffi
+- Added logging of elapsed time for each step.
 
 #### Bug fixes
 

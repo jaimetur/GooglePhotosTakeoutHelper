@@ -5,7 +5,6 @@ library;
 
 import 'dart:io';
 import 'package:collection/collection.dart';
-import 'package:console_bars/console_bars.dart';
 import 'package:path/path.dart' as p;
 import 'media.dart' show Media;
 import 'media.dart';
@@ -61,8 +60,6 @@ int removeDuplicates(final List<Media> media, final int barWidth) {
       .map(
         (final List<Media> albumGroup) => albumGroup.groupIdentical().values,
       );
-
-  final Stopwatch stopwatch = Stopwatch()..start();
   // we don't care about album organization now - flatten
   final Iterable<List<Media>> hashGroups = byAlbum.flattened;
 
@@ -90,10 +87,6 @@ int removeDuplicates(final List<Media> media, final int barWidth) {
       count++;
     }
   }
-  stopwatch.stop();
-  log(
-    '[Step 3/8] Finding and removing duplicates took ${stopwatch.elapsed.toString()}',
-  );
   return count;
 }
 
