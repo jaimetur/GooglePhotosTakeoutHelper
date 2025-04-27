@@ -13,7 +13,8 @@ Future<DateTime?> exifDateTimeExtractor(final File file) async {
   //If file is >maxFileSize - return null. https://github.com/brendan-duncan/image/issues/457#issue-1549020643
   if (await file.length() > maxFileSize && enforceMaxFileSize) {
     log(
-      '[Step 4/8] The file is larger than the maximum supported file size of ${maxFileSize.toString()} bytes. File: ${file.path}',level: 'error'
+      '[Step 4/8] The file is larger than the maximum supported file size of ${maxFileSize.toString()} bytes. File: ${file.path}',
+      level: 'error',
     );
     return null;
   }
@@ -25,7 +26,8 @@ Future<DateTime?> exifDateTimeExtractor(final File file) async {
   switch (mimeType) {
     case null: // if lookupMimeType does not support file type
       log(
-        '[Step 4/8] MimeType is null, which means we do not support reading from Exif for the filetype of file: ${file.path}', level: 'error'
+        '[Step 4/8] MimeType is null, which means we do not support reading from Exif for the filetype of file: ${file.path}',
+        level: 'error',
       );
       return null;
     case final String _
@@ -54,38 +56,42 @@ Future<DateTime?> exifDateTimeExtractor(final File file) async {
       // now date is like: "1999-06-23 23:55"
       return DateTime.tryParse(datetime);
     case final String _
-        when (mimeType.startsWith('video/')) ||
+        when ((mimeType.startsWith('video/')) ||
             (mimeType.startsWith(
               'model/vnd.mts',
-            )): //If file is a video (mts is handled seperately because it's weird and different (can you relate?) :P)
-      FfprobeResult? ffprobeResult;
-      try {
-        //running ffprobe
-        ffprobeResult = await Ffprobe.run(file.path);
-      } catch (e) {
-        log(
-          '[Step 4/8] Extracting DateTimeCreated EXIF value with ffprobe failed. Is ffprobe present locally and in \$PATH variable? Error: ${e.toString()}', level: 'error'
-        );
-        return null;
-      }
-      final String? videoCreationDateTimeString =
-          ffprobeResult.format?.tags?.creationTime;
-      if (videoCreationDateTimeString != null) {
-        final DateTime videoCreationDateTime = DateTime.parse(
-          videoCreationDateTimeString,
-        );
-        log(
-          '[Step 4/8] Extracted DateTime from EXIF through ffprobe for ${file.path}',
-        );
-        return videoCreationDateTime;
-      } else {
-        //if the video file was decoded by ffprobe, but it did not contain a DateTime in CreationTime
-        log(
-          '[Step 4/8] Extracted null DateTime from EXIF through ffprobe for ${file.path}. This is expected behaviour if your video file does not contain a CreationDate.',level: 'warning'
-        );
-        return null;
-      }
+            ))): //If file is a video (mts is handled seperately because it's weird and different (can you relate?) :P)
+      if (ffProbeInstalled) {
+        //ffprobe is available
 
+        FfprobeResult? ffprobeResult;
+        try {
+          //running ffprobe
+          ffprobeResult = await Ffprobe.run(file.path);
+        } catch (e) {
+          log(
+            '[Step 4/8] Extracting DateTimeCreated EXIF value with ffprobe failed. Is ffprobe present locally and in \$PATH variable? Error: ${e.toString()}',
+            level: 'error',
+          );
+          return null;
+        }
+        final String? videoCreationDateTimeString =
+            ffprobeResult.format?.tags?.creationTime;
+        if (videoCreationDateTimeString != null) {
+          final DateTime videoCreationDateTime = DateTime.parse(
+            videoCreationDateTimeString,
+          );
+          log(
+            '[Step 4/8] Extracted DateTime from EXIF through ffprobe for ${file.path}',
+          );
+          return videoCreationDateTime;
+        } else {
+          //if the video file was decoded by ffprobe, but it did not contain a DateTime in CreationTime
+          log(
+            '[Step 4/8] Extracted null DateTime from EXIF through ffprobe for ${file.path}. This is expected behaviour if your video file does not contain a CreationDate.', level: 'warning');
+          return null;
+        }
+      }
+      return null;
     default: //if it's not an image or video or null or too large.
       //if it's not an image or video or null or too large.
       log(

@@ -199,9 +199,36 @@ void main(final List<String> arguments) async {
     isVerbose = true;
     log('Verbose mode active!');
   }
-
+  // set the enforceMaxFileSize variable through argument
   if (args['enforce-max-filesize']) {
     enforceMaxFileSize = true;
+  }
+
+  //checking if ffprobe is installed
+  try {
+    final ProcessResult result = await Process.run('ffprobe', ['-L']);
+    if (result.exitCode == 0) {
+      // B: ffprobe is installed and accessible
+      print(
+        '[INFO] Ffprobe was found! Continuing with support for reading EXIF data from video files...',
+      );
+      ffProbeInstalled = true;
+      sleep(const Duration(seconds: 3));
+    } else {
+      // Handle other errors (e.g., invalid arguments)
+      print('[ERROR] Ffprobe returned an error: ${result.stderr}');
+    }
+  } on ProcessException catch (e) {
+    if (e.message.contains('The system cannot find the file specified')) {
+      // A: ffprobe is not installed or not in PATH
+      print(
+        '[INFO] Ffprobe was not found! Continuing without support for reading EXIF data from video files in 3 seconds. Press Ctrl+C to abort.',
+      );
+      await Future.delayed(const Duration(seconds: 3)); // Give time to abort
+    } else {
+      // Handle other ProcessException errors
+      print('[ERROR] An unexpected error occurred: ${e.message}');
+    }
   }
 
   /// ##############################################################
@@ -678,7 +705,9 @@ void main(final List<String> arguments) async {
     print('$countDuplicates duplicates were found and skipped');
   }
   if (exifccounter > 0) {
-    print('$exifccounter files their coordinates set in EXIF data (from json)');
+    print(
+      '$exifccounter files got their coordinates set in EXIF data (from json)',
+    );
   }
   if (exifdtcounter > 0) {
     print('$exifdtcounter got their DateTime set in EXIF data');

@@ -13,10 +13,12 @@ const String version = '4.0.0';
 /// max file size to read for exif/hash/anything
 const int maxFileSize = 64 * 1024 * 1024;
 
-//initialising verbose as a global variable
+//initialising some global variables
 bool isVerbose = false;
 
 bool enforceMaxFileSize = false;
+
+bool ffProbeInstalled = false;
 
 /// convenient print for errors
 void error(final Object? object) => stderr.write('$object\n');
