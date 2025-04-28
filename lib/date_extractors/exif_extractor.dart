@@ -91,7 +91,8 @@ Future<DateTime?> exifDateTimeExtractor(final File file) async {
           return null;
         }
       }
-      return null;
+      log('[Step 4/8] Skipping getting DateTime because ffprobe is not installed for ${file.path}');
+      return null; //if ffprobe is not installed and file is video
     default: //if it's not an image or video or null or too large.
       //if it's not an image or video or null or too large.
       log(
