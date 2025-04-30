@@ -1,9 +1,12 @@
+import 'dart:ffi';
 import 'dart:io';
 import 'package:collection/collection.dart';
+import 'package:ffi/ffi.dart';
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
 import 'package:proper_filesize/proper_filesize.dart';
 import 'package:unorm_dart/unorm_dart.dart' as unorm;
+import 'package:win32/win32.dart';
 import 'interactive.dart' as interactive;
 import 'media.dart';
 
@@ -319,29 +322,60 @@ Future<void> createShortcutWin(
   final String shortcutPath,
   final String targetPath,
 ) async {
-  // Make sure parent directory exists
-  final Directory parentDir = Directory(p.dirname(shortcutPath));
-  if (!parentDir.existsSync()) {
-    parentDir.createSync(recursive: true);
-  }
+  Pointer<COMObject>? shellLink;
+  Pointer<COMObject>? persistFile;
+  Pointer<Utf16>? shortcutPathPtr;
+  try {
+      // Initialize the COM library on the current thread
+    final hrInit = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+    if (FAILED(hrInit)) {
+      throw 'Error initializing COM: $hrInit';
+    }
 
-  // Use PowerShell for reliable shortcut creation
-  final ProcessResult res = await Process.run('powershell.exe', <String>[
-    '-ExecutionPolicy',
-    'Bypass',
-    '-NoLogo',
-    '-NonInteractive',
-    '-NoProfile',
-    '-Command',
-    // ignore: no_adjacent_strings_in_list
-    '\$ws = New-Object -ComObject WScript.Shell; '
-        '\$s = \$ws.CreateShortcut("$shortcutPath"); '
-        '\$s.TargetPath = "$targetPath"; '
-        '\$s.Save()',
-  ]);
+    shellLink = calloc<COMObject>();
 
-  if (res.exitCode != 0) {
-    throw Exception('PowerShell failed to create shortcut: ${res.stderr}');
+    // Create IShellLink instance
+    final hr = CoCreateInstance(
+        GUIDFromString(CLSID_ShellLink).cast<GUID>(),
+        nullptr,
+        CLSCTX_INPROC_SERVER,
+        GUIDFromString(IID_IShellLink).cast<GUID>(),
+        shellLink.cast());
+
+    if (FAILED(hr)) {
+      throw 'Error creating IShellLink instance: $hr';
+    }
+
+    final shellLinkPtr = IShellLink(shellLink);
+    shellLinkPtr.setPath(targetPath.toNativeUtf16().cast());
+
+    // Saving shortcut
+    persistFile = calloc<COMObject>();
+    final hrPersistFile = shellLinkPtr.queryInterface(
+        GUIDFromString(IID_IPersistFile).cast<GUID>(),
+        persistFile.cast());
+    if (FAILED(hrPersistFile)) {
+      throw 'Error obtaining IPersistFile: $hrPersistFile';
+    }
+    final persistFilePtr = IPersistFile(persistFile);
+    shortcutPathPtr = shortcutPath.toNativeUtf16();
+    final hrSave = persistFilePtr.save(shortcutPathPtr.cast(), TRUE);
+
+    if (FAILED(hrSave)) {
+      throw 'Error trying to save shortcut: $hrSave';
+    } 
+  } finally {
+    // Free memory
+    if (shortcutPathPtr != null) {
+      free(shortcutPathPtr);
+    }
+    if (persistFile != null) {
+      free(persistFile);
+    }
+    if (shellLink != null) {
+      free(shellLink);
+    }
+    CoUninitialize();
   }
 }
 
