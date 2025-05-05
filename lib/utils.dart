@@ -329,7 +329,7 @@ Future<void> createShortcutWin(
       // Initialize the COM library on the current thread
     final hrInit = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
     if (FAILED(hrInit)) {
-      throw 'Error initializing COM: $hrInit';
+      throw Exception('Error initializing COM: $hrInit');
     }
 
     shellLink = calloc<COMObject>();
@@ -343,7 +343,7 @@ Future<void> createShortcutWin(
         shellLink.cast());
 
     if (FAILED(hr)) {
-      throw 'Error creating IShellLink instance: $hr';
+      throw Exception('Error creating IShellLink instance: $hr');
     }
 
     final shellLinkPtr = IShellLink(shellLink);
@@ -355,14 +355,14 @@ Future<void> createShortcutWin(
         GUIDFromString(IID_IPersistFile).cast<GUID>(),
         persistFile.cast());
     if (FAILED(hrPersistFile)) {
-      throw 'Error obtaining IPersistFile: $hrPersistFile';
+      throw Exception('Error obtaining IPersistFile: $hrPersistFile');
     }
     final persistFilePtr = IPersistFile(persistFile);
     shortcutPathPtr = shortcutPath.toNativeUtf16();
     final hrSave = persistFilePtr.save(shortcutPathPtr.cast(), TRUE);
 
     if (FAILED(hrSave)) {
-      throw 'Error trying to save shortcut: $hrSave';
+      throw Exception('Error trying to save shortcut: $hrSave');
     } 
   } finally {
     // Free memory
@@ -370,9 +370,11 @@ Future<void> createShortcutWin(
       free(shortcutPathPtr);
     }
     if (persistFile != null) {
+      IPersistFile(persistFile).release();
       free(persistFile);
     }
     if (shellLink != null) {
+      IShellLink(shellLink).release();
       free(shellLink);
     }
     CoUninitialize();

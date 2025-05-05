@@ -160,9 +160,9 @@ void main(final List<String> arguments) async {
               'only confirmed to work on jpg and jpeg',
         ) //FIXME Update when EXIF-write is fixed for png files
         ..addFlag(
-          'enforce-max-filesize',
+          'limit-filesize',
           help:
-              'Enforces a maximum size of 64MB per file for systems with low RAM (e.g. NAS). DateTime will not be extracted or written to larger files.',
+              'Enforces a maximum size of 64MB per file for systems with low RAM (e.g. NAS). DateTime will not be extracted from or written to larger files.',
         );
   final Map<String, dynamic> args = <String, dynamic>{};
   try {
@@ -200,7 +200,7 @@ void main(final List<String> arguments) async {
     log('Verbose mode active!');
   }
   // set the enforceMaxFileSize variable through argument
-  if (args['enforce-max-filesize']) {
+  if (args['limit-filesize']) {
     enforceMaxFileSize = true;
   }
 
@@ -398,7 +398,7 @@ void main(final List<String> arguments) async {
       Stopwatch()..start(); //Creation of our debugging stopwatch for each step.
   if (args['modify-json']) {
     print(
-      '[Step 1/8] Fixing JSON files. Removing suffix (this may take some time)...',
+      '[Step 1/8] Fixing JSON files. Removing suffix... (this may take some time)',
     );
     await renameIncorrectJsonFiles(input);
   }
@@ -587,7 +587,7 @@ void main(final List<String> arguments) async {
   final Stopwatch sw6 =
       Stopwatch()..start(); //Creation of our debugging stopwatch for each step.
   print(
-    '[Step 6/8] Finding albums (this may take some time, dont worry :) ...',
+    '[Step 6/8] Finding albums... (this may take some time)',
   );
   findAlbums(media);
 
@@ -598,7 +598,7 @@ void main(final List<String> arguments) async {
   // the files are moved to the output folder, to avoid shortcuts/symlinks problems
   if (args['transform-pixel-mp']) {
     print(
-      '[Step 6/8] Changing .MP or .MV extensions to .mp4 (this may take some time) ...',
+      '[Step 6/8] Changing .MP or .MV extensions to .mp4... (this may take some time)',
     );
     await changeMPExtensions(media, '.mp4');
   } else {

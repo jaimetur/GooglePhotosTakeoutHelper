@@ -10,7 +10,7 @@
 - Added a "--write-exif" flag which will write missing EXIF information (coordinates and DateTime) from json to EXIF for jpg and jpeg files
 - Added support to get DateTime from .MOV, .MP4 and probably many other video formats through ffprobe. You need to download it yourself (e.g. from here: https://ffbinaries.com/downloads) and make sure the folder you keep it in is in your $PATH variable.
 - Added verbose mode (--verbose or -v)
-- File size is not limited anymore by default but can be limited using the --enforce-max-filesize flag for systems with low RAM (like a NAS).
+- File size is not limited anymore by default but can be limited using the --limit-filesize flag for systems with low RAM (like a NAS).
 
 #### General improvements
 
@@ -32,7 +32,7 @@
 - Added consistent log levels to log output to quickly differenciate between informational and error logs
 - Create symlinks with powershell on windows now which fixed heap corruption on newer win32/ffi
 - Added logging of elapsed time for each step.
-- Exposed the maxFileSize flag as an argument (--enforce-max-filesize) to set if necessary, It's now deactivated by default to support larger files like videos.
+- Exposed the maxFileSize flag as an argument (--limit-filesize) to set if necessary, It's now deactivated by default to support larger files like videos.
 
 #### Bug fixes
 
