@@ -403,7 +403,7 @@ void main(final List<String> arguments) async {
     await renameIncorrectJsonFiles(input);
   }
   sw1.stop();
-  log(
+  print(
     '[Step 1/8] Step 1 took ${sw1.elapsed.inMinutes} minutes or ${sw1.elapsed.toSeconds()} seconds to complete.',
   );
 
@@ -444,7 +444,7 @@ void main(final List<String> arguments) async {
     quit(13);
   }
   sw2.stop();
-  log(
+  print(
     '[Step 2/8] Step 2 took ${sw2.elapsed.inMinutes} minutes or ${sw2.elapsed.toSeconds()} seconds to complete.',
   );
 
@@ -465,7 +465,7 @@ void main(final List<String> arguments) async {
   }
   final int countExtras = args['skip-extras'] ? removeExtras(media) : 0;
   sw3.stop();
-  log(
+  print(
     '[Step 3/8] Step 3 took ${sw3.elapsed.inMinutes} minutes or ${sw3.elapsed.toSeconds()} seconds to complete.',
   );
 
@@ -521,7 +521,7 @@ void main(final List<String> arguments) async {
   print('');
 
   sw4.stop();
-  log(
+  print(
     '[Step 4/8] Step 4 took ${sw4.elapsed.inMinutes} minutes or ${sw4.elapsed.toSeconds()} seconds to complete.',
   );
 
@@ -572,7 +572,7 @@ void main(final List<String> arguments) async {
     print('[Step 5/8] Skipping writing data to EXIF.');
   }
   sw5.stop();
-  log(
+  print(
     '[Step 5/8] Step 5 took ${sw5.elapsed.inMinutes} minutes or ${sw5.elapsed.toSeconds()} seconds to complete.',
   );
 
@@ -626,7 +626,7 @@ void main(final List<String> arguments) async {
   }
 
   sw6.stop();
-  log(
+  print(
     '[Step 6/8] Step 6 took ${sw6.elapsed.inMinutes} minutes or ${sw6.elapsed.toSeconds()} seconds to complete.',
   );
 
@@ -660,7 +660,7 @@ void main(final List<String> arguments) async {
   //   await input.delete(recursive: true);
   // }
   sw7.stop();
-  log(
+  print(
     '[Step 7/8] Step 7 took ${sw7.elapsed.inMinutes} minutes or ${sw7.elapsed.toSeconds()} seconds to complete.',
   );
 
