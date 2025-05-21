@@ -246,7 +246,7 @@ Future<void> changeMPExtensions(
 /// For each file, attempts to set the creation date to match
 /// the last modification date.
 /// Only Windows support for now, using PowerShell.
-/// In the future MacOS support is possible if the user has XCode installed
+//TODO In the future MacOS support is possible if the user has XCode installed
 Future<void> updateCreationTimeRecursively(final Directory directory) async {
   if (!Platform.isWindows) {
     print(
@@ -325,14 +325,20 @@ Future<void> createShortcutWin(
   Pointer<COMObject>? shellLink;
   Pointer<COMObject>? persistFile;
   Pointer<Utf16>? shortcutPathPtr;
+  Pointer<Utf16>? targetPathPtr;
+
   try {
-      // Initialize the COM library on the current thread
+    // Initialize COM
     final hrInit = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
     if (FAILED(hrInit)) {
       throw Exception('Error initializing COM: $hrInit');
     }
 
+    // Allocate COM objects
     shellLink = calloc<COMObject>();
+    if (shellLink.address == 0) {
+      throw Exception('Failed to allocate shellLink');
+    }
 
     // Create IShellLink instance
     final hr = CoCreateInstance(
@@ -347,33 +353,46 @@ Future<void> createShortcutWin(
     }
 
     final shellLinkPtr = IShellLink(shellLink);
-    shellLinkPtr.setPath(targetPath.toNativeUtf16().cast());
+    targetPathPtr = targetPath.toNativeUtf16();
+    if (targetPathPtr.address == 0) {
+      throw Exception('Failed to allocate targetPathPtr');
+    }
+    shellLinkPtr.setPath(targetPathPtr.cast());
 
-    // Saving shortcut
+    // Query IPersistFile
     persistFile = calloc<COMObject>();
+    if (persistFile.address == 0) {
+      throw Exception('Failed to allocate persistFile');
+    }
     final hrPersistFile = shellLinkPtr.queryInterface(
         GUIDFromString(IID_IPersistFile).cast<GUID>(),
         persistFile.cast());
     if (FAILED(hrPersistFile)) {
       throw Exception('Error obtaining IPersistFile: $hrPersistFile');
     }
+
     final persistFilePtr = IPersistFile(persistFile);
     shortcutPathPtr = shortcutPath.toNativeUtf16();
+    if (shortcutPathPtr.address == 0) {
+      throw Exception('Failed to allocate shortcutPathPtr');
+    }
     final hrSave = persistFilePtr.save(shortcutPathPtr.cast(), TRUE);
-
     if (FAILED(hrSave)) {
-      throw Exception('Error trying to save shortcut: $hrSave');
-    } 
+      throw Exception('Error saving shortcut: $hrSave');
+    }
   } finally {
-    // Free memory
-    if (shortcutPathPtr != null) {
+    // Cleanup
+    if (shortcutPathPtr != null && shortcutPathPtr.address != 0) {
       free(shortcutPathPtr);
     }
-    if (persistFile != null) {
+    if (targetPathPtr != null && targetPathPtr.address != 0) {
+      free(targetPathPtr);
+    }
+    if (persistFile != null && persistFile.address != 0) {
       IPersistFile(persistFile).release();
       free(persistFile);
     }
-    if (shellLink != null) {
+    if (shellLink != null && shellLink.address != 0) {
       IShellLink(shellLink).release();
       free(shellLink);
     }
