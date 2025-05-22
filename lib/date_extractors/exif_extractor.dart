@@ -77,26 +77,39 @@ Future<DateTime?> exifDateTimeExtractor(final File file) async {
         final String? videoCreationDateTimeString =
             ffprobeResult.format?.tags?.creationTime;
         if (videoCreationDateTimeString != null) {
-          final DateTime videoCreationDateTime = DateTime.parse(
-            videoCreationDateTimeString,
-          );
-          log(
-            '[Step 4/8] Extracted DateTime from EXIF through ffprobe for ${file.path}',
-          );
-          return videoCreationDateTime;
+          if (videoCreationDateTimeString == '2036-01-01T23:59:59.000000Z') {
+            log(
+              '[Step 4/8] Extracted DateTime before January 1st 1970 from EXIF through ffprobe for ${file.path}. Therefore the DateTime from other extractors is not being changed.', level: 'warning'
+            );
+            return null;
+          } else {
+            final DateTime videoCreationDateTime = DateTime.parse(
+              videoCreationDateTimeString,
+            );
+            log(
+              '[Step 4/8] Extracted DateTime from EXIF through ffprobe for ${file.path}',
+            );
+            return videoCreationDateTime;
+          }
         } else {
           //if the video file was decoded by ffprobe, but it did not contain a DateTime in CreationTime
           log(
-            '[Step 4/8] Extracted null DateTime from EXIF through ffprobe for ${file.path}. This is expected behaviour if your video file does not contain a CreationDate.', level: 'warning');
+            '[Step 4/8] Extracted null DateTime from EXIF through ffprobe for ${file.path}. This is expected behaviour if your video file does not contain a CreationDate.',
+            level: 'warning',
+          );
           return null;
         }
       }
-      log('[Step 4/8] Skipping getting DateTime because ffprobe is not installed for ${file.path}');
+      log(
+        '[Step 4/8] Skipping getting DateTime because ffprobe is not installed for ${file.path}',
+      );
       return null; //if ffprobe is not installed and file is video
     default: //if it's not an image or video or null or too large.
       //if it's not an image or video or null or too large.
       log(
-        '[Step 4/8] MimeType ${lookupMimeType(file.path)} is not handled yet. Please create an issue if you encounter this error, as we should handle whatever you got there. This happened for file: ${file.path}',level: 'error' //Satisfies wherePhotoVideo() but is not image/ or video/ mime type.
+        '[Step 4/8] MimeType ${lookupMimeType(file.path)} is not handled yet. Please create an issue if you encounter this error, as we should handle whatever you got there. This happened for file: ${file.path}',
+        level:
+            'error', //Satisfies wherePhotoVideo() but is not image/ or video/ mime type.
       );
       return null;
   }
