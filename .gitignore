@@ -7,13 +7,7 @@
 
 # Conventional directory for build output.
 build/
-
-photos/
-
-ALL_PHOTOS/
 output/
 *.log
 pubspec.lock
-/*.jpg
-/*.json
-/Vacation
+/test/generated

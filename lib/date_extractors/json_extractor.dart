@@ -9,7 +9,7 @@ import '../extras.dart' show extraFormats;
 import '../utils.dart';
 
 
-/// Finds corresponding json file with info and gets 'photoTakenTime' from it
+/// Finds corresponding json file with info from media file and gets 'photoTakenTime' from it
 Future<DateTime?> jsonDateTimeExtractor(final File file,
     {final bool tryhard = false}) async {
   final File? jsonFile = await _jsonForFile(file, tryhard: tryhard);
@@ -32,6 +32,7 @@ Future<DateTime?> jsonDateTimeExtractor(final File file,
   }
 }
 
+  ///Tries to find json for media file
 Future<File?> _jsonForFile(final File file, {required final bool tryhard}) async {
   final Directory dir = Directory(p.dirname(file.path));
   final String name = p.basename(file.path);
@@ -132,7 +133,7 @@ String _bracketSwap(final String filename) {
   return '$withoutBracket$bracket';
 }
 
-// This is to get coordinates from the json file
+/// This is to get coordinates from the json file. Expects media file and finds json.
 Future<DMSCoordinates?> jsonCoordinatesExtractor(final File file,
     {final bool tryhard = false}) async {
   final File? jsonFile = await _jsonForFile(file, tryhard: tryhard);

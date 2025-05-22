@@ -31,7 +31,8 @@ BAgEBAgQCwkLEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQ
 EBD/wAARCAABAAEDAREAAhEBAxEB/8QAFAABAAAAAAAAAAAAAAAAAAAAA//EABQQAQAAAAAAAAAA
 AAAAAAAAAAD/xAAUAQEAAAAAAAAAAAAAAAAAAAAI/8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAwD
 AQACEQMRAD8AIcgXf//Z''';
-  const String basepath = '/test/'; //Where the test files are created
+  final String current = Directory.current.path;
+  final String basepath = '$current\\test\\generated\\'; //Where the test files are created
 
   final Directory albumDir = Directory('${basepath}Vacation');
   final File imgFileGreen = File('${basepath}green.jpg');
@@ -428,8 +429,9 @@ AQACEQMRAD8AIcgXf//Z''';
         divideToDates: 0,
         albumBehavior: 'shortcut',
       ).toList();
-      final Set<FileSystemEntity> outputted =
-          await output.list(recursive: true, followLinks: false).toSet();
+      final Set<FileSystemEntity> outputted = await output
+          .list(recursive: true, followLinks: false)
+          .toSet();
       // 2 folders + media + 1 album-ed shortcut
       expect(outputted.length, 2 + media.length + 1);
       if (Platform.isWindows) {
@@ -460,8 +462,9 @@ AQACEQMRAD8AIcgXf//Z''';
         divideToDates: 0,
         albumBehavior: 'nothing',
       ).toList();
-      final Set<FileSystemEntity> outputted =
-          await output.list(recursive: true, followLinks: false).toSet();
+      final Set<FileSystemEntity> outputted = await output
+          .list(recursive: true, followLinks: false)
+          .toSet();
       // 1 folder + media
       expect(outputted.length, 1 + media.length);
       expect(outputted.whereType<Link>().length, 0);
@@ -482,8 +485,9 @@ AQACEQMRAD8AIcgXf//Z''';
         divideToDates: 0,
         albumBehavior: 'duplicate-copy',
       ).toList();
-      final Set<FileSystemEntity> outputted =
-          await output.list(recursive: true, followLinks: false).toSet();
+      final Set<FileSystemEntity> outputted = await output
+          .list(recursive: true, followLinks: false)
+          .toSet();
       // 2 folders + media + 1 album-ed copy
       expect(outputted.length, 2 + media.length + 1);
       expect(outputted.whereType<Link>().length, 0);
@@ -522,8 +526,9 @@ AQACEQMRAD8AIcgXf//Z''';
         divideToDates: 0,
         albumBehavior: 'json',
       ).toList();
-      final Set<FileSystemEntity> outputted =
-          await output.list(recursive: true, followLinks: false).toSet();
+      final Set<FileSystemEntity> outputted = await output
+          .list(recursive: true, followLinks: false)
+          .toSet();
       // 1 folder + media + 1 json
       expect(outputted.length, 1 + media.length + 1);
       expect(outputted.whereType<Link>().length, 0);
@@ -622,11 +627,11 @@ AQACEQMRAD8AIcgXf//Z''';
     });
 
     test('extracts GPS coordinates from valid JSON', () async {
-      final result = await jsonCoordinatesExtractor(jsonFile6);
+      final result = await jsonCoordinatesExtractor(File('${basepath}IMG-20150125-WA0003.jpg'));
 
       expect(result, isNotNull);
-      expect(result!.latSeconds, 19.779960000008714);
-      expect(result.longSeconds, 53.690040000001886);
+      expect(result!.toDD().latitude, 41.3221611);
+      expect(result.toDD().longitude, 19.8149139);
       expect(result.latDirection, DirectionY.north);
       expect(result.longDirection, DirectionX.east);
     });

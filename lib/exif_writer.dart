@@ -104,8 +104,8 @@ Future<bool> writeGpsToExif(
         return false; // Ignoring errors during image decoding. Currently happens for png files.
       }
       if (image != null && image.hasExif) {
-        image.exif.gpsIfd.gpsLatitude = coordinates.latSeconds;
-        image.exif.gpsIfd.gpsLongitude = coordinates.longSeconds;
+        image.exif.gpsIfd.gpsLatitude = coordinates.toDD().latitude;
+        image.exif.gpsIfd.gpsLongitude = coordinates.toDD().longitude;
         image.exif.gpsIfd.gpsLatitudeRef =
             coordinates.latDirection.abbreviation;
         image.exif.gpsIfd.gpsLongitudeRef =
