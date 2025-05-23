@@ -2,9 +2,9 @@ import 'dart:io';
 import 'package:args/args.dart';
 import 'package:console_bars/console_bars.dart';
 import 'package:coordinate_converter/src/models/dms_coordinates_model.dart';
-import 'package:ffmpeg_cli/ffmpeg_cli.dart';
 import 'package:gpth/date_extractors/date_extractor.dart';
 import 'package:gpth/exif_writer.dart';
+import 'package:gpth/exiftoolInterface.dart';
 import 'package:gpth/extras.dart';
 import 'package:gpth/folder_classify.dart';
 import 'package:gpth/grouping.dart';
@@ -61,7 +61,7 @@ gpth is ment to help you with exporting your photos from Google Photos.
 
 First, go to https://takeout.google.com/ , deselect all and select only Photos.
 When ready, download all .zips, and extract them into *one* folder.
-To read the creation date and time from video files, you need to download ffprobe (e.g. from here https://ffbinaries.com/downloads)
+To read and write exif data, you have to install exiftool (e.g. from here https://exiftool.org)
 for your OS and make sure the executable is in a folder in the \$PATH.
 
 Then, run: gpth --input "folder/with/all/takeouts" --output "your/output/folder"
@@ -72,98 +72,95 @@ const int barWidth = 40;
 /// ##############################################################
 /// This is the main function that will be run when user runs gpth
 
-void main(final List<String> arguments) async {
-  final ArgParser parser =
-      ArgParser()
-        ..addFlag('help', abbr: 'h', negatable: false)
-        ..addOption(
-          'fix',
-          help:
-              'Folder with any photos to fix dates. \n'
-              'This skips whole "GoogleTakeout" procedure. \n'
-              'It is here because gpth has some cool heuristics to determine date \n'
-              'of a photo, and this can be handy in many situations :)\n',
-        )
-        ..addFlag(
-          'interactive',
-          help:
-              'Use interactive mode. Type this in case auto-detection fails, \n'
-              'or you *really* want to combine advanced options with prompts\n',
-        )
-        ..addFlag(
-          'verbose',
-          abbr: 'v',
-          help:
-              'Shows extensive output for debugging and analysis.\n'
-              'This can help with troubleshooting\n',
-        )
-        ..addOption(
-          'input',
-          abbr: 'i',
-          help:
-              'Input folder with *all* takeouts *extracted*.\n'
-              '(The folder your "Takeout" folder is within)\n',
-        )
-        ..addOption(
-          'output',
-          abbr: 'o',
-          help: 'Output folder where all photos will land\n',
-        )
-        ..addOption(
-          'albums',
-          help: 'What to do about albums?',
-          allowed: interactive.albumOptions.keys,
-          allowedHelp: interactive.albumOptions,
-          defaultsTo: 'shortcut',
-        )
-        ..addOption(
-          'divide-to-dates',
-          help: 'Divide output to folders by nothing/year/month/day\n',
-          allowed: <String>['0', '1', '2', '3'],
-          defaultsTo: '0',
-        )
-        ..addFlag('skip-extras', help: 'Skip extra images (like -edited etc)\n')
-        ..addFlag(
-          'guess-from-name',
-          help: 'Try to guess file dates from their names\n',
-          defaultsTo: true,
-        )
-        ..addFlag(
-          'copy',
-          help:
-              'Copy files instead of moving them.\n'
-              'This is usually slower, and uses extra space, \n'
-              "but doesn't break your input folder\n",
-        )
-        ..addFlag(
-          'modify-json',
-          help:
-              'Delete the "supplemental-metadata" suffix from \n'
-              '.json files to ensure that script works correctly\n',
-          defaultsTo: true,
-        )
-        ..addFlag(
-          'transform-pixel-mp',
-          help: 'Transform Pixel .MP or .MV extensions to ".mp4"\n',
-        )
-        ..addFlag(
-          'update-creation-time',
-          help:
-              'Set creation time equal to the last \n'
-              'modification date at the end of the program. \n'
-              'Only Windows supported\n',
-        )
-        ..addFlag(
-          'write-exif',
-          help:
-              'Writes geodata from json files and the extracted DateTime to EXIF\n'
-              'only confirmed to work on jpg and jpeg',
-        ) //FIXME Update when EXIF-write is fixed for png files
-        ..addFlag(
-          'limit-filesize',
-          help:
-              'Enforces a maximum size of 64MB per file for systems with low RAM (e.g. NAS). DateTime will not be extracted from or written to larger files.',
-        );
+Future<void> main(final List<String> arguments) async {
+  final ArgParser parser = ArgParser()
+    ..addFlag('help', abbr: 'h', negatable: false)
+    ..addOption(
+      'fix',
+      help:
+          'Folder with any photos to fix dates. \n'
+          'This skips whole "GoogleTakeout" procedure. \n'
+          'It is here because gpth has some cool heuristics to determine date \n'
+          'of a photo, and this can be handy in many situations :)\n',
+    )
+    ..addFlag(
+      'interactive',
+      help:
+          'Use interactive mode. Type this in case auto-detection fails, \n'
+          'or you *really* want to combine advanced options with prompts\n',
+    )
+    ..addFlag(
+      'verbose',
+      abbr: 'v',
+      help:
+          'Shows extensive output for debugging and analysis.\n'
+          'This can help with troubleshooting\n',
+    )
+    ..addOption(
+      'input',
+      abbr: 'i',
+      help:
+          'Input folder with *all* takeouts *extracted*.\n'
+          '(The folder your "Takeout" folder is within)\n',
+    )
+    ..addOption(
+      'output',
+      abbr: 'o',
+      help: 'Output folder where all photos will land\n',
+    )
+    ..addOption(
+      'albums',
+      help: 'What to do about albums?',
+      allowed: interactive.albumOptions.keys,
+      allowedHelp: interactive.albumOptions,
+      defaultsTo: 'shortcut',
+    )
+    ..addOption(
+      'divide-to-dates',
+      help: 'Divide output to folders by nothing/year/month/day\n',
+      allowed: <String>['0', '1', '2', '3'],
+      defaultsTo: '0',
+    )
+    ..addFlag('skip-extras', help: 'Skip extra images (like -edited etc)\n')
+    ..addFlag(
+      'guess-from-name',
+      help: 'Try to guess file dates from their names\n',
+      defaultsTo: true,
+    )
+    ..addFlag(
+      'copy',
+      help:
+          'Copy files instead of moving them.\n'
+          'This is usually slower, and uses extra space, \n'
+          "but doesn't break your input folder\n",
+    )
+    ..addFlag(
+      'modify-json',
+      help:
+          'Delete the "supplemental-metadata" suffix from \n'
+          '.json files to ensure that script works correctly\n',
+      defaultsTo: true,
+    )
+    ..addFlag(
+      'transform-pixel-mp',
+      help: 'Transform Pixel .MP or .MV extensions to ".mp4"\n',
+    )
+    ..addFlag(
+      'update-creation-time',
+      help:
+          'Set creation time equal to the last \n'
+          'modification date at the end of the program. \n'
+          'Only Windows supported\n',
+    )
+    ..addFlag(
+      'write-exif',
+      help: 'Writes geodata from json files and the extracted DateTime to EXIF',
+    )
+    ..addFlag(
+      'limit-filesize',
+      help:
+          'Enforces a maximum size of 64MB per file for systems with low RAM (e.g. NAS). DateTime will not be extracted from or written to larger files.',
+    );
   final Map<String, dynamic> args = <String, dynamic>{};
   try {
     final ArgResults res = parser.parse(arguments);
@@ -204,31 +201,12 @@ void main(final List<String> arguments) async {
     enforceMaxFileSize = true;
   }
 
-  //checking if ffprobe is installed
-  try {
-    final ProcessResult result = await Process.run('ffprobe', ['-L']);
-    if (result.exitCode == 0) {
-      // B: ffprobe is installed and accessible
-      print(
-        '[INFO] Ffprobe was found! Continuing with support for reading EXIF data from video files...',
-      );
-      ffProbeInstalled = true;
-      sleep(const Duration(seconds: 3));
-    } else {
-      // Handle other errors (e.g., invalid arguments)
-      print('[ERROR] Ffprobe returned an error: ${result.stderr}');
-    }
-  } on ProcessException catch (e) {
-    if (e.message.contains('The system cannot find the file specified')) {
-      // A: ffprobe is not installed or not in PATH
-      print(
-        '[INFO] Ffprobe was not found! Continuing without support for reading EXIF data from video files in 3 seconds. Press Ctrl+C to abort.',
-      );
-      await Future.delayed(const Duration(seconds: 3)); // Give time to abort
-    } else {
-      // Handle other ProcessException errors
-      print('[ERROR] An unexpected error occurred: ${e.message}');
-    }
+  //checking if Exiftool is installed
+  if (await initExiftool()) {
+    print(
+      '[INFO] Exiftool was found! Continuing with support for reading and writing EXIF data...',
+    );
+    sleep(const Duration(seconds: 3));
   }
 
   /// ##############################################################
@@ -364,12 +342,13 @@ void main(final List<String> arguments) async {
           )
           .isEmpty) {
     if (await interactive.askForCleanOutput()) {
-      await for (final FileSystemEntity file in output.list()
-      // delete everything except input folder if there
-      .where(
-        (final FileSystemEntity e) =>
-            p.absolute(e.path) != p.absolute(args['input']),
-      )) {
+      await for (final FileSystemEntity file
+          in output.list()
+          // delete everything except input folder if there
+          .where(
+            (final FileSystemEntity e) =>
+                p.absolute(e.path) != p.absolute(args['input']),
+          )) {
         await file.delete(recursive: true);
       }
     }
@@ -394,8 +373,8 @@ void main(final List<String> arguments) async {
   /// ##############################################################
   /// ################# STEP 1 #####################################
   /// ##### Fixing JSON files (if needed) ##########################
-  final Stopwatch sw1 =
-      Stopwatch()..start(); //Creation of our debugging stopwatch for each step.
+  final Stopwatch sw1 = Stopwatch()
+    ..start(); //Creation of our debugging stopwatch for each step.
   if (args['modify-json']) {
     print(
       '[Step 1/8] Fixing JSON files. Removing suffix... (this may take some time)',
@@ -404,14 +383,14 @@ void main(final List<String> arguments) async {
   }
   sw1.stop();
   print(
-    '[Step 1/8] Step 1 took ${sw1.elapsed.inMinutes} minutes or ${sw1.elapsed.toSeconds()} seconds to complete.',
+    '[Step 1/8] Step 1 took ${sw1.elapsed.inMinutes} minutes or ${sw1.elapsed.inSeconds} seconds to complete.',
   );
 
   /// ##############################################################
   /// ################# STEP 2 #####################################
   /// ##### Find literally *all* photos/videos and add to list #####
-  final Stopwatch sw2 =
-      Stopwatch()..start(); //Creation of our debugging stopwatch for each step.
+  final Stopwatch sw2 = Stopwatch()
+    ..start(); //Creation of our debugging stopwatch for each step.
   print('[Step 2/8] Searching for everything in input folder...');
 
   // recursive=true makes it find everything nicely even if user id dumb 😋
@@ -445,14 +424,14 @@ void main(final List<String> arguments) async {
   }
   sw2.stop();
   print(
-    '[Step 2/8] Step 2 took ${sw2.elapsed.inMinutes} minutes or ${sw2.elapsed.toSeconds()} seconds to complete.',
+    '[Step 2/8] Step 2 took ${sw2.elapsed.inMinutes} minutes or ${sw2.elapsed.inSeconds} seconds to complete.',
   );
 
   /// ##############################################################
   /// ################# STEP 3 #####################################
   /// ##### Finding and removing duplicates ########################
-  final Stopwatch sw3 =
-      Stopwatch()..start(); //Creation of our debugging stopwatch for each step.
+  final Stopwatch sw3 = Stopwatch()
+    ..start(); //Creation of our debugging stopwatch for each step.
   print('[Step 3/8] Finding duplicates... (This may take some time)');
   final int countDuplicates = removeDuplicates(media, barWidth);
 
@@ -466,7 +445,7 @@ void main(final List<String> arguments) async {
   final int countExtras = args['skip-extras'] ? removeExtras(media) : 0;
   sw3.stop();
   print(
-    '[Step 3/8] Step 3 took ${sw3.elapsed.inMinutes} minutes or ${sw3.elapsed.toSeconds()} seconds to complete.',
+    '[Step 3/8] Step 3 took ${sw3.elapsed.inMinutes} minutes or ${sw3.elapsed.inSeconds} seconds to complete.',
   );
 
   /// ##############################################################
@@ -490,8 +469,8 @@ void main(final List<String> arguments) async {
 
   /// ##### Extracting/predicting dates using given extractors #####
 
-  final Stopwatch sw4 =
-      Stopwatch()..start(); //Creation of our debugging stopwatch for each step.
+  final Stopwatch sw4 = Stopwatch()
+    ..start(); //Creation of our debugging stopwatch for each step.
 
   final FillingBar barExtract = FillingBar(
     total: media.length,
@@ -522,7 +501,7 @@ void main(final List<String> arguments) async {
 
   sw4.stop();
   print(
-    '[Step 4/8] Step 4 took ${sw4.elapsed.inMinutes} minutes or ${sw4.elapsed.toSeconds()} seconds to complete.',
+    '[Step 4/8] Step 4 took ${sw4.elapsed.inMinutes} minutes or ${sw4.elapsed.inSeconds} seconds to complete.',
   );
 
   /// ##############################################################
@@ -534,8 +513,8 @@ void main(final List<String> arguments) async {
   // This is done after the dates of files have been defined, because here we have to write the files to disk again and before
   // the files are moved to the output folder, to avoid shortcuts/symlinks problems.
 
-  final Stopwatch sw5 =
-      Stopwatch()..start(); //Creation of our debugging stopwatch for each step.
+  final Stopwatch sw5 = Stopwatch()
+    ..start(); //Creation of our debugging stopwatch for each step.
 
   int exifccounter = 0; //Counter for coordinates set in EXIF
   int exifdtcounter = 0; //Counter for DateTime set in EXIF
@@ -552,13 +531,13 @@ void main(final List<String> arguments) async {
       final DMSCoordinates? coords = await jsonCoordinatesExtractor(
         currentFile,
       );
-      if (coords != null) {
+      if (coords != null && exifToolInstalled) {
         //If coordinates were found in json, write them to exif
         if (await writeGpsToExif(coords, currentFile)) {
           exifccounter++;
         }
       }
-      if (media[i].dateTaken != null) {
+      if (media[i].dateTaken != null && exifToolInstalled) {
         //If date was found before through one of the extractors, write it to exif
         if (await writeDateTimeToExif(media[i].dateTaken!, currentFile)) {
           exifdtcounter++;
@@ -573,7 +552,7 @@ void main(final List<String> arguments) async {
   }
   sw5.stop();
   print(
-    '[Step 5/8] Step 5 took ${sw5.elapsed.inMinutes} minutes or ${sw5.elapsed.toSeconds()} seconds to complete.',
+    '[Step 5/8] Step 5 took ${sw5.elapsed.inMinutes} minutes or ${sw5.elapsed.inSeconds} seconds to complete.',
   );
 
   /// ##############################################################
@@ -584,11 +563,9 @@ void main(final List<String> arguments) async {
   // each one individually, because they are in different folder.
   // I wish that, thanks to this, we may find some jsons in albums that would
   // be broken in shithole of big-ass year folders
-  final Stopwatch sw6 =
-      Stopwatch()..start(); //Creation of our debugging stopwatch for each step.
-  print(
-    '[Step 6/8] Finding albums... (this may take some time)',
-  );
+  final Stopwatch sw6 = Stopwatch()
+    ..start(); //Creation of our debugging stopwatch for each step.
+  print('[Step 6/8] Finding albums... (this may take some time)');
   findAlbums(media);
 
   /// ##############################################################
@@ -627,14 +604,14 @@ void main(final List<String> arguments) async {
 
   sw6.stop();
   print(
-    '[Step 6/8] Step 6 took ${sw6.elapsed.inMinutes} minutes or ${sw6.elapsed.toSeconds()} seconds to complete.',
+    '[Step 6/8] Step 6 took ${sw6.elapsed.inMinutes} minutes or ${sw6.elapsed.inSeconds} seconds to complete.',
   );
 
   /// ##############################################################
   /// ################# STEP 7 #####################################
   /// ##### Copy/move files to actual output folder ################
-  final Stopwatch sw7 =
-      Stopwatch()..start(); //Creation of our debugging stopwatch for each step.
+  final Stopwatch sw7 = Stopwatch()
+    ..start(); //Creation of our debugging stopwatch for each step.
   final FillingBar barCopy = FillingBar(
     total: outputFileCount(media, args['albums']),
     desc:
@@ -645,10 +622,9 @@ void main(final List<String> arguments) async {
     media,
     output,
     copy: args['copy'],
-    divideToDates:
-        args['divide-to-dates'] is num
-            ? args['divide-to-dates']
-            : num.parse(args['divide-to-dates']),
+    divideToDates: args['divide-to-dates'] is num
+        ? args['divide-to-dates']
+        : num.parse(args['divide-to-dates']),
     albumBehavior: args['albums'],
   ).listen((final _) => barCopy.increment()).asFuture();
   print('[Step 7/8] Done moving/copying media!');
@@ -661,14 +637,14 @@ void main(final List<String> arguments) async {
   // }
   sw7.stop();
   print(
-    '[Step 7/8] Step 7 took ${sw7.elapsed.inMinutes} minutes or ${sw7.elapsed.toSeconds()} seconds to complete.',
+    '[Step 7/8] Step 7 took ${sw7.elapsed.inMinutes} minutes or ${sw7.elapsed.inSeconds} seconds to complete.',
   );
 
   /// ##############################################################
   /// ################# STEP 8 #####################################
   /// ##### Update creation time (Windows only) ####################
-  final Stopwatch sw8 =
-      Stopwatch()..start(); //Creation of our debugging stopwatch for each step.
+  final Stopwatch sw8 = Stopwatch()
+    ..start(); //Creation of our debugging stopwatch for each step.
   if (args['update-creation-time']) {
     print(
       '[Step 8/8] Updating creation time of media files to match their modified time in output folder ...',
@@ -682,7 +658,7 @@ void main(final List<String> arguments) async {
   print('');
   sw8.stop();
   log(
-    '[Step 8/8] Step 6 took ${sw8.elapsed.inMinutes} minutes or ${sw8.elapsed.toSeconds()} seconds to complete.',
+    '[Step 8/8] Step 6 took ${sw8.elapsed.inMinutes} minutes or ${sw8.elapsed.inSeconds} seconds to complete.',
   );
 
   /// ##############################################################
@@ -713,8 +689,9 @@ void main(final List<String> arguments) async {
     print('$exifdtcounter got their DateTime set in EXIF data');
   }
   if (args['skip-extras']) print('$countExtras extras were skipped');
-  final int countPoop =
-      media.where((final Media e) => e.dateTaken == null).length;
+  final int countPoop = media
+      .where((final Media e) => e.dateTaken == null)
+      .length;
   if (countPoop > 0) {
     print(
       'For $countPoop photos/videos we were unable to find any DateTime :/',

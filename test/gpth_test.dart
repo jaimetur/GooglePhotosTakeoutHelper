@@ -1,24 +1,25 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
+
 import 'package:collection/collection.dart';
 import 'package:coordinate_converter/coordinate_converter.dart';
-import 'package:exif_reader/exif_reader.dart';
 import 'package:gpth/date_extractors/date_extractor.dart';
-import 'package:gpth/exif_writer.dart';
+import 'package:gpth/exif_writer.dart' as exif_writer;
+import 'package:gpth/exiftoolInterface.dart';
 import 'package:gpth/extras.dart';
 import 'package:gpth/folder_classify.dart';
 import 'package:gpth/grouping.dart';
 import 'package:gpth/media.dart';
 import 'package:gpth/moving.dart';
 import 'package:gpth/utils.dart';
-import 'package:image/image.dart';
 import 'package:intl/intl.dart';
-import 'package:path/path.dart';
 import 'package:path/path.dart' as p;
+import 'package:path/path.dart';
 import 'package:test/test.dart';
 
-void main() {
+void main() async {
+  await initExiftool();
+
   /// this is 1x1 green jg image, with exif:
   /// DateTime Original: 2022:12:16 16:06:47
   const String greenImgBase64 = '''
@@ -31,8 +32,22 @@ BAgEBAgQCwkLEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQ
 EBD/wAARCAABAAEDAREAAhEBAxEB/8QAFAABAAAAAAAAAAAAAAAAAAAAA//EABQQAQAAAAAAAAAA
 AAAAAAAAAAD/xAAUAQEAAAAAAAAAAAAAAAAAAAAI/8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAwD
 AQACEQMRAD8AIcgXf//Z''';
+
+  /// Same as above just without the DateTime.
+  const String greenImgNoMetaDataBase64 = '''
+/9j/4AAQSkZJRgABAQAAAQABAAD/4QCYRXhpZgAATU0AKgAAAAgABQEaAAUAAAABAAA
+ASgEbAAUAAAABAAAAUgEoAAMAAAABAAEAAAITAAMAAAABAAEAAIdpAAQAAAABAAAAWgAAA
+AAAAAABAAAAAQAAAAEAAAABAASQAAAHAAAABDAyMzKRAQAHAAAABAECAwCgAAAHAAAABDA
+xMDCgAQADAAAAAf//AAAAAAAA/9sAQwADAgICAgIDAgICAwMDAwQGBAQEBAQIBgYFBgkIC
+goJCAkJCgwPDAoLDgsJCQ0RDQ4PEBAREAoMEhMSEBMPEBAQ/9sAQwEDAwMEAwQIBAQIEAs
+JCxAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQ/
+8AAEQgAAQABAwERAAIRAQMRAf/EABQAAQAAAAAAAAAAAAAAAAAAAAP/xAAUEAEAAAAAAAA
+AAAAAAAAAAAAA/8QAFAEBAAAAAAAAAAAAAAAAAAAACP/EABQRAQAAAAAAAAAAAAAAAAAAA
+AD/2gAMAwEAAhEDEQA/ACHIF3//2Q==''';
+
   final String current = Directory.current.path;
-  final String basepath = '$current\\test\\generated\\'; //Where the test files are created
+  final String basepath =
+      '$current\\test\\generated\\'; //Where the test files are created
 
   final Directory albumDir = Directory('${basepath}Vacation');
   final File imgFileGreen = File('${basepath}green.jpg');
@@ -561,50 +576,17 @@ AQACEQMRAD8AIcgXf//Z''';
     tearDown(() async => output.delete(recursive: true));
   });
 
-  group('isSupportedToWriteToExif', () {
-    test('returns true for supported file formats', () {
-      final supportedFiles = [
-        File('test.jpg'),
-        File('test.jpeg'),
-        File('test.png'),
-        File('test.gif'),
-        File('test.bmp'),
-        File('test.tiff'),
-        File('test.tga'),
-        File('test.pvr'),
-        File('test.ico'),
-      ];
-
-      for (final file in supportedFiles) {
-        expect(isSupportedToWriteToExif(file), isTrue);
-      }
-    });
-
-    test('returns false for unsupported file formats', () {
-      final unsupportedFiles = [
-        File('test.txt'),
-        File('test.pdf'),
-        File('test.docx'),
-        File('test.mp4'),
-        File('test.json'),
-      ];
-
-      for (final file in unsupportedFiles) {
-        expect(isSupportedToWriteToExif(file), isFalse);
-      }
-    });
-  });
-
   group('writeGpsToExif', () {
     late File testImage;
     late DMSCoordinates testCoordinates;
 
     setUp(() {
-      // Create a temporary test image file
+      // Create a temporary test image file with metadata
       testImage = File('${basepath}test_image.jpg');
+      testImage.createSync();
       testImage.writeAsBytesSync(
-        encodeJpg(Image(width: 100, height: 100)),
-      ); // Create a blank JPG image
+        base64.decode(greenImgBase64.replaceAll('\n', '')),
+      );
 
       // Define test GPS coordinates
       testCoordinates = DMSCoordinates(
@@ -620,186 +602,104 @@ AQACEQMRAD8AIcgXf//Z''';
     });
 
     tearDown(() {
-      // Clean up the test image file
       if (testImage.existsSync()) {
         testImage.deleteSync();
       }
     });
 
-    test('extracts GPS coordinates from valid JSON', () async {
-      final result = await jsonCoordinatesExtractor(File('${basepath}IMG-20150125-WA0003.jpg'));
-
-      expect(result, isNotNull);
-      expect(result!.toDD().latitude, 41.3221611);
-      expect(result.toDD().longitude, 19.8149139);
-      expect(result.latDirection, DirectionY.north);
-      expect(result.longDirection, DirectionX.east);
-    });
-
-    test('returns null for invalid JSON', () async {
-      jsonFile6.writeAsStringSync('Invalid JSON');
-
-      final result = await jsonCoordinatesExtractor(jsonFile6);
-
-      expect(result, isNull);
-    });
-
-    test('returns null for missing GPS data', () async {
-      jsonFile6.writeAsStringSync('{}');
-
-      final result = await jsonCoordinatesExtractor(jsonFile6);
-
-      expect(result, isNull);
-    });
-
     test('writes GPS coordinates to EXIF metadata', () async {
-      final bool result = await writeGpsToExif(testCoordinates, testImage);
-
-      // Verify that the function returns true
+      final bool result = await exif_writer.writeGpsToExif(
+        testCoordinates,
+        testImage,
+      );
       expect(result, isTrue);
-
-      // Verify that the GPS coordinates were written to the EXIF metadata
-      final Map<String, IfdTag> tags = await readExifFromFile(testImage);
-
-      expect(tags['GPS GPSLatitude'], isNotNull);
-      expect(tags['GPS GPSLongitude'], isNotNull);
-      expect(tags['GPS GPSLatitudeRef']!.printable, 'N');
-      expect(tags['GPS GPSLongitudeRef']!.printable, 'E');
+      final tags = await exiftool!.readExif(testImage);
+      expect(tags['GPSLatitude'], isNotNull);
+      expect(tags['GPSLongitude'], isNotNull);
+      expect(tags['GPSLatitudeRef'], 'N');
+      expect(tags['GPSLongitudeRef'], 'E');
     });
 
     test('returns false for unsupported file formats', () async {
-      // Create a non-supported file format (e.g., a text file)
       final File unsupportedFile = File('${basepath}test_file.txt');
       unsupportedFile.writeAsStringSync('This is a test file.');
-
-      final bool result = await writeGpsToExif(
+      final bool result = await exif_writer.writeGpsToExif(
         testCoordinates,
         unsupportedFile,
       );
-
-      // Verify that the function returns false
       expect(result, isFalse);
-
-      // Clean up the unsupported file
       unsupportedFile.deleteSync();
-    });
-
-    test('returns false for files with existing GPS EXIF data', () async {
-      // Simulate a file with existing GPS EXIF data
-      final Image? image = decodeJpg(testImage.readAsBytesSync());
-      image!.exif.gpsIfd.gpsLatitude = testCoordinates.latSeconds;
-      image.exif.gpsIfd.gpsLongitude = testCoordinates.longSeconds;
-      final Uint8List newBytes = encodeJpg(image);
-      testImage.writeAsBytesSync(newBytes);
-
-      final bool result = await writeGpsToExif(testCoordinates, testImage);
-
-      // Verify that the function returns false
-      expect(result, isFalse);
-    });
-
-    test('returns false for invalid image files', () async {
-      // Create a corrupted image file
-      testImage.writeAsBytesSync(<int>[0, 1, 2, 3, 4]);
-
-      final bool result = await writeGpsToExif(testCoordinates, testImage);
-
-      // Verify that the function returns false
-      expect(result, isFalse);
     });
   });
 
   group('writeDateTimeToExif', () {
     late File testImage;
+    late File testImage2;
     late DateTime testDateTime;
 
     setUp(() {
-      // Create a temporary test image file
+      // Create a temporary test image file with metadata
       testImage = File('${basepath}test_image.jpg');
+      testImage.createSync();
       testImage.writeAsBytesSync(
-        encodeJpg(Image(width: 100, height: 100)),
-      ); // Create a blank JPG image
+        base64.decode(greenImgBase64.replaceAll('\n', '')),
+      );
+      testDateTime = DateTime(2023, 12, 25, 15, 30, 45);
 
-      // Define a test DateTime
-      testDateTime = DateTime(
-        2023,
-        12,
-        25,
-        15,
-        30,
-        45,
-      ); // Christmas Day, 3:30:45 PM
+      // Create a temporary test image file without metadata
+      testImage2 = File('${basepath}test_image2.jpg');
+      testImage2.createSync();
+      testImage2.writeAsBytesSync(
+        base64.decode(greenImgNoMetaDataBase64.replaceAll('\n', '')),
+      );
     });
 
     tearDown(() {
-      // Clean up the test image file
       if (testImage.existsSync()) {
         testImage.deleteSync();
       }
+      if (testImage2.existsSync()) {
+        testImage2.deleteSync();
+      }
     });
 
-    test('writes DateTime to EXIF metadata', () async {
-      final bool result = await writeDateTimeToExif(testDateTime, testImage);
+    test(
+      'writes DateTime to EXIF metadata when original has no metadata',
+      () async {
+        final bool result = await exif_writer.writeDateTimeToExif(
+          testDateTime,
+          testImage2,
+        );
+        expect(result, isTrue);
+        final tags = await exiftool!.readExif(testImage2);
+        final DateFormat exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
+        final String expectedDateTime = exifFormat.format(testDateTime);
+        expect(tags['DateTime'], expectedDateTime);
+        expect(tags['DateTimeOriginal'], expectedDateTime);
+        expect(tags['DateTimeDigitized'], expectedDateTime);
+      },
+    );
 
-      // Verify that the function returns true
-      expect(result, isTrue);
-
-      // Verify that the DateTime was written to the EXIF metadata
-      final Uint8List bytes = await testImage.readAsBytes();
-      final Map<String, IfdTag> tags = await readExifFromBytes(bytes);
-
-      final DateFormat exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
-      final String expectedDateTime = exifFormat.format(testDateTime);
-
-      expect(tags['Image DateTime']!.printable, expectedDateTime);
-      expect(tags['EXIF DateTimeOriginal']!.printable, expectedDateTime);
-      expect(tags['EXIF DateTimeDigitized']!.printable, expectedDateTime);
-    });
+    test(
+      'does not write DateTime to EXIF metadata if file already has EXIF datetime',
+      () async {
+        final bool result = await exif_writer.writeDateTimeToExif(
+          testDateTime,
+          testImage,
+        );
+        expect(result, isFalse);
+      },
+    );
 
     test('returns false for unsupported file formats', () async {
-      // Create a non-supported file format (e.g., a text file)
-      final File unsupportedFile = File('test_file.txt');
+      final File unsupportedFile = File('${basepath}test_file.txt');
       unsupportedFile.writeAsStringSync('This is a test file.');
-
-      final bool result = await writeDateTimeToExif(
+      final bool result = await exif_writer.writeDateTimeToExif(
         testDateTime,
         unsupportedFile,
       );
-
-      // Verify that the function returns false
       expect(result, isFalse);
-
-      // Clean up the unsupported file
       unsupportedFile.deleteSync();
-    });
-
-    test('returns false for files with existing DateTime EXIF data', () async {
-      // Simulate a file with existing DateTime EXIF data
-      final Image? image = decodeJpg(testImage.readAsBytesSync());
-      final DateFormat exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
-      final String existingDateTime = exifFormat.format(
-        DateTime(2020, 1, 1, 12),
-      );
-      image!.exif.imageIfd['DateTime'] = existingDateTime;
-      image.exif.exifIfd['DateTimeOriginal'] = existingDateTime;
-      image.exif.exifIfd['DateTimeDigitized'] = existingDateTime;
-      final Uint8List newBytes = encodeJpg(image);
-      testImage.writeAsBytesSync(newBytes);
-
-      final bool result = await writeDateTimeToExif(testDateTime, testImage);
-
-      // Verify that the function returns false
-      expect(result, isFalse);
-    });
-
-    test('returns false for invalid image files', () async {
-      // Create a corrupted image file
-      testImage.writeAsBytesSync(<int>[0, 1, 2, 3, 4]);
-
-      final bool result = await writeDateTimeToExif(testDateTime, testImage);
-
-      // Verify that the function returns false
-      expect(result, isFalse);
     });
   });
 

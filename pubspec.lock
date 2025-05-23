@@ -17,14 +17,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "7.4.5"
-  archive:
-    dependency: transitive
-    description:
-      name: archive
-      sha256: "2fde1607386ab523f7a36bb3e7edb43bd58e6edaf2ffb29d8a6d578b297fdbbd"
-      url: "https://pub.dev"
-    source: hosted
-    version: "4.0.7"
   args:
     dependency: "direct main"
     description:
@@ -65,14 +57,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.2"
-  brotli:
-    dependency: transitive
-    description:
-      name: brotli
-      sha256: "7f891558ed779aab2bed874f0a36b8123f9ff3f19cf6efbee89e18ed294945ae"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.6.0"
   cli_config:
     dependency: transitive
     description:
@@ -137,14 +121,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.6"
-  exif_reader:
-    dependency: "direct main"
-    description:
-      name: exif_reader
-      sha256: "548ccc25be936e508c6a20706ae5e2796687b55b9db851962db1cd20fe6abfd9"
-      url: "https://pub.dev"
-    source: hosted
-    version: "3.16.1"
   ffi:
     dependency: "direct main"
     description:
@@ -153,14 +129,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.4"
-  ffmpeg_cli:
-    dependency: "direct main"
-    description:
-      name: ffmpeg_cli
-      sha256: a7704193b6885d3ff4b00c6ec4bcd08d607a243e56da8a43faab7ce7a313b2ed
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.3.0"
   file:
     dependency: transitive
     description:
@@ -217,14 +185,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.1.2"
-  image:
-    dependency: "direct main"
-    description:
-      name: image
-      sha256: "4e973fcf4caae1a4be2fa0a13157aa38a8f9cb049db6529aa00b4d71abc4d928"
-      url: "https://pub.dev"
-    source: hosted
-    version: "4.5.4"
   intl:
     dependency: "direct main"
     description:
@@ -241,14 +201,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.5"
-  iso_base_media:
-    dependency: transitive
-    description:
-      name: iso_base_media
-      sha256: "0f5594feef1fba98179a2df95d1afbdda952de0c7a2e35e6815093f7c00aaf06"
-      url: "https://pub.dev"
-    source: hosted
-    version: "4.5.2"
   js:
     dependency: transitive
     description:
@@ -257,14 +209,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.7.2"
-  json_annotation:
-    dependency: transitive
-    description:
-      name: json_annotation
-      sha256: "1ce844379ca14835a50d2f019a3099f419082cfdd231cd86a142af94dd5c6bb1"
-      url: "https://pub.dev"
-    source: hosted
-    version: "4.9.0"
   latinize:
     dependency: transitive
     description:
@@ -353,14 +297,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.9.1"
-  petitparser:
-    dependency: transitive
-    description:
-      name: petitparser
-      sha256: "07c8f0b1913bcde1ff0d26e57ace2f3012ccbf2b204e070290dad3bb22797646"
-      url: "https://pub.dev"
-    source: hosted
-    version: "6.1.0"
   pool:
     dependency: transitive
     description:
@@ -369,14 +305,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.5.1"
-  posix:
-    dependency: transitive
-    description:
-      name: posix
-      sha256: f0d7856b6ca1887cfa6d1d394056a296ae33489db914e365e2044fdada449e62
-      url: "https://pub.dev"
-    source: hosted
-    version: "6.0.2"
   proj4dart:
     dependency: transitive
     description:
@@ -401,14 +329,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.2.0"
-  random_access_source:
-    dependency: transitive
-    description:
-      name: random_access_source
-      sha256: dc86934da2cc4777334f43916234410f232032738c519c0c3452147c5d4fec89
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.1.0"
   shelf:
     dependency: transitive
     description:
@@ -465,14 +385,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.10.1"
-  sprintf:
-    dependency: transitive
-    description:
-      name: sprintf
-      sha256: "1fc9ffe69d4df602376b52949af107d8f5703b77cda567c4d7d86a0693120f23"
-      url: "https://pub.dev"
-    source: hosted
-    version: "7.0.0"
   stack_trace:
     dependency: transitive
     description:
@@ -617,14 +529,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.0"
-  xml:
-    dependency: transitive
-    description:
-      name: xml
-      sha256: b015a8ad1c488f66851d762d3090a21c600e479dc75e68328c52774040cf9226
-      url: "https://pub.dev"
-    source: hosted
-    version: "6.5.0"
   yaml:
     dependency: transitive
     description:

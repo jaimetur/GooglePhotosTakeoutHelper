@@ -8,7 +8,7 @@
 
 - Added support for reading EXIF data from JXL (JPEG XL), ARW, RAW, DNG, CRW, CR3, NRW, NEF and RAF files
 - Added a "--write-exif" flag which will write missing EXIF information (coordinates and DateTime) from json to EXIF for jpg and jpeg files
-- Added support to get DateTime from .MOV, .MP4 and probably many other video formats through ffprobe. You need to download it yourself (e.g. from here: https://ffbinaries.com/downloads) and make sure the folder you keep it in is in your $PATH variable.
+- Added support to get DateTime from .MOV, .MP4 and probably many other video formats through exiftool. You need to download it yourself (e.g. from here: https://exiftool.org/), rename it to exiftool.exe and make sure the folder you keep it in is in your $PATH variable or in the same folder as gpth.
 - Added verbose mode (--verbose or -v)
 - File size is not limited anymore by default but can be limited using the --limit-filesize flag for systems with low RAM (like a NAS).
 
@@ -47,11 +47,11 @@
   - Currently supported file types are in theory JPG, PNG, Animated APNG, GIF, Animated GIF, BMP, TIFF, TGA, PVR and ICO (based on pub package Image 4.5.4). Howver only jpg and jpeg are confirmed to work. Others might work or will silently fail without problems.
   - Added verbose mode (--verbose or -v) with log levels info, warning and error.
 
-- Moved from the stale "exif" package to the exif_reader package which is a maintained fork of the exif package
-  - This adds support for extracting DateTime from JXL (JPEG XL), ARW, RAW, DNG, CRW, CR3, NRW, NEF and RAF files
+- Moved from the stale "exif" package to exiftool for all EXIF reading and writing (images and videos)
+  - This adds support for extracting DateTime from JXL (JPEG XL), ARW, RAW, DNG, CRW, CR3, NRW, NEF and RAF files, and video formats like MOV, MP4, etc.
 
-- Added the ffmpeg_cli package and logic to attempt to extract exif data from videos using ffprobe.
-  - ffprobe needs to be in $PATH variable. If not, that's okay. But if you have ffprobe locally, Google Photos Takeout Helper now supports reading CreatedDateTime EXIF data from a variety of video file formats.
+
+  - Exiftool needs to be in $PATH variable or in the same folder as the running binary. If not, that's okay. But if you have ExifTool locally, Google Photos Takeout Helper now supports reading CreatedDateTime EXIF data for almost all media formats.
 
   
 ##### *Previous fixes and improvement (from 3.4.3-wacheee to 4.0.0-wacheee)*

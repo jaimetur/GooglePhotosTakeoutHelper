@@ -21,7 +21,7 @@ bool isVerbose = false;
 
 bool enforceMaxFileSize = false;
 
-bool ffProbeInstalled = false;
+bool exifToolInstalled = false;
 
 /// convenient print for errors
 void error(final Object? object) => stderr.write('$object\n');
