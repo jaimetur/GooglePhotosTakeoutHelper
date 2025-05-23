@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:coordinate_converter/coordinate_converter.dart';
-import 'package:exif_reader/exif_reader.dart';
+import 'package:exif_reader/exif_reader.dart' as exifr;
 import 'package:image/image.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
@@ -52,7 +52,10 @@ Future<bool> writeDateTimeToExif(
           file.readAsBytesSync(),
         ); //Decode the image
       } catch (e) {
-        log('[Step 5/8] Found DateTime in json, but missing in EXIF for file: ${file.path}. Failed to write because of error during decoding: $e',level: 'error');
+        log(
+          '[Step 5/8] Found DateTime in json, but missing in EXIF for file: ${file.path}. Failed to write because of error during decoding: $e',
+          level: 'error',
+        );
         return false; // Ignoring errors during image decoding as it may not be a valid image file
       }
       if (image != null && image.hasExif) {
@@ -66,10 +69,15 @@ Future<bool> writeDateTimeToExif(
         ); //This overwrites the original file with the new Exif data.
         if (newbytes != null) {
           file.writeAsBytesSync(newbytes);
-          log('[Step 5/8] New DateTime written ${dateTime.toString()} to EXIF: ${file.path}');
+          log(
+            '[Step 5/8] New DateTime written ${dateTime.toString()} to EXIF: ${file.path}',
+          );
           return true;
         } else {
-          log('[Step 5/8] Found DateTime in json, but missing in EXIF for file: ${file.path}. Failed to write because encoding returned null', level: 'error');
+          log(
+            '[Step 5/8] Found DateTime in json, but missing in EXIF for file: ${file.path}. Failed to write because encoding returned null',
+            level: 'error',
+          );
           return false; // Failed to encode image while writing DateTime.
         }
       }
@@ -92,34 +100,76 @@ Future<bool> writeGpsToExif(
       log(
         '[Step 5/8] Found coordinates in json, but missing in EXIF for file: ${file.path}',
       );
-      // This is an edgecase where the json file has coordinates but the image file doesn't have EXIF data.
-      Image? image;
-      try {
-        image = decodeNamedImage(
-          file.path,
-          file.readAsBytesSync(),
-        ); //FIXME image decoding doesn't work for png files but only for jpg and jpeg.
-      } catch (e) {
-        log('[Step 5/8] Could not decode: ${file.path}. Failed with error: $e', level: 'error');
-        return false; // Ignoring errors during image decoding. Currently happens for png files.
-      }
-      if (image != null && image.hasExif) {
-        image.exif.gpsIfd.gpsLatitude = coordinates.toDD().latitude;
-        image.exif.gpsIfd.gpsLongitude = coordinates.toDD().longitude;
-        image.exif.gpsIfd.gpsLatitudeRef =
-            coordinates.latDirection.abbreviation;
-        image.exif.gpsIfd.gpsLongitudeRef =
-            coordinates.longDirection.abbreviation;
-        final Uint8List? newbytes = encodeNamedImage(
-          file.path,
-          image,
-        ); //This overwrites the original file with the new Exif data.
-        if (newbytes != null) {
-          file.writeAsBytesSync(newbytes);
-          log('[Step 5/8] New coordinates written to EXIF: ${file.path}');
-          return true;
-        } else {
+      Uint8List imagebytes;
+      ExifData? exifData;
+      Uint8List? newbytes;
+      //because the image dart package encodes the files with full quality, it results in way larger files.
+      //for jpg we have an alternative where we patch the exif data without having to reencode the image.
+      //We use the alternative method if it is a jpg and the image library for everything else.
+      if (p.extension(file.path).toLowerCase() == '.jpg' ||
+          p.extension(file.path).toLowerCase() == '.jpeg') {
+        try {
+          imagebytes = file.readAsBytesSync();
+          exifData = decodeJpgExif(imagebytes);
+        } catch (e) {
+          log(
+            '[Step 5/8] Could not decode: ${file.path}. Failed with error: $e',
+            level: 'error',
+          );
           return false;
+        }
+        if (exifData != null) {
+          exifData.gpsIfd.gpsLatitude = coordinates.toDD().latitude;
+          exifData.gpsIfd.gpsLongitude = coordinates.toDD().longitude;
+          exifData.gpsIfd.gpsLatitudeRef =
+              coordinates.latDirection.abbreviation;
+          exifData.gpsIfd.gpsLongitudeRef =
+              coordinates.longDirection.abbreviation;
+
+          newbytes = injectJpgExif(
+            imagebytes,
+            exifData,
+          ); //This overwrites only the exif data with the new Exif data.
+          if (newbytes != null) {
+            file.writeAsBytesSync(newbytes);
+            log('[Step 5/8] New coordinates written to EXIF: ${file.path}');
+            return true;
+          } else {
+            return false;
+          }
+        } else {
+          Image? image;
+          try {
+            image = decodeNamedImage(
+              file.path,
+              file.readAsBytesSync(),
+            ); //FIXME image decoding doesn't work for png files but only for jpg and jpeg.
+          } catch (e) {
+            log(
+              '[Step 5/8] Could not decode: ${file.path}. Failed with error: $e',
+              level: 'error',
+            );
+            return false; // Ignoring errors during image decoding. Happens for png files FIXME
+          }
+          if (image != null && image.hasExif) {
+            image.exif.gpsIfd.gpsLatitude = coordinates.toDD().latitude;
+            image.exif.gpsIfd.gpsLongitude = coordinates.toDD().longitude;
+            image.exif.gpsIfd.gpsLatitudeRef =
+                coordinates.latDirection.abbreviation;
+            image.exif.gpsIfd.gpsLongitudeRef =
+                coordinates.longDirection.abbreviation;
+            final Uint8List? newbytes = encodeNamedImage(
+              file.path,
+              image,
+            ); //This overwrites the original file with the new Exif data.
+            if (newbytes != null) {
+              file.writeAsBytesSync(newbytes);
+              log('[Step 5/8] New coordinates written to EXIF: ${file.path}');
+              return true;
+            } else {
+              return false;
+            }
+          }
         }
       }
     }
@@ -134,7 +184,7 @@ Future<bool> checkIfFileHasExifCoordinates(final File file) async {
   // i have nvme + btrfs, but still, will leave as is
   final Uint8List bytes = await file.readAsBytes();
   // this returns empty {} if file doesn't have exif so don't worry
-  final Map<String, IfdTag> tags = await readExifFromBytes(bytes);
+  final Map<String, exifr.IfdTag> tags = await exifr.readExifFromBytes(bytes);
 
   if (tags['GPS GPSLatitude'] != null && tags['GPS GPSLongitude'] != null) {
     return true;
