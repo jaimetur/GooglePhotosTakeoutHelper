@@ -703,6 +703,54 @@ AD/2gAMAwEAAhEDEQA/ACHIF3//2Q==''';
     });
   });
 
+  group('ExiftoolInterface', () {
+    late File testImage;
+    late File test_image2;
+    setUp(() {
+      initExiftool();
+      testImage = File('${basepath}test_image.jpg');
+      testImage.createSync();
+      testImage.writeAsBytesSync(base64.decode(greenImgBase64.replaceAll('\n', '')));
+      test_image2 = File('${basepath}test_exiftool.jpg');
+      test_image2.createSync();
+      test_image2.writeAsBytesSync(base64.decode(greenImgNoMetaDataBase64.replaceAll('\n', '')));
+    });
+    tearDown(() {
+      if (testImage.existsSync()) testImage.deleteSync();
+      if (test_image2.existsSync()) test_image2.deleteSync();
+    });
+    test('readExifBatch returns only requested tags and no SourceFile', () async {
+      final tags = await exiftool!.readExifBatch(testImage, ['DateTimeOriginal', 'DateTimeDigitized']);
+      expect(tags.containsKey('SourceFile'), isFalse);
+      expect(tags.containsKey('DateTimeOriginal'), isTrue);
+      expect(tags.containsKey('DateTimeDigitized'), isFalse);
+    });
+    test('readExifBatch returns empty map for empty tag list', () async {
+      final tags = await exiftool!.readExifBatch(testImage, []);
+      expect(tags, isEmpty);
+    });
+    test('writeExif writes a single tag', () async {
+      final result = await exiftool!.writeExif(testImage, 'Artist', 'TestArtist');
+      expect(result, isTrue);
+      final tags = await exiftool!.readExifBatch(testImage, ['Artist']);
+      expect(tags['Artist'], 'TestArtist');
+    });
+    test('readExifBatch returns empty map for unsupported file', () async {
+      final file = File('${basepath}unsupported.txt');
+      file.writeAsStringSync('not an image');
+      final tags = await exiftool!.readExifBatch(file, ['DateTimeOriginal']);
+      expect(tags, isEmpty);
+      file.deleteSync();
+    });
+    test('writeExif returns false for unsupported file', () async {
+      final file = File('${basepath}unsupported2.txt');
+      file.writeAsStringSync('not an image');
+      final result = await exiftool!.writeExif(file, 'Artist', 'Nobody');
+      expect(result, isFalse);
+      file.deleteSync();
+    });
+  });
+
   /// Delete all shitty files as we promised
   tearDownAll(() {
     albumDir.deleteSync(recursive: true);

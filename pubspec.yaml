@@ -18,6 +18,8 @@ dependencies:
   console_bars: ^1.2.0
   intl: ^0.20.2
   file_picker_desktop: ^1.2.0
+  exif_reader: ^3.16.1
+
   #  archive:
   #    git:
   #      url: https://github.com/TheLastGimbus/archive.git

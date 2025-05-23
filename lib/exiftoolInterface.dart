@@ -67,8 +67,10 @@ class ExiftoolInterface {
     final File file,
     final List<String> tags,
   ) async {
-    if (tags.isEmpty) return {};
-    final args = <String>['-j','-n'];
+    if (tags.isEmpty) {
+      return <String, dynamic>{};
+    }
+    final args = <String>['-j', '-n'];
     args.addAll(tags.map((final tag) => '-$tag'));
     args.add(file.path);
     final result = await Process.run(exiftoolPath, args);

@@ -6,7 +6,8 @@
 
 #### Tl;dr
 
-- Added support for reading EXIF data from JXL (JPEG XL), ARW, RAW, DNG, CRW, CR3, NRW, NEF and RAF files
+- Added support for reading EXIF data from JXL (JPEG XL), ARW, RAW, DNG, CRW, CR3, NRW, NEF and RAF files internally.
+- Adeded support for reading and writing coordinates and DateTime from and to exif for almost all file formats.
 - Added a "--write-exif" flag which will write missing EXIF information (coordinates and DateTime) from json to EXIF for jpg and jpeg files
 - Added support to get DateTime from .MOV, .MP4 and probably many other video formats through exiftool. You need to download it yourself (e.g. from here: https://exiftool.org/), rename it to exiftool.exe and make sure the folder you keep it in is in your $PATH variable or in the same folder as gpth.
 - Added verbose mode (--verbose or -v)
@@ -15,7 +16,7 @@
 #### General improvements
 
 - upgraded dependencies and fixed breaking changes
-- updated dart to a minimum version of 3.7.0 of the dart SDK
+- updated dart to a minimum version of 3.8.0 of the dart SDK
 - included image, intl and coordinate_converter packages
 - applied a list of coding best practices through lint rules to code
 - added/edited a bunch of comments and changed unnecessary print() to log() for debugging and a better user experience
@@ -30,7 +31,6 @@
 - added output how often DateTime and Coordinates have been written in EXIF at the final output
 - changed that test data will be created in test subfolder instead of project root directory
 - Added consistent log levels to log output to quickly differenciate between informational and error logs
-- Create symlinks with powershell on windows now which fixed heap corruption on newer win32/ffi
 - Added logging of elapsed time for each step.
 - Exposed the maxFileSize flag as an argument (--limit-filesize) to set if necessary, It's now deactivated by default to support larger files like videos.
 
@@ -44,14 +44,11 @@
   - Added new CLI option "--write-exif".
   - When enabled, the script will check if the associated json of any given file contains coordinates and if the file does not yet have them in its EXIF data, the script will add them.
   - When enabled, the script will check if a DateTime has been extracted from any of the given extraction methods and if the file has no EXIF DateTime set, it will add the DateTime to the EXIF data 'DateTime', 'DateTimeOriginal'and 'DateTimeDigitized'.
-  - Currently supported file types are in theory JPG, PNG, Animated APNG, GIF, Animated GIF, BMP, TIFF, TGA, PVR and ICO (based on pub package Image 4.5.4). Howver only jpg and jpeg are confirmed to work. Others might work or will silently fail without problems.
   - Added verbose mode (--verbose or -v) with log levels info, warning and error.
 
-- Moved from the stale "exif" package to exiftool for all EXIF reading and writing (images and videos)
-  - This adds support for extracting DateTime from JXL (JPEG XL), ARW, RAW, DNG, CRW, CR3, NRW, NEF and RAF files, and video formats like MOV, MP4, etc.
-
-
-  - Exiftool needs to be in $PATH variable or in the same folder as the running binary. If not, that's okay. But if you have ExifTool locally, Google Photos Takeout Helper now supports reading CreatedDateTime EXIF data for almost all media formats.
+- Moved from the stale "exif" package to "exif_reader" for dart local image reading and to external exiftool for all EXIF reading and writing (images and videos)
+  - The move to exif_reader adds support for extracting DateTime from JXL (JPEG XL), ARW, RAW, DNG, CRW, CR3, NRW, NEF and RAF files, and video formats like MOV, MP4, etc.
+  - Exiftool needs to be in $PATH variable or in the same folder as the running binary. If not, that's okay. Then we fall back to exif_reader. But if you have ExifTool locally, Google Photos Takeout Helper now supports reading CreatedDateTime EXIF data for almost all media formats.
 
   
 ##### *Previous fixes and improvement (from 3.4.3-wacheee to 4.0.0-wacheee)*

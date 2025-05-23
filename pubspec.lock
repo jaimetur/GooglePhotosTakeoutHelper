@@ -62,6 +62,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.2"
+  brotli:
+    dependency: transitive
+    description:
+      name: brotli
+      sha256: "7f891558ed779aab2bed874f0a36b8123f9ff3f19cf6efbee89e18ed294945ae"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.6.0"
   cli_config:
     dependency: transitive
     description:
@@ -126,6 +134,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.6"
+  exif_reader:
+    dependency: "direct main"
+    description:
+      name: exif_reader
+      sha256: "548ccc25be936e508c6a20706ae5e2796687b55b9db851962db1cd20fe6abfd9"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.16.1"
   ffi:
     dependency: "direct main"
     description:
@@ -206,6 +222,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.5"
+  iso_base_media:
+    dependency: transitive
+    description:
+      name: iso_base_media
+      sha256: "0f5594feef1fba98179a2df95d1afbdda952de0c7a2e35e6815093f7c00aaf06"
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.5.2"
   js:
     dependency: transitive
     description:
@@ -342,6 +366,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.2.0"
+  random_access_source:
+    dependency: transitive
+    description:
+      name: random_access_source
+      sha256: dc86934da2cc4777334f43916234410f232032738c519c0c3452147c5d4fec89
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.1.0"
   shelf:
     dependency: transitive
     description:
@@ -398,6 +430,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.10.1"
+  sprintf:
+    dependency: transitive
+    description:
+      name: sprintf
+      sha256: "1fc9ffe69d4df602376b52949af107d8f5703b77cda567c4d7d86a0693120f23"
+      url: "https://pub.dev"
+    source: hosted
+    version: "7.0.0"
   stack_trace:
     dependency: transitive
     description:
