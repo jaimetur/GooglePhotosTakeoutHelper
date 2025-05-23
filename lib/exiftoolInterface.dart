@@ -53,7 +53,7 @@ class ExiftoolInterface {
   Future<Map<String, dynamic>> readExif(final File file) async {
     final result = await Process.run(exiftoolPath, ['-j', '-n', file.path]);
     if (result.exitCode != 0) {
-      throw Exception('exiftool failed: ${result.stderr}');
+      log('exiftool returned a non 0 code for reading ${file.path} with error: ${result.stderr}', level: 'error');
     }
     final List<dynamic> jsonList = jsonDecode(result.stdout);
     if (jsonList.isEmpty) return {};
@@ -75,7 +75,7 @@ class ExiftoolInterface {
     args.add(file.path);
     final result = await Process.run(exiftoolPath, args);
     if (result.exitCode != 0) {
-      throw Exception('exiftool failed: ${result.stderr}');
+      log('exiftool returned a non 0 code for reading ${file.path} with error: ${result.stderr}', level: 'error');
     }
     final List<dynamic> jsonList = jsonDecode(result.stdout);
     if (jsonList.isEmpty) return {};
