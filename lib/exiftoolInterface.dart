@@ -44,6 +44,11 @@ class ExiftoolInterface {
         // If found, return an instance using this path
         return ExiftoolInterface._(exiftoolFile.path);
       }
+      // Also check for binary in ./exif_tool/ subfolder to satisfy requirement of https://github.com/jaimetur/PhotoMigrator
+      final exiftoolSubdirFile = File('$binDir${Platform.pathSeparator}exif_tool${Platform.pathSeparator}$exe');
+      if (await exiftoolSubdirFile.exists()) {
+        return ExiftoolInterface._(exiftoolSubdirFile.path);
+      }
     }
     // If not found, return null
     return null;
