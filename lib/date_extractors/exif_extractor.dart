@@ -40,7 +40,7 @@ Future<DateTime?> exifDateTimeExtractor(final File file) async {
   //This logic below is only to give a tailored error message because if you get here, something is wrong.
   if (exifToolInstalled) {
     log(
-      "This is a weird file format! Please create an issue if you get this error message, as we currently can't handle it.",
+      "This is a weird file format! Please create an issue if you get this error message, we currently don't hadle it. File type: $mimeType",
       level: 'error',
     );
   } else {
