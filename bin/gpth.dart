@@ -206,8 +206,12 @@ Future<void> main(final List<String> arguments) async {
     print(
       '[INFO] Exiftool was found! Continuing with support for reading and writing EXIF data...',
     );
-    sleep(const Duration(seconds: 3));
+  } else {
+    print(
+      '[INFO] Exiftool was not found! Continuing without support for reading and writing EXIF data...',
+    );
   }
+  sleep(const Duration(seconds: 5));
 
   /// ##############################################################
   /// Here the Script asks interactively to fill all arguments
