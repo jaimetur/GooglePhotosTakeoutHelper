@@ -19,8 +19,8 @@ Future<bool> writeDateTimeToExif(
   //When exiftool is installed
   if (exifToolInstalled) {
     //Even if exifTool is installed, try to use native way for speed first and if it works keep going. If not, use exiftool.
-    if (_noExifToolsDateTimeWriter(file, dateTime)) {
-      return true;
+    if (_noExifToolDateTimeWriter(file, dateTime)) {
+      return true; //If native way was able to write exif data: exit. If not, try exifTool.
     }
     final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
     final String dt = exifFormat.format(dateTime);
@@ -43,7 +43,7 @@ Future<bool> writeDateTimeToExif(
     }
   } else {
     //When exiftool is not installed
-    return _noExifToolsDateTimeWriter(file, dateTime);
+    return _noExifToolDateTimeWriter(file, dateTime);
   }
 }
 
@@ -93,7 +93,7 @@ Future<bool> writeGpsToExif(
   }
 }
 
-bool _noExifToolsDateTimeWriter(final File file, final DateTime dateTime) {
+bool _noExifToolDateTimeWriter(final File file, final DateTime dateTime) {
   final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
   final String? mimeType = lookupMimeType(file.path);
   if (mimeType == 'image/jpeg') {
@@ -120,7 +120,7 @@ bool _noExifToolsDateTimeWriter(final File file, final DateTime dateTime) {
       if (newbytes != null) {
         file.writeAsBytesSync(newbytes);
         log(
-          '[Step 5/8] New DateTime ${dateTime.toString()} written to EXIF: ${file.path}',
+          '[Step 5/8] New DateTime ${dateTime.toString()} written to EXIF (natively): ${file.path}',
         );
         return true;
       }

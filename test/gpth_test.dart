@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:collection/collection.dart';
 import 'package:coordinate_converter/coordinate_converter.dart';
+import 'package:exif_reader/exif_reader.dart';
 import 'package:gpth/date_extractors/date_extractor.dart';
 import 'package:gpth/exif_writer.dart' as exif_writer;
 import 'package:gpth/exiftoolInterface.dart';
@@ -671,12 +672,13 @@ AD/2gAMAwEAAhEDEQA/ACHIF3//2Q==''';
           testImage2,
         );
         expect(result, isTrue);
-        final tags = await exiftool!.readExif(testImage2);
+        final tags = await readExifFromBytes(await testImage2.readAsBytes());
         final DateFormat exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
         final String expectedDateTime = exifFormat.format(testDateTime);
-        expect(tags['DateTime'], expectedDateTime);
-        expect(tags['DateTimeOriginal'], expectedDateTime);
-        expect(tags['DateTimeDigitized'], expectedDateTime);
+
+        expect(tags['Image DateTime']?.printable, expectedDateTime);
+        expect(tags['EXIF DateTimeOriginal']?.printable, expectedDateTime);
+        expect(tags['EXIF DateTimeDigitized']?.printable, expectedDateTime);
       },
     );
 
@@ -705,32 +707,46 @@ AD/2gAMAwEAAhEDEQA/ACHIF3//2Q==''';
 
   group('ExiftoolInterface', () {
     late File testImage;
-    late File test_image2;
+    late File testImage2;
     setUp(() {
       initExiftool();
       testImage = File('${basepath}test_image.jpg');
       testImage.createSync();
-      testImage.writeAsBytesSync(base64.decode(greenImgBase64.replaceAll('\n', '')));
-      test_image2 = File('${basepath}test_exiftool.jpg');
-      test_image2.createSync();
-      test_image2.writeAsBytesSync(base64.decode(greenImgNoMetaDataBase64.replaceAll('\n', '')));
+      testImage.writeAsBytesSync(
+        base64.decode(greenImgBase64.replaceAll('\n', '')),
+      );
+      testImage2 = File('${basepath}test_exiftool.jpg');
+      testImage2.createSync();
+      testImage2.writeAsBytesSync(
+        base64.decode(greenImgNoMetaDataBase64.replaceAll('\n', '')),
+      );
     });
     tearDown(() {
       if (testImage.existsSync()) testImage.deleteSync();
-      if (test_image2.existsSync()) test_image2.deleteSync();
+      if (testImage2.existsSync()) testImage2.deleteSync();
     });
-    test('readExifBatch returns only requested tags and no SourceFile', () async {
-      final tags = await exiftool!.readExifBatch(testImage, ['DateTimeOriginal', 'DateTimeDigitized']);
-      expect(tags.containsKey('SourceFile'), isFalse);
-      expect(tags.containsKey('DateTimeOriginal'), isTrue);
-      expect(tags.containsKey('DateTimeDigitized'), isFalse);
-    });
+    test(
+      'readExifBatch returns only requested tags and no SourceFile',
+      () async {
+        final tags = await exiftool!.readExifBatch(testImage, [
+          'DateTimeOriginal',
+          'DateTimeDigitized',
+        ]);
+        expect(tags.containsKey('SourceFile'), isFalse);
+        expect(tags.containsKey('DateTimeOriginal'), isTrue);
+        expect(tags.containsKey('DateTimeDigitized'), isFalse);
+      },
+    );
     test('readExifBatch returns empty map for empty tag list', () async {
       final tags = await exiftool!.readExifBatch(testImage, []);
       expect(tags, isEmpty);
     });
     test('writeExif writes a single tag', () async {
-      final result = await exiftool!.writeExif(testImage, 'Artist', 'TestArtist');
+      final result = await exiftool!.writeExif(
+        testImage,
+        'Artist',
+        'TestArtist',
+      );
       expect(result, isTrue);
       final tags = await exiftool!.readExifBatch(testImage, ['Artist']);
       expect(tags['Artist'], 'TestArtist');
