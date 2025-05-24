@@ -154,7 +154,7 @@ Future<void> main(final List<String> arguments) async {
     )
     ..addFlag(
       'write-exif',
-      help: 'Writes geodata from json files and the extracted DateTime to EXIF',
+      help: 'Writes geodata from json files and the extracted DateTime to EXIF. It always writes to original data, even if combined with --copy!',
     )
     ..addFlag(
       'limit-filesize',
@@ -235,6 +235,10 @@ Future<void> main(final List<String> arguments) async {
     }
     print('');
     final Directory out = await interactive.getOutput();
+    print('');
+    args['write-exif'] = await interactive.askIfWriteExif();
+    print('');
+    args['limit-filesize'] = await interactive.askIfLimitFileSize();
     print('');
     args['divide-to-dates'] = await interactive.askDivideDates();
     print('');

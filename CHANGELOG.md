@@ -33,6 +33,8 @@
 - Added consistent log levels to log output to quickly differenciate between informational and error logs
 - Added logging of elapsed time for each step.
 - Exposed the maxFileSize flag as an argument (--limit-filesize) to set if necessary, It's now deactivated by default to support larger files like videos.
+- Added DateTime extraction method statistics to the final output - shows how many files had their dates extracted through which method
+- Added elapsed time logging for each processing step
 
 #### Bug fixes
 
@@ -46,11 +48,14 @@
   - When enabled, the script will check if a DateTime has been extracted from any of the given extraction methods and if the file has no EXIF DateTime set, it will add the DateTime to the EXIF data 'DateTime', 'DateTimeOriginal'and 'DateTimeDigitized'.
   - Added verbose mode (--verbose or -v) with log levels info, warning and error.
 
-- Moved from the stale "exif" package to "exif_reader" for dart local image reading and to external exiftool for all EXIF reading and writing (images and videos)
+- Moved from the stale "exif" package to "exif_reader" for dart local exif reading, the image library for local jpeg exif writing and the external exiftool for all other EXIF reading and writing (images and videos)
   - The move to exif_reader adds support for extracting DateTime from JXL (JPEG XL), ARW, RAW, DNG, CRW, CR3, NRW, NEF and RAF files, and video formats like MOV, MP4, etc.
   - Exiftool needs to be in $PATH variable or in the same folder as the running binary. If not, that's okay. Then we fall back to exif_reader. But if you have ExifTool locally, Google Photos Takeout Helper now supports reading CreatedDateTime EXIF data for almost all media formats.
 
-  
+- Added new interactive prompts:
+  - Option to write EXIF data to files (--write-exif)
+  - Option to limit file size for systems with low RAM (--limit-filesize)
+
 ##### *Previous fixes and improvement (from 3.4.3-wacheee to 4.0.0-wacheee)*
 - *added macOS executables supporting both ARM64 and Intel architectures https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/issues/310 https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/issues/396#issuecomment-2787459117*
 - *fixed an exception when using GPTH with command-line arguments https://github.com/Wacheee/GooglePhotosTakeoutHelper/issues/5 https://github.com/Wacheee/GooglePhotosTakeoutHelper/issues/8*
@@ -69,10 +74,7 @@
 ##### *Limitations:*
 - *if album mode is set to duplicate-copy, it will move the album photos to the album folder (as usual), but ALL_PHOTOS will not contain them if the media is not in a year album.*
 - *it does not fix issues related to reading JSON files (if necessary) for Motion Photo files; however, if the dates are included in the file name (as with Pixel Motion Photos), the correct dates will be established.*
-- *writing exif to png files does not work. Other file types may or may not work (only jpg and jpeg are confirmed working). If it doesn't work, it will just fail silently and continue. So it's okay.*
-- *No interactive mode for setting write-exif flag*
 - *No interactive unzipping*
-- *['The hardcoded maximum file size'](https://github.com/brendan-duncan/image/issues/457#issuecomment-1423923998) limits functionality to read DateTime from exif data to image and video! files smaller than 64 MB*
 
 ## 3.6.2-wacheee
 

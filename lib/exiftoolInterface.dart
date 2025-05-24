@@ -1,3 +1,5 @@
+// ignore_for_file: file_names
+
 import 'dart:convert';
 import 'dart:io';
 import 'utils.dart';
@@ -45,7 +47,9 @@ class ExiftoolInterface {
         return ExiftoolInterface._(exiftoolFile.path);
       }
       // Also check for binary in ./exif_tool/ subfolder to satisfy requirement of https://github.com/jaimetur/PhotoMigrator
-      final exiftoolSubdirFile = File('$binDir${Platform.pathSeparator}exif_tool${Platform.pathSeparator}$exe');
+      final exiftoolSubdirFile = File(
+        '$binDir${Platform.pathSeparator}exif_tool${Platform.pathSeparator}$exe',
+      );
       if (await exiftoolSubdirFile.exists()) {
         return ExiftoolInterface._(exiftoolSubdirFile.path);
       }
@@ -58,7 +62,10 @@ class ExiftoolInterface {
   Future<Map<String, dynamic>> readExif(final File file) async {
     final result = await Process.run(exiftoolPath, ['-j', '-n', file.path]);
     if (result.exitCode != 0) {
-      log('exiftool returned a non 0 code for reading ${file.path} with error: ${result.stderr}', level: 'error');
+      log(
+        'exiftool returned a non 0 code for reading ${file.path} with error: ${result.stderr}',
+        level: 'error',
+      );
     }
     final List<dynamic> jsonList = jsonDecode(result.stdout);
     if (jsonList.isEmpty) return {};
@@ -80,7 +87,10 @@ class ExiftoolInterface {
     args.add(file.path);
     final result = await Process.run(exiftoolPath, args);
     if (result.exitCode != 0) {
-      log('exiftool returned a non 0 code for reading ${file.path} with error: ${result.stderr}', level: 'error');
+      log(
+        'exiftool returned a non 0 code for reading ${file.path} with error: ${result.stderr}',
+        level: 'error',
+      );
     }
     final List<dynamic> jsonList = jsonDecode(result.stdout);
     if (jsonList.isEmpty) return {};
@@ -112,7 +122,16 @@ class ExiftoolInterface {
     tags.forEach((final tag, final value) => args.add('-$tag=$value'));
     args.add(file.path);
     final result = await Process.run(exiftoolPath, args);
-    return result.exitCode == 0;
+    if (result.exitCode == 0) {
+      return true;
+    } else {
+      if (isVerbose) {
+        log('[Step 5/8] Writing exif to file ${file.path} failed. Error: ${result.stderr}', level: 'error');
+      } else {
+        print('[ERROR] [Step 5/8] Writing exif to file ${file.path} failed. Error: ${result.stderr}');
+      }
+      return false;
+    }
   }
 }
 

@@ -125,18 +125,28 @@ Future<DateTime?> _exifToolExtractor(final File file) async {
   try {
     final tags = await exiftool!.readExifBatch(file, [
       'DateTimeOriginal',
+      'MediaCreateDate',
+      'CreationDate',
+      'TrackCreateDate',
+      'CreateDate',
       'DateTimeDigitized',
+      'GPSDateStamp',
       'DateTime',
     ]);
-    //The order is important!
-    //Use DateTimeOriginal if available (most accurate for original capture).
-    //If not, fall back to DateTimeDigitized (useful for scans).
-    //If neither is present, use DateTime (last resort, least reliable).
+    //The order is in order of reliability and important
     String? datetime =
-        tags['DateTimeOriginal'] ??
-        tags['DateTimeDigitized'] ??
-        tags['DateTime'];
+        tags['DateTimeOriginal'] ?? //EXIF
+        tags['MediaCreateDate'] ?? //QuickTime/XMP
+        tags['CreationDate'] ?? //XMP
+        tags['TrackCreateDate']; //?? //QuickTime
+    //tags['CreateDate'] ?? // can be overwritten by editing software
+    //tags['DateTimeDigitized'] ?? //may reflect scanning or import time
+    //tags['DateTime']; //generic and editable
     if (datetime == null) {
+      log(
+        "Exiftool was not able to extract an acceptable DateTime for ${file.path}. Those Tags are accepted: 'DateTimeOriginal', 'MediaCreateDate', 'CreationDate','TrackCreateDate','. The file has those Tags: ${tags.toString()}",
+        level: 'warning',
+      );
       return null;
     }
     // Normalize separators and parse
