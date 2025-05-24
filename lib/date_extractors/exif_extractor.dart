@@ -24,8 +24,13 @@ Future<DateTime?> exifDateTimeExtractor(final File file) async {
   //Getting mimeType.
   final String? mimeType = lookupMimeType(file.path);
 
+  // We use the native way for jpeg because we know they can be handled. For speed and performance.
+  //Only for everything else we don't know we use exiftools and if it is not available we try with the native way, because hey, maybe we are lucky.
+  if (exifToolInstalled && mimeType != null && mimeType == 'image/jpeg') {
+    return _nativeExif_readerExtractor(file);
+  }
   // Use exiftool if available and file is an image or video
-  if (exifToolInstalled &&
+  else if (exifToolInstalled &&
       mimeType != null &&
       (mimeType.startsWith('image/') ||
           mimeType.startsWith('video/') ||

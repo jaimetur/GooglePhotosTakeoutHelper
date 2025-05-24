@@ -18,6 +18,10 @@ Future<bool> writeDateTimeToExif(
   }
   //When exiftool is installed
   if (exifToolInstalled) {
+    //Even if exifTool is installed, try to use native way for speed first and if it works keep going. If not, use exiftool.
+    if (_noExifToolsDateTimeWriter(file, dateTime)) {
+      return true;
+    }
     final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
     final String dt = exifFormat.format(dateTime);
     final success = await exiftool!.writeExifBatch(file, {
@@ -49,6 +53,10 @@ Future<bool> writeGpsToExif(
 ) async {
   if (exifToolInstalled) {
     //When exiftool is installed
+    //Even if exifTool is installed, try to use native way for speed first and if it works keep going. If not, use exiftool.
+    if (_noExifGPSWriter(file, coordinates)) {
+      return true;
+    }
     //Check if the file already has EXIF data and if yes, skip.
     final Map coordinatesMap = await exiftool!.readExifBatch(file, [
       'GPSLatitude',
@@ -118,10 +126,12 @@ bool _noExifToolsDateTimeWriter(final File file, final DateTime dateTime) {
       }
     }
   }
-  log(
-    '[Step 5/8] Found DateTime in json, but missing in EXIF. Writing to $mimeType is not supported without exiftool.',
-    level: 'warning',
-  );
+  if (!exifToolInstalled) {
+    log(
+      '[Step 5/8] Found DateTime in json, but missing in EXIF. Writing to $mimeType is not supported without exiftool.',
+      level: 'warning',
+    );
+  }
   return false;
 }
 
@@ -156,9 +166,11 @@ bool _noExifGPSWriter(final File file, final DMSCoordinates coordinates) {
       }
     }
   }
-  log(
-    '[Step 5/8] Found Coordinates in json, but missing in EXIF. Writing to $mimeType is not supported without exiftool.',
-    level: 'warning',
-  );
+  if (!exifToolInstalled) {
+    log(
+      '[Step 5/8] Found Coordinates in json, but missing in EXIF. Writing to $mimeType is not supported without exiftool.',
+      level: 'warning',
+    );
+  }
   return false;
 }
