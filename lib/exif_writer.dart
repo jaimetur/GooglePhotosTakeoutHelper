@@ -35,16 +35,10 @@ Future<bool> writeDateTimeToExif(
       );
       return true;
     } else {
-      if (isVerbose) {
-        log(
-          '[Step 5/8] DateTime $dt could not be written to EXIF: ${file.path}',
-          level: 'error',
-        );
-      } else {
-        print(
-          '[Step 5/8] [ERROR] DateTime $dt could not be written to EXIF: ${file.path}',
-        );
-      }
+      log(
+        '[Step 5/8] DateTime $dt could not be written to EXIF: ${file.path}',
+        level: 'error',
+      );
       return false;
     }
   } else {
@@ -84,13 +78,15 @@ Future<bool> writeGpsToExif(
         log('[Step 5/8] New coordinates written to EXIF: ${file.path}');
         return true;
       } else {
-        if(isVerbose){
-        log(
-          '[Step 5/8] Coordinates ${coordinates.toString()} could not be written to EXIF: ${file.path}',
-          level: 'error',
-        );
-        }else{
-          print('[Step 5/8] [ERROR] Coordinates ${coordinates.toString()} could not be written to EXIF: ${file.path}');
+        if (isVerbose) {
+          log(
+            '[Step 5/8] Coordinates ${coordinates.toString()} could not be written to EXIF: ${file.path}',
+            level: 'error',
+          );
+        } else {
+          print(
+            '[Step 5/8] [ERROR] Coordinates ${coordinates.toString()} could not be written to EXIF: ${file.path}',
+          );
         }
         return false;
       }

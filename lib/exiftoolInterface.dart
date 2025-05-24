@@ -126,9 +126,9 @@ class ExiftoolInterface {
       return true;
     } else {
       if (isVerbose) {
-        log('[Step 5/8] Writing exif to file ${file.path} failed. Error: ${result.stderr}', level: 'error');
+        log('[Step 5/8] Writing exif to file ${file.path} failed. ${result.stderr}', level: 'error');
       } else {
-        print('[ERROR] [Step 5/8] Writing exif to file ${file.path} failed. Error: ${result.stderr}');
+        print('[ERROR] [Step 5/8] Writing exif to file ${file.path} failed. ${result.stderr}');
       }
       return false;
     }
