@@ -481,13 +481,20 @@ Future<void> main(final List<String> arguments) async {
     desc: '[Step 4/8] Extracting dates from files',
     width: barWidth,
   );
+
+  // Collect statistics for reporting
+  final Map<DateTimeExtractionMethod, int> extractionStats = {};
+
   for (int i = 0; i < media.length; i++) {
     int q = 0;
+    DateTimeExtractionMethod? extractionMethod;
     for (final DateTimeExtractor extractor in dateExtractors) {
       final DateTime? date = await extractor(media[i].firstFile);
       if (date != null) {
         media[i].dateTaken = date;
         media[i].dateTakenAccuracy = q;
+        extractionMethod = DateTimeExtractionMethod
+            .values[q]; //This assigns to extractionMethod the enum value corresponding to the current extractor's index.
         barExtract.increment();
         break;
       }
@@ -495,11 +502,25 @@ Future<void> main(final List<String> arguments) async {
       q++;
     }
     if (media[i].dateTaken == null) {
-      // only visible in debug mode. Normal user does not care about this. Just high level about the number at the end.
-      log(
-        "\n[Step 4/8] Couldn't get date with any extractor on ${media[i].firstFile.path}",
-      );
+      extractionMethod = DateTimeExtractionMethod.none; //For statistics
+      media[i].dateTimeExtractionMethod = DateTimeExtractionMethod
+          .none; //Writing in media object that no extraction method worked. :(
+      if (isVerbose) {
+        log(
+          "[Step 4/8] Couldn't get date with any extractor on ${media[i].firstFile.path}",
+          level: 'warning',
+        );
+      } else {
+        print(
+          "[Step 4/8] [WARNING] Couldn't get date with any extractor on ${media[i].firstFile.path}",
+        );
+      }
+    } else {
+      media[i].dateTimeExtractionMethod =
+          extractionMethod; //Writing used extraction method to this media object.
     }
+    extractionStats[extractionMethod!] =
+        (extractionStats[extractionMethod] ?? 0) + 1; //Update statistics.
   }
   print('');
 
@@ -541,8 +562,9 @@ Future<void> main(final List<String> arguments) async {
           exifccounter++;
         }
       }
-      if (media[i].dateTaken != null) {
-        //If date was found before through one of the extractors, write it to exif
+      if (media[i].dateTaken != null &&
+          media[i].dateTimeExtractionMethod != DateTimeExtractionMethod.exif) {
+        //If date was found before through one of the extractors, except through exif extractor (cause then it's already in exif, duh!) write it to exif
         if (await writeDateTimeToExif(media[i].dateTaken!, currentFile)) {
           exifdtcounter++;
         }
@@ -698,6 +720,13 @@ Future<void> main(final List<String> arguments) async {
     print('$exifdtcounter got their DateTime set in EXIF data');
   }
   if (args['skip-extras']) print('$countExtras extras were skipped');
+
+  // Print datetime extraction method statistics
+  print('\nDateTime extraction method statistics:');
+  for (final entry in extractionStats.entries) {
+    print('${entry.key}: ${entry.value} files');
+  }
+
   final int countPoop = media
       .where((final Media e) => e.dateTaken == null)
       .length;

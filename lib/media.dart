@@ -3,6 +3,17 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'utils.dart';
 
+//Order is important!
+///This is the extraction method through which a Media got its dateTime.
+enum DateTimeExtractionMethod {
+  json,
+  exif,
+  guess,
+  jsonTryHard,
+  none
+}
+
+
 /// Abstract of a *media* - a photo or video
 /// Main thing is the [file] - this should not change
 ///
@@ -12,7 +23,7 @@ import 'utils.dart';
 /// you find a duplicate, use one that has lower [dateTakenAccuracy] number.
 /// this and [dateTaken] should either both be null or both filled
 class Media {
-  Media(this.files, {this.dateTaken, this.dateTakenAccuracy});
+  Media(this.files, {this.dateTaken, this.dateTakenAccuracy, this.dateTimeExtractionMethod});
 
   /// First file with media, used in early stage when albums are not merged
   ///
@@ -45,6 +56,9 @@ class Media {
 
   /// higher the worse
   int? dateTakenAccuracy;
+
+  /// The method/extractor that produced the DateTime ('json', 'exif', 'guess', 'jsonTryHard')
+  DateTimeExtractionMethod? dateTimeExtractionMethod;
 
   //cache
   Digest? _hash;
