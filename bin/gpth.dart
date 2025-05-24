@@ -575,7 +575,6 @@ Future<void> main(final List<String> arguments) async {
 
       barJsonToExifExtractor.increment();
     }
-    print('');
   } else {
     print('[Step 5/8] Skipping writing data to EXIF.');
   }
