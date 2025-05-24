@@ -2,10 +2,10 @@
 
 import 'dart:io';
 import 'dart:math' as math;
+import 'package:exif_reader/exif_reader.dart';
 import 'package:mime/mime.dart';
 import '../exiftoolInterface.dart';
 import '../utils.dart';
-import 'package:exif_reader/exif_reader.dart';
 
 /// DateTime from exif data *potentially* hidden within a [file]
 ///
@@ -45,7 +45,7 @@ Future<DateTime?> exifDateTimeExtractor(final File file) async {
   //This logic below is only to give a tailored error message because if you get here, something is wrong.
   if (exifToolInstalled) {
     log(
-      "$mimeType is a weird file format! Please create an issue if you get this error message, we currently don't hadle it.",
+      "$mimeType is a weird mime type! Please create an issue if you get this error message, as we currently can't hadle it.",
       level: 'error',
     );
   } else {
@@ -61,6 +61,10 @@ Future<DateTime?> exifDateTimeExtractor(final File file) async {
 Future<DateTime?> _exifToolExtractor(final File file) async {
   try {
     final tags = await exiftool!.readExif(file);
+    //The order is important!
+    //Use DateTimeOriginal if available (most accurate for original capture).
+    //If not, fall back to DateTimeDigitized (useful for scans).
+    //If neither is present, use DateTime (last resort, least reliable).
     String? datetime =
         tags['DateTimeOriginal'] ??
         tags['DateTimeDigitized'] ??
