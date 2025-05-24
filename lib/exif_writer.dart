@@ -98,10 +98,10 @@ bool _noExifToolsDateTimeWriter(final File file, final DateTime dateTime) {
   final String? mimeType = lookupMimeType(file.path);
   if (mimeType == 'image/jpeg') {
     //when it's a jpg and the image library can handle it
-    Image? image;
+    ExifData? exifData;
     final Uint8List origbytes = file.readAsBytesSync();
     try {
-      image = decodeNamedImage(file.path, origbytes); //Decode the image
+      exifData = decodeJpgExif(origbytes); //Decode the exif data of the jpg.
     } catch (e) {
       log(
         '[Step 5/8] Found DateTime in json, but missing in EXIF for file: ${file.path}. Failed to write because of error during decoding: $e',
@@ -109,13 +109,13 @@ bool _noExifToolsDateTimeWriter(final File file, final DateTime dateTime) {
       );
       return false; // Ignoring errors during image decoding as it may not be a valid image file
     }
-    if (image != null && image.hasExif) {
-      image.exif.imageIfd['DateTime'] = exifFormat.format(dateTime);
-      image.exif.exifIfd['DateTimeOriginal'] = exifFormat.format(dateTime);
-      image.exif.exifIfd['DateTimeDigitized'] = exifFormat.format(dateTime);
+    if (exifData != null && !exifData.isEmpty) {
+      exifData.imageIfd['DateTime'] = exifFormat.format(dateTime);
+      exifData.exifIfd['DateTimeOriginal'] = exifFormat.format(dateTime);
+      exifData.exifIfd['DateTimeDigitized'] = exifFormat.format(dateTime);
       final Uint8List? newbytes = injectJpgExif(
         origbytes,
-        image.exif,
+        exifData,
       ); //This overwrites the original exif data of the image with the altered exif data.
       if (newbytes != null) {
         file.writeAsBytesSync(newbytes);
