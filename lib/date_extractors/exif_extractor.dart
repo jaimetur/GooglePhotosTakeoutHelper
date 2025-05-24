@@ -90,7 +90,14 @@ Future<DateTime?> exifDateTimeExtractor(final File file) async {
   // We use the native way for jpeg because we know they can be handled. For speed and performance.
   //Only for everything else we don't know we use exiftools and if it is not available we try with the native way, because hey, maybe we are lucky.
   if (exifToolInstalled && mimeType != null && mimeType == 'image/jpeg') {
-    return _nativeExif_readerExtractor(file);
+    final DateTime? result = await _nativeExif_readerExtractor(file);
+    if (result != null) {
+      return result;
+    } else {
+      return _exifToolExtractor(
+        file,
+      ); //Fallback because sometimes mimetype is image/jpeg based on extension but content is png and then native way fails.
+    }
   }
   // Use exiftool if available and file is an image or video
   else if (exifToolInstalled &&
