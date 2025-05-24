@@ -57,7 +57,7 @@ class Media {
   /// higher the worse
   int? dateTakenAccuracy;
 
-  /// The method/extractor that produced the DateTime ('json', 'exif', 'guess', 'jsonTryHard')
+  /// The method/extractor that produced the DateTime ('json', 'exif', 'guess', 'jsonTryHard', 'none')
   DateTimeExtractionMethod? dateTimeExtractionMethod;
 
   //cache

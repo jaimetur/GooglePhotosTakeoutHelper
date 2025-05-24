@@ -534,7 +534,6 @@ Future<void> main(final List<String> arguments) async {
   /// ##### Json Coordinates and extracted DateTime to EXIF ########
 
   // In this part, we will write coordinates and dates to EXIF data of the files.
-  // Currently supported file formats: JPG, PNG/Animated APNG, GIF/Animated GIF, BMP, TIFF, TGA, PVR, ICO.
   // This is done after the dates of files have been defined, because here we have to write the files to disk again and before
   // the files are moved to the output folder, to avoid shortcuts/symlinks problems.
 
@@ -562,8 +561,8 @@ Future<void> main(final List<String> arguments) async {
           exifccounter++;
         }
       }
-      if (media[i].dateTaken != null &&
-          media[i].dateTimeExtractionMethod != DateTimeExtractionMethod.exif) {
+      if (
+          media[i].dateTimeExtractionMethod != DateTimeExtractionMethod.exif && media[i].dateTimeExtractionMethod != DateTimeExtractionMethod.none) {
         //If date was found before through one of the extractors, except through exif extractor (cause then it's already in exif, duh!) write it to exif
         if (await writeDateTimeToExif(media[i].dateTaken!, currentFile)) {
           exifdtcounter++;

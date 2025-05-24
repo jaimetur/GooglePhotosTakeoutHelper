@@ -123,7 +123,11 @@ Future<DateTime?> exifDateTimeExtractor(final File file) async {
 ///Extracts DateTime from File through ExifTool library
 Future<DateTime?> _exifToolExtractor(final File file) async {
   try {
-    final tags = await exiftool!.readExif(file);
+    final tags = await exiftool!.readExifBatch(file, [
+      'DateTimeOriginal',
+      'DateTimeDigitized',
+      'DateTime',
+    ]);
     //The order is important!
     //Use DateTimeOriginal if available (most accurate for original capture).
     //If not, fall back to DateTimeDigitized (useful for scans).
