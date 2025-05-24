@@ -67,11 +67,24 @@ class ExiftoolInterface {
         level: 'error',
       );
     }
-    final List<dynamic> jsonList = jsonDecode(result.stdout);
-    if (jsonList.isEmpty) return {};
-    final map = Map<String, dynamic>.from(jsonList.first);
-    map.remove('SourceFile');
-    return map;
+    try {
+      final List<dynamic> jsonList = jsonDecode(result.stdout);
+      if (jsonList.isEmpty) return {};
+      final map = Map<String, dynamic>.from(jsonList.first);
+      map.remove('SourceFile');
+      return map;
+    } on FormatException catch (_) {
+      // this is when json is bad
+      return {};
+    } on FileSystemException catch (_) {
+      // this happens for issue #143
+      // "Failed to decode data using encoding 'utf-8'"
+      // maybe this will self-fix when dart itself support more encodings
+      return {};
+    } on NoSuchMethodError catch (_) {
+      // this is when tags like photoTakenTime aren't there
+      return {};
+    }
   }
 
   /// Reads only the specified EXIF tags from [file] and returns as a Map
@@ -92,11 +105,24 @@ class ExiftoolInterface {
         level: 'error',
       );
     }
-    final List<dynamic> jsonList = jsonDecode(result.stdout);
-    if (jsonList.isEmpty) return {};
-    final map = Map<String, dynamic>.from(jsonList.first);
-    map.remove('SourceFile');
-    return map;
+    try {
+      final List<dynamic> jsonList = jsonDecode(result.stdout);
+      if (jsonList.isEmpty) return {};
+      final map = Map<String, dynamic>.from(jsonList.first);
+      map.remove('SourceFile');
+      return map;
+    } on FormatException catch (_) {
+      // this is when json is bad
+      return {};
+    } on FileSystemException catch (_) {
+      // this happens for issue #143
+      // "Failed to decode data using encoding 'utf-8'"
+      // maybe this will self-fix when dart itself support more encodings
+      return {};
+    } on NoSuchMethodError catch (_) {
+      // this is when tags like photoTakenTime aren't there
+      return {};
+    }
   }
 
   /// Writes multiple EXIF tags to [file]. [tags] is a map of tag name to value.
@@ -112,9 +138,14 @@ class ExiftoolInterface {
       return true;
     } else {
       if (isVerbose) {
-        log('[Step 5/8] Writing exif to file ${file.path} failed. ${result.stderr}', level: 'error');
+        log(
+          '[Step 5/8] Writing exif to file ${file.path} failed. ${result.stderr}',
+          level: 'error',
+        );
       } else {
-        print('\n[ERROR] [Step 5/8] Writing exif to file ${file.path} failed. ${result.stderr}');
+        print(
+          '\n[ERROR] [Step 5/8] Writing exif to file ${file.path} failed. ${result.stderr}',
+        );
       }
       return false;
     }
