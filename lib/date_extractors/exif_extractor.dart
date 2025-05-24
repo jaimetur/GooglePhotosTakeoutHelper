@@ -94,7 +94,7 @@ Future<DateTime?> _exifToolExtractor(final File file) async {
       return null;
     } else {
       log(
-        '[Step 4/8] Sucessfully extracted DateTime from EXIF for ${file.path}',
+        '[Step 4/8] Sucessfully extracted DateTime from EXIF through Exiftool for ${file.path}',
       );
       return parsedDateTime;
     }
@@ -136,7 +136,7 @@ Future<DateTime?> _nativeExif_readerExtractor(final File file) async {
     );
     return null;
   } else {
-    log('[Step 4/8] Sucessfully extracted DateTime from EXIF for ${file.path}');
+    log('[Step 4/8] Sucessfully extracted DateTime from EXIF through native library for ${file.path}');
     return parsedDateTime;
   }
 }
