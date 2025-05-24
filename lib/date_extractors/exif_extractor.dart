@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'package:exif_reader/exif_reader.dart';
 import 'package:mime/mime.dart';
+import 'package:path/path.dart';
 import '../exiftoolInterface.dart';
 import '../utils.dart';
 
@@ -22,7 +23,28 @@ Future<DateTime?> exifDateTimeExtractor(final File file) async {
   }
 
   //Getting mimeType.
-  final String? mimeType = lookupMimeType(file.path);
+  String? mimeType = lookupMimeType(file.path);
+  if (mimeType == null) {
+    //lookupMimeType sometimes returns null. Using fallbacks in those cases.
+    if (exifToolInstalled) {
+      mimeType = (await exiftool!.readExifBatch(file, [
+        'MIMEType',
+      ])).entries.first.value.toString();
+      log(
+        'Got MimeType $mimeType of ${file.path} from exifTool because it was null initially.',
+      );
+    } else {
+      //We do some unreliable checks by file extension, write mimeType manually and hope for the best.
+      switch (extension(file.path)) {
+        case '.jpg':
+          mimeType = 'image/jpeg';
+        case '.jpeg':
+          mimeType = 'image/jpeg';
+        default:
+          mimeType = null;
+      }
+    }
+  }
 
   // We use the native way for jpeg because we know they can be handled. For speed and performance.
   //Only for everything else we don't know we use exiftools and if it is not available we try with the native way, because hey, maybe we are lucky.
@@ -45,7 +67,7 @@ Future<DateTime?> exifDateTimeExtractor(final File file) async {
   //This logic below is only to give a tailored error message because if you get here, something is wrong.
   if (exifToolInstalled) {
     log(
-      "$mimeType is a weird mime type! Please create an issue if you get this error message, as we currently can't hadle it.",
+      "$mimeType is a weird mime type! Please create an issue if you get this error message, as we currently can't handle it.",
       level: 'error',
     );
   } else {
@@ -136,7 +158,9 @@ Future<DateTime?> _nativeExif_readerExtractor(final File file) async {
     );
     return null;
   } else {
-    log('[Step 4/8] Sucessfully extracted DateTime from EXIF through native library for ${file.path}');
+    log(
+      '[Step 4/8] Sucessfully extracted DateTime from EXIF through native library for ${file.path}',
+    );
     return parsedDateTime;
   }
 }
