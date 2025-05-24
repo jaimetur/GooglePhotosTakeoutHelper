@@ -29,7 +29,7 @@ Future<DateTime?> exifDateTimeExtractor(final File file) async {
     if (exifToolInstalled) {
       mimeType = (await exiftool!.readExifBatch(file, [
         'MIMEType',
-      ])).entries.first.value.toString();
+      ])).entries.first.value.toString().toLowerCase();
       log(
         'Got MimeType $mimeType of ${file.path} from exifTool because it was null initially.',
       );
