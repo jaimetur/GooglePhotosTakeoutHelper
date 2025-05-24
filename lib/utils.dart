@@ -247,12 +247,12 @@ Future<void> changeMPExtensions(
 /// the last modification date.
 /// Only Windows support for now, using PowerShell.
 //TODO In the future MacOS support is possible if the user has XCode installed
-Future<void> updateCreationTimeRecursively(final Directory directory) async {
+Future<int> updateCreationTimeRecursively(final Directory directory) async {
   if (!Platform.isWindows) {
     print(
       '[Step 8/8] Skipping: Updating creation time is only supported on Windows.',
     );
-    return;
+    return 0;
   }
   int changedFiles = 0;
   const int maxChunkSize =
@@ -292,6 +292,7 @@ Future<void> updateCreationTimeRecursively(final Directory directory) async {
   print(
     '[Step 8/8] Successfully updated creation time for $changedFiles files!',
   );
+  return changedFiles;
 }
 
 //Execute a chunk of commands in PowerShell related with creation time

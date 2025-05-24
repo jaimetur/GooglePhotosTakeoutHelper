@@ -649,11 +649,12 @@ Future<void> main(final List<String> arguments) async {
   /// ##### Update creation time (Windows only) ####################
   final Stopwatch sw8 = Stopwatch()
     ..start(); //Creation of our debugging stopwatch for each step.
+  int updatedCreationTimeCounter = 0;
   if (args['update-creation-time']) {
     print(
       '[Step 8/8] Updating creation time of media files to match their modified time in output folder ...',
     );
-    await updateCreationTimeRecursively(output);
+    updatedCreationTimeCounter = await updateCreationTimeRecursively(output);
     print('');
     print('=' * barWidth);
   } else {
@@ -676,10 +677,14 @@ Future<void> main(final List<String> arguments) async {
   print('Some statistics for the archievement hunters:');
   //This check will print an error if no stats are available.
   if (countDuplicates > 0 &&
+      updatedCreationTimeCounter > 0 &&
       exifccounter > 0 &&
       exifdtcounter > 0 &&
       args['skip-extras']) {
     print('Error! No stats available (This is weird!)');
+  }
+  if (updatedCreationTimeCounter > 0) {
+    print('$updatedCreationTimeCounter files had their CreationDate updated');
   }
   if (countDuplicates > 0) {
     print('$countDuplicates duplicates were found and skipped');
