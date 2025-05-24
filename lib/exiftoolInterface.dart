@@ -99,20 +99,6 @@ class ExiftoolInterface {
     return map;
   }
 
-  /// Writes EXIF tag [tag] with [value] to [file]. Returns true if successful.
-  Future<bool> writeExif(
-    final File file,
-    final String tag,
-    final String value,
-  ) async {
-    final result = await Process.run(exiftoolPath, [
-      '-overwrite_original',
-      '-$tag=$value',
-      file.path,
-    ]);
-    return result.exitCode == 0;
-  }
-
   /// Writes multiple EXIF tags to [file]. [tags] is a map of tag name to value.
   Future<bool> writeExifBatch(
     final File file,
@@ -128,7 +114,7 @@ class ExiftoolInterface {
       if (isVerbose) {
         log('[Step 5/8] Writing exif to file ${file.path} failed. ${result.stderr}', level: 'error');
       } else {
-        print('[ERROR] [Step 5/8] Writing exif to file ${file.path} failed. ${result.stderr}');
+        print('\n[ERROR] [Step 5/8] Writing exif to file ${file.path} failed. ${result.stderr}');
       }
       return false;
     }

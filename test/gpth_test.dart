@@ -742,11 +742,9 @@ AD/2gAMAwEAAhEDEQA/ACHIF3//2Q==''';
       expect(tags, isEmpty);
     });
     test('writeExif writes a single tag', () async {
-      final result = await exiftool!.writeExif(
-        testImage,
-        'Artist',
-        'TestArtist',
-      );
+      final Map<String, String> map = {};
+      map['Artist'] = 'TestArtist';
+      final result = await exiftool!.writeExifBatch(testImage, map);
       expect(result, isTrue);
       final tags = await exiftool!.readExifBatch(testImage, ['Artist']);
       expect(tags['Artist'], 'TestArtist');
@@ -759,9 +757,11 @@ AD/2gAMAwEAAhEDEQA/ACHIF3//2Q==''';
       file.deleteSync();
     });
     test('writeExif returns false for unsupported file', () async {
+      final Map<String, String> map = {};
+      map['Artist'] = 'Nobody';
       final file = File('${basepath}unsupported2.txt');
       file.writeAsStringSync('not an image');
-      final result = await exiftool!.writeExif(file, 'Artist', 'Nobody');
+      final result = await exiftool!.writeExifBatch(file, map);
       expect(result, isFalse);
       file.deleteSync();
     });

@@ -154,7 +154,8 @@ Future<void> main(final List<String> arguments) async {
     )
     ..addFlag(
       'write-exif',
-      help: 'Writes geodata from json files and the extracted DateTime to EXIF. It always writes to original data, even if combined with --copy!',
+      help:
+          'Writes geodata from json files and the extracted DateTime to EXIF. It always writes to original data, even if combined with --copy!',
     )
     ..addFlag(
       'limit-filesize',
@@ -211,7 +212,7 @@ Future<void> main(final List<String> arguments) async {
       '[INFO] Exiftool was not found! Continuing without support for reading and writing EXIF data...',
     );
   }
-  sleep(const Duration(seconds: 5));
+  sleep(const Duration(seconds: 3));
 
   /// ##############################################################
   /// Here the Script asks interactively to fill all arguments
@@ -516,7 +517,7 @@ Future<void> main(final List<String> arguments) async {
         );
       } else {
         print(
-          "[Step 4/8] [WARNING] Couldn't get date with any extractor on ${media[i].firstFile.path}",
+          '\n[Step 4/8] [WARNING] Couldn\'t get date with any extractor on ${media[i].firstFile.path}',
         );
       }
     } else {
@@ -549,7 +550,8 @@ Future<void> main(final List<String> arguments) async {
   if (args['write-exif']) {
     final FillingBar barJsonToExifExtractor = FillingBar(
       total: media.length,
-      desc: '[Step 5/8] Getting EXIF data from JSONs and applying it to media',
+      desc:
+          '\n[Step 5/8] Getting EXIF data from JSONs and applying it to media',
       width: barWidth,
     );
 
@@ -565,8 +567,8 @@ Future<void> main(final List<String> arguments) async {
           exifccounter++;
         }
       }
-      if (
-          media[i].dateTimeExtractionMethod != DateTimeExtractionMethod.exif && media[i].dateTimeExtractionMethod != DateTimeExtractionMethod.none) {
+      if (media[i].dateTimeExtractionMethod != DateTimeExtractionMethod.exif &&
+          media[i].dateTimeExtractionMethod != DateTimeExtractionMethod.none) {
         //If date was found before through one of the extractors, except through exif extractor (cause then it's already in exif, duh!) write it to exif
         if (await writeDateTimeToExif(media[i].dateTaken!, currentFile)) {
           exifdtcounter++;
