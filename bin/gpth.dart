@@ -535,13 +535,13 @@ Future<void> main(final List<String> arguments) async {
       final DMSCoordinates? coords = await jsonCoordinatesExtractor(
         currentFile,
       );
-      if (coords != null && exifToolInstalled) {
+      if (coords != null) {
         //If coordinates were found in json, write them to exif
         if (await writeGpsToExif(coords, currentFile)) {
           exifccounter++;
         }
       }
-      if (media[i].dateTaken != null && exifToolInstalled) {
+      if (media[i].dateTaken != null) {
         //If date was found before through one of the extractors, write it to exif
         if (await writeDateTimeToExif(media[i].dateTaken!, currentFile)) {
           exifdtcounter++;
