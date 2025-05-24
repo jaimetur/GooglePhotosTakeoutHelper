@@ -37,9 +37,50 @@ Future<DateTime?> exifDateTimeExtractor(final File file) async {
       //We do some unreliable checks by file extension, write mimeType manually and hope for the best.
       switch (extension(file.path)) {
         case '.jpg':
-          mimeType = 'image/jpeg';
         case '.jpeg':
           mimeType = 'image/jpeg';
+          break;
+        case '.png':
+          mimeType = 'image/png';
+          break;
+        case '.tiff':
+        case '.tif':
+          mimeType = 'image/tiff';
+          break;
+        case '.heic':
+        case '.heif':
+          mimeType = 'image/heic';
+          break;
+        case '.webp':
+          mimeType = 'image/webp';
+          break;
+        case '.jxl':
+          mimeType = 'image/jxl';
+          break;
+        case '.arw':
+          mimeType = 'image/x-sony-arw';
+          break;
+        case '.raw':
+          mimeType = 'image/x-panasonic-raw';
+          break;
+        case '.dng':
+          mimeType = 'image/x-adobe-dng';
+          break;
+        case '.crw':
+          mimeType = 'image/x-canon-crw';
+          break;
+        case '.cr3':
+          mimeType = 'image/x-canon-cr3';
+          break;
+        case '.nrw':
+          mimeType = 'image/x-nikon-nrw';
+          break;
+        case '.nef':
+          mimeType = 'image/x-nikon-nef';
+          break;
+        case '.raf':
+          mimeType = 'image/x-fuji-raf';
+          break;
         default:
           mimeType = null;
       }
