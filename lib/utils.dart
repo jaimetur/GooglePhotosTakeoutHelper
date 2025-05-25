@@ -96,9 +96,9 @@ Future<int?> _dfLinux(final String path) async {
   return res.exitCode != 0
       ? null
       : int.tryParse(
-        res.stdout.toString().split('\n').elementAtOrNull(1) ?? '',
-        radix: 10, // to be sure
-      );
+          res.stdout.toString().split('\n').elementAtOrNull(1) ?? '',
+          radix: 10, // to be sure
+        );
 }
 
 Future<int?> _dfWindoza(final String path) async {
@@ -343,11 +343,12 @@ Future<void> createShortcutWin(
 
     // Create IShellLink instance
     final hr = CoCreateInstance(
-        GUIDFromString(CLSID_ShellLink).cast<GUID>(),
-        nullptr,
-        CLSCTX_INPROC_SERVER,
-        GUIDFromString(IID_IShellLink).cast<GUID>(),
-        shellLink.cast());
+      GUIDFromString(CLSID_ShellLink).cast<GUID>(),
+      nullptr,
+      CLSCTX_INPROC_SERVER,
+      GUIDFromString(IID_IShellLink).cast<GUID>(),
+      shellLink.cast(),
+    );
 
     if (FAILED(hr)) {
       throw Exception('Error creating IShellLink instance: $hr');
@@ -366,8 +367,9 @@ Future<void> createShortcutWin(
       throw Exception('Failed to allocate persistFile');
     }
     final hrPersistFile = shellLinkPtr.queryInterface(
-        GUIDFromString(IID_IPersistFile).cast<GUID>(),
-        persistFile.cast());
+      GUIDFromString(IID_IPersistFile).cast<GUID>(),
+      persistFile.cast(),
+    );
     if (FAILED(hrPersistFile)) {
       throw Exception('Error obtaining IPersistFile: $hrPersistFile');
     }
@@ -404,7 +406,11 @@ Future<void> createShortcutWin(
 ///This little helper function replaces the default log function, so it can be used with compiled code
 ///Default log level is 'info'. Possible values for 'level' are: 'error', 'warning' and 'info'
 ///forcePrint makes the output even when verbose mode is not enabled
-void log(final String message, {final String level = 'info', final bool forcePrint = false}) {
+void log(
+  final String message, {
+  final String level = 'info',
+  final bool forcePrint = false,
+}) {
   if (isVerbose || forcePrint == true) {
     final String color;
     switch (level.toLowerCase()) {

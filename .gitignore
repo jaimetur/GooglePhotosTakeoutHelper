@@ -11,3 +11,4 @@ output/
 *.log
 pubspec.lock
 /test/generated
+/test/.temp_exif
