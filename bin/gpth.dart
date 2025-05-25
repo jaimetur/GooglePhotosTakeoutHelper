@@ -726,19 +726,10 @@ Future<void> main(final List<String> arguments) async {
   if (args['skip-extras']) print('$countExtras extras were skipped');
 
   // Print datetime extraction method statistics
-  print('\nDateTime extraction method statistics:');
+  print('DateTime extraction method statistics:');
   for (final entry in extractionStats.entries) {
     String extractiopnMethodString = entry.key.name.toString();
     print('$extractiopnMethodString: ${entry.value} files');
-  }
-
-  final int countPoop = media
-      .where((final Media e) => e.dateTaken == null)
-      .length;
-  if (countPoop > 0) {
-    print(
-      'For $countPoop photos/videos we were unable to find any DateTime :/',
-    );
   }
   print(
     'In total the script took ${(sw1.elapsed + sw2.elapsed + sw3.elapsed + sw4.elapsed + sw5.elapsed + sw6.elapsed + sw7.elapsed + sw8.elapsed).inMinutes} minutes to complete',
