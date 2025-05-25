@@ -510,16 +510,11 @@ Future<void> main(final List<String> arguments) async {
       extractionMethod = DateTimeExtractionMethod.none; //For statistics
       media[i].dateTimeExtractionMethod = DateTimeExtractionMethod
           .none; //Writing in media object that no extraction method worked. :(
-      if (isVerbose) {
-        log(
+      log(
           "[Step 4/8] Couldn't get date with any extractor on ${media[i].firstFile.path}",
           level: 'warning',
+          forcePrint: true
         );
-      } else {
-        print(
-          '\n[Step 4/8] [WARNING] Couldn\'t get date with any extractor on ${media[i].firstFile.path}',
-        );
-      }
     } else {
       media[i].dateTimeExtractionMethod =
           extractionMethod; //Writing used extraction method to this media object.
@@ -550,8 +545,7 @@ Future<void> main(final List<String> arguments) async {
   if (args['write-exif']) {
     final FillingBar barJsonToExifExtractor = FillingBar(
       total: media.length,
-      desc:
-          '\n[Step 5/8] Getting EXIF data from JSONs and applying it to media',
+      desc: '[Step 5/8] Getting EXIF data from JSONs and applying it to media',
       width: barWidth,
     );
 

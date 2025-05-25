@@ -401,10 +401,11 @@ Future<void> createShortcutWin(
   }
 }
 
-///This little helper function replaces the default log function, so it can be used with compiled code and a -v argument
+///This little helper function replaces the default log function, so it can be used with compiled code
 ///Default log level is 'info'. Possible values for 'level' are: 'error', 'warning' and 'info'
-void log(final String message, {final String level = 'info'}) {
-  if (isVerbose) {
+///forcePrint makes the output even when verbose mode is not enabled
+void log(final String message, {final String level = 'info', final bool forcePrint = false}) {
+  if (isVerbose || forcePrint == true) {
     final String color;
     switch (level.toLowerCase()) {
       case 'error':
@@ -419,7 +420,7 @@ void log(final String message, {final String level = 'info'}) {
         break;
     }
     print(
-      '$color[${level.toUpperCase()}] $message\x1B[0m',
+      '\r$color[${level.toUpperCase()}] $message\x1B[0m',
     ); // Reset color after the message
   }
 }

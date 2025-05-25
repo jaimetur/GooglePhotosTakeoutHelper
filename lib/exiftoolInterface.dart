@@ -2,6 +2,7 @@
 
 import 'dart:convert';
 import 'dart:io';
+
 import 'utils.dart';
 
 ExiftoolInterface? exiftool;
@@ -19,6 +20,7 @@ Future<bool> initExiftool() async {
 /// Cross-platform interface for exiftool (read/write EXIF data)
 class ExiftoolInterface {
   ExiftoolInterface._(this.exiftoolPath);
+
   final String exiftoolPath;
 
   /// Attempts to find exiftool in PATH and returns an instance, or null if not found
@@ -137,16 +139,11 @@ class ExiftoolInterface {
     if (result.exitCode == 0) {
       return true;
     } else {
-      if (isVerbose) {
-        log(
-          '[Step 5/8] Writing exif to file ${file.path} failed. ${result.stderr}',
-          level: 'error',
-        );
-      } else {
-        print(
-          '\n[ERROR] [Step 5/8] Writing exif to file ${file.path} failed. ${result.stderr}',
-        );
-      }
+      log(
+        '[Step 5/8] Writing exif to file ${file.path} failed. ${result.stderr}',
+        level: 'error',
+        forcePrint: true
+      );
       return false;
     }
   }
