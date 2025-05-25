@@ -151,7 +151,7 @@ Future<DateTime?> _exifToolExtractor(final File file) async {
     //tags['DateTime']; //generic and editable
     if (datetime == null) {
       log(
-        "Exiftool was not able to extract an acceptable DateTime for ${file.path}. Those Tags are accepted: 'DateTimeOriginal', 'MediaCreateDate', 'CreationDate','TrackCreateDate','. The file has those Tags: ${tags.toString()}",
+        "Exiftool was not able to extract an acceptable DateTime for ${file.path}.\n\tThose Tags are accepted: 'DateTimeOriginal', 'MediaCreateDate', 'CreationDate','TrackCreateDate','. The file has those Tags: ${tags.toString()}",
         level: 'warning',
       );
       return null;
