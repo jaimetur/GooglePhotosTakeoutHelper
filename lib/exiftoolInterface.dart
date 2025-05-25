@@ -132,7 +132,9 @@ class ExiftoolInterface {
   ) async {
     final args = <String>['-overwrite_original'];
     tags.forEach((final tag, final value) => args.add('-$tag=$value'));
-    args.add(file.path);
+    // Encode the file path to handle special characters and emojis
+    final encodedPath = Uri.file(file.path).toFilePath();
+    args.add(encodedPath);
     final result = await Process.run(exiftoolPath, args);
     if (result.exitCode == 0) {
       return true;
