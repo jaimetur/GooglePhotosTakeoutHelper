@@ -728,7 +728,8 @@ Future<void> main(final List<String> arguments) async {
   // Print datetime extraction method statistics
   print('\nDateTime extraction method statistics:');
   for (final entry in extractionStats.entries) {
-    print('${entry.key}: ${entry.value} files');
+    String extractiopnMethodString = entry.key.name.toString();
+    print('$extractiopnMethodString: ${entry.value} files');
   }
 
   final int countPoop = media
