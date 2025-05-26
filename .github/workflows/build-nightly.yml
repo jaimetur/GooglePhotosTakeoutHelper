@@ -16,14 +16,25 @@ jobs:
       - uses: actions/checkout@v4.2.2
       - uses: dart-lang/setup-dart@v1.7.1
       - run: dart pub get
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(grep '^version:' pubspec.yaml | head -n1 | cut -d' ' -f2)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
       - name: Build exe
         run: |
-          dart compile exe bin/gpth.dart -o ./gpth-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+          osname=${{ matrix.os }}
+          if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+            osname=linux
+          fi
+          dart compile exe bin/gpth.dart -o ./gpth-${osname}-${{ matrix.arch }}-nightly-${{ steps.version.outputs.version }}${{ matrix.os == 'windows-latest' && '.exe' || '' }}
       - name: Upload exe as artifact
         uses: actions/upload-artifact@v4.6.2
         with:
-          name: gpth-nightly-${{ matrix.os }}-${{ matrix.arch }}
+          name: gpth-nightly-${{ matrix.os }}-${{ matrix.arch }}-${{ steps.version.outputs.version }}
           path: |
-            ./gpth-${{ matrix.os }}-${{ matrix.arch }}
-            ./gpth-${{ matrix.os }}-${{ matrix.arch }}.exe
+            ./gpth-linux-${{ matrix.arch }}-nightly-${{ steps.version.outputs.version }}
+            ./gpth-linux-${{ matrix.arch }}-nightly-${{ steps.version.outputs.version }}.exe
+            ./gpth-${{ matrix.os }}-${{ matrix.arch }}-nightly-${{ steps.version.outputs.version }}
+            ./gpth-${{ matrix.os }}-${{ matrix.arch }}-nightly-${{ steps.version.outputs.version }}.exe
           if-no-files-found: error
