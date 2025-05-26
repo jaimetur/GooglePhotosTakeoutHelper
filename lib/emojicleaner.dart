@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'utils.dart';
+
 /// Internal helper function to check if a single text component contains emoji characters.
 ///
 /// [text] The text string to check for emoji characters
@@ -29,6 +31,7 @@ String encodeAndRenameAlbumIfEmoji(final Directory albumDir) {
   if (!_hasUnicodeSurrogatesInText(originalName)) {
     return originalName;
   }
+  log('Found an emoji in ${albumDir.path}. Encoding it to hex.');
   final String parentPath = albumDir.parent.path;
   final StringBuffer cleanName = StringBuffer();
   for (int i = 0; i < originalName.length; i++) {
@@ -65,6 +68,9 @@ String decodeAndRestoreAlbumEmoji(final String encodedPath) {
   if (parts.isEmpty) return encodedPath;
   // Only decode if hex-encoded emoji is present in the last segment
   if (RegExp(r'_0x[0-9a-fA-F]+_').hasMatch(parts.last)) {
+    log(
+      'Found a hex encoded emoji in $encodedPath. Decoding it back to emoji.',
+    );
     parts[parts.length - 1] = _decodeEmojiComponent(parts.last);
     return parts.join(separator);
   }

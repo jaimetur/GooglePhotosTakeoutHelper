@@ -73,7 +73,8 @@ Future<DateTime?> exifDateTimeExtractor(final File file) async {
   }
   //At this point either we didn't do anything because the mimeType is unknown (null) or not supported by the native method or we tried the native method on a mimeType which should be supported but it faild for some weird reason.
   //Anyway, there is nothing else to do than to try it with exiftool now. exiftool is the last resort *sing* in any case due to performance. Again, using it before to determine if we use _nativeExif_readerExtractor() or _exifToolExtractor() defeats the point!
-  if (exifToolInstalled) {
+  if ((mimeType == null || !supportedNativeMimeTypes.contains(mimeType)) &&
+      exifToolInstalled) {
     result = await _exifToolExtractor(file);
     if (result != null) {
       return result; //We did get a DateTime from Exiftool and return it. It's being logged in _exifToolExtractor(). We are happy.
