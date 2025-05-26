@@ -13,11 +13,11 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        sdk: [3.9]
+        sdk: [3.8]
     
     steps:
       - uses: actions/checkout@v4.2.2
-      - uses: dart-lang/setup-dart@v1
+      - uses: dart-lang/setup-dart@v1.7.1
         with:
           sdk: ${{ matrix.sdk }}
 
@@ -41,7 +41,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4.2.2
-      - uses: dart-lang/setup-dart@v1
+      - uses: dart-lang/setup-dart@v1.7.1
       - run: dart pub get
       - name: Verify formatting
         run: dart format --output=none --set-exit-if-changed .
