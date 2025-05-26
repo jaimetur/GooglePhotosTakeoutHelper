@@ -18,14 +18,12 @@ jobs:
       - run: dart pub get
       - name: Build exe
         run: |
-          outname=gpth-${{ matrix.os }}-${{ matrix.arch }}
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            outname="$outname.exe"
-          fi
-          dart compile exe bin/gpth.dart -o ./$outname
+          dart compile exe bin/gpth.dart -o ./gpth-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.os == 'windows-latest' && '.exe' || '' }}
       - name: Upload exe as artifact
         uses: actions/upload-artifact@v4.6.2
         with:
           name: gpth-nightly-${{ matrix.os }}-${{ matrix.arch }}
-          path: ./gpth-${{ matrix.os }}-${{ matrix.arch }}*
+          path: |
+            ./gpth-${{ matrix.os }}-${{ matrix.arch }}
+            ./gpth-${{ matrix.os }}-${{ matrix.arch }}.exe
           if-no-files-found: error
