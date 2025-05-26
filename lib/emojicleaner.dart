@@ -11,7 +11,8 @@ bool _hasUnicodeSurrogatesInAlbumNameOrImageName(final String path) {
   final String fileName = path.split(Platform.pathSeparator).last;
 
   // Only check parent directory name and filename
-  return _hasUnicodeSurrogatesInText(parentDirName) || _hasUnicodeSurrogatesInText(fileName);
+  return _hasUnicodeSurrogatesInText(parentDirName) ||
+      _hasUnicodeSurrogatesInText(fileName);
 }
 
 /// Internal helper function to check if a single text component contains emoji characters.

@@ -222,7 +222,7 @@ Future<void> main(final List<String> arguments) async {
     await interactive.greet();
     print('');
     // @Deprecated('Interactive unzipping is suspended for now!')
-    // final zips = await interactive.getZips(); 
+    // final zips = await interactive.getZips();
     //TODO: Add functionality to unzip files again
     late Directory inDir;
     try {
@@ -404,7 +404,6 @@ Future<void> main(final List<String> arguments) async {
   print('[Step 2/8] Searching for everything in input folder...');
 
   //TODO implement logic to rename emojis to hex for files and folders
-  
 
   // recursive=true makes it find everything nicely even if user id dumb 😋
   await for (final Directory d
@@ -656,7 +655,6 @@ Future<void> main(final List<String> arguments) async {
     albumBehavior: args['albums'],
   ).listen((final _) => barCopy.increment()).asFuture();
   print('[Step 7/8] Done moving/copying media!');
-
 
   //TODO implement functionality to covert hex in album names and file names back to emojis.
 
