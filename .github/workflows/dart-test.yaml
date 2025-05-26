@@ -18,7 +18,7 @@ jobs:
     
     steps:
       - uses: actions/checkout@v4
-      - uses: dart-lang/setup-dart@v1
+      - uses: dart-lang/setup-dart@v1.6.4
         with:
           sdk: ${{ matrix.sdk }}
 
@@ -42,7 +42,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dart-lang/setup-dart@v1
+      - uses: dart-lang/setup-dart@v1.6.4
       - run: dart pub get
       - name: Verify formatting
         run: dart format --output=none --set-exit-if-changed .

@@ -35,7 +35,7 @@ jobs:
             echo "Unknown OS: $RUNNER_OS"
             exit 69
           fi
-      - uses: dart-lang/setup-dart@v1
+      - uses: dart-lang/setup-dart@v1.6.4
       - run: dart pub get
       - name: Build exe
         run: dart compile exe bin/gpth.dart -o ./${{ steps.exe_name.outputs.name }}

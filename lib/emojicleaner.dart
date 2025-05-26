@@ -47,7 +47,7 @@ String getEmojiCleanedFilePath(final String path) {
 
   // Process parent directory name if it contains emoji
   final StringBuffer cleanParent = StringBuffer();
-  if (_hasEmojiInText(parentDirName)) {
+  if (_hasUnicodeSurrogatesInText(parentDirName)) {
     for (int i = 0; i < parentDirName.length; i++) {
       final int codeUnit = parentDirName.codeUnitAt(i);
       if (codeUnit >= 0xD800 &&
@@ -69,7 +69,7 @@ String getEmojiCleanedFilePath(final String path) {
   }
 
   // Process filename if it contains emoji
-  if (_hasEmojiInText(fileName)) {
+  if (_hasUnicodeSurrogatesInText(fileName)) {
     for (int i = 0; i < fileName.length; i++) {
       final int codeUnit = fileName.codeUnitAt(i);
       if (codeUnit >= 0xD800 && codeUnit <= 0xDBFF && i + 1 < fileName.length) {
@@ -95,7 +95,7 @@ String getEmojiCleanedFilePath(final String path) {
 ///
 /// [tempPath] The temporary path containing hex-encoded emojis (e.g., "_0x1f60a_")
 /// Returns the original path with proper UTF-8 emoji characters, or the input path if it's not a temp path
-String _getOriginalPathFromTemp(final String tempPath) {
+String getOriginalPathFromTemp(final String tempPath) {
   final String baseTempDir =
       '${Platform.pathSeparator}.temp_exif${Platform.pathSeparator}';
   if (!tempPath.contains(baseTempDir)) return tempPath;
