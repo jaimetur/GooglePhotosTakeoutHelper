@@ -33,7 +33,22 @@ If you want to run it on Synology, have problems with interactive, or just love 
    
 ### 3. Download the executable for your system from [releases tab](https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/releases) 🛒 ([also available on AUR 😏](https://aur.archlinux.org/packages/gpth-bin))
 
-### 4. Run `gpth`
+### 4. Install Exiftool
+    - On Windoza: download [exiftool for Windows](https://exiftool.org/) and put `exiftool(-k).exe` in the same folder as `gpth.exe`. Important! Rename it to `exiftool.exe`.
+      - Alternatively, you can install it with [Chocolatey](https://chocolatey.org/):
+        ```bash
+        choco install exiftool
+        ```
+    - On Mac: install with Homebrew:
+      ```bash
+      brew install exiftool
+      ```
+    - On Linux: install with your package manager, e.g. on Ubuntu:
+      ```bash
+      sudo apt install libimage-exiftool-perl
+      ```
+
+### 5. Run `gpth`
    - On Windoza: just double-click the downloaded `.exe` 🎉 - tell windoza defender that it's safe, and follow prompted instructions 🧾
    - On Mac/Linux: open terminal, `cd` to the folder with downloaded executable and run it:
      ```bash
@@ -73,7 +88,7 @@ In that case:
      cd Downloads  # Most probably
      # run it, selecting input and output folders with options like this:
      # (you can try to drag and drop them)
-     gpth.exe --input "Downloads\you\input\folder" --output "C:\some\other\location" --albums "shortcut"
+     gpth.exe --write-exif --input "Downloads\you\input\folder" --output "C:\some\other\location" --albums "shortcut"
      # select which album solution you like - see --help for all of them
      # remember to use "" !
      ```
@@ -84,7 +99,7 @@ In that case:
      chmod +x gpth  # add execute permission
      # tell MacOS Gatekeeper to not worry
      xattr -r -d com.apple.quarantine gpth-macos
-     ./gpth --input "/some/input/folder" --output "other/output/folder" --albums "shortcut"
+     ./gpth --write-exif --input "/some/input/folder" --output "other/output/folder" --albums "shortcut"
      # select which album solution you like - see --help for all of them
      ```
 

@@ -35,10 +35,12 @@
 - Exposed the maxFileSize flag as an argument (--limit-filesize) to set if necessary, It's now deactivated by default to support larger files like videos.
 - Added DateTime extraction method statistics to the final output - shows how many files had their dates extracted through which method
 - Added elapsed time logging for each processing step
+- Improved Github actions
 
 #### Bug fixes
 
 - fixed existing unit tests which would fail on windows
+- Fixed Github Actions
 
 #### Added functionality
 
