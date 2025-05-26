@@ -21,9 +21,13 @@ jobs:
       - run: dart pub get
       - name: Get version
         id: version
+        shell: bash
         run: |
-          dart run --disable-analytics -e "import 'dart:io'; import 'package:yaml/yaml.dart'; print((loadYaml(File('pubspec.yaml').readAsStringSync())['version']));" > version.txt
-          VERSION=$(cat version.txt | tr -d '\r\n')
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+          VERSION=$(powershell -Command "(Get-Content pubspec.yaml | Select-String '^version:').ToString().Split(':')[1].Trim()")
+          else
+          VERSION=$(grep '^version:' pubspec.yaml | head -n1 | cut -d' ' -f2)
+          fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
       - name: Build exe
         run: |
