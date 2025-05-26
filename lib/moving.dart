@@ -246,7 +246,7 @@ Stream<int> moveFiles(
       DateTime time = m.dateTaken ?? DateTime.now();
       if (Platform.isWindows && time.isBefore(DateTime(1970))) {
         print(
-          '[Step 7/8] [Info]: ${m.firstFile.path} has date $time, which is before 1970 '
+          '\r[Step 7/8] [Info]: ${m.firstFile.path} has date $time, which is before 1970 '
           '(not supported on Windows) - will be set to 1970-01-01',
         );
         time = DateTime(1970);

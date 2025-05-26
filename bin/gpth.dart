@@ -586,7 +586,7 @@ Future<void> main(final List<String> arguments) async {
   }
   sw5.stop();
   print(
-    '[Step 5/8] Step 5 took ${sw5.elapsed.inMinutes} minutes or ${sw5.elapsed.inSeconds} seconds to complete.',
+    '\n[Step 5/8] Step 5 took ${sw5.elapsed.inMinutes} minutes or ${sw5.elapsed.inSeconds} seconds to complete.',
   );
 
   /// ##############################################################
@@ -617,9 +617,8 @@ Future<void> main(final List<String> arguments) async {
     );
     await changeMPExtensions(media, '.mp4');
   } else {
-    print('[Step 6/8] Skipped changing .MP or .MV extensions to .mp4');
+    print('\n[Step 6/8] Skipped changing .MP or .MV extensions to .mp4');
   }
-  print('');
 
   /// ##############################################################
 
@@ -665,7 +664,7 @@ Future<void> main(final List<String> arguments) async {
         : num.parse(args['divide-to-dates']),
     albumBehavior: args['albums'],
   ).listen((final _) => barCopy.increment()).asFuture();
-  print('[Step 7/8] Done moving/copying media!');
+  print('\n[Step 7/8] Done moving/copying media!');
 
   // @Deprecated('Interactive unzipping is suspended for now!')
   // // remove unzipped folder if was created
