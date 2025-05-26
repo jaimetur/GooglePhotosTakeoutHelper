@@ -1,4 +1,4 @@
-# This is quick action to build apk and share it with artifacts
+# This is quick action to build exe and share it with artifacts
 # It's for convenience and nightly-testing with people
 name: Build nightly
 
@@ -9,10 +9,10 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [ ubuntu-latest, macos-13, macos-latest, windows-latest ]
+        os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Get exe name
         id: exe_name
         shell: bash
@@ -20,7 +20,7 @@ jobs:
           if [ "$RUNNER_OS" == "Linux" ]; then
             echo "name=gpth-linux" >> $GITHUB_OUTPUT
           elif [ "$RUNNER_OS" == "Windows" ]; then
-            echo "name=gpth-windoza.exe" >> $GITHUB_OUTPUT
+            echo "name=gpth-windows.exe" >> $GITHUB_OUTPUT
           elif [ "$RUNNER_OS" == "macOS" ]; then
             arch=$(uname -m)
             if [ "$arch" == "arm64" ]; then
@@ -36,12 +36,22 @@ jobs:
             exit 69
           fi
       - uses: dart-lang/setup-dart@v1
+      - name: Install exiftool
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            sudo apt-get update && sudo apt-get install -y exiftool
+          elif [[ "$RUNNER_OS" == "macOS" ]]; then
+            brew install exiftool
+          elif [[ "$RUNNER_OS" == "Windows" ]]; then
+            choco install exiftool -y
+          fi
       - run: dart pub get
       - name: Build exe
         run: dart compile exe bin/gpth.dart -o ./${{ steps.exe_name.outputs.name }}
-      - name: Upload apk as artifact
-        uses: actions/upload-artifact@v3
+      - name: Upload exe as artifact
+        uses: actions/upload-artifact@v4
         with:
-          name: gpth-nightly-${{ runner.os }}
+          name: gpth-nightly-${{ matrix.os }}
           path: ./${{ steps.exe_name.outputs.name }}
           if-no-files-found: error
