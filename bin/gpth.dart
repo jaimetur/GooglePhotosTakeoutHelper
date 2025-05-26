@@ -421,11 +421,11 @@ Future<void> main(final List<String> arguments) async {
     }
   }
   for (final Directory a in albumFolders) {
-    final String cleanedAlbumName = encodeAndRenameAlbumIfEmoji(
+    final Directory cleanedAlbumDir = encodeAndRenameAlbumIfEmoji(
       a,
     ); //Here we check if there are emojis in the album names and if yes, we hex encode them so there are no problems later!
-    await for (final File file in a.list().wherePhotoVideo()) {
-      media.add(Media(<String?, File>{cleanedAlbumName: file}));
+    await for (final File file in cleanedAlbumDir.list().wherePhotoVideo()) {
+      media.add(Media(<String?, File>{cleanedAlbumDir.path: file}));
     }
   }
 

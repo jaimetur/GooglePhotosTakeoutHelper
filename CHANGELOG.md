@@ -1,3 +1,10 @@
+## 4.0.1-xentraxx
+
+### Fork/Alternate version 
+
+- Fixed CloudMigrator integration by finding exiftool in more locations.
+- Fixed emoji to hex encoding
+
 ## 4.0.0-wacheee (by Xentraxx)
 
 ### Fork/Alternate version 

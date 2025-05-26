@@ -16,7 +16,6 @@ import 'package:gpth/moving.dart';
 import 'package:gpth/utils.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
-import 'package:path/path.dart';
 import 'package:test/test.dart';
 
 void main() async {
@@ -136,7 +135,7 @@ AD/2gAMAwEAAhEDEQA/ACHIF3//2Q==''';
     );
     // apparently you don't need to .create() before writing 👍
     imgFile1.writeAsBytesSync(<int>[0, 1, 2]);
-    imgFile1.copySync('${albumDir.path}/${basename(imgFile1.path)}');
+    imgFile1.copySync('${albumDir.path}/${p.basename(imgFile1.path)}');
     imgFile2.writeAsBytesSync(<int>[3, 4, 5]);
     imgFile3.writeAsBytesSync(<int>[6, 7, 8]);
     imgFile4.writeAsBytesSync(<int>[9, 10, 11]); // these two...
@@ -434,7 +433,7 @@ AD/2gAMAwEAAhEDEQA/ACHIF3//2Q==''';
   /// This is complicated, thus those test are not bullet-proof
   group('Moving logic', () {
     final Directory output = Directory(
-      join(Directory.systemTemp.path, '${basepath}testy-output'),
+      p.join(Directory.systemTemp.path, '${basepath}testy-output'),
     );
     setUp(() async {
       await output.create();
@@ -469,7 +468,7 @@ AD/2gAMAwEAAhEDEQA/ACHIF3//2Q==''';
       expect(
         outputted
             .whereType<Directory>()
-            .map((final Directory e) => basename(e.path))
+            .map((final Directory e) => p.basename(e.path))
             .toSet(),
         <String>{'ALL_PHOTOS', 'Vacation'},
       );
@@ -492,7 +491,7 @@ AD/2gAMAwEAAhEDEQA/ACHIF3//2Q==''';
       expect(
         outputted
             .whereType<Directory>()
-            .map((final Directory e) => basename(e.path))
+            .map((final Directory e) => p.basename(e.path))
             .toSet(),
         <String>{'ALL_PHOTOS'},
       );
@@ -515,7 +514,7 @@ AD/2gAMAwEAAhEDEQA/ACHIF3//2Q==''';
       expect(outputted.whereType<File>().length, media.length + 1);
       expect(
         const UnorderedIterableEquality<String>().equals(
-          outputted.whereType<File>().map((final File e) => basename(e.path)),
+          outputted.whereType<File>().map((final File e) => p.basename(e.path)),
           <String>[
             'image-edited.jpg',
             'image-edited.jpg', // two times
@@ -532,7 +531,7 @@ AD/2gAMAwEAAhEDEQA/ACHIF3//2Q==''';
       expect(
         outputted
             .whereType<Directory>()
-            .map((final Directory e) => basename(e.path))
+            .map((final Directory e) => p.basename(e.path))
             .toSet(),
         <String>{'ALL_PHOTOS', 'Vacation'},
       );
@@ -556,7 +555,7 @@ AD/2gAMAwEAAhEDEQA/ACHIF3//2Q==''';
       expect(outputted.whereType<File>().length, media.length + 1);
       expect(
         const UnorderedIterableEquality<String>().equals(
-          outputted.whereType<File>().map((final File e) => basename(e.path)),
+          outputted.whereType<File>().map((final File e) => p.basename(e.path)),
           <String>[
             'image-edited.jpg',
             'Screenshot_2022-10-28-09-31-43-118_com.snapchat.jpg',
@@ -573,7 +572,7 @@ AD/2gAMAwEAAhEDEQA/ACHIF3//2Q==''';
       expect(
         outputted
             .whereType<Directory>()
-            .map((final Directory e) => basename(e.path))
+            .map((final Directory e) => p.basename(e.path))
             .toSet(),
         <String>{'ALL_PHOTOS'},
       );
@@ -794,22 +793,24 @@ AD/2gAMAwEAAhEDEQA/ACHIF3//2Q==''';
       'encodeAndRenameAlbumIfEmoji renames folder with emoji and returns hex-encoded name',
       () {
         if (!emojiDir.existsSync()) emojiDir.createSync();
-        final String newName = encodeAndRenameAlbumIfEmoji(emojiDir);
-        expect(newName.contains('_0x1f600_'), isTrue);
-        final Directory renamedDir = Directory(
-          emojiDir.parent.path + Platform.pathSeparator + newName,
+        final Directory renamedDir = encodeAndRenameAlbumIfEmoji(emojiDir);
+        expect(renamedDir.path.contains('_0x1f600_'), isTrue);
+        final Directory hexDir = Directory(
+          p.join(emojiDir.parent.path, p.basename(renamedDir.path)),
         );
-        expect(renamedDir.existsSync(), isTrue);
+        expect(hexDir.existsSync(), isTrue);
         // Cleanup
-        renamedDir.deleteSync();
+        hexDir.deleteSync();
       },
     );
 
     test('encodeAndRenameAlbumIfEmoji returns original name if no emoji', () {
-      final Directory noEmojiDir = Directory('${basepath}test_album_noemoji');
+      final Directory noEmojiDir = Directory(
+        p.join(basepath, 'test_album_noemoji'),
+      );
       if (!noEmojiDir.existsSync()) noEmojiDir.createSync();
-      final String newName = encodeAndRenameAlbumIfEmoji(noEmojiDir);
-      expect(newName, 'test_album_noemoji');
+      final Directory newCleanedDir = encodeAndRenameAlbumIfEmoji(noEmojiDir);
+      expect(newCleanedDir.path, endsWith('test_album_noemoji'));
       expect(noEmojiDir.existsSync(), isTrue);
       // Cleanup
       noEmojiDir.deleteSync();
@@ -817,11 +818,16 @@ AD/2gAMAwEAAhEDEQA/ACHIF3//2Q==''';
 
     group('decodeAndRestoreAlbumEmoji', () {
       test('decodes hex-encoded emoji in last segment to emoji', () {
-        final Directory emojiDir = Directory('${basepath}test_album_❤❤❤');
+        final Directory emojiDir = Directory(
+          p.join(basepath, 'test_album_❤❤❤'),
+        );
         if (!emojiDir.existsSync()) emojiDir.createSync();
-        final String encodedName = encodeAndRenameAlbumIfEmoji(emojiDir);
-        final String encodedPath =
-            emojiDir.parent.path + Platform.pathSeparator + encodedName;
+        final Directory encodedDir = encodeAndRenameAlbumIfEmoji(emojiDir);
+        final String encodedPath = p.join(
+          emojiDir.parent.path,
+          Platform.pathSeparator,
+          encodedDir.path,
+        );
         final String decodedPath = decodeAndRestoreAlbumEmoji(encodedPath);
         expect(decodedPath.contains('❤❤❤'), isTrue);
         // Cleanup
@@ -859,10 +865,10 @@ AD/2gAMAwEAAhEDEQA/ACHIF3//2Q==''';
         );
 
         // 1. Encode and rename folder
-        final String hexName = encodeAndRenameAlbumIfEmoji(emojiDir);
-        expect(hexName.contains('_0x1f496_'), isTrue);
+        final Directory hexNameDir = encodeAndRenameAlbumIfEmoji(emojiDir);
+        expect(hexNameDir.path.contains('_0x1f496_'), isTrue);
         final Directory hexDir = Directory(
-          p.join(emojiDir.parent.path, hexName),
+          p.join(emojiDir.parent.path, hexNameDir.path),
         );
         expect(hexDir.existsSync(), isTrue);
         final File hexImg = File(p.join(hexDir.path, 'img.jpg'));
