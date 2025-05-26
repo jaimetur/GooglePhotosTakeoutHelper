@@ -64,15 +64,12 @@ Future<DateTime?> exifDateTimeExtractor(final File file) async {
       return result;
     } else {
       //If we end up here, we have a mimeType which should be supported by exif_reader, but the read failed regardless.
-      log(
-        'We couldn\'t read from ${file.path} which we found has the MimeType $mimeType with exif_reader, even though this should be supported! Consider this an issue for the exif_reader library.',
-        level: 'warning',
-      );
-      //We just log this but don't return null. Continue continue in the function.
+      //Most probably the file does not contain any DateTime in exif. So we return null.
+      return null;
     }
   }
-  //At this point either we didn't do anything because the mimeType is unknown (null) or not supported by the native method or we tried the native method on a mimeType which should be supported but it faild for some weird reason.
-  //Anyway, there is nothing else to do than to try it with exiftool now. exiftool is the last resort *sing* in any case due to performance. Again, using it before to determine if we use _nativeExif_readerExtractor() or _exifToolExtractor() defeats the point!
+  //At this point either we didn't do anything because the mimeType is unknown (null) or not supported by the native method.
+  //Anyway, there is nothing else to do than to try it with exiftool now. exiftool is the last resort *sing* in any case due to performance.
   if ((mimeType == null || !supportedNativeMimeTypes.contains(mimeType)) &&
       exifToolInstalled) {
     result = await _exifToolExtractor(file);
@@ -82,9 +79,14 @@ Future<DateTime?> exifDateTimeExtractor(final File file) async {
   }
 
   //This logic below is only to give a tailored error message because if you get here, sorry, then result stayed empty and we just don't support the file type.
-  if (exifToolInstalled) {
+  if (mimeType == 'image/jpeg') {
     log(
-      "$mimeType is a weird mime type! Please create an issue if you get this error message, as we currently can't handle it.",
+      '${file.path} has a mimeType of $mimeType. However, could not read it with exif_reader. This means, the file is probably corrupt',
+      level: 'warning',
+    );
+  } else if (exifToolInstalled) {
+    log(
+      "$mimeType is either a weird mime type! Please create an issue if you get this error message, as we currently can't handle it.",
       level: 'error',
     );
   } else {
@@ -167,7 +169,7 @@ Future<DateTime?> _nativeExif_readerExtractor(final File file) async {
   datetime ??= tags['Image DateTime']?.printable;
   datetime ??= tags['EXIF DateTimeOriginal']?.printable;
   datetime ??= tags['EXIF DateTimeDigitized']?.printable;
-  if (datetime == null) return null;
+  if (datetime == null || datetime.isEmpty) return null;
   // Normalize separators and parse
   datetime = datetime
       .replaceAll('-', ':')

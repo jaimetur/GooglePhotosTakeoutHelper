@@ -447,7 +447,7 @@ Future<void> main(final List<String> arguments) async {
   final Stopwatch sw3 = Stopwatch()
     ..start(); //Creation of our debugging stopwatch for each step.
   print('[Step 3/8] Finding duplicates... (This may take some time)');
-  final int countDuplicates = removeDuplicates(media, barWidth);
+  final int countDuplicates = removeDuplicates(media);
 
   /// ##############################################################
 
@@ -566,9 +566,12 @@ Future<void> main(final List<String> arguments) async {
           exifccounter++;
         }
       }
-      if (media[i].dateTimeExtractionMethod != DateTimeExtractionMethod.exif &&
+      if (media[i].dateTimeExtractionMethod !=
+              DateTimeExtractionMethod
+                  .exif && //Already got it through ExifExtractor
           media[i].dateTimeExtractionMethod != DateTimeExtractionMethod.none) {
-        //If date was found before through one of the extractors, except through exif extractor (cause then it's already in exif, duh!) write it to exif
+        //Has no dateTime at all, so nothing to write.
+        //If date was found before through any extractor, except through exif extractor (cause then it's already in exif, duh!) write it to exif
         if (await writeDateTimeToExif(media[i].dateTaken!, currentFile)) {
           exifdtcounter++;
         }
@@ -594,8 +597,12 @@ Future<void> main(final List<String> arguments) async {
   // be broken in shithole of big-ass year folders
   final Stopwatch sw6 = Stopwatch()
     ..start(); //Creation of our debugging stopwatch for each step.
-  print('[Step 6/8] Finding albums... (this may take some time)');
-  findAlbums(media);
+  final FillingBar barFindAlbums = FillingBar(
+    total: outputFileCount(media, args['albums']),
+    desc: '[Step 6/8] Finding albums',
+    width: barWidth,
+  );
+  findAlbums(media, barFindAlbums);
 
   /// ##############################################################
 

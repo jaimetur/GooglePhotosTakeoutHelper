@@ -289,7 +289,7 @@ AD/2gAMAwEAAhEDEQA/ACHIF3//2Q==''';
     });
   });
   test('Duplicate removal', () {
-    expect(removeDuplicates(media, 40), 1);
+    expect(removeDuplicates(media), 1);
     expect(media.length, 8);
     expect(
       media.firstWhereOrNull((final Media e) => e.firstFile == imgFile4),
@@ -307,7 +307,7 @@ AD/2gAMAwEAAhEDEQA/ACHIF3//2Q==''';
   test('Album finding', () {
     // sadly, this will still modify [media] some, but won't delete anything
     final List<Media> copy = media.toList();
-    removeDuplicates(copy, 40);
+    removeDuplicates(copy);
 
     final int countBefore = copy.length;
     findAlbums(copy);
@@ -438,7 +438,7 @@ AD/2gAMAwEAAhEDEQA/ACHIF3//2Q==''';
     );
     setUp(() async {
       await output.create();
-      removeDuplicates(media, 40);
+      removeDuplicates(media);
       findAlbums(media);
     });
     test('shortcut', () async {
