@@ -3,9 +3,9 @@ name: Dart test
 
 on:
   push:
-    branches: [main]
+    branches: [main, prerelease]
   pull_request:
-    branches: [main]
+    branches: [main, prerelease]
 
 jobs:
   test:
