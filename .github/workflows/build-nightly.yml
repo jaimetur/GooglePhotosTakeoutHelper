@@ -11,41 +11,21 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         arch: [x86_64, arm64]
-        exclude:
-          - os: windows-latest
-            arch: arm64  # Windows is only compiled for x86 (32/64-bit)
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4.2.2
-      - name: Get exe name
-        id: exe_name
-        shell: bash
-        run: |
-          if [ "$RUNNER_OS" == "Linux" ]; then
-            echo "name=gpth-linux" >> $GITHUB_OUTPUT
-          elif [ "$RUNNER_OS" == "Windows" ]; then
-            echo "name=gpth-windows.exe" >> $GITHUB_OUTPUT
-          elif [ "$RUNNER_OS" == "macOS" ]; then
-            arch=$(uname -m)
-            if [ "$arch" == "arm64" ]; then
-              echo "name=gpth-macos-arm64" >> $GITHUB_OUTPUT
-            elif [ "$arch" == "x86_64" ]; then
-              echo "name=gpth-macos-intel" >> $GITHUB_OUTPUT
-            else
-              echo "Unknown macOS architecture: $arch" >> $GITHUB_OUTPUT
-              exit 1
-            fi
-          else
-            echo "Unknown OS: $RUNNER_OS"
-            exit 69
-          fi
       - uses: dart-lang/setup-dart@v1.7.1
       - run: dart pub get
       - name: Build exe
-        run: dart compile exe bin/gpth.dart -o ./${{ steps.exe_name.outputs.name }}
+        run: |
+          outname=gpth-${{ matrix.os }}-${{ matrix.arch }}
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            outname="$outname.exe"
+          fi
+          dart compile exe bin/gpth.dart -o ./$outname
       - name: Upload exe as artifact
         uses: actions/upload-artifact@v4.6.2
         with:
-          name: gpth-nightly-${{ matrix.os }}
-          path: ./${{ steps.exe_name.outputs.name }}
+          name: gpth-nightly-${{ matrix.os }}-${{ matrix.arch }}
+          path: ./gpth-${{ matrix.os }}-${{ matrix.arch }}*
           if-no-files-found: error
