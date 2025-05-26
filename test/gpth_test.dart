@@ -48,7 +48,8 @@ AD/2gAMAwEAAhEDEQA/ACHIF3//2Q==''';
 
   final String current = Directory.current.path;
   final String basepath =
-      '$current\\test\\generated\\'; //Where the test files are created
+      p.join(current, 'test', 'generated') +
+      p.separator; //Where the test files are created
 
   final Directory albumDir = Directory('${basepath}Vacation');
   final File imgFileGreen = File('${basepath}green.jpg');
@@ -65,7 +66,7 @@ AD/2gAMAwEAAhEDEQA/ACHIF3//2Q==''';
     '${basepath}Screenshot_2022-10-28-09-31-43-118_com.snapchat.jpg',
   );
   final File jsonFile3 = File(
-    '${basepath}Screenshot_2022-10-28-09-31-43-118_com.snapcha.json',
+    '${basepath}Screenshot_2022-10-28-09-31-43-118_com.snapchat.json',
   );
   final File imgFile4 = File('${basepath}simple_file_20200101-edited.jpg');
   final File imgFile4_1 = File('${basepath}simple_file_20200101-edited(1).jpg');
@@ -365,29 +366,31 @@ AD/2gAMAwEAAhEDEQA/ACHIF3//2Q==''';
       expect(await getDiskFree('.'), isNotNull);
     });
     test('Create win shortcut', () async {
-      const shortcutPath = r'C:\Temp\MyShortcut.lnk';
-      const targetPath = r'C:\Windows\System32\notepad.exe';
+      if (Platform.isWindows) {
+        const shortcutPath = r'C:\Temp\MyShortcut.lnk';
+        const targetPath = r'C:\Windows\System32\notepad.exe';
 
-      // Ensure target exists
-      if (!File(targetPath).existsSync()) {
-        print('Target file does not exist: $targetPath');
-        exit(1);
-      }
+        // Ensure target exists
+        if (!File(targetPath).existsSync()) {
+          print('Target file does not exist: $targetPath');
+          exit(1);
+        }
 
-      // Create folder if needed
-      final shortcutDir = p.dirname(shortcutPath);
-      if (!Directory(shortcutDir).existsSync()) {
-        Directory(shortcutDir).createSync(recursive: true);
-      }
+        // Create folder if needed
+        final shortcutDir = p.dirname(shortcutPath);
+        if (!Directory(shortcutDir).existsSync()) {
+          Directory(shortcutDir).createSync(recursive: true);
+        }
 
-      try {
-        await createShortcutWin(shortcutPath, targetPath);
-      } catch (e, stack) {
-        print('❌ Failed to create shortcut:\n$e\n$stack');
+        try {
+          await createShortcutWin(shortcutPath, targetPath);
+        } catch (e, stack) {
+          print('❌ Failed to create shortcut:\n$e\n$stack');
+        }
+        // Verify that shortcut file now exists
+        expect(File(shortcutPath).existsSync(), true);
+        File(shortcutPath).deleteSync();
       }
-      // Verify that shortcut file now exists
-      expect(File(shortcutPath).existsSync(), true);
-      File(shortcutPath).deleteSync();
     });
   });
   group('folder_classify', () {
