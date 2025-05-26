@@ -717,13 +717,13 @@ Future<void> main(final List<String> arguments) async {
 
   /// ##############################################################
   /// ################# END ########################################
-  /// Now just the last message ofthe program, just displaying some stats so you have an overview of what happened.
+  /// Now just the last message of the program, just displaying some stats so you have an overview of what happened.
   /// Also helps with testing because you can run a diverse and large dataset with the same options through a new version and expect the same (or better) stats.
   /// If they got worse, you did smth wrong.
 
   print('=' * barWidth);
   print('DONE! FREEEEEDOOOOM!!!');
-  print('Some statistics for the archievement hunters:');
+  print('Some statistics for the achievement hunters:');
   //This check will print an error if no stats are available.
   if (countDuplicates > 0 &&
       updatedCreationTimeCounter > 0 &&
@@ -751,8 +751,8 @@ Future<void> main(final List<String> arguments) async {
   // Print datetime extraction method statistics
   print('DateTime extraction method statistics:');
   for (final entry in extractionStats.entries) {
-    final String extractiopnMethodString = entry.key.name.toString();
-    print('$extractiopnMethodString: ${entry.value} files');
+    final String extractionMethodString = entry.key.name.toString();
+    print('$extractionMethodString: ${entry.value} files');
   }
   print(
     'In total the script took ${(sw1.elapsed + sw2.elapsed + sw3.elapsed + sw4.elapsed + sw5.elapsed + sw6.elapsed + sw7.elapsed + sw8.elapsed).inMinutes} minutes to complete',
