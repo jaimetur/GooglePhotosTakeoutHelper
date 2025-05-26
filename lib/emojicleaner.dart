@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:path/path.dart' as p;
 
 import 'utils.dart';
 
@@ -26,7 +27,7 @@ bool _hasUnicodeSurrogatesInText(final String text) {
 /// [albumDir] The Directory whose name may contain emoji characters.
 /// Returns the new (possibly hex-encoded) directory name as a String.
 String encodeAndRenameAlbumIfEmoji(final Directory albumDir) {
-  final String originalName = albumDir.path.split(Platform.pathSeparator).last;
+  final String originalName = p.basename(albumDir.path);
   // Return early if no emoji in the album directory name
   if (!_hasUnicodeSurrogatesInText(originalName)) {
     return originalName;
@@ -50,8 +51,7 @@ String encodeAndRenameAlbumIfEmoji(final Directory albumDir) {
     }
     cleanName.write(String.fromCharCode(codeUnit));
   }
-  final String newPath =
-      parentPath + Platform.pathSeparator + cleanName.toString();
+  final String newPath = p.join(parentPath, cleanName.toString());
   if (albumDir.path != newPath) {
     albumDir.renameSync(newPath);
   }

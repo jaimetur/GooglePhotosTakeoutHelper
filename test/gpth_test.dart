@@ -848,10 +848,10 @@ AD/2gAMAwEAAhEDEQA/ACHIF3//2Q==''';
 
   group('Emoji folder end-to-end', () {
     test(
-      'process file in emoji folder: hex encode, exif read, symlink, decode',
+      'process file in emoji folder: hex encode, exif read, shortcut/symlink, decode',
       () async {
         const String emojiFolderName = 'test_💖';
-        final Directory emojiDir = Directory('${basepath}$emojiFolderName');
+        final Directory emojiDir = Directory(p.join(basepath, emojiFolderName));
         if (!emojiDir.existsSync()) emojiDir.createSync(recursive: true);
         final File img = File(p.join(emojiDir.path, 'img.jpg'));
         img.writeAsBytesSync(
@@ -872,17 +872,10 @@ AD/2gAMAwEAAhEDEQA/ACHIF3//2Q==''';
         final DateTime? exifDate = await exifDateTimeExtractor(hexImg);
         expect(exifDate, DateTime.parse('2022-12-16 16:06:47'));
 
-        // 3. Create symlink to image
-        final String symlinkPath = p.join(basepath, 'symlink-to-emoji-img.jpg');
+        // 3. Create shortcut (Windows) or symlink (other platforms) to image
+        final String symlinkPath = p.join(basepath, 'symlink-to-emoji-img.lnk');
         if (Platform.isWindows) {
-          // On Windows, create a hard link instead (symlink requires admin)
-          await Process.run('cmd', [
-            '/c',
-            'mklink',
-            '/H',
-            symlinkPath,
-            hexImg.path,
-          ]);
+          await createShortcutWin(symlinkPath, hexImg.path);
         } else {
           Link(symlinkPath).createSync(hexImg.path, recursive: true);
         }
@@ -896,7 +889,7 @@ AD/2gAMAwEAAhEDEQA/ACHIF3//2Q==''';
         final Directory restoredDir = Directory(decodedPath);
         expect(restoredDir.existsSync(), isTrue);
         expect(p.basename(restoredDir.path), emojiFolderName);
-        // Symlink should still point to the file (unless moved)
+        // Symlink/shortcut should still point to the file (unless moved)
         // Clean up
         File(symlinkPath).deleteSync();
         restoredDir.deleteSync(recursive: true);
