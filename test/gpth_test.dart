@@ -847,48 +847,61 @@ AD/2gAMAwEAAhEDEQA/ACHIF3//2Q==''';
   });
 
   group('Emoji folder end-to-end', () {
-    test('process file in emoji folder: hex encode, exif read, symlink, decode', () async {
-      const String emojiFolderName = 'test_💖';
-      final Directory emojiDir = Directory('${basepath}$emojiFolderName');
-      if (!emojiDir.existsSync()) emojiDir.createSync(recursive: true);
-      final File img = File(p.join(emojiDir.path, 'img.jpg'));
-      img.writeAsBytesSync(base64.decode(greenImgBase64.replaceAll('\n', '')));
+    test(
+      'process file in emoji folder: hex encode, exif read, symlink, decode',
+      () async {
+        const String emojiFolderName = 'test_💖';
+        final Directory emojiDir = Directory('${basepath}$emojiFolderName');
+        if (!emojiDir.existsSync()) emojiDir.createSync(recursive: true);
+        final File img = File(p.join(emojiDir.path, 'img.jpg'));
+        img.writeAsBytesSync(
+          base64.decode(greenImgBase64.replaceAll('\n', '')),
+        );
 
-      // 1. Encode and rename folder
-      final String hexName = encodeAndRenameAlbumIfEmoji(emojiDir);
-      expect(hexName.contains('_0x1f496_'), isTrue);
-      final Directory hexDir = Directory(p.join(emojiDir.parent.path, hexName));
-      expect(hexDir.existsSync(), isTrue);
-      final File hexImg = File(p.join(hexDir.path, 'img.jpg'));
-      expect(hexImg.existsSync(), isTrue);
+        // 1. Encode and rename folder
+        final String hexName = encodeAndRenameAlbumIfEmoji(emojiDir);
+        expect(hexName.contains('_0x1f496_'), isTrue);
+        final Directory hexDir = Directory(
+          p.join(emojiDir.parent.path, hexName),
+        );
+        expect(hexDir.existsSync(), isTrue);
+        final File hexImg = File(p.join(hexDir.path, 'img.jpg'));
+        expect(hexImg.existsSync(), isTrue);
 
-      // 2. Read EXIF from image in hex folder
-      final DateTime? exifDate = await exifDateTimeExtractor(hexImg);
-      expect(exifDate, DateTime.parse('2022-12-16 16:06:47'));
+        // 2. Read EXIF from image in hex folder
+        final DateTime? exifDate = await exifDateTimeExtractor(hexImg);
+        expect(exifDate, DateTime.parse('2022-12-16 16:06:47'));
 
-      // 3. Create symlink to image
-      final String symlinkPath = p.join(basepath, 'symlink-to-emoji-img.jpg');
-      if (Platform.isWindows) {
-        // On Windows, create a hard link instead (symlink requires admin)
-        await Process.run('cmd', ['/c', 'mklink', '/H', symlinkPath, hexImg.path]);
-      } else {
-        Link(symlinkPath).createSync(hexImg.path, recursive: true);
-      }
-      expect(File(symlinkPath).existsSync(), isTrue);
+        // 3. Create symlink to image
+        final String symlinkPath = p.join(basepath, 'symlink-to-emoji-img.jpg');
+        if (Platform.isWindows) {
+          // On Windows, create a hard link instead (symlink requires admin)
+          await Process.run('cmd', [
+            '/c',
+            'mklink',
+            '/H',
+            symlinkPath,
+            hexImg.path,
+          ]);
+        } else {
+          Link(symlinkPath).createSync(hexImg.path, recursive: true);
+        }
+        expect(File(symlinkPath).existsSync(), isTrue);
 
-      // 4. Decode and restore folder name
-      final String decodedPath = decodeAndRestoreAlbumEmoji(hexDir.path);
-      if (decodedPath != hexDir.path) {
-        hexDir.renameSync(decodedPath);
-      }
-      final Directory restoredDir = Directory(decodedPath);
-      expect(restoredDir.existsSync(), isTrue);
-      expect(p.basename(restoredDir.path), emojiFolderName);
-      // Symlink should still point to the file (unless moved)
-      // Clean up
-      File(symlinkPath).deleteSync();
-      restoredDir.deleteSync(recursive: true);
-    });
+        // 4. Decode and restore folder name
+        final String decodedPath = decodeAndRestoreAlbumEmoji(hexDir.path);
+        if (decodedPath != hexDir.path) {
+          hexDir.renameSync(decodedPath);
+        }
+        final Directory restoredDir = Directory(decodedPath);
+        expect(restoredDir.existsSync(), isTrue);
+        expect(p.basename(restoredDir.path), emojiFolderName);
+        // Symlink should still point to the file (unless moved)
+        // Clean up
+        File(symlinkPath).deleteSync();
+        restoredDir.deleteSync(recursive: true);
+      },
+    );
   });
 
   /// Delete all shitty files as we promised
