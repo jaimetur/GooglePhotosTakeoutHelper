@@ -42,7 +42,7 @@ class ExiftoolInterface {
       if (await exiftoolFile.exists()) {
         return ExiftoolInterface._(exiftoolFile.path);
       }
-      final exiftoolSubdirFile = File(p.join(binDir, 'exif_tool', exe));
+      final exiftoolSubdirFile = File(p.join(binDir, 'gpth_tool', 'exif_tool', exe));
       if (await exiftoolSubdirFile.exists()) {
         return ExiftoolInterface._(exiftoolSubdirFile.path);
       }
