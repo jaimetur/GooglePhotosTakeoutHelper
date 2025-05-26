@@ -29,6 +29,10 @@ jobs:
     strategy:
       matrix:
         os: [ ubuntu-latest, macos-latest, windows-latest ]
+        arch: [x86_64, arm64]
+        exclude:
+          - os: windows-latest
+            arch: arm64  # Windows is only compiled for x86 (32/64-bit)
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4.2.2
@@ -62,22 +66,22 @@ jobs:
       - name: Build exe
         run: dart compile exe bin/gpth.dart -o ./${{ steps.exe_name.outputs.name }}
       - name: Add files to GH-Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: ./gpth-*
           fail_on_unmatched_files: true
       # if linux, upload to aur
-      - name: Generate PKGBUILD
-        if: matrix.os == 'ubuntu-latest'
-        run: ./scripts/gen-pkgbuild.bash ./${{ steps.exe_name.outputs.name }}
-      - name: Upload to AUR
-        if: matrix.os == 'ubuntu-latest'
-        uses: KSXGitHub/github-actions-deploy-aur@v4.1.1
-        with:
-          pkgname: gpth-bin
-          pkgbuild: ./PKGBUILD
-          commit_username: 'TheLastGimbus'
-          commit_email: 'mateusz.soszynski@tuta.io'
-          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
-          commit_message: ${{ steps.clean_tag.outputs.tag }}
-          test: true
+      #- name: Generate PKGBUILD
+      #  if: matrix.os == 'ubuntu-latest'
+      #  run: ./scripts/gen-pkgbuild.bash ./${{ steps.exe_name.outputs.name }}
+      #- name: Upload to AUR
+      #  if: matrix.os == 'ubuntu-latest'
+      #  uses: KSXGitHub/github-actions-deploy-aur@v4.1.1
+      #  with:
+      #    pkgname: gpth-bin
+      #    pkgbuild: ./PKGBUILD
+      #    commit_username: 'TheLastGimbus'
+      #    commit_email: 'mateusz.soszynski@tuta.io'
+      #    ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+      #    commit_message: ${{ steps.clean_tag.outputs.tag }}
+      #    test: true

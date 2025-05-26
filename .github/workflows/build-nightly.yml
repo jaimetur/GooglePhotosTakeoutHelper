@@ -10,6 +10,10 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
+        arch: [x86_64, arm64]
+        exclude:
+          - os: windows-latest
+            arch: arm64  # Windows is only compiled for x86 (32/64-bit)
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4.2.2

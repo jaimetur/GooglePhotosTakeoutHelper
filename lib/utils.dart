@@ -1,12 +1,9 @@
-import 'dart:ffi';
 import 'dart:io';
 import 'package:collection/collection.dart';
-import 'package:ffi/ffi.dart';
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
 import 'package:proper_filesize/proper_filesize.dart';
 import 'package:unorm_dart/unorm_dart.dart' as unorm;
-import 'package:win32/win32.dart';
 import 'interactive.dart' as interactive;
 import 'media.dart';
 
