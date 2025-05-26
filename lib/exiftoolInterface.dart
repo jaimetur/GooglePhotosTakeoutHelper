@@ -26,29 +26,58 @@ class ExiftoolInterface {
   /// Attempts to find exiftool in PATH and returns an instance, or null if not found
   static Future<ExiftoolInterface?> find() async {
     final String exe = Platform.isWindows ? 'exiftool.exe' : 'exiftool';
+
+    // Try finding exiftool in system PATH
     final String? path = await _which(exe);
     if (path != null) {
       return ExiftoolInterface._(path);
     }
-    // Not found in PATH, check same directory as running binary
+
+    // Get the directory where the current executable (e.g., gpth.exe) resides
     String? binDir;
     try {
       binDir = File(Platform.resolvedExecutable).parent.path;
     } catch (_) {
       binDir = null;
     }
-    if (binDir != null) {
-      final exiftoolFile = File(p.join(binDir, exe));
+
+    // Try to also get the location of the main script (may not be reliable in compiled mode)
+    // ignore: unnecessary_nullable_for_final_variable_declarations
+    final String? scriptPath = Platform.script.toFilePath();
+    final String? scriptDir = scriptPath != null
+        ? File(scriptPath).parent.path
+        : null;
+
+    // Collect possible directories where exiftool might be located
+    final List<String?> candidateDirs = [
+      binDir, // Same directory as gpth.exe
+      scriptDir, // Same directory as main.dart or main script
+      p.join(
+        binDir ?? '',
+        'exif_tool',
+      ), // subfolder "exif_tool" under executable directory
+      p.join(
+        scriptDir ?? '',
+        'exif_tool',
+      ), // subfolder "exif_tool" under script directory
+      Directory.current.path, // Current working directory
+      p.join(
+        Directory.current.path,
+        'exif_tool',
+      ), // exif_tool under current working directory
+      p.dirname(scriptDir ?? ''), // One level above script directory (fallback)
+    ];
+
+    // Try each candidate directory and return if exiftool is found
+    for (final dir in candidateDirs) {
+      if (dir == null) continue;
+      final exiftoolFile = File(p.join(dir, exe));
       if (await exiftoolFile.exists()) {
         return ExiftoolInterface._(exiftoolFile.path);
       }
-      final exiftoolSubdirFile = File(
-        p.join(binDir, 'gpth_tool', 'exif_tool', exe),
-      );
-      if (await exiftoolSubdirFile.exists()) {
-        return ExiftoolInterface._(exiftoolSubdirFile.path);
-      }
     }
+
+    // Not found anywhere
     return null;
   }
 
