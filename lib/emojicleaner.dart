@@ -23,7 +23,7 @@ bool _hasUnicodeSurrogatesInText(final String text) {
 Directory encodeAndRenameAlbumIfEmoji(final Directory albumDir) {
   final String originalName = p.basename(albumDir.path);
   if (!_hasUnicodeSurrogatesInText(originalName)) {
-    return Directory(originalName);
+    return albumDir;
   }
 
   log('Found an emoji in ${albumDir.path}. Encoding it to hex.');
