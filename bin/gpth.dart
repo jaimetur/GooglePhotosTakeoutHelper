@@ -722,7 +722,7 @@ Future<void> main(final List<String> arguments) async {
   // Print datetime extraction method statistics
   print('DateTime extraction method statistics:');
   for (final entry in extractionStats.entries) {
-    String extractiopnMethodString = entry.key.name.toString();
+    final String extractiopnMethodString = entry.key.name.toString();
     print('$extractiopnMethodString: ${entry.value} files');
   }
   print(

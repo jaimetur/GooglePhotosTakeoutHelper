@@ -4,14 +4,12 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'package:exif_reader/exif_reader.dart';
 import 'package:mime/mime.dart';
-import 'package:path/path.dart';
 import '../exiftoolInterface.dart';
 import '../utils.dart';
 
 /// DateTime from exif data *potentially* hidden within a [file]
 ///
 /// You can try this with *any* file, it either works or not 🤷
-/// It will either use exiftool if available or the exif_read library
 Future<DateTime?> exifDateTimeExtractor(final File file) async {
   //If file is >maxFileSize - return null. https://github.com/brendan-duncan/image/issues/457#issue-1549020643
   if (await file.length() > maxFileSize && enforceMaxFileSize) {
@@ -22,97 +20,67 @@ Future<DateTime?> exifDateTimeExtractor(final File file) async {
     return null;
   }
 
-  //Getting mimeType.
-  String? mimeType = lookupMimeType(file.path);
-  if (mimeType == null) {
-    //lookupMimeType sometimes returns null. Using fallbacks in those cases.
-    if (exifToolInstalled) {
-      mimeType = (await exiftool!.readExifBatch(file, [
-        'MIMEType',
-      ])).entries.first.value.toString().toLowerCase();
-      log(
-        'Got MimeType $mimeType of ${file.path} from exifTool because it was null initially.',
-      );
-    } else {
-      //We do some unreliable checks by file extension, write mimeType manually and hope for the best.
-      switch (extension(file.path)) {
-        case '.jpg':
-        case '.jpeg':
-          mimeType = 'image/jpeg';
-          break;
-        case '.png':
-          mimeType = 'image/png';
-          break;
-        case '.tiff':
-        case '.tif':
-          mimeType = 'image/tiff';
-          break;
-        case '.heic':
-        case '.heif':
-          mimeType = 'image/heic';
-          break;
-        case '.webp':
-          mimeType = 'image/webp';
-          break;
-        case '.jxl':
-          mimeType = 'image/jxl';
-          break;
-        case '.arw':
-          mimeType = 'image/x-sony-arw';
-          break;
-        case '.raw':
-          mimeType = 'image/x-panasonic-raw';
-          break;
-        case '.dng':
-          mimeType = 'image/x-adobe-dng';
-          break;
-        case '.crw':
-          mimeType = 'image/x-canon-crw';
-          break;
-        case '.cr3':
-          mimeType = 'image/x-canon-cr3';
-          break;
-        case '.nrw':
-          mimeType = 'image/x-nikon-nrw';
-          break;
-        case '.nef':
-          mimeType = 'image/x-nikon-nef';
-          break;
-        case '.raf':
-          mimeType = 'image/x-fuji-raf';
-          break;
-        default:
-          mimeType = null;
-      }
-    }
-  }
+  //Let me give a high level overview of what is happening here:
+  //1. Try to get mimetype with lookupMimeType(file.path) by
+  //  1. checking is the magic number (refering to https://en.wikipedia.org/wiki/List_of_file_signatures and https://github.com/dart-lang/tools/blob/main/pkgs/mime/lib/src/magic_number.dart) is well known. We do this because google takeout sometimes changed the file extension (e.g. mimeType is HEIC but it exports a .png)
+  // Now we do or don't have a mimeType. We continue with:
+  // 1. If the mimeType is supported by exif_reader, we use the exif_reader library to read exif. If that fails, exiftool is still used as a fallback, cause it's worth a try.
+  // 2. If the mimeType is not supported by exif_reader or null, we try exiftool and don't even attempt exif_reader, because it would be pointless.
 
-  // We use the native way for jpeg because we know they can be handled. For speed and performance.
-  //Only for everything else we don't know we use exiftools and if it is not available we try with the native way, because hey, maybe we are lucky.
-  if (exifToolInstalled && mimeType != null && mimeType == 'image/jpeg') {
-    final DateTime? result = await _nativeExif_readerExtractor(file);
+  //We only read the first 4096 bytes as that's sufficient for MIME type detection
+  final List<int> headerBytes = await File(file.path).openRead(0, 4096).first;
+
+  //Getting mimeType.
+  final String? mimeType = lookupMimeType(file.path, headerBytes: headerBytes);
+  //lookupMimeType might return null e.g. for raw files. Even if Exiftool would be installed, using it to read the mimeType just to then decide if we use exiftool to read exif data or not
+  //would completely defeat the purpose and actually compromise speed as we'd have to do 2 reads in some situations. In others we would still just do one read but have the additional native read.
+
+  //We use the native way for all supported mimeTypes of exif_reader for speed and performance. We trust the list at https://pub.dev/packages/exif_reader
+  //We also know that the mimeTypes for RAW can never happen because the lookupMimeType() does not support them. However, leaving there in here for now cause they don't hurt.
+  final supportedNativeMimeTypes = {
+    'image/jpeg',
+    'image/tiff',
+    'image/heic',
+    'image/png',
+    'image/webp',
+    'image/jxl',
+    'image/x-sony-arw',
+    'image/x-canon-cr2',
+    'image/x-canon-cr3',
+    'image/x-canon-crw',
+    'image/x-nikon-nef',
+    'image/x-nikon-nrw',
+    'image/x-fuji-raf',
+    'image/x-adobe-dng',
+    'image/x-raw',
+    'image/tiff-fx',
+    'image/x-portable-anymap',
+  };
+  DateTime?
+  result; //this variable should be filled. That's the goal from here on.
+  if (supportedNativeMimeTypes.contains(mimeType)) {
+    result = await _nativeExif_readerExtractor(file);
     if (result != null) {
       return result;
     } else {
-      return _exifToolExtractor(
-        file,
-      ); //Fallback because sometimes mimetype is image/jpeg based on extension but content is png and then native way fails.
+      //If we end up here, we have a mimeType which should be supported by exif_reader, but the read failed regardless.
+      log(
+        'We couldn\'t read from ${file.path} which we found has the MimeType $mimeType with exif_reader, even though this should be supported! Consider this an issue for the exif_reader library.',
+        level: 'warning',
+      );
+      //We just log this but don't return null. Continue continue in the function.
     }
   }
-  // Use exiftool if available and file is an image or video
-  else if (exifToolInstalled &&
-      mimeType != null &&
-      (mimeType.startsWith('image/') ||
-          mimeType.startsWith('video/') ||
-          mimeType == 'model/vnd.mts')) {
-    return _exifToolExtractor(file);
-    // Use dart library exif_reader limited to images if exiftool is not available
-  } else if (!exifToolInstalled &&
-      mimeType != null &&
-      mimeType.startsWith('image/')) {
-    return _nativeExif_readerExtractor(file);
+  //At this point either we didn't do anything because the mimeType is unknown (null) or not supported by the native method or we tried the native method on a mimeType which should be supported but it faild for some weird reason.
+  //Anyway, there is nothing else to do than to try it with exiftool now. exiftool is the last resort *sing* in any case due to performance. Again, using it before to determine if we use _nativeExif_readerExtractor() or _exifToolExtractor() defeats the point!
+  if (exifToolInstalled) {
+    result = await _exifToolExtractor(file);
+    if (result != null) {
+      return result; //We did get a DateTime from Exiftool and return it. It's being logged in _exifToolExtractor(). We are happy.
+    }
   }
-  //This logic below is only to give a tailored error message because if you get here, something is wrong.
+
+  //This logic below is only to give a tailored error message because if you get here, sorry, then result stayed empty and we just don't support the file type.
   if (exifToolInstalled) {
     log(
       "$mimeType is a weird mime type! Please create an issue if you get this error message, as we currently can't handle it.",
@@ -120,11 +88,11 @@ Future<DateTime?> exifDateTimeExtractor(final File file) async {
     );
   } else {
     log(
-      '$mimeType skipped. Reading from this file format is only supported with exiftool',
+      'Reading exif from ${file.path} with mimeType $mimeType skipped. Reading from this kind of file is probably only supported with exiftool.',
       level: 'warning',
     );
   }
-  return null; //If unsupported
+  return result; //If we can't get mimeType, result will be null as there is probably no point in moving forward to read other metadata.
 }
 
 ///Extracts DateTime from File through ExifTool library
