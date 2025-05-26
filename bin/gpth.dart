@@ -156,12 +156,14 @@ Future<void> main(final List<String> arguments) async {
     ..addFlag(
       'write-exif',
       help:
-          'Writes geodata from json files and the extracted DateTime to EXIF. It always writes to original data, even if combined with --copy!',
+          'Writes geodata from json files and the extracted DateTime to EXIF. \n'
+          'It always writes to original data, even if combined with --copy!',
     )
     ..addFlag(
       'limit-filesize',
       help:
-          'Enforces a maximum size of 64MB per file for systems with low RAM (e.g. NAS). DateTime will not be extracted from or written to larger files.',
+          'Enforces a maximum size of 64MB per file for systems with low RAM (e.g. NAS).\n '
+          'DateTime will not be extracted from or written to larger files.',
     );
   final Map<String, dynamic> args = <String, dynamic>{};
   try {

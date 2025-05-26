@@ -264,7 +264,7 @@ Stream<int> moveFiles(
         }
       } catch (e) {
         log(
-          "[Step 7/8]: Can't set modification time on $result: $e",
+          "[Step 7/8]: Can't set modification time on $result: $e. This happens on Windows sometimes. Can be ignored.",
           level: 'warning',
         ); //If error code 0, no need to notify user. Only log.
       }
