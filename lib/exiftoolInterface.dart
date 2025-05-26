@@ -2,6 +2,7 @@
 
 import 'dart:convert';
 import 'dart:io';
+import 'package:path/path.dart' as p;
 import 'emojicleaner.dart';
 import 'utils.dart';
 
@@ -32,31 +33,21 @@ class ExiftoolInterface {
     }
     // Not found in PATH, check same directory as running binary
     String? binDir;
-    // Try to get the directory of the running executable (cross-platform)
     try {
-      // Platform.resolvedExecutable gives the full path to the Dart/Flutter binary
       binDir = File(Platform.resolvedExecutable).parent.path;
     } catch (_) {
-      // If any error occurs (should be rare), set binDir to null
       binDir = null;
     }
     if (binDir != null) {
-      // Construct the path to exiftool in the same directory as the binary
-      final exiftoolFile = File('$binDir${Platform.pathSeparator}$exe');
-      // Check if exiftool exists at this location
+      final exiftoolFile = File(p.join(binDir, exe));
       if (await exiftoolFile.exists()) {
-        // If found, return an instance using this path
         return ExiftoolInterface._(exiftoolFile.path);
       }
-      // Also check for binary in ./exif_tool/ subfolder to satisfy requirement of https://github.com/jaimetur/PhotoMigrator
-      final exiftoolSubdirFile = File(
-        '$binDir${Platform.pathSeparator}exif_tool${Platform.pathSeparator}$exe',
-      );
+      final exiftoolSubdirFile = File(p.join(binDir, 'exif_tool', exe));
       if (await exiftoolSubdirFile.exists()) {
         return ExiftoolInterface._(exiftoolSubdirFile.path);
       }
     }
-    // If not found, return null
     return null;
   }
 
@@ -105,10 +96,10 @@ class ExiftoolInterface {
       );
       final String tempPath = getEmojiCleanedTempFilePath(filepath);
       tempFile = File(tempPath);
-      await Directory(tempPath).parent.create();
+      await Directory(p.dirname(tempPath)).create(recursive: true);
       await file.copy(tempPath);
       filepath = tempPath;
-      tempDir = Directory(tempPath).parent;
+      tempDir = Directory(p.dirname(tempPath));
     }
 
     if (tags.isEmpty) {
@@ -129,7 +120,7 @@ class ExiftoolInterface {
       try {
         await tempFile.delete();
         if (tempDir != null &&
-            tempDir.parent.path.endsWith('\\.temp_exif') &&
+            p.basename(tempDir.parent.path) == '.temp_exif' &&
             await tempDir.parent.exists()) {
           await tempDir.parent.delete(recursive: true);
         }
@@ -173,10 +164,10 @@ class ExiftoolInterface {
       );
       final String tempPath = getEmojiCleanedTempFilePath(filepath);
       tempFile = File(tempPath);
-      await Directory(tempPath).parent.create();
+      await Directory(p.dirname(tempPath)).create(recursive: true);
       await file.copy(tempPath);
       filepath = tempPath;
-      tempDir = Directory(tempPath).parent;
+      tempDir = Directory(p.dirname(tempPath));
     }
 
     final args = <String>['-overwrite_original'];
@@ -199,7 +190,7 @@ class ExiftoolInterface {
         }
         await tempFile.delete();
         if (tempDir != null &&
-            tempDir.parent.path.endsWith('\\.temp_exif') &&
+            p.basename(tempDir.parent.path) == '.temp_exif' &&
             await tempDir.parent.exists()) {
           await tempDir.parent.delete(recursive: true);
         }

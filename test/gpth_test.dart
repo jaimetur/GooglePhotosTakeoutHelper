@@ -812,7 +812,7 @@ AD/2gAMAwEAAhEDEQA/ACHIF3//2Q==''';
     test('readExifBatch cleans up temporary files with emoji path', () async {
       final tags = await exiftool!.readExifBatch(emojiFile, ['Artist']);
       expect(tags, isMap); // Verify we got a response
-      final tempDir = Directory('$basepath.temp_exif');
+      final tempDir = Directory(p.join(basepath, '.temp_exif'));
       expect(tempDir.existsSync(), isFalse);
     });
 
@@ -820,7 +820,7 @@ AD/2gAMAwEAAhEDEQA/ACHIF3//2Q==''';
       final Map<String, String> map = {'Artist': 'TestTempCleanup'};
       final result = await exiftool!.writeExifBatch(emojiFile, map);
       expect(result, isTrue); // Verify write succeeded
-      final tempDir = Directory('$basepath.temp_exif');
+      final tempDir = Directory(p.join(basepath, '.temp_exif'));
       expect(tempDir.existsSync(), isFalse);
     });
   });
