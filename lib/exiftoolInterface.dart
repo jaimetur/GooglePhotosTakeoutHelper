@@ -3,7 +3,6 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:path/path.dart' as p;
-import 'emojicleaner.dart';
 import 'utils.dart';
 
 ExiftoolInterface? exiftool;
@@ -85,22 +84,7 @@ class ExiftoolInterface {
     final File file,
     final List<String> tags,
   ) async {
-    String filepath = file.path;
-    File tempFile = file;
-    Directory? tempDir;
-
-    // Handle emoji in path by creating a temporary copy with encoded path
-    if (hasUnicodeSurrogates(filepath)) {
-      log(
-        'Found Emojis in path or file name of $filepath. Will temparily move to clean path/name to write exif and then move back.',
-      );
-      final String tempPath = getEmojiCleanedTempFilePath(filepath);
-      tempFile = File(tempPath);
-      await Directory(p.dirname(tempPath)).create(recursive: true);
-      await file.copy(tempPath);
-      filepath = tempPath;
-      tempDir = Directory(p.dirname(tempPath));
-    }
+    final String filepath = file.path;
 
     if (tags.isEmpty) {
       return <String, dynamic>{};
@@ -114,19 +98,6 @@ class ExiftoolInterface {
         'exiftool returned a non 0 code for reading ${file.path} with error: ${result.stderr}',
         level: 'error',
       );
-    }
-    // If we used a temp file, clean up
-    if (tempFile != file) {
-      try {
-        await tempFile.delete();
-        if (tempDir != null &&
-            p.basename(tempDir.parent.path) == '.temp_exif' &&
-            await tempDir.parent.exists()) {
-          await tempDir.parent.delete(recursive: true);
-        }
-      } catch (e) {
-        log('Error cleaning up temporary files: $e', level: 'warning');
-      }
     }
     try {
       final List<dynamic> jsonList = jsonDecode(result.stdout);
@@ -153,22 +124,7 @@ class ExiftoolInterface {
     final File file,
     final Map<String, String> tags,
   ) async {
-    String filepath = file.path;
-    File tempFile = file;
-    Directory? tempDir;
-
-    // Handle emoji in path by creating a temporary copy with encoded path
-    if (hasUnicodeSurrogates(filepath)) {
-      log(
-        'Found Emojis in path or file name of $filepath. Will temparily move to clean path/name to write exif and then move back.',
-      );
-      final String tempPath = getEmojiCleanedTempFilePath(filepath);
-      tempFile = File(tempPath);
-      await Directory(p.dirname(tempPath)).create(recursive: true);
-      await file.copy(tempPath);
-      filepath = tempPath;
-      tempDir = Directory(p.dirname(tempPath));
-    }
+    final String filepath = file.path;
 
     final args = <String>['-overwrite_original'];
     tags.forEach((final tag, final value) => args.add('-$tag=$value'));
@@ -180,23 +136,6 @@ class ExiftoolInterface {
         level: 'error',
         forcePrint: true,
       );
-    }
-    // If we used a temp file, copy back and clean up
-    if (tempFile != file) {
-      try {
-        if (result.exitCode == 0) {
-          final String originalPath = getOriginalPathFromTemp(tempFile.path);
-          await tempFile.copy(originalPath);
-        }
-        await tempFile.delete();
-        if (tempDir != null &&
-            p.basename(tempDir.parent.path) == '.temp_exif' &&
-            await tempDir.parent.exists()) {
-          await tempDir.parent.delete(recursive: true);
-        }
-      } catch (e) {
-        log('Error cleaning up temporary files: $e', level: 'warning');
-      }
     }
     if (result.exitCode != 0) {
       return false;

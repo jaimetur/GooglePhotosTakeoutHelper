@@ -5,20 +5,20 @@ import 'dart:io';
 ///
 /// [path] The full path to check for emoji characters
 /// Returns true if an emoji is found in the parent directory name or filename
-bool hasUnicodeSurrogates(final String path) {
+bool _hasUnicodeSurrogatesInAlbumNameOrImageName(final String path) {
   final Directory dir = Directory(path).parent;
   final String parentDirName = dir.path.split(Platform.pathSeparator).last;
   final String fileName = path.split(Platform.pathSeparator).last;
 
   // Only check parent directory name and filename
-  return _hasEmojiInText(parentDirName) || _hasEmojiInText(fileName);
+  return _hasUnicodeSurrogatesInText(parentDirName) || _hasUnicodeSurrogatesInText(fileName);
 }
 
 /// Internal helper function to check if a single text component contains emoji characters.
 ///
 /// [text] The text string to check for emoji characters
 /// Returns true if the text contains any emoji (Unicode surrogate pairs)
-bool _hasEmojiInText(final String text) {
+bool _hasUnicodeSurrogatesInText(final String text) {
   for (int i = 0; i < text.length; i++) {
     final int codeUnit = text.codeUnitAt(i);
     if (codeUnit >= 0xD800 && codeUnit <= 0xDBFF) {
@@ -34,7 +34,7 @@ bool _hasEmojiInText(final String text) {
 }
 
 /// Encodes emoji characters in filename and immediate parent directory to hex representation
-String getEmojiCleanedTempFilePath(final String path) {
+String getEmojiCleanedFilePath(final String path) {
   final Directory dir = Directory(path).parent;
   final String parentDirName = dir.path.split(Platform.pathSeparator).last;
   final String fileName = path.split(Platform.pathSeparator).last;
@@ -95,7 +95,7 @@ String getEmojiCleanedTempFilePath(final String path) {
 ///
 /// [tempPath] The temporary path containing hex-encoded emojis (e.g., "_0x1f60a_")
 /// Returns the original path with proper UTF-8 emoji characters, or the input path if it's not a temp path
-String getOriginalPathFromTemp(final String tempPath) {
+String _getOriginalPathFromTemp(final String tempPath) {
   final String baseTempDir =
       '${Platform.pathSeparator}.temp_exif${Platform.pathSeparator}';
   if (!tempPath.contains(baseTempDir)) return tempPath;

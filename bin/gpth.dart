@@ -402,6 +402,8 @@ Future<void> main(final List<String> arguments) async {
     ..start(); //Creation of our debugging stopwatch for each step.
   print('[Step 2/8] Searching for everything in input folder...');
 
+  //TODO implement logic to rename emojis to hex for files and folders
+
   // recursive=true makes it find everything nicely even if user id dumb 😋
   await for (final Directory d
       in input.list(recursive: true).whereType<Directory>()) {
@@ -653,6 +655,9 @@ Future<void> main(final List<String> arguments) async {
   ).listen((final _) => barCopy.increment()).asFuture();
   print('[Step 7/8] Done moving/copying media!');
 
+
+  //TODO implement functionality to covert hex in album names and file names back to emojis.
+  
   // @Deprecated('Interactive unzipping is suspended for now!')
   // // remove unzipped folder if was created
   // if (interactive.indeed) {
