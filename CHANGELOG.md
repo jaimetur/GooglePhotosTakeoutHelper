@@ -3,7 +3,9 @@
 ### Fork/Alternate version 
 
 - Fixed CloudMigrator integration by finding exiftool in more locations.
-- Fixed emoji to hex encoding
+- Fixed some typos
+- Fixed emoji to hex encoding and decoding and added support for BMP emojis in addition to surrowgate.
+- Fixed some tests
 
 ## 4.0.0-wacheee (by Xentraxx)
 
