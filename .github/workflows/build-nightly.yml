@@ -30,19 +30,21 @@ jobs:
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
       - name: Build exe
+        shell: bash
         run: |
           version=${{ steps.version.outputs.version }}
           osname=${{ matrix.os }}
-          if [ "$osname" = "ubuntu-latest" ]; then
+          archname=${{ matrix.arch }}
+          # Normalize osname for output file
+          if [[ "$osname" == "ubuntu-latest" ]]; then
             osname=linux
-          elif [ "$osname" = "macos-latest" ]; then
+          elif [[ "$osname" == "macos-latest" ]]; then
             osname=macos
-          elif [ "$osname" = "windows-latest" ]; then
+          elif [[ "$osname" == "windows-latest" ]]; then
             osname=windows
           fi
-          archname=${{ matrix.arch }}
           outname=gpth-v$version-nightly-$osname-$archname
-          if [ "$osname" = "windows" ]; then
+          if [[ "$osname" == "windows" ]]; then
             outname="$outname.exe"
           fi
           dart compile exe bin/gpth.dart -o ./$outname
