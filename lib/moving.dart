@@ -35,35 +35,36 @@ Future<File> createShortcut(final Directory location, final File target) async {
   final File link = findNotExistingName(File(p.join(location.path, name)));
   // this must be relative to not break when user moves whole folder around:
   // https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/issues/232
-  final String targetRelativePath =
-      p.relative(target.path, from: link.parent.path);
+  final String targetRelativePath = p.relative(
+    target.path,
+    from: link.parent.path,
+  );
   final String targetPath = target.absolute.path;
   if (Platform.isWindows) {
     try {
       await createShortcutWin(link.path, targetPath);
     } catch (e) {
-      final ProcessResult res = await Process.run(
-        'powershell.exe',
-        <String>[
-          '-ExecutionPolicy',
-          'Bypass',
-          '-NoLogo',
-          '-NonInteractive',
-          '-NoProfile',
-          '-Command',
-          "\$ws = New-Object -ComObject WScript.Shell; ",
-          "\$s = \$ws.CreateShortcut(\"${link.path}\"); ",
-          "\$s.TargetPath = \"$targetPath\"; ",
-          "\$s.Save()",
-        ],
-      );
+      final ProcessResult res = await Process.run('powershell.exe', <String>[
+        '-ExecutionPolicy',
+        'Bypass',
+        '-NoLogo',
+        '-NonInteractive',
+        '-NoProfile',
+        '-Command',
+        "\$ws = New-Object -ComObject WScript.Shell; ",
+        "\$s = \$ws.CreateShortcut(\"${link.path}\"); ",
+        "\$s.TargetPath = \"$targetPath\"; ",
+        "\$s.Save()",
+      ]);
       if (res.exitCode != 0) {
-        throw Exception('PowerShell doesnt work :( - \n\n'
-            'report that to @TheLastGimbus on GitHub:\n\n'
-            'https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/issues\n\n'
-            '...or try other album solution\n'
-            'sorry for inconvenience :('
-            '\nshortcut exc -> $e');
+        throw Exception(
+          'PowerShell doesnt work :( - \n\n'
+          'report that to @TheLastGimbus on GitHub:\n\n'
+          'https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/issues\n\n'
+          '...or try other album solution\n'
+          'sorry for inconvenience :('
+          '\nshortcut exc -> $e',
+        );
       }
     }
     return File(link.path);
@@ -73,10 +74,13 @@ Future<File> createShortcut(final Directory location, final File target) async {
 }
 
 Future<File> moveFileAndCreateShortcut(
-    final Directory newLocation, final File target) async {
+  final Directory newLocation,
+  final File target,
+) async {
   final String newPath = p.join(newLocation.path, p.basename(target.path));
   final File movedFile = await target.rename(
-      newPath); // Move the file from year folder to album (new location)
+    newPath,
+  ); // Move the file from year folder to album (new location)
 
   // Create shortcut in the original path (year folder)
   return createShortcut(target.parent, movedFile);
@@ -101,8 +105,10 @@ Stream<int> moveFiles(
   required final num divideToDates,
   required final String albumBehavior,
 }) async* {
-  assert(interactive.albumOptions.keys.contains(albumBehavior), 
-      'Invalid albumBehavior: $albumBehavior. Must be one of ${interactive.albumOptions.keys}');
+  assert(
+    interactive.albumOptions.keys.contains(albumBehavior),
+    'Invalid albumBehavior: $albumBehavior. Must be one of ${interactive.albumOptions.keys}',
+  );
 
   /// used only in 'json' behavior
   /// key = name of main outputted file | value = list of albums it belongs to
@@ -115,12 +121,15 @@ Stream<int> moveFiles(
     final List<MapEntry<String?, File>> nullFirst = albumBehavior == 'json'
         // in 'json' case, we want to copy ALL files (like Archive) as normals
         ? <MapEntry<Null, File>>[
-            MapEntry<Null, File>(null, m.files.values.first)
+            MapEntry<Null, File>(null, m.files.values.first),
           ]
         // this will put null media first so album shortcuts can link to it
-        : m.files.entries.sorted((final MapEntry<String?, File> a,
-                final MapEntry<String?, File> b) =>
-            (a.key ?? '').compareTo(b.key ?? ''));
+        : m.files.entries.sorted(
+            (
+              final MapEntry<String?, File> a,
+              final MapEntry<String?, File> b,
+            ) => (a.key ?? '').compareTo(b.key ?? ''),
+          );
     // iterate over all media of file to do something about them
     // ignore non-nulls with 'ignore', copy with 'duplicate-copy',
     // symlink with 'shortcut' etc
@@ -162,11 +171,7 @@ Stream<int> moveFiles(
       }
 
       final Directory folder = Directory(
-        p.join(
-          output.path,
-          folderName,
-          dateFolder,
-        ),
+        p.join(output.path, folderName, dateFolder),
       );
       // now folder logic is so complex i'll just create it every time 🤷
       await folder.create(recursive: true);
@@ -178,7 +183,8 @@ Stream<int> moveFiles(
       // it's here because we do this for two cases
       Future<File> moveFile() async {
         final File freeFile = findNotExistingName(
-            File(p.join(folder.path, p.basename(file.value.path))));
+          File(p.join(folder.path, p.basename(file.value.path))),
+        );
         try {
           return copy
               ? await file.value.copy(freeFile.path)
@@ -203,9 +209,11 @@ Stream<int> moveFiles(
           result = await createShortcut(folder, mainFile);
         } catch (e) {
           // in case powershell fails/whatever
-          print('[Step 7/8] [Error] Creating shortcut for '
-              '${p.basename(mainFile.path)} in ${p.basename(folder.path)} '
-              'failed :(\n$e\n - copying normal file instead');
+          print(
+            '[Step 7/8] [Error] Creating shortcut for '
+            '${p.basename(mainFile.path)} in ${p.basename(folder.path)} '
+            'failed :(\n$e\n - copying normal file instead',
+          );
           result = await moveFile();
         }
       } else if (albumBehavior == 'reverse-shortcut' && mainFile != null) {
@@ -218,9 +226,11 @@ Stream<int> moveFiles(
             result = await moveFile();
           } else {
             // in case of other exception, print details
-            print('[Step 7/8] [Error] Creating shortcut for '
-                '${p.basename(mainFile.path)} in ${p.basename(folder.path)} '
-                'failed :(\n$e\n - copying normal file instead');
+            print(
+              '[Step 7/8] [Error] Creating shortcut for '
+              '${p.basename(mainFile.path)} in ${p.basename(folder.path)} '
+              'failed :(\n$e\n - copying normal file instead',
+            );
             result = await moveFile();
           }
         }
@@ -236,8 +246,9 @@ Stream<int> moveFiles(
       DateTime time = m.dateTaken ?? DateTime.now();
       if (Platform.isWindows && time.isBefore(DateTime(1970))) {
         print(
-            '[Step 7/8] [Info]: ${m.firstFile.path} has date $time, which is before 1970 '
-            '(not supported on Windows) - will be set to 1970-01-01');
+          '[Step 7/8] [Info]: ${m.firstFile.path} has date $time, which is before 1970 '
+          '(not supported on Windows) - will be set to 1970-01-01',
+        );
         time = DateTime(1970);
       }
       try {
@@ -248,11 +259,14 @@ Stream<int> moveFiles(
         // That's why this is here
         if (e.errorCode != 0) {
           print(
-              "[Step 7/8] [Error]: Can't set modification time on $result: $e");
+            "[Step 7/8] [Error]: Can't set modification time on $result: $e",
+          );
         }
       } catch (e) {
         log(
-            "[Step 7/8]: Can't set modification time on $result: $e",level: 'warning'); //If error code 0, no need to notify user. Only log.
+          "[Step 7/8]: Can't set modification time on $result: $e",
+          level: 'warning',
+        ); //If error code 0, no need to notify user. Only log.
       }
 
       // one copy/move/whatever - one yield
@@ -265,7 +279,8 @@ Stream<int> moveFiles(
     // done with this media - next!
   }
   if (albumBehavior == 'json') {
-    await File(p.join(output.path, 'albums-info.json'))
-        .writeAsString(jsonEncode(infoJson));
+    await File(
+      p.join(output.path, 'albums-info.json'),
+    ).writeAsString(jsonEncode(infoJson));
   }
 }

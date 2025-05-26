@@ -35,7 +35,9 @@ int removeExtras(final List<Media> media) {
   final List<Media> copy = media.toList();
   int count = 0;
   for (final Media m in copy) {
-    final String name = p.withoutExtension(p.basename(m.firstFile.path)).toLowerCase();
+    final String name = p
+        .withoutExtension(p.basename(m.firstFile.path))
+        .toLowerCase();
     for (final String extra in extraFormats) {
       // MacOS uses NFD that doesn't work with our accents 🙃🙃
       // https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/pull/247

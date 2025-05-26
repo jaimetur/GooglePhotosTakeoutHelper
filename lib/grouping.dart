@@ -23,8 +23,9 @@ extension Group on Iterable<Media> {
     final Map<String, List<Media>> output = <String, List<Media>>{};
     // group files by size - can't have same hash with diff size
     // ignore: unnecessary_this
-    for (final MapEntry<int, List<Media>> sameSize
-        in groupListsBy((final Media e) => e.size).entries) {
+    for (final MapEntry<int, List<Media>> sameSize in groupListsBy(
+      (final Media e) => e.size,
+    ).entries) {
       // just add with "...bytes" key if just one
       if (sameSize.value.length <= 1) {
         output['${sameSize.key}bytes'] = sameSize.value;

@@ -451,7 +451,7 @@ Future<bool> askIfLimitFileSize() async {
     'By default we will process all your files.'
     'However, if you have large video files and run this script on a low ram system (e.g. a NAS or your vacuum cleaning robot), you might want to '
     'limit the maximum file size to 64 MB not run out of memory. '
-    'We recommend to only activate this if you run into problems.'
+    'We recommend to only activate this if you run into problems.',
   );
 
   print('[1] (Default) - Don\'t limit me! Process everything!');

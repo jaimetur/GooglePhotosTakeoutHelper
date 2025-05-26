@@ -79,10 +79,10 @@ Future<bool> writeGpsToExif(
         return true;
       } else {
         log(
-            '[Step 5/8] Coordinates ${coordinates.toString()} could not be written to EXIF: ${file.path}',
-            level: 'error',
-            forcePrint: true
-          );
+          '[Step 5/8] Coordinates ${coordinates.toString()} could not be written to EXIF: ${file.path}',
+          level: 'error',
+          forcePrint: true,
+        );
         return false;
       }
     }
@@ -129,10 +129,10 @@ bool _noExifToolDateTimeWriter(final File file, final DateTime dateTime) {
   }
   if (!exifToolInstalled) {
     log(
-        '[Step 5/8] Found DateTime in json, but missing in EXIF. Writing to $mimeType is not supported without exiftool.',
-        level: 'warning',
-        forcePrint: true
-      );
+      '[Step 5/8] Found DateTime in json, but missing in EXIF. Writing to $mimeType is not supported without exiftool.',
+      level: 'warning',
+      forcePrint: true,
+    );
   }
   return false;
 }

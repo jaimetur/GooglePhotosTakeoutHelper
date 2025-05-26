@@ -8,10 +8,11 @@ import '../extras.dart' as extras;
 import '../extras.dart' show extraFormats;
 import '../utils.dart';
 
-
 /// Finds corresponding json file with info from media file and gets 'photoTakenTime' from it
-Future<DateTime?> jsonDateTimeExtractor(final File file,
-    {final bool tryhard = false}) async {
+Future<DateTime?> jsonDateTimeExtractor(
+  final File file, {
+  final bool tryhard = false,
+}) async {
   final File? jsonFile = await _jsonForFile(file, tryhard: tryhard);
   if (jsonFile == null) return null;
   try {
@@ -32,8 +33,11 @@ Future<DateTime?> jsonDateTimeExtractor(final File file,
   }
 }
 
-  ///Tries to find json for media file
-Future<File?> _jsonForFile(final File file, {required final bool tryhard}) async {
+///Tries to find json for media file
+Future<File?> _jsonForFile(
+  final File file, {
+  required final bool tryhard,
+}) async {
   final Directory dir = Directory(p.dirname(file.path));
   final String name = p.basename(file.path);
   // will try all methods to strip name to find json
@@ -51,7 +55,7 @@ Future<File?> _jsonForFile(final File file, {required final bool tryhard}) async
     if (tryhard) ...<String Function(String filename)>[
       _removeExtraRegex,
       _removeDigit, // most files with '(digit)' have jsons, so it's last
-    ]
+    ],
   ]) {
     final File jsonFile = File(p.join(dir.path, '${method(name)}.json'));
     if (await jsonFile.exists()) return jsonFile;
@@ -97,10 +101,14 @@ String _removeExtraRegex(final String filename) {
   // https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/pull/247
   final String normalizedFilename = unorm.nfc(filename);
   // include all characters, also with accents
-  final Iterable<RegExpMatch> matches = RegExp(r'(?<extra>-[A-Za-zÀ-ÖØ-öø-ÿ]+(\(\d\))?)\.\w+$')
-      .allMatches(normalizedFilename);
+  final Iterable<RegExpMatch> matches = RegExp(
+    r'(?<extra>-[A-Za-zÀ-ÖØ-öø-ÿ]+(\(\d\))?)\.\w+$',
+  ).allMatches(normalizedFilename);
   if (matches.length == 1) {
-    return normalizedFilename.replaceAll(matches.first.namedGroup('extra')!, '');
+    return normalizedFilename.replaceAll(
+      matches.first.namedGroup('extra')!,
+      '',
+    );
   }
   return normalizedFilename;
 }
@@ -124,7 +132,9 @@ String _shortenName(final String filename) => '$filename.json'.length > 51
 // note: would be nice if we had some tougher tests for this
 String _bracketSwap(final String filename) {
   // this is with the dot - more probable that it's just before the extension
-  final RegExpMatch? match = RegExp(r'\(\d+\)\.').allMatches(filename).lastOrNull;
+  final RegExpMatch? match = RegExp(
+    r'\(\d+\)\.',
+  ).allMatches(filename).lastOrNull;
   if (match == null) return filename;
   final String bracket = match.group(0)!.replaceAll('.', ''); // remove dot
   // remove only last to avoid errors with filenames like:
@@ -134,8 +144,10 @@ String _bracketSwap(final String filename) {
 }
 
 /// This is to get coordinates from the json file. Expects media file and finds json.
-Future<DMSCoordinates?> jsonCoordinatesExtractor(final File file,
-    {final bool tryhard = false}) async {
+Future<DMSCoordinates?> jsonCoordinatesExtractor(
+  final File file, {
+  final bool tryhard = false,
+}) async {
   final File? jsonFile = await _jsonForFile(file, tryhard: tryhard);
   if (jsonFile == null) return null;
   try {
@@ -146,7 +158,10 @@ Future<DMSCoordinates?> jsonCoordinatesExtractor(final File file,
     if (lat == 0.0 || long == 0.0) {
       return null;
     } else {
-      final DDCoordinates ddcoords = DDCoordinates(latitude: lat, longitude: long);
+      final DDCoordinates ddcoords = DDCoordinates(
+        latitude: lat,
+        longitude: long,
+      );
       final DMSCoordinates dmscoords = DMSCoordinates.fromDD(ddcoords);
       return dmscoords;
     }

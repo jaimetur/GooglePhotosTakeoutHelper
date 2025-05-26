@@ -511,10 +511,10 @@ Future<void> main(final List<String> arguments) async {
       media[i].dateTimeExtractionMethod = DateTimeExtractionMethod
           .none; //Writing in media object that no extraction method worked. :(
       log(
-          "[Step 4/8] Couldn't get date with any extractor on ${media[i].firstFile.path}",
-          level: 'warning',
-          forcePrint: true
-        );
+        "[Step 4/8] Couldn't get date with any extractor on ${media[i].firstFile.path}",
+        level: 'warning',
+        forcePrint: true,
+      );
     } else {
       media[i].dateTimeExtractionMethod =
           extractionMethod; //Writing used extraction method to this media object.

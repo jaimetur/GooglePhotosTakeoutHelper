@@ -2,7 +2,7 @@ import 'dart:io';
 
 /// Checks if a file path contains emoji characters (Unicode surrogate pairs) in either
 /// the immediate parent directory name or the filename.
-/// 
+///
 /// [path] The full path to check for emoji characters
 /// Returns true if an emoji is found in the parent directory name or filename
 bool hasUnicodeSurrogates(final String path) {
@@ -15,7 +15,7 @@ bool hasUnicodeSurrogates(final String path) {
 }
 
 /// Internal helper function to check if a single text component contains emoji characters.
-/// 
+///
 /// [text] The text string to check for emoji characters
 /// Returns true if the text contains any emoji (Unicode surrogate pairs)
 bool _hasEmojiInText(final String text) {
@@ -92,7 +92,7 @@ String getEmojiCleanedTempFilePath(final String path) {
 }
 
 /// Converts a temporary path with hex-encoded emojis back to the original path with UTF-8 emojis.
-/// 
+///
 /// [tempPath] The temporary path containing hex-encoded emojis (e.g., "_0x1f60a_")
 /// Returns the original path with proper UTF-8 emoji characters, or the input path if it's not a temp path
 String getOriginalPathFromTemp(final String tempPath) {
@@ -115,7 +115,7 @@ String getOriginalPathFromTemp(final String tempPath) {
 }
 
 /// Internal helper function to decode hex-encoded emoji characters back to UTF-8.
-/// 
+///
 /// [component] A string potentially containing hex-encoded emojis (e.g., "_0x1f60a_")
 /// Returns the string with all hex-encoded emojis converted back to UTF-8 characters
 String _decodeEmojiComponent(final String component) {
