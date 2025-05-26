@@ -38,30 +38,52 @@ jobs:
         run: echo "tag=$(echo ${{ github.ref }} | sed 's/refs\/tags\///')" >> $GITHUB_OUTPUT
       - uses: dart-lang/setup-dart@v1.7.1
       - run: dart pub get
+      - name: Get version
+        id: version
+        run: |
+          dart run --disable-analytics -e "import 'dart:io'; import 'package:yaml/yaml.dart'; print((loadYaml(File('pubspec.yaml').readAsStringSync())['version']));" > version.txt
+          VERSION=$(cat version.txt | tr -d '\r\n')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
       - name: Build exe
         run: |
-          outname=gpth-${{ matrix.os }}-${{ matrix.arch }}
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+          version=${{ steps.version.outputs.version }}
+          osname=${{ matrix.os }}
+          if [ "$osname" = "ubuntu-latest" ]; then
+            osname=linux
+          elif [ "$osname" = "macos-latest" ]; then
+            osname=macos
+          elif [ "$osname" = "windows-latest" ]; then
+            osname=windows
+          fi
+          archname=${{ matrix.arch }}
+          outname=gpth-v$version-release-$osname-$archname
+          if [ "$osname" = "windows" ]; then
             outname="$outname.exe"
           fi
           dart compile exe bin/gpth.dart -o ./$outname
       - name: Add files to GH-Release
         uses: softprops/action-gh-release@v2.2.2
         with:
-          files: ./gpth-${{ matrix.os }}-${{ matrix.arch }}*
+          files: |
+            ./gpth-v${{ steps.version.outputs.version }}-release-linux-${{ matrix.arch }}
+            ./gpth-v${{ steps.version.outputs.version }}-release-linux-${{ matrix.arch }}.exe
+            ./gpth-v${{ steps.version.outputs.version }}-release-macos-${{ matrix.arch }}
+            ./gpth-v${{ steps.version.outputs.version }}-release-macos-${{ matrix.arch }}.exe
+            ./gpth-v${{ steps.version.outputs.version }}-release-windows-${{ matrix.arch }}
+            ./gpth-v${{ steps.version.outputs.version }}-release-windows-${{ matrix.arch }}.exe
           fail_on_unmatched_files: true
       # if linux, upload to aur
-      - name: Generate PKGBUILD
-        if: matrix.os == 'ubuntu-latest'
-        run: ./scripts/gen-pkgbuild.bash ./gpth-${{ matrix.os }}-${{ matrix.arch }}
-      - name: Upload to AUR
-        if: matrix.os == 'ubuntu-latest'
-        uses: KSXGitHub/github-actions-deploy-aur@v4.1.1
-        with:
-          pkgname: gpth-bin
-          pkgbuild: ./PKGBUILD
-          commit_username: 'TheLastGimbus'
-          commit_email: 'mateusz.soszynski@tuta.io'
-          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
-          commit_message: ${{ steps.clean_tag.outputs.tag }}
-          test: true
+      #- name: Generate PKGBUILD
+      #  if: matrix.os == 'ubuntu-latest'
+      #  run: ./scripts/gen-pkgbuild.bash ./gpth-${{ matrix.os }}-${{ matrix.arch }}
+      #- name: Upload to AUR
+      #  if: matrix.os == 'ubuntu-latest'
+      #  uses: KSXGitHub/github-actions-deploy-aur@v4.1.1
+      #  with:
+      #    pkgname: gpth-bin
+      #    pkgbuild: ./PKGBUILD
+      #    commit_username: 'TheLastGimbus'
+      #    commit_email: 'mateusz.soszynski@tuta.io'
+      #    ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+      #    commit_message: ${{ steps.clean_tag.outputs.tag }}
+      #    test: true
