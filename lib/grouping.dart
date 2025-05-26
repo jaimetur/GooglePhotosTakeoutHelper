@@ -91,7 +91,7 @@ int removeDuplicates(final List<Media> media, final int barWidth) {
   return count;
 }
 
-String albumName(final Directory albumDir) => p.basename(albumDir.path);
+String albumName(final Directory albumDir) => p.basename(p.normalize(albumDir.path));
 
 /// This will analyze [allMedia], find which files are hash-same, and merge
 /// all of them into single [Media] object with all album names they had

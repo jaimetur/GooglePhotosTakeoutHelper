@@ -59,7 +59,7 @@ AD/2gAMAwEAAhEDEQA/ACHIF3//2Q==''';
     '${basepath}Urlaub in Knaufspesch in der Schneifel (38).JPG',
   );
   final File jsonFile2 = File(
-    '${basepath}Urlaub in Knaufspesch in der Schneifel (38).JP.json',
+    '${basepath}Urlaub in Knaufspesch in der Schneifel (38).JPG.json',
   );
   final File imgFile3 = File(
     '${basepath}Screenshot_2022-10-28-09-31-43-118_com.snapchat.jpg',
