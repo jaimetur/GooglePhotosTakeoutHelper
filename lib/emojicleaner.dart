@@ -1,20 +1,5 @@
 import 'dart:io';
 
-/// Checks if a file path contains emoji characters (Unicode surrogate pairs) in either
-/// the immediate parent directory name or the filename.
-///
-/// [path] The full path to check for emoji characters
-/// Returns true if an emoji is found in the parent directory name or filename
-bool _hasUnicodeSurrogatesInAlbumNameOrImageName(final String path) {
-  final Directory dir = Directory(path).parent;
-  final String parentDirName = dir.path.split(Platform.pathSeparator).last;
-  final String fileName = path.split(Platform.pathSeparator).last;
-
-  // Only check parent directory name and filename
-  return _hasUnicodeSurrogatesInText(parentDirName) ||
-      _hasUnicodeSurrogatesInText(fileName);
-}
-
 /// Internal helper function to check if a single text component contains emoji characters.
 ///
 /// [text] The text string to check for emoji characters
@@ -34,85 +19,56 @@ bool _hasUnicodeSurrogatesInText(final String text) {
   return false;
 }
 
-/// Encodes emoji characters in filename and immediate parent directory to hex representation
-String getEmojiCleanedFilePath(final String path) {
-  final Directory dir = Directory(path).parent;
-  final String parentDirName = dir.path.split(Platform.pathSeparator).last;
-  final String fileName = path.split(Platform.pathSeparator).last;
+/// Encodes emoji characters in the album (parent) directory name to hex representation and renames the folder on disk if needed.
+///
+/// [albumDir] The Directory whose name may contain emoji characters.
+/// Returns the new (possibly hex-encoded) directory name as a String.
+String encodeAndRenameAlbumIfEmoji(final Directory albumDir) {
+  final String originalName = albumDir.path.split(Platform.pathSeparator).last;
+  // Return early if no emoji in the album directory name
+  if (!_hasUnicodeSurrogatesInText(originalName)) {
+    return originalName;
+  }
+  final String parentPath = albumDir.parent.path;
   final StringBuffer cleanName = StringBuffer();
-
-  // Create a temporary directory for processing
-  final String tempBasePath =
-      '${dir.parent.path}${Platform.pathSeparator}.temp_exif';
-  Directory(tempBasePath).createSync(recursive: true);
-
-  // Process parent directory name if it contains emoji
-  final StringBuffer cleanParent = StringBuffer();
-  if (_hasUnicodeSurrogatesInText(parentDirName)) {
-    for (int i = 0; i < parentDirName.length; i++) {
-      final int codeUnit = parentDirName.codeUnitAt(i);
-      if (codeUnit >= 0xD800 &&
-          codeUnit <= 0xDBFF &&
-          i + 1 < parentDirName.length) {
-        final int nextCodeUnit = parentDirName.codeUnitAt(i + 1);
-        if (nextCodeUnit >= 0xDC00 && nextCodeUnit <= 0xDFFF) {
-          final int emoji =
-              ((codeUnit - 0xD800) << 10) + (nextCodeUnit - 0xDC00) + 0x10000;
-          cleanParent.write('_0x${emoji.toRadixString(16)}_');
-          i++; // Skip low surrogate
-          continue;
-        }
+  for (int i = 0; i < originalName.length; i++) {
+    final int codeUnit = originalName.codeUnitAt(i);
+    if (codeUnit >= 0xD800 &&
+        codeUnit <= 0xDBFF &&
+        i + 1 < originalName.length) {
+      final int nextCodeUnit = originalName.codeUnitAt(i + 1);
+      if (nextCodeUnit >= 0xDC00 && nextCodeUnit <= 0xDFFF) {
+        final int emoji =
+            ((codeUnit - 0xD800) << 10) + (nextCodeUnit - 0xDC00) + 0x10000;
+        cleanName.write('_0x${emoji.toRadixString(16)}_');
+        i++; // Skip low surrogate
+        continue;
       }
-      cleanParent.write(String.fromCharCode(codeUnit));
     }
-  } else {
-    cleanParent.write(parentDirName);
+    cleanName.write(String.fromCharCode(codeUnit));
   }
-
-  // Process filename if it contains emoji
-  if (_hasUnicodeSurrogatesInText(fileName)) {
-    for (int i = 0; i < fileName.length; i++) {
-      final int codeUnit = fileName.codeUnitAt(i);
-      if (codeUnit >= 0xD800 && codeUnit <= 0xDBFF && i + 1 < fileName.length) {
-        final int nextCodeUnit = fileName.codeUnitAt(i + 1);
-        if (nextCodeUnit >= 0xDC00 && nextCodeUnit <= 0xDFFF) {
-          final int emoji =
-              ((codeUnit - 0xD800) << 10) + (nextCodeUnit - 0xDC00) + 0x10000;
-          cleanName.write('_0x${emoji.toRadixString(16)}_');
-          i++; // Skip low surrogate
-          continue;
-        }
-      }
-      cleanName.write(String.fromCharCode(codeUnit));
-    }
-  } else {
-    cleanName.write(fileName);
+  final String newPath =
+      parentPath + Platform.pathSeparator + cleanName.toString();
+  if (albumDir.path != newPath) {
+    albumDir.renameSync(newPath);
   }
-
-  return '$tempBasePath${Platform.pathSeparator}$cleanParent${Platform.pathSeparator}$cleanName';
+  return cleanName.toString();
 }
 
-/// Converts a temporary path with hex-encoded emojis back to the original path with UTF-8 emojis.
+/// Decodes hex-encoded emoji sequences (e.g., _0x1f60a_) in the last segment of the path back to emoji characters, only if such encoding is present.
 ///
-/// [tempPath] The temporary path containing hex-encoded emojis (e.g., "_0x1f60a_")
-/// Returns the original path with proper UTF-8 emoji characters, or the input path if it's not a temp path
-String getOriginalPathFromTemp(final String tempPath) {
-  final String baseTempDir =
-      '${Platform.pathSeparator}.temp_exif${Platform.pathSeparator}';
-  if (!tempPath.contains(baseTempDir)) return tempPath;
-
-  final parts = tempPath.split(baseTempDir);
-  if (parts.length != 2) return tempPath;
-
-  final String parentDir = parts[0];
-  final String remainingPath = parts[1];
-  final List<String> components = remainingPath.split(Platform.pathSeparator);
-  if (components.length != 2) return tempPath;
-
-  final cleanParent = _decodeEmojiComponent(components[0]);
-  final cleanName = _decodeEmojiComponent(components[1]);
-
-  return '$parentDir${Platform.pathSeparator}$cleanParent${Platform.pathSeparator}$cleanName';
+/// [encodedPath] The path with hex-encoded emojis in the last segment.
+/// Returns the path with emojis restored in the last segment, or the original path if no encoding is present.
+String decodeAndRestoreAlbumEmoji(final String encodedPath) {
+  final String separator = Platform.pathSeparator;
+  final List<String> parts = encodedPath.split(separator);
+  if (parts.isEmpty) return encodedPath;
+  // Only decode if hex-encoded emoji is present in the last segment
+  if (RegExp(r'_0x[0-9a-fA-F]+_').hasMatch(parts.last)) {
+    parts[parts.length - 1] = _decodeEmojiComponent(parts.last);
+    return parts.join(separator);
+  }
+  return encodedPath;
 }
 
 /// Internal helper function to decode hex-encoded emoji characters back to UTF-8.

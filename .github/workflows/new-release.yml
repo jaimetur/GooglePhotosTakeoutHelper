@@ -8,7 +8,7 @@ jobs:
   make-release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4.2.2
       - name: Get clean tag name
         id: clean_tag
         run: echo "tag=$(echo ${{ github.ref }} | sed 's/refs\/tags\///')" >> $GITHUB_OUTPUT
@@ -19,7 +19,7 @@ jobs:
       #        id: tag_message
       #        run: echo "name=message=$(git tag -l --format='%(contents)' ${{ github.ref }})" >> $GITHUB_OUTPUT
       - name: Create GH-Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2.2.2
         with:
           body_path: ./body-file.txt
           fail_on_unmatched_files: true
@@ -31,7 +31,7 @@ jobs:
         os: [ ubuntu-latest, macos-latest, windows-latest ]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.2.2
       - name: Get clean tag name
         id: clean_tag
         run: echo "tag=$(echo ${{ github.ref }} | sed 's/refs\/tags\///')" >> $GITHUB_OUTPUT
@@ -57,7 +57,7 @@ jobs:
             echo "Unknown OS: $RUNNER_OS"
             exit 69
           fi
-      - uses: dart-lang/setup-dart@v1.6.4
+      - uses: dart-lang/setup-dart@v1.7.1
       - run: dart pub get
       - name: Build exe
         run: dart compile exe bin/gpth.dart -o ./${{ steps.exe_name.outputs.name }}
@@ -72,7 +72,7 @@ jobs:
         run: ./scripts/gen-pkgbuild.bash ./${{ steps.exe_name.outputs.name }}
       - name: Upload to AUR
         if: matrix.os == 'ubuntu-latest'
-        uses: KSXGitHub/github-actions-deploy-aur@v2
+        uses: KSXGitHub/github-actions-deploy-aur@v4.1.1
         with:
           pkgname: gpth-bin
           pkgbuild: ./PKGBUILD

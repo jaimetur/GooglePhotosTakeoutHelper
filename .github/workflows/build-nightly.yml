@@ -12,7 +12,7 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.2.2
       - name: Get exe name
         id: exe_name
         shell: bash
@@ -35,12 +35,12 @@ jobs:
             echo "Unknown OS: $RUNNER_OS"
             exit 69
           fi
-      - uses: dart-lang/setup-dart@v1.6.4
+      - uses: dart-lang/setup-dart@v1.7.1
       - run: dart pub get
       - name: Build exe
         run: dart compile exe bin/gpth.dart -o ./${{ steps.exe_name.outputs.name }}
       - name: Upload exe as artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.6.2
         with:
           name: gpth-nightly-${{ matrix.os }}
           path: ./${{ steps.exe_name.outputs.name }}

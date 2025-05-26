@@ -5,6 +5,7 @@ import 'package:collection/collection.dart';
 import 'package:coordinate_converter/coordinate_converter.dart';
 import 'package:exif_reader/exif_reader.dart';
 import 'package:gpth/date_extractors/date_extractor.dart';
+import 'package:gpth/emojicleaner.dart';
 import 'package:gpth/exif_writer.dart' as exif_writer;
 import 'package:gpth/exiftoolInterface.dart';
 import 'package:gpth/extras.dart';
@@ -711,9 +712,6 @@ AD/2gAMAwEAAhEDEQA/ACHIF3//2Q==''';
   group('ExiftoolInterface', () {
     late File testImage;
     late File testImage2;
-    late File emojiFile;
-    late Directory emojiDir;
-    late File testImage3;
 
     setUp(() async {
       await initExiftool();
@@ -727,23 +725,10 @@ AD/2gAMAwEAAhEDEQA/ACHIF3//2Q==''';
       testImage2.writeAsBytesSync(
         base64.decode(greenImgNoMetaDataBase64.replaceAll('\n', '')),
       );
-      emojiFile = File('${basepath}test_😊.jpg');
-      emojiFile.writeAsBytesSync(
-        base64.decode(greenImgNoMetaDataBase64.replaceAll('\n', '')),
-      );
-      emojiDir = Directory('${basepath}test_folder_🌟');
-      await emojiDir.create();
-      testImage3 = File('${emojiDir.path}exiftoolEmojiTest.jpg');
-      testImage3.writeAsBytesSync(
-        base64.decode(greenImgNoMetaDataBase64.replaceAll('\n', '')),
-      );
     });
     tearDown(() {
       if (testImage.existsSync()) testImage.deleteSync();
       if (testImage2.existsSync()) testImage2.deleteSync();
-      if (testImage3.existsSync()) testImage3.deleteSync();
-      if (emojiFile.existsSync()) emojiFile.deleteSync();
-      if (emojiDir.existsSync()) emojiDir.deleteSync(recursive: true);
     });
     test(
       'readExifBatch returns only requested tags and no SourceFile',
@@ -785,43 +770,79 @@ AD/2gAMAwEAAhEDEQA/ACHIF3//2Q==''';
       expect(result, isFalse);
       file.deleteSync();
     });
-    test('writeExif handles emoji in filename', () async {
-      final Map<String, String> map = {'Artist': 'TestArtist'};
-      final result = await exiftool!.writeExifBatch(emojiFile, map);
-      expect(result, isTrue);
+  });
 
-      final tags = await exiftool!.readExifBatch(emojiFile, ['Artist']);
-      expect(tags['Artist'], 'TestArtist');
-    });
+  group('Emoji handling', () {
+    late File emojiFile;
+    late Directory emojiDir;
+    late File testImage3;
 
-    test('writeExif handles emoji in folder path', () async {
-      final testPath = '${emojiDir.path}${Platform.pathSeparator}test.jpg';
-      emojiFile = File(testPath);
+    setUp(() async {
+      emojiFile = File('${basepath}test_😊.jpg');
       emojiFile.writeAsBytesSync(
         base64.decode(greenImgNoMetaDataBase64.replaceAll('\n', '')),
       );
-
-      final Map<String, String> map = {'Artist': 'TestArtist'};
-      final result = await exiftool!.writeExifBatch(emojiFile, map);
-      expect(result, isTrue);
-
-      final tags = await exiftool!.readExifBatch(emojiFile, ['Artist']);
-      expect(tags['Artist'], 'TestArtist');
+      emojiDir = Directory('${basepath}test_folder_😀');
+      await emojiDir.create();
+      testImage3 = File('${emojiDir.path}exiftoolEmojiTest.jpg');
+      testImage3.writeAsBytesSync(
+        base64.decode(greenImgNoMetaDataBase64.replaceAll('\n', '')),
+      );
     });
 
-    test('readExifBatch cleans up temporary files with emoji path', () async {
-      final tags = await exiftool!.readExifBatch(emojiFile, ['Artist']);
-      expect(tags, isMap); // Verify we got a response
-      final tempDir = Directory(p.join(basepath, '.temp_exif'));
-      expect(tempDir.existsSync(), isFalse);
+    test(
+      'encodeAndRenameAlbumIfEmoji renames folder with emoji and returns hex-encoded name',
+      () {
+        if (!emojiDir.existsSync()) emojiDir.createSync();
+        final String newName = encodeAndRenameAlbumIfEmoji(emojiDir);
+        expect(newName.contains('_0x1f600_'), isTrue);
+        final Directory renamedDir = Directory(
+          emojiDir.parent.path + Platform.pathSeparator + newName,
+        );
+        expect(renamedDir.existsSync(), isTrue);
+        // Cleanup
+        renamedDir.deleteSync();
+      },
+    );
+
+    test('encodeAndRenameAlbumIfEmoji returns original name if no emoji', () {
+      final Directory noEmojiDir = Directory('${basepath}test_album_noemoji');
+      if (!noEmojiDir.existsSync()) noEmojiDir.createSync();
+      final String newName = encodeAndRenameAlbumIfEmoji(noEmojiDir);
+      expect(newName, 'test_album_noemoji');
+      expect(noEmojiDir.existsSync(), isTrue);
+      // Cleanup
+      noEmojiDir.deleteSync();
     });
 
-    test('writeExifBatch cleans up temporary files with emoji path', () async {
-      final Map<String, String> map = {'Artist': 'TestTempCleanup'};
-      final result = await exiftool!.writeExifBatch(emojiFile, map);
-      expect(result, isTrue); // Verify write succeeded
-      final tempDir = Directory(p.join(basepath, '.temp_exif'));
-      expect(tempDir.existsSync(), isFalse);
+    group('decodeAndRestoreAlbumEmoji', () {
+      test('decodes hex-encoded emoji in last segment to emoji', () {
+        final Directory emojiDir = Directory('${basepath}test_album_😊');
+        if (!emojiDir.existsSync()) emojiDir.createSync();
+        final String encodedName = encodeAndRenameAlbumIfEmoji(emojiDir);
+        final String encodedPath =
+            emojiDir.parent.path + Platform.pathSeparator + encodedName;
+        final String decodedPath = decodeAndRestoreAlbumEmoji(encodedPath);
+        expect(decodedPath.contains('😊'), isTrue);
+        // Cleanup
+        final Directory renamedDir = Directory(encodedPath);
+        if (renamedDir.existsSync()) renamedDir.deleteSync();
+      });
+
+      test('returns original path if no hex-encoded emoji present', () {
+        final Directory noEmojiDir = Directory('${basepath}test_album_noemoji');
+        if (!noEmojiDir.existsSync()) noEmojiDir.createSync();
+        final String path = noEmojiDir.path;
+        final String decodedPath = decodeAndRestoreAlbumEmoji(path);
+        expect(decodedPath, path);
+        // Cleanup
+        noEmojiDir.deleteSync();
+      });
+    });
+    tearDown(() {
+      if (testImage3.existsSync()) testImage3.deleteSync();
+      if (emojiFile.existsSync()) emojiFile.deleteSync();
+      if (emojiDir.existsSync()) emojiDir.deleteSync(recursive: true);
     });
   });
 

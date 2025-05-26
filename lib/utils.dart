@@ -323,83 +323,27 @@ Future<void> createShortcutWin(
   final String shortcutPath,
   final String targetPath,
 ) async {
-  Pointer<COMObject>? shellLink;
-  Pointer<COMObject>? persistFile;
-  Pointer<Utf16>? shortcutPathPtr;
-  Pointer<Utf16>? targetPathPtr;
-
-  try {
-    // Initialize COM
-    final hrInit = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
-    if (FAILED(hrInit)) {
-      throw Exception('Error initializing COM: $hrInit');
-    }
-
-    // Allocate COM objects
-    shellLink = calloc<COMObject>();
-    if (shellLink.address == 0) {
-      throw Exception('Failed to allocate shellLink');
-    }
-
-    // Create IShellLink instance
-    final hr = CoCreateInstance(
-      GUIDFromString(CLSID_ShellLink).cast<GUID>(),
-      nullptr,
-      CLSCTX_INPROC_SERVER,
-      GUIDFromString(IID_IShellLink).cast<GUID>(),
-      shellLink.cast(),
-    );
-
-    if (FAILED(hr)) {
-      throw Exception('Error creating IShellLink instance: $hr');
-    }
-
-    final shellLinkPtr = IShellLink(shellLink);
-    targetPathPtr = targetPath.toNativeUtf16();
-    if (targetPathPtr.address == 0) {
-      throw Exception('Failed to allocate targetPathPtr');
-    }
-    shellLinkPtr.setPath(targetPathPtr.cast());
-
-    // Query IPersistFile
-    persistFile = calloc<COMObject>();
-    if (persistFile.address == 0) {
-      throw Exception('Failed to allocate persistFile');
-    }
-    final hrPersistFile = shellLinkPtr.queryInterface(
-      GUIDFromString(IID_IPersistFile).cast<GUID>(),
-      persistFile.cast(),
-    );
-    if (FAILED(hrPersistFile)) {
-      throw Exception('Error obtaining IPersistFile: $hrPersistFile');
-    }
-
-    final persistFilePtr = IPersistFile(persistFile);
-    shortcutPathPtr = shortcutPath.toNativeUtf16();
-    if (shortcutPathPtr.address == 0) {
-      throw Exception('Failed to allocate shortcutPathPtr');
-    }
-    final hrSave = persistFilePtr.save(shortcutPathPtr.cast(), TRUE);
-    if (FAILED(hrSave)) {
-      throw Exception('Error saving shortcut: $hrSave');
-    }
-  } finally {
-    // Cleanup
-    if (shortcutPathPtr != null && shortcutPathPtr.address != 0) {
-      free(shortcutPathPtr);
-    }
-    if (targetPathPtr != null && targetPathPtr.address != 0) {
-      free(targetPathPtr);
-    }
-    if (persistFile != null && persistFile.address != 0) {
-      IPersistFile(persistFile).release();
-      free(persistFile);
-    }
-    if (shellLink != null && shellLink.address != 0) {
-      IShellLink(shellLink).release();
-      free(shellLink);
-    }
-    CoUninitialize();
+  // Make sure parent directory exists
+  final Directory parentDir = Directory(p.dirname(shortcutPath));
+  if (!parentDir.existsSync()) {
+    parentDir.createSync(recursive: true);
+  }
+  // Use PowerShell for reliable shortcut creation
+  final ProcessResult res = await Process.run('powershell.exe', <String>[
+    '-ExecutionPolicy',
+    'Bypass',
+    '-NoLogo',
+    '-NonInteractive',
+    '-NoProfile',
+    '-Command',
+    // ignore: no_adjacent_strings_in_list
+    '\$ws = New-Object -ComObject WScript.Shell; '
+        '\$s = \$ws.CreateShortcut("$shortcutPath"); '
+        '\$s.TargetPath = "$targetPath"; '
+        '\$s.Save()',
+  ]);
+  if (res.exitCode != 0) {
+    throw Exception('PowerShell failed to create shortcut: ${res.stderr}');
   }
 }
 

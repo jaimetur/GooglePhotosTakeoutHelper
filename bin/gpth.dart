@@ -3,6 +3,7 @@ import 'package:args/args.dart';
 import 'package:console_bars/console_bars.dart';
 import 'package:coordinate_converter/src/models/dms_coordinates_model.dart';
 import 'package:gpth/date_extractors/date_extractor.dart';
+import 'package:gpth/emojicleaner.dart';
 import 'package:gpth/exif_writer.dart';
 import 'package:gpth/exiftoolInterface.dart';
 import 'package:gpth/extras.dart';
@@ -403,8 +404,6 @@ Future<void> main(final List<String> arguments) async {
     ..start(); //Creation of our debugging stopwatch for each step.
   print('[Step 2/8] Searching for everything in input folder...');
 
-  //TODO implement logic to rename emojis to hex for files and folders
-
   // recursive=true makes it find everything nicely even if user id dumb 😋
   await for (final Directory d
       in input.list(recursive: true).whereType<Directory>()) {
@@ -420,8 +419,11 @@ Future<void> main(final List<String> arguments) async {
     }
   }
   for (final Directory a in albumFolders) {
+    final String cleanedAlbumName = encodeAndRenameAlbumIfEmoji(
+      a,
+    ); //Here we check if there are emojis in the album names and if yes, we hex encode them so there are no problems later!
     await for (final File file in a.list().wherePhotoVideo()) {
-      media.add(Media(<String?, File>{albumName(a): file}));
+      media.add(Media(<String?, File>{cleanedAlbumName: file}));
     }
   }
 
@@ -656,8 +658,6 @@ Future<void> main(final List<String> arguments) async {
   ).listen((final _) => barCopy.increment()).asFuture();
   print('[Step 7/8] Done moving/copying media!');
 
-  //TODO implement functionality to covert hex in album names and file names back to emojis.
-
   // @Deprecated('Interactive unzipping is suspended for now!')
   // // remove unzipped folder if was created
   // if (interactive.indeed) {
@@ -690,6 +690,21 @@ Future<void> main(final List<String> arguments) async {
   log(
     '[Step 8/8] Step 6 took ${sw8.elapsed.inMinutes} minutes or ${sw8.elapsed.inSeconds} seconds to complete.',
   );
+
+  // After all processing steps, before program exit we encode the emojis in album paths again.
+  final outputDirs = output.listSync().whereType<Directory>();
+  final FillingBar barEmojiEncode = FillingBar(
+    total: outputFileCount(media, args['albums']),
+    desc: '[Step 8/8] Looking for folders with emojis and renaming them back.',
+    width: barWidth,
+  );
+  for (final dir in outputDirs) {
+    final String decodedPath = decodeAndRestoreAlbumEmoji(dir.path);
+    barEmojiEncode.increment();
+    if (decodedPath != dir.path) {
+      dir.renameSync(decodedPath);
+    }
+  }
 
   /// ##############################################################
   /// ################# END ########################################
