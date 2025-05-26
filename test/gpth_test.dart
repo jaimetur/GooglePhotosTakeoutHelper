@@ -891,7 +891,11 @@ AD/2gAMAwEAAhEDEQA/ACHIF3//2Q==''';
         expect(p.basename(restoredDir.path), emojiFolderName);
         // Symlink/shortcut should still point to the file (unless moved)
         // Clean up
-        File(symlinkPath).deleteSync();
+        if (Platform.isWindows) {
+          File(symlinkPath).deleteSync();
+        } else {
+          Link(symlinkPath).deleteSync();
+        }
         restoredDir.deleteSync(recursive: true);
       },
     );
