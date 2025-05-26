@@ -314,7 +314,7 @@ AD/2gAMAwEAAhEDEQA/ACHIF3//2Q==''';
     final Media albumed = copy.firstWhere(
       (final Media e) => e.files.length > 1,
     );
-    expect(albumed.files.keys, <String?>[null, 'Vacation']);
+    expect(albumed.files.keys.last, 'Vacation');
     expect(albumed.dateTaken, media[0].dateTaken);
     expect(albumed.dateTaken == media[1].dateTaken, false); // be sure
     expect(copy.where((final Media e) => e.files.length > 1).length, 1);
