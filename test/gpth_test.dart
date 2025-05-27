@@ -856,7 +856,7 @@ AD/2gAMAwEAAhEDEQA/ACHIF3//2Q==''';
     test(
       'process file in emoji folder: hex encode, exif read, exiftool write, shortcut/symlink, decode',
       () async {
-        const String emojiFolderName = '❤️❤️❤️';
+        const String emojiFolderName = 'test_💖❤️';
         final Directory emojiDir = Directory(p.join(basepath, emojiFolderName));
         if (!emojiDir.existsSync()) emojiDir.createSync(recursive: true);
         final File img = File(p.join(emojiDir.path, 'img.jpg'));
@@ -866,6 +866,7 @@ AD/2gAMAwEAAhEDEQA/ACHIF3//2Q==''';
 
         // 1. Encode and rename folder
         final Directory hexNameDir = encodeAndRenameAlbumIfEmoji(emojiDir);
+        expect(hexNameDir.path.contains('_0x1f496_'), isTrue);
         expect(hexNameDir.path.contains('_0x2764_'), isTrue);
         final Directory hexDir = Directory(
           p.join(emojiDir.parent.path, hexNameDir.path),
