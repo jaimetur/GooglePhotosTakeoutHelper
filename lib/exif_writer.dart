@@ -16,12 +16,25 @@ Future<bool> writeDateTimeToExif(
   if (await exifDateTimeExtractor(file) != null) {
     return false;
   }
-  //When exiftool is installed
+
   if (exifToolInstalled) {
+    final List<int> headerBytes = await File(file.path).openRead(0, 128).first;
+    final String? mimeTypeFromHeader = lookupMimeType(file.path, headerBytes: headerBytes);
+    final String? mimeTypeFromExtension = lookupMimeType(file.path);
     //Even if exifTool is installed, try to use native way for speed first and if it works keep going. If not, use exiftool.
-    if (_noExifToolDateTimeWriter(file, dateTime)) {
+    if (mimeTypeFromHeader == 'image/jpeg' && await _noExifToolDateTimeWriter(file, dateTime)) {
       return true; //If native way was able to write exif data: exit. If not, try exifTool.
     }
+
+    if (mimeTypeFromExtension != mimeTypeFromHeader) {
+      log(
+          "DateWriter - Extension is wrong, mimeType is '$mimeTypeFromHeader'. Exiftool would fail, thus skipping.                    \n ${file.path}",
+          level: 'error',
+          forcePrint: true
+      );
+      return false;
+    }
+
     final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
     final String dt = exifFormat.format(dateTime);
     final success = await exiftool!.writeExifBatch(file, {
@@ -52,11 +65,21 @@ Future<bool> writeGpsToExif(
   final File file,
 ) async {
   if (exifToolInstalled) {
-    //When exiftool is installed
+    final List<int> headerBytes = await File(file.path).openRead(0, 128).first;
+    final String? mimeTypeFromHeader = lookupMimeType(file.path, headerBytes: headerBytes);
+    final String? mimeTypeFromExtension = lookupMimeType(file.path);
     //Even if exifTool is installed, try to use native way for speed first and if it works keep going. If not, use exiftool.
-    if (_noExifGPSWriter(file, coordinates)) {
+    if (mimeTypeFromHeader == 'image/jpeg' && await _noExifGPSWriter(file, coordinates)) {
       return true;
     }
+
+    if (mimeTypeFromExtension != mimeTypeFromHeader) {
+      log("GPSWriter - Extension is wrong, mimeType is '$mimeTypeFromHeader'. Exiftool would fail, thus skipping.                     \n ${file.path}",
+      level: 'error',
+      forcePrint: true);
+      return false;
+    }
+
     //Check if the file already has EXIF data and if yes, skip.
     final Map coordinatesMap = await exiftool!.readExifBatch(file, [
       'GPSLatitude',
@@ -94,10 +117,20 @@ Future<bool> writeGpsToExif(
   }
 }
 
-bool _noExifToolDateTimeWriter(final File file, final DateTime dateTime) {
+Future<bool> _noExifToolDateTimeWriter(final File file, final DateTime dateTime) async {
   final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
-  final String? mimeType = lookupMimeType(file.path);
-  if (mimeType == 'image/jpeg') {
+  final List<int> headerBytes = await File(file.path).openRead(0, 128).first;
+  final String? mimeTypeFromHeader = lookupMimeType(file.path, headerBytes: headerBytes);
+  final String? mimeTypeFromExtension = lookupMimeType(file.path);
+  if (mimeTypeFromHeader == 'image/jpeg') {
+    if (mimeTypeFromHeader != mimeTypeFromExtension) {
+      log(
+        "File has a wrong extension indicating '$mimeTypeFromExtension'"
+            " but actually it is '$mimeTypeFromHeader'. Will use native JPEG writer.\n ${file.path}",
+        level: 'warning',
+        forcePrint: true
+      );
+    }
     //when it's a jpg and the image library can handle it
     ExifData? exifData;
     final Uint8List origbytes = file.readAsBytesSync();
@@ -129,7 +162,7 @@ bool _noExifToolDateTimeWriter(final File file, final DateTime dateTime) {
   }
   if (!exifToolInstalled) {
     log(
-      '[Step 5/8] Found DateTime in json, but missing in EXIF. Writing to $mimeType is not supported without exiftool.',
+      '[Step 5/8] Found DateTime in json, but missing in EXIF. Writing to $mimeTypeFromHeader is not supported without exiftool.',
       level: 'warning',
       forcePrint: true,
     );
@@ -137,9 +170,18 @@ bool _noExifToolDateTimeWriter(final File file, final DateTime dateTime) {
   return false;
 }
 
-bool _noExifGPSWriter(final File file, final DMSCoordinates coordinates) {
-  final String? mimeType = lookupMimeType(file.path);
-  if (mimeType == 'image/jpeg') {
+Future<bool> _noExifGPSWriter(final File file, final DMSCoordinates coordinates) async {
+  final List<int> headerBytes = await File(file.path).openRead(0, 128).first;
+  final String? mimeTypeFromHeader = lookupMimeType(file.path, headerBytes: headerBytes);
+  if (mimeTypeFromHeader == 'image/jpeg') {
+    final String? mimeTypeFromExtension = lookupMimeType(file.path);
+    if (mimeTypeFromHeader != mimeTypeFromExtension) {
+      log(
+        "File has a wrong extension corresponding to '$mimeTypeFromExtension'"
+            " but actually it is '$mimeTypeFromHeader'. Will use native JPEG writer.",
+        level: 'warning'
+      );
+    }
     //when it's a jpg and the image library can handle it
     ExifData? exifData;
     final Uint8List origbytes = file.readAsBytesSync();
@@ -171,12 +213,12 @@ bool _noExifGPSWriter(final File file, final DMSCoordinates coordinates) {
   if (!exifToolInstalled) {
     if (isVerbose) {
       log(
-        '[Step 5/8] Found Coordinates in json, but missing in EXIF. Writing to $mimeType is not supported without exiftool.',
+        '[Step 5/8] Found Coordinates in json, but missing in EXIF. Writing to $mimeTypeFromHeader is not supported without exiftool.',
         level: 'warning',
       );
     } else {
       print(
-        '[Step 5/8] [WARNING] Found Coordinates in json, but missing in EXIF. Writing to $mimeType is not supported without exiftool.',
+        '[Step 5/8] [WARNING] Found Coordinates in json, but missing in EXIF. Writing to $mimeTypeFromHeader is not supported without exiftool.',
       );
     }
   }
