@@ -25,7 +25,6 @@ jobs:
           body_path: ./body-file.txt
           fail_on_unmatched_files: true
   build:
-    build:
     strategy:
       matrix:
         include:
@@ -37,9 +36,9 @@ jobs:
             arch: arm64
             runs-on: macos-latest
           # Linux
-          - os: ubuntu-24.04
+          - os: ubuntu-latest
             arch: x86_64
-            runs-on: ubuntu-24.04
+            runs-on: ubuntu-latest
           - os: ubuntu-24.04-arm
             arch: arm64
             runs-on: ubuntu-24.04-arm
