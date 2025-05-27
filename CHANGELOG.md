@@ -5,7 +5,7 @@
 #### Bug fixes
 
 - Removed some dysfunctional progress bars
-
+- resolved typo in release notes
 
 ## 4.0.1-xentraxx
 

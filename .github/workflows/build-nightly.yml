@@ -33,23 +33,28 @@ jobs:
         run: |
           version=${{ steps.version.outputs.version }}
           osname=${{ matrix.os }}
-          arch=${{ contains(matrix.os, 'arm') && 'arm64' || 'x86_64' }}
-          # Normalize osname for output file
-          if [[ "$osname" == "ubuntu-latest" || "$osname" == "ubuntu-24.04-arm" ]]; then
-            osname=linux
-          elif [[ "$osname" == "macos-latest" || "$osname" == "macos-13" ]]; then
-            osname=macos
-          elif [[ "$osname" == "windows-latest" || "$osname" == "windows-11-arm" ]]; then
-            osname=windows
+          # Normalize osname and append arch for output file
+          if [[ "$osname" == "ubuntu-latest" ]]; then
+            osname=linux-x86_64
+          elif [[ "$osname" == "ubuntu-24.04-arm" ]]; then
+            osname=linux-arm64
+          elif [[ "$osname" == "macos-latest" ]]; then
+            osname=macos-arm64
+          elif [[ "$osname" == "macos-13" ]]; then
+            osname=macos-x86_64
+          elif [[ "$osname" == "windows-latest" ]]; then
+            osname=windows-x86_64
+          elif [[ "$osname" == "windows-11-arm" ]]; then
+            osname=windows-arm64
           fi
-          outname=gpth-v$version-nightly-$osname-$arch
-          if [[ "$osname" == "windows" ]]; then
+          outname=gpth-v$version-nightly-$osname
+          if [[ "$osname" == windows-* ]]; then
             outname="$outname.exe"
           fi
           dart compile exe bin/gpth.dart -o ./$outname
       - name: Upload exe as artifact
         uses: actions/upload-artifact@v4.6.2
         with:
-          name: gpth-v${{ steps.version.outputs.version }}-nightly-${{ contains(matrix.os, 'ubuntu') && 'linux' || contains(matrix.os, 'macos') && 'macos' || contains(matrix.os, 'windows') && 'windows' }}-${{ contains(matrix.os, 'arm') && 'arm64' || 'x86_64' }}
-          path: ./gpth-v${{ steps.version.outputs.version }}-nightly-${{ contains(matrix.os, 'ubuntu') && 'linux' || contains(matrix.os, 'macos') && 'macos' || contains(matrix.os, 'windows') && 'windows' }}-${{ contains(matrix.os, 'arm') && 'arm64' || 'x86_64' }}${{ contains(matrix.os, 'windows') && '.exe' || '' }}
+          name: gpth-v${{ steps.version.outputs.version }}-nightly-${{ matrix.os }}
+          path: ./gpth-v${{ steps.version.outputs.version }}-nightly-${{ matrix.os }}${{ contains(matrix.os, 'windows') && '.exe' || '' }}
           if-no-files-found: error
