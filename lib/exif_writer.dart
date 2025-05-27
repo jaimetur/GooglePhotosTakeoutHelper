@@ -12,17 +12,18 @@ Future<bool> writeDateTimeToExif(
   final DateTime dateTime,
   final File file,
 ) async {
+  final List<int> headerBytes = await File(file.path).openRead(0, 128).first;
+  final String? mimeTypeFromHeader = lookupMimeType(file.path, headerBytes: headerBytes);
+  final String? mimeTypeFromExtension = lookupMimeType(file.path);
+
   //Check if the file already has a dateTime in its EXIF data. If function returns a DateTime, there is no need to write it again. Skip.
   if (await exifDateTimeExtractor(file) != null) {
     return false;
   }
 
   if (exifToolInstalled) {
-    final List<int> headerBytes = await File(file.path).openRead(0, 128).first;
-    final String? mimeTypeFromHeader = lookupMimeType(file.path, headerBytes: headerBytes);
-    final String? mimeTypeFromExtension = lookupMimeType(file.path);
     //Even if exifTool is installed, try to use native way for speed first and if it works keep going. If not, use exiftool.
-    if (mimeTypeFromHeader == 'image/jpeg' && await _noExifToolDateTimeWriter(file, dateTime)) {
+    if (mimeTypeFromHeader == 'image/jpeg' && await _noExifToolDateTimeWriter(file, dateTime, mimeTypeFromHeader)) {
       return true; //If native way was able to write exif data: exit. If not, try exifTool.
     }
 
@@ -56,7 +57,7 @@ Future<bool> writeDateTimeToExif(
     }
   } else {
     //When exiftool is not installed
-    return _noExifToolDateTimeWriter(file, dateTime);
+    return _noExifToolDateTimeWriter(file, dateTime, mimeTypeFromHeader);
   }
 }
 
@@ -64,12 +65,14 @@ Future<bool> writeGpsToExif(
   final DMSCoordinates coordinates,
   final File file,
 ) async {
+
+  final List<int> headerBytes = await File(file.path).openRead(0, 128).first;
+  final String? mimeTypeFromHeader = lookupMimeType(file.path, headerBytes: headerBytes);
+
   if (exifToolInstalled) {
-    final List<int> headerBytes = await File(file.path).openRead(0, 128).first;
-    final String? mimeTypeFromHeader = lookupMimeType(file.path, headerBytes: headerBytes);
     final String? mimeTypeFromExtension = lookupMimeType(file.path);
     //Even if exifTool is installed, try to use native way for speed first and if it works keep going. If not, use exiftool.
-    if (mimeTypeFromHeader == 'image/jpeg' && await _noExifGPSWriter(file, coordinates)) {
+    if (mimeTypeFromHeader == 'image/jpeg' && await _noExifGPSWriter(file, coordinates, mimeTypeFromHeader)) {
       return true;
     }
 
@@ -113,14 +116,13 @@ Future<bool> writeGpsToExif(
     return false;
   } else {
     //If exiftool is not installed
-    return _noExifGPSWriter(file, coordinates);
+    return _noExifGPSWriter(file, coordinates, mimeTypeFromHeader);
   }
 }
 
-Future<bool> _noExifToolDateTimeWriter(final File file, final DateTime dateTime) async {
+Future<bool> _noExifToolDateTimeWriter(final File file, final DateTime dateTime,
+    final String? mimeTypeFromHeader) async {
   final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
-  final List<int> headerBytes = await File(file.path).openRead(0, 128).first;
-  final String? mimeTypeFromHeader = lookupMimeType(file.path, headerBytes: headerBytes);
   final String? mimeTypeFromExtension = lookupMimeType(file.path);
   if (mimeTypeFromHeader == 'image/jpeg') {
     if (mimeTypeFromHeader != mimeTypeFromExtension) {
@@ -170,9 +172,7 @@ Future<bool> _noExifToolDateTimeWriter(final File file, final DateTime dateTime)
   return false;
 }
 
-Future<bool> _noExifGPSWriter(final File file, final DMSCoordinates coordinates) async {
-  final List<int> headerBytes = await File(file.path).openRead(0, 128).first;
-  final String? mimeTypeFromHeader = lookupMimeType(file.path, headerBytes: headerBytes);
+Future<bool> _noExifGPSWriter(final File file, final DMSCoordinates coordinates, final String? mimeTypeFromHeader) async {
   if (mimeTypeFromHeader == 'image/jpeg') {
     final String? mimeTypeFromExtension = lookupMimeType(file.path);
     if (mimeTypeFromHeader != mimeTypeFromExtension) {
