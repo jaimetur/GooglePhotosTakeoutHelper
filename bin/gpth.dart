@@ -698,14 +698,9 @@ Future<void> main(final List<String> arguments) async {
 
   // After all processing steps, before program exit we encode the emojis in album paths again.
   final outputDirs = output.listSync().whereType<Directory>();
-  final FillingBar barEmojiEncode = FillingBar(
-    total: outputFileCount(media, args['albums']),
-    desc: '[Step 8/8] Looking for folders with emojis and renaming them back.',
-    width: barWidth,
-  );
+  print('[Step 8/8] Encoding hex to emojis in album names again...');
   for (final dir in outputDirs) {
     final String decodedPath = decodeAndRestoreAlbumEmoji(dir.path);
-    barEmojiEncode.increment();
     if (decodedPath != dir.path) {
       dir.renameSync(decodedPath);
     }
