@@ -29,6 +29,7 @@ jobs:
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
       - name: Build exe
+        id: build_exe
         shell: bash
         run: |
           version=${{ steps.version.outputs.version }}
@@ -51,10 +52,11 @@ jobs:
           if [[ "$osname" == windows-* ]]; then
             outname="$outname.exe"
           fi
+          echo "outname=$outname" >> $GITHUB_OUTPUT
           dart compile exe bin/gpth.dart -o ./$outname
       - name: Upload exe as artifact
         uses: actions/upload-artifact@v4.6.2
         with:
-          name: gpth-v${{ steps.version.outputs.version }}-nightly-${{ matrix.os }}
-          path: ./gpth-v${{ steps.version.outputs.version }}-nightly-${{ matrix.os }}${{ contains(matrix.os, 'windows') && '.exe' || '' }}
+          name: ${{ steps.version.outputs.version }}-${{ steps.build_exe.outputs.outname }}
+          path: ./${{ steps.build_exe.outputs.outname }}
           if-no-files-found: error
