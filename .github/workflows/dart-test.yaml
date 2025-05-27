@@ -1,25 +1,47 @@
 # Main Dart tests and checks
-name: Dart tests
+name: Dart test
 
 on:
+  workflow_dispatch:
   push:
-    branches: [ master ]
+    branches: [main, prerelease]
   pull_request:
-    branches: [ master ]
-
+    branches: [main, prerelease]
 jobs:
-  tests:
-    runs-on: ubuntu-latest
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        sdk: [3.8]
+    
     steps:
-      - uses: actions/checkout@v3
-      - uses: dart-lang/setup-dart@v1
-      - run: dart pub get
-      - run: dart test
+      - uses: actions/checkout@v4.2.2
+      - uses: dart-lang/setup-dart@v1.7.1
+        with:
+          sdk: ${{ matrix.sdk }}
+
+      - name: Install exiftool (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y exiftool
+
+      - name: Install exiftool (macOS)
+        if: runner.os == 'macOS'
+        run: brew install exiftool
+
+      - name: Install exiftool (Windows)
+        if: runner.os == 'Windows'
+        run: choco install exiftool -y
+
+      - name: Install dependencies
+        run: dart pub get
+      - name: Run tests
+        run: dart test
   formatting-and-analysis:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: dart-lang/setup-dart@v1
+      - uses: actions/checkout@v4.2.2
+      - uses: dart-lang/setup-dart@v1.7.1
       - run: dart pub get
       - name: Verify formatting
         run: dart format --output=none --set-exit-if-changed .

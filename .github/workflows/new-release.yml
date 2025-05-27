@@ -1,5 +1,6 @@
 name: Build and publish new release on version tag
 on:
+  workflow_dispatch:
   push:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
@@ -8,7 +9,7 @@ jobs:
   make-release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4.2.2
       - name: Get clean tag name
         id: clean_tag
         run: echo "tag=$(echo ${{ github.ref }} | sed 's/refs\/tags\///')" >> $GITHUB_OUTPUT
@@ -19,7 +20,7 @@ jobs:
       #        id: tag_message
       #        run: echo "name=message=$(git tag -l --format='%(contents)' ${{ github.ref }})" >> $GITHUB_OUTPUT
       - name: Create GH-Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2.2.2
         with:
           body_path: ./body-file.txt
           fail_on_unmatched_files: true
@@ -28,67 +29,64 @@ jobs:
     needs: make-release
     strategy:
       matrix:
-        os: [ ubuntu-latest, macos-13, macos-latest, windows-latest ]
+        os: [ ubuntu-latest, macos-latest, windows-latest ]
+        arch: [x86_64, arm64]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4.2.2
       - name: Get clean tag name
         id: clean_tag
         run: echo "tag=$(echo ${{ github.ref }} | sed 's/refs\/tags\///')" >> $GITHUB_OUTPUT
-      - name: Get exe name
-        id: exe_name
+      - uses: dart-lang/setup-dart@v1.7.1
+      - run: dart pub get
+      - name: Get version
+        id: version
         shell: bash
         run: |
-          if [ "$RUNNER_OS" == "Linux" ]; then
-            echo "name=gpth-linux" >> $GITHUB_OUTPUT
-          elif [ "$RUNNER_OS" == "Windows" ]; then
-            echo "name=gpth-windoza.exe" >> $GITHUB_OUTPUT
-          elif [ "$RUNNER_OS" == "macOS" ]; then
-            arch=$(uname -m)
-            if [ "$arch" == "arm64" ]; then
-              echo "name=gpth-macos-arm64" >> $GITHUB_OUTPUT
-            elif [ "$arch" == "x86_64" ]; then
-              echo "name=gpth-macos-intel" >> $GITHUB_OUTPUT
-            else
-              echo "Unknown macOS architecture: $arch" >> $GITHUB_OUTPUT
-              exit 1
-            fi
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            VERSION=$(powershell -Command "(Get-Content pubspec.yaml | Select-String '^version:').ToString().Split(':')[1].Trim()")
           else
-            echo "Unknown OS: $RUNNER_OS"
-            exit 69
+            VERSION=$(grep '^version:' pubspec.yaml | head -n1 | cut -d' ' -f2)
           fi
-      - uses: dart-lang/setup-dart@v1
-      - run: dart pub get
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
       - name: Build exe
-        run: dart compile exe bin/gpth.dart -o ./${{ steps.exe_name.outputs.name }}
-      - name: Code sign a windoza exe file
-        if: matrix.os == 'windows-latest'
-        uses: dlemstra/code-sign-action@v1
-        with:
-          # Note: this is a self-signed certificate that i generated on my computer
-          # This is worthless i think, since windoza still get angry, but best i can do,
-          # because proper certificates cost money (a lot :/ )
-          certificate: ${{ secrets.WINDOZA_CERT_BASE64 }}
-          password: ${{ secrets.WINDOZA_CERT_PASSWORD }}
-          folder: '.'
+        shell: bash
+        run: |
+          version=${{ steps.version.outputs.version }}
+          osname=${{ matrix.os }}
+          archname=${{ matrix.arch }}
+          if [[ "$osname" == "ubuntu-latest" ]]; then
+            osname=linux
+          elif [[ "$osname" == "macos-latest" ]]; then
+            osname=macos
+          elif [[ "$osname" == "windows-latest" ]]; then
+            osname=windows
+          fi
+          outname=gpth-v$version-release-$osname-$archname
+          if [[ "$osname" == "windows" ]]; then
+            outname="$outname.exe"
+          fi
+          dart compile exe bin/gpth.dart -o ./$outname
       - name: Add files to GH-Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2.2.2
         with:
-          # this supports globs :>
-          files: ./gpth-*
+          files: |
+            ${{ runner.os == 'Linux' && format('./gpth-v{0}-release-linux-{1}', steps.version.outputs.version, matrix.arch) || '' }}
+            ${{ runner.os == 'macOS' && format('./gpth-v{0}-release-macos-{1}', steps.version.outputs.version, matrix.arch) || '' }}
+            ${{ runner.os == 'Windows' && format('./gpth-v{0}-release-windows-{1}.exe', steps.version.outputs.version, matrix.arch) || '' }}
           fail_on_unmatched_files: true
       # if linux, upload to aur
-      - name: Generate PKGBUILD
-        if: matrix.os == 'ubuntu-latest'
-        run: ./scripts/gen-pkgbuild.bash ./${{ steps.exe_name.outputs.name }}
-      - name: Upload to AUR
-        if: matrix.os == 'ubuntu-latest'
-        uses: KSXGitHub/github-actions-deploy-aur@v2
-        with:
-          pkgname: gpth-bin
-          pkgbuild: ./PKGBUILD
-          commit_username: 'TheLastGimbus'
-          commit_email: 'mateusz.soszynski@tuta.io'
-          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
-          commit_message: ${{ steps.clean_tag.outputs.tag }}
-          test: true
+      #- name: Generate PKGBUILD
+      #  if: matrix.os == 'ubuntu-latest'
+      #  run: ./scripts/gen-pkgbuild.bash ./gpth-${{ matrix.os }}-${{ matrix.arch }}
+      #- name: Upload to AUR
+      #  if: matrix.os == 'ubuntu-latest'
+      #  uses: KSXGitHub/github-actions-deploy-aur@v4.1.1
+      #  with:
+      #    pkgname: gpth-bin
+      #    pkgbuild: ./PKGBUILD
+      #    commit_username: 'TheLastGimbus'
+      #    commit_email: 'mateusz.soszynski@tuta.io'
+      #    ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+      #    commit_message: ${{ steps.clean_tag.outputs.tag }}
+      #    test: true

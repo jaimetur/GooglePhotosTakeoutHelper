@@ -7,9 +7,8 @@
 
 # Conventional directory for build output.
 build/
-
-photos/
-
-ALL_PHOTOS/
 output/
 *.log
+pubspec.lock
+/test/generated
+/test/.temp_exif

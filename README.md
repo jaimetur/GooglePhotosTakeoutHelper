@@ -33,7 +33,22 @@ If you want to run it on Synology, have problems with interactive, or just love 
    
 ### 3. Download the executable for your system from [releases tab](https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/releases) 🛒 ([also available on AUR 😏](https://aur.archlinux.org/packages/gpth-bin))
 
-### 4. Run `gpth`
+### 4. Install Exiftool
+    - On Windoza: download [exiftool for Windows](https://exiftool.org/) and put `exiftool(-k).exe` in the same folder as `gpth.exe`. Important! Rename it to `exiftool.exe`.
+      - Alternatively, you can install it with [Chocolatey](https://chocolatey.org/):
+        ```bash
+        choco install exiftool
+        ```
+    - On Mac: install with Homebrew:
+      ```bash
+      brew install exiftool
+      ```
+    - On Linux: install with your package manager, e.g. on Ubuntu:
+      ```bash
+      sudo apt install libimage-exiftool-perl
+      ```
+
+### 5. Run `gpth`
    - On Windoza: just double-click the downloaded `.exe` 🎉 - tell windoza defender that it's safe, and follow prompted instructions 🧾
    - On Mac/Linux: open terminal, `cd` to the folder with downloaded executable and run it:
      ```bash
@@ -52,18 +67,6 @@ If you want to run it on Synology, have problems with interactive, or just love 
      ```
 
    **Fun fact:** `gpth` *moves* files around by default - so if anything goes wrong mid-way, re-export the zips again :pray:
-     
-### 5. Most of your photos should have correct original EXIFs (metadata), but if you want, you can insert them everywhere with `exiftool`, so you won't lose their creation time
-   - Download Phil Harvey's exiftool: https://exiftool.sourceforge.net/
-   - Open the cmd/terminal, and run
-     ```bash
-     # cd to folder where you downloaded exiftool
-     cd Downloads
-     # run it on your output folder:
-     # (the '-r' means "run on all files/in sub-folders" aka recursively)
-     # (Make sure you didn't change file modify dates aka didn't do anything with the files after running gpth
-     exiftool -overwrite_original -r -if 'not defined DateTimeOriginal' -P "-AllDates<FileModifyDate" "your/output/folder/ALL_PHOTOS/"
-     ```
 
 Done! Enjoy your photos!!!
 
@@ -85,7 +88,7 @@ In that case:
      cd Downloads  # Most probably
      # run it, selecting input and output folders with options like this:
      # (you can try to drag and drop them)
-     gpth.exe --input "Downloads\you\input\folder" --output "C:\some\other\location" --albums "shortcut"
+     gpth.exe --write-exif --input "Downloads\you\input\folder" --output "C:\some\other\location" --albums "shortcut"
      # select which album solution you like - see --help for all of them
      # remember to use "" !
      ```
@@ -96,7 +99,7 @@ In that case:
      chmod +x gpth  # add execute permission
      # tell MacOS Gatekeeper to not worry
      xattr -r -d com.apple.quarantine gpth-macos
-     ./gpth --input "/some/input/folder" --output "other/output/folder" --albums "shortcut"
+     ./gpth --write-exif --input "/some/input/folder" --output "other/output/folder" --albums "shortcut"
      # select which album solution you like - see --help for all of them
      ```
 
@@ -133,6 +136,8 @@ https://github.com/vHanda/google-keep-exporter
 Yeah, the whole thing got re-written in Dart, and now it's way more stable and faster. If you still want Python for some reason, check out v2.x - in releases/tags
 
 ### TODO (Pull Requests welcome):
-- [ ] GPS data: from JSON to Exif - ~~Thank you @DalenW 💖~~ still thank you, but it is now missing in the Dart version
-- [ ] Writing data from `.json`s back to `EXIF` data
+- [x] GPS data: from JSON to Exif - ~~Thank you @DalenW 💖~~ - Implemented by @Xentraxx
+- [x] Writing data from `.json`s back to `EXIF` data - Implemented by @Xentraxx
 - [x] Some way to handle albums - THANK YOU @bitsondatadev 😘 🎉 💃
+- [ ] Bringing back interactive unzipping
+- [ ] Integrating upload to Nextcloud
