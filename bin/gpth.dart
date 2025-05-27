@@ -586,7 +586,7 @@ Future<void> main(final List<String> arguments) async {
   }
   sw5.stop();
   print(
-    '[Step 5/8] Step 5 took ${sw5.elapsed.inMinutes} minutes or ${sw5.elapsed.inSeconds} seconds to complete.',
+    '\n[Step 5/8] Step 5 took ${sw5.elapsed.inMinutes} minutes or ${sw5.elapsed.inSeconds} seconds to complete.',
   );
 
   /// ##############################################################
@@ -613,9 +613,8 @@ Future<void> main(final List<String> arguments) async {
     );
     await changeMPExtensions(media, '.mp4');
   } else {
-    print('[Step 6/8] Skipped changing .MP or .MV extensions to .mp4');
+    print('\n[Step 6/8] Skipped changing .MP or .MV extensions to .mp4');
   }
-  print('');
 
   /// ##############################################################
 
@@ -661,7 +660,7 @@ Future<void> main(final List<String> arguments) async {
         : num.parse(args['divide-to-dates']),
     albumBehavior: args['albums'],
   ).listen((final _) => barCopy.increment()).asFuture();
-  print('[Step 7/8] Done moving/copying media!');
+  print('\n[Step 7/8] Done moving/copying media!');
 
   // @Deprecated('Interactive unzipping is suspended for now!')
   // // remove unzipped folder if was created
@@ -698,7 +697,11 @@ Future<void> main(final List<String> arguments) async {
 
   // After all processing steps, before program exit we encode the emojis in album paths again.
   final outputDirs = output.listSync().whereType<Directory>();
-  print('[Step 8/8] Encoding hex to emojis in album names again...');
+  final FillingBar barEmojiEncode = FillingBar(
+    total: outputDirs.length,
+    desc: '[Step 8/8] Looking for folders with emojis and renaming them back.',
+    width: barWidth,
+  );
   for (final dir in outputDirs) {
     final String decodedPath = decodeAndRestoreAlbumEmoji(dir.path);
     if (decodedPath != dir.path) {
@@ -711,7 +714,7 @@ Future<void> main(final List<String> arguments) async {
   /// Now just the last message of the program, just displaying some stats so you have an overview of what happened.
   /// Also helps with testing because you can run a diverse and large dataset with the same options through a new version and expect the same (or better) stats.
   /// If they got worse, you did smth wrong.
-
+  print('');
   print('=' * barWidth);
   print('DONE! FREEEEEDOOOOM!!!');
   print('Some statistics for the achievement hunters:');

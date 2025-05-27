@@ -163,7 +163,8 @@ class ExiftoolInterface {
     final result = await Process.run(exiftoolPath, args);
     if (result.exitCode != 0) {
       log(
-        '[Step 5/8] Writing exif to file ${file.path} failed. ${result.stderr}',
+        '[Step 5/8] Writing exif to file ${file.path} failed.'
+            '\n${result.stderr.replaceAll(" - ${file.path.replaceAll('\\', '/')}", "")}',
         level: 'error',
         forcePrint: true,
       );
