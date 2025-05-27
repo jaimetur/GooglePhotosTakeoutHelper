@@ -854,9 +854,9 @@ AD/2gAMAwEAAhEDEQA/ACHIF3//2Q==''';
 
   group('Emoji folder end-to-end', () {
     test(
-      'process file in emoji folder: hex encode, exif read, shortcut/symlink, decode',
+      'process file in emoji folder: hex encode, exif read, exiftool write, shortcut/symlink, decode',
       () async {
-        const String emojiFolderName = 'test_💖';
+        const String emojiFolderName = '❤️❤️❤️';
         final Directory emojiDir = Directory(p.join(basepath, emojiFolderName));
         if (!emojiDir.existsSync()) emojiDir.createSync(recursive: true);
         final File img = File(p.join(emojiDir.path, 'img.jpg'));
@@ -866,7 +866,7 @@ AD/2gAMAwEAAhEDEQA/ACHIF3//2Q==''';
 
         // 1. Encode and rename folder
         final Directory hexNameDir = encodeAndRenameAlbumIfEmoji(emojiDir);
-        expect(hexNameDir.path.contains('_0x1f496_'), isTrue);
+        expect(hexNameDir.path.contains('_0x2764_'), isTrue);
         final Directory hexDir = Directory(
           p.join(emojiDir.parent.path, hexNameDir.path),
         );
@@ -877,6 +877,12 @@ AD/2gAMAwEAAhEDEQA/ACHIF3//2Q==''';
         // 2. Read EXIF from image in hex folder
         final DateTime? exifDate = await exifDateTimeExtractor(hexImg);
         expect(exifDate, DateTime.parse('2022-12-16 16:06:47'));
+
+        // Write using exiftool to hex_encoded folder
+        final Map<String, String> map = {};
+        map['Artist'] = 'TestArtist';
+        final result = await exiftool!.writeExifBatch(hexImg, map);
+        expect(result, isTrue);
 
         // 3. Create shortcut (Windows) or symlink (other platforms) to image
         final String symlinkPath = p.join(basepath, 'symlink-to-emoji-img.lnk');
