@@ -1,3 +1,13 @@
+## 4.0.3-xentraxx
+
+### Fork/Alternate version
+
+#### Bug fixes
+
+- Relying on the emoji-regex package to find all emojis
+- Added tests to find more emojis
+- Fixed github build actions
+
 ## 4.0.2-xentraxx
 
 ### Fork/Alternate version
