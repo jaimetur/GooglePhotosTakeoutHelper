@@ -1,17 +1,8 @@
-## 4.0.1-xentraxx
+## 4.0.1-wacheee-Xentraxx-beta
 
 ### Fork/Alternate version 
-
-- Fixed CloudMigrator integration by finding exiftool in more locations.
-- Fixed some typos
-- Fixed emoji to hex encoding and decoding and added support for BMP emojis in addition to surrowgate.
-- Fixed some tests
-
-## 4.0.0-wacheee (by Xentraxx)
-
-### Fork/Alternate version 
-
 ### This change is a big overhaul of the project, so only the major improvements or potential breaking changes are mentioned
+### This version was developed mainly by @Xentraxx (https://github.com/Xentraxx/)
 
 #### Tl;dr
 
@@ -21,6 +12,11 @@
 - Added support to get DateTime from .MOV, .MP4 and probably many other video formats through exiftool. You need to download it yourself (e.g. from here: https://exiftool.org/), rename it to exiftool.exe and make sure the folder you keep it in is in your $PATH variable or in the same folder as gpth.
 - Added verbose mode (--verbose or -v)
 - File size is not limited anymore by default but can be limited using the --limit-filesize flag for systems with low RAM (like a NAS).
+- Fixed CloudMigrator integration by finding exiftool in more locations.
+- Fixed some typos
+- Fixed emoji to hex encoding and decoding and added support for BMP emojis in addition to surrowgate.
+- Fixed some tests 
+
 
 #### General improvements
 
@@ -67,7 +63,14 @@
   - Option to write EXIF data to files (--write-exif)
   - Option to limit file size for systems with low RAM (--limit-filesize)
 
-##### *Previous fixes and improvement (from 3.4.3-wacheee to 4.0.0-wacheee)*
+#### Limitations
+- As mentioned on the PR https://github.com/Wacheee/GooglePhotosTakeoutHelper/pull/13#issuecomment-2910289503 this version can be slower than 3.6.x-wacheee in Windows because is using PowerShell to create shortcuts (FFI is causing heap exception)
+
+##
+<details>
+<summary>Previous fixes and improvements</summary>
+  
+#####  *Previous fixes and improvement (from 3.4.3-wacheee to 4.0.0-wacheee)*
 - *added macOS executables supporting both ARM64 and Intel architectures https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/issues/310 https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/issues/396#issuecomment-2787459117*
 - *fixed an exception when using GPTH with command-line arguments https://github.com/Wacheee/GooglePhotosTakeoutHelper/issues/5 https://github.com/Wacheee/GooglePhotosTakeoutHelper/issues/8*
 - *the "fix JSON metadata files" option can now be configured using command-line arguments https://github.com/Wacheee/GooglePhotosTakeoutHelper/issues/7 https://github.com/Wacheee/GooglePhotosTakeoutHelper/issues/9*
