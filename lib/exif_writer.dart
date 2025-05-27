@@ -127,8 +127,8 @@ Future<bool> _noExifToolDateTimeWriter(final File file, final DateTime dateTime,
   if (mimeTypeFromHeader == 'image/jpeg') {
     if (mimeTypeFromHeader != mimeTypeFromExtension) {
       log(
-        "File has a wrong extension indicating '$mimeTypeFromExtension'"
-            " but actually it is '$mimeTypeFromHeader'. Will use native JPEG writer.     \n ${file.path}",
+        "DateWriter - File has a wrong extension indicating '$mimeTypeFromExtension'"
+            " but actually it is '$mimeTypeFromHeader'. Will use native JPEG writer.\n ${file.path}",
         level: 'warning',
         forcePrint: true
       );
@@ -177,8 +177,8 @@ Future<bool> _noExifGPSWriter(final File file, final DMSCoordinates coordinates,
     final String? mimeTypeFromExtension = lookupMimeType(file.path);
     if (mimeTypeFromHeader != mimeTypeFromExtension) {
       log(
-        "File has a wrong extension corresponding to '$mimeTypeFromExtension'"
-            " but actually it is '$mimeTypeFromHeader'. Will use native JPEG writer.     \n ${file.path}",
+        "GPSWriter - File has a wrong extension indicating '$mimeTypeFromExtension'"
+            " but actually it is '$mimeTypeFromHeader'. Will use native JPEG writer. \n ${file.path}",
         level: 'warning',
         forcePrint: true
       );
