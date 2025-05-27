@@ -27,8 +27,8 @@ Future<DateTime?> exifDateTimeExtractor(final File file) async {
   // 1. If the mimeType is supported by exif_reader, we use the exif_reader library to read exif. If that fails, exiftool is still used as a fallback, cause it's worth a try.
   // 2. If the mimeType is not supported by exif_reader or null, we try exiftool and don't even attempt exif_reader, because it would be pointless.
 
-  //We only read the first 4096 bytes as that's sufficient for MIME type detection
-  final List<int> headerBytes = await File(file.path).openRead(0, 4096).first;
+  //We only read the first 128 bytes as that's sufficient for MIME type detection
+  final List<int> headerBytes = await File(file.path).openRead(0, 128).first;
 
   //Getting mimeType.
   final String? mimeType = lookupMimeType(file.path, headerBytes: headerBytes);
