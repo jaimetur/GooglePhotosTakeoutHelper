@@ -164,7 +164,7 @@ class ExiftoolInterface {
     if (result.exitCode != 0) {
       log(
         '[Step 5/8] Writing exif to file ${file.path} failed.'
-            '\n${result.stderr.replaceAll(" - ${file.path.replaceAll('\\', '/')}", "")}',
+        '\n${result.stderr.replaceAll(" - ${file.path.replaceAll('\\', '/')}", "")}',
         level: 'error',
         forcePrint: true,
       );
