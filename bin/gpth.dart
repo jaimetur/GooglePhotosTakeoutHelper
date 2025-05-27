@@ -704,6 +704,7 @@ Future<void> main(final List<String> arguments) async {
   );
   for (final dir in outputDirs) {
     final String decodedPath = decodeAndRestoreAlbumEmoji(dir.path);
+    barEmojiEncode.increment();
     if (decodedPath != dir.path) {
       dir.renameSync(decodedPath);
     }
