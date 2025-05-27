@@ -689,14 +689,13 @@ Future<void> main(final List<String> arguments) async {
   } else {
     print('[Step 8/8] Skipping: Updating creation time (Windows only)');
   }
-  print('');
   sw8.stop();
   log(
-    '[Step 8/8] Step 6 took ${sw8.elapsed.inMinutes} minutes or ${sw8.elapsed.inSeconds} seconds to complete.',
+    '\n[Step 8/8] Step 6 took ${sw8.elapsed.inMinutes} minutes or ${sw8.elapsed.inSeconds} seconds to complete.',
   );
 
   // After all processing steps, before program exit we encode the emojis in album paths again.
-  final outputDirs = output.listSync().whereType<Directory>();
+  final outputDirs = output.listSync(recursive: true).whereType<Directory>();
   final FillingBar barEmojiEncode = FillingBar(
     total: outputDirs.length,
     desc: '[Step 8/8] Looking for folders with emojis and renaming them back.',
@@ -708,6 +707,7 @@ Future<void> main(final List<String> arguments) async {
     if (decodedPath != dir.path) {
       dir.renameSync(decodedPath);
     }
+    barEmojiEncode.increment();
   }
 
   /// ##############################################################
