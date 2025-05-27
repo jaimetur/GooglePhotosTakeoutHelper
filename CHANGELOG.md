@@ -12,7 +12,7 @@
 - Added support to get DateTime from .MOV, .MP4 and probably many other video formats through exiftool. You need to download it yourself (e.g. from here: https://exiftool.org/), rename it to exiftool.exe and make sure the folder you keep it in is in your $PATH variable or in the same folder as gpth.
 - Added verbose mode (--verbose or -v)
 - File size is not limited anymore by default but can be limited using the --limit-filesize flag for systems with low RAM (like a NAS).
-- Fixed CloudMigrator integration by finding exiftool in more locations.
+- Fixed [PhotoMigrator](https://github.com/jaimetur/PhotoMigrator) integration by finding exiftool in more locations.
 - Fixed some typos
 - Fixed emoji to hex encoding and decoding and added support for BMP emojis in addition to surrowgate.
 - Fixed some tests 
