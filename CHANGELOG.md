@@ -7,6 +7,9 @@
 - Relying on the emoji-regex package to find all emojis
 - Added tests to find more emojis
 - Fixed github build actions
+- Fixed emoji logic to handle inivible characters (by @ireun (Thank you!))
+- Made output nicer and fixed wrong mimeType lookup where exiftool would fail (by @ireun (Thank you!))
+- Using ubuntu-22.04 instead of ubuntu-latest to build for legacy compatibility with old Synology NAS (thanks to @jaimetur)
 
 ## 4.0.2-xentraxx
 
