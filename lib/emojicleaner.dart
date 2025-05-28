@@ -9,7 +9,9 @@ import 'utils.dart';
 /// Returns the new (possibly hex-encoded) directory.
 Directory encodeAndRenameAlbumIfEmoji(final Directory albumDir) {
   final String originalName = p.basename(albumDir.path);
-  if (!r.emojiRegex().hasMatch(originalName)) {
+  if (!r.emojiRegex().hasMatch(originalName) ||
+      RegExp(r'\u{FE0F}|\u{FE0E}', unicode: true).hasMatch(originalName)) {
+    //Check for emojis or invisible character
     return albumDir;
   }
 
@@ -36,7 +38,8 @@ Directory encodeAndRenameAlbumIfEmoji(final Directory albumDir) {
     }
 
     // Handle BMP emoji
-    if (r.emojiRegex().hasMatch(char)) {
+    if (r.emojiRegex().hasMatch(char) ||
+        RegExp(r'\u{FE0F}|\u{FE0E}', unicode: true).hasMatch(originalName)) {
       cleanName.write('_0x${codeUnit.toRadixString(16)}_');
     } else {
       cleanName.write(char);
