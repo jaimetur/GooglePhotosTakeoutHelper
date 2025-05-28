@@ -1,3 +1,11 @@
+## 4.0.4-xentraxx
+
+### Fork/Alternate version
+
+#### Bug fixes
+
+- Changed Github actions from Ubuntu 24.04 to 22.04 for legacy Synology NAS support
+
 ## 4.0.3-xentraxx
 
 ### Fork/Alternate version

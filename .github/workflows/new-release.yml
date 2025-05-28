@@ -36,9 +36,9 @@ jobs:
             arch: arm64
             runs-on: macos-latest
           # Linux
-          - os: ubuntu-24.04
+          - os: ubuntu-22.04
             arch: x86_64
-            runs-on: ubuntu-24.04
+            runs-on: ubuntu-22.04
           - os: ubuntu-24.04-arm
             arch: arm64
             runs-on: ubuntu-24.04-arm
@@ -71,7 +71,7 @@ jobs:
           version=${{ steps.version.outputs.version }}
           osname=${{ matrix.os }}
           # Normalize osname and append arch for output file
-          if [[ "$osname" == "ubuntu-24.04" ]]; then
+          if [[ "$osname" == "ubuntu-22.04" ]]; then
             osname=linux-x86_64
           elif [[ "$osname" == "ubuntu-24.04-arm" ]]; then
             osname=linux-arm64
@@ -98,10 +98,10 @@ jobs:
           if-no-files-found: error
       # if linux, upload to aur
       #- name: Generate PKGBUILD
-      #  if: matrix.os == 'ubuntu-24.04'
+      #  if: matrix.os == 'ubuntu-22.04'
       #  run: ./scripts/gen-pkgbuild.bash ./gpth-${{ matrix.os }}-${{ matrix.arch }}
       #- name: Upload to AUR
-      #  if: matrix.os == 'ubuntu-24.04'
+      #  if: matrix.os == 'ubuntu-22.04'
       #  uses: KSXGitHub/github-actions-deploy-aur@v4.1.1
       #  with:
       #    pkgname: gpth-bin
