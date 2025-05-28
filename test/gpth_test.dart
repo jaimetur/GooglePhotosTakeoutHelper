@@ -868,6 +868,7 @@ AD/2gAMAwEAAhEDEQA/ACHIF3//2Q==''';
         final Directory hexNameDir = encodeAndRenameAlbumIfEmoji(emojiDir);
         expect(hexNameDir.path.contains('_0x1f496_'), isTrue);
         expect(hexNameDir.path.contains('_0x2764_'), isTrue);
+        expect(hexNameDir.path.contains('_0xfe0f_'), isTrue);
         final Directory hexDir = Directory(
           p.join(emojiDir.parent.path, hexNameDir.path),
         );
