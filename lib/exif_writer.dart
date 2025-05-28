@@ -13,7 +13,10 @@ Future<bool> writeDateTimeToExif(
   final File file,
 ) async {
   final List<int> headerBytes = await File(file.path).openRead(0, 128).first;
-  final String? mimeTypeFromHeader = lookupMimeType(file.path, headerBytes: headerBytes);
+  final String? mimeTypeFromHeader = lookupMimeType(
+    file.path,
+    headerBytes: headerBytes,
+  );
   final String? mimeTypeFromExtension = lookupMimeType(file.path);
 
   //Check if the file already has a dateTime in its EXIF data. If function returns a DateTime, there is no need to write it again. Skip.
@@ -23,15 +26,16 @@ Future<bool> writeDateTimeToExif(
 
   if (exifToolInstalled) {
     //Even if exifTool is installed, try to use native way for speed first and if it works keep going. If not, use exiftool.
-    if (mimeTypeFromHeader == 'image/jpeg' && await _noExifToolDateTimeWriter(file, dateTime, mimeTypeFromHeader)) {
+    if (mimeTypeFromHeader == 'image/jpeg' &&
+        await _noExifToolDateTimeWriter(file, dateTime, mimeTypeFromHeader)) {
       return true; //If native way was able to write exif data: exit. If not, try exifTool.
     }
 
     if (mimeTypeFromExtension != mimeTypeFromHeader) {
       log(
-          "DateWriter - File has a wrong extension indicating '$mimeTypeFromExtension' but actually it is '$mimeTypeFromHeader'. Exiftool would fail, skipping.\n ${file.path}",
-          level: 'error',
-          forcePrint: true
+        "DateWriter - File has a wrong extension indicating '$mimeTypeFromExtension' but actually it is '$mimeTypeFromHeader'. Exiftool would fail, skipping.\n ${file.path}",
+        level: 'error',
+        forcePrint: true,
       );
       return false;
     }
@@ -65,22 +69,25 @@ Future<bool> writeGpsToExif(
   final DMSCoordinates coordinates,
   final File file,
 ) async {
-
   final List<int> headerBytes = await File(file.path).openRead(0, 128).first;
-  final String? mimeTypeFromHeader = lookupMimeType(file.path, headerBytes: headerBytes);
+  final String? mimeTypeFromHeader = lookupMimeType(
+    file.path,
+    headerBytes: headerBytes,
+  );
 
   if (exifToolInstalled) {
     final String? mimeTypeFromExtension = lookupMimeType(file.path);
     //Even if exifTool is installed, try to use native way for speed first and if it works keep going. If not, use exiftool.
-    if (mimeTypeFromHeader == 'image/jpeg' && await _noExifGPSWriter(file, coordinates, mimeTypeFromHeader)) {
+    if (mimeTypeFromHeader == 'image/jpeg' &&
+        await _noExifGPSWriter(file, coordinates, mimeTypeFromHeader)) {
       return true;
     }
 
     if (mimeTypeFromExtension != mimeTypeFromHeader) {
       log(
-          "GPSWriter - File has a wrong extension indicating '$mimeTypeFromExtension' but actually it is '$mimeTypeFromHeader'. Exiftool would fail, skipping.\n ${file.path}",
-          level: 'error',
-          forcePrint: true
+        "GPSWriter - File has a wrong extension indicating '$mimeTypeFromExtension' but actually it is '$mimeTypeFromHeader'. Exiftool would fail, skipping.\n ${file.path}",
+        level: 'error',
+        forcePrint: true,
       );
       return false;
     }
@@ -122,16 +129,19 @@ Future<bool> writeGpsToExif(
   }
 }
 
-Future<bool> _noExifToolDateTimeWriter(final File file, final DateTime dateTime,
-    final String? mimeTypeFromHeader) async {
+Future<bool> _noExifToolDateTimeWriter(
+  final File file,
+  final DateTime dateTime,
+  final String? mimeTypeFromHeader,
+) async {
   final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
   final String? mimeTypeFromExtension = lookupMimeType(file.path);
   if (mimeTypeFromHeader == 'image/jpeg') {
     if (mimeTypeFromHeader != mimeTypeFromExtension) {
       log(
         "DateWriter - File has a wrong extension indicating '$mimeTypeFromExtension'"
-            " but actually it is '$mimeTypeFromHeader'. Will use native JPEG writer.\n ${file.path}",
-        level: 'warning'
+        " but actually it is '$mimeTypeFromHeader'. Will use native JPEG writer.\n ${file.path}",
+        level: 'warning',
       );
     }
     //when it's a jpg and the image library can handle it
@@ -173,14 +183,18 @@ Future<bool> _noExifToolDateTimeWriter(final File file, final DateTime dateTime,
   return false;
 }
 
-Future<bool> _noExifGPSWriter(final File file, final DMSCoordinates coordinates, final String? mimeTypeFromHeader) async {
+Future<bool> _noExifGPSWriter(
+  final File file,
+  final DMSCoordinates coordinates,
+  final String? mimeTypeFromHeader,
+) async {
   if (mimeTypeFromHeader == 'image/jpeg') {
     final String? mimeTypeFromExtension = lookupMimeType(file.path);
     if (mimeTypeFromHeader != mimeTypeFromExtension) {
       log(
         "GPSWriter - File has a wrong extension indicating '$mimeTypeFromExtension'"
-            " but actually it is '$mimeTypeFromHeader'. Will use native JPEG writer. \n ${file.path}",
-        level: 'warning'
+        " but actually it is '$mimeTypeFromHeader'. Will use native JPEG writer. \n ${file.path}",
+        level: 'warning',
       );
     }
     //when it's a jpg and the image library can handle it
