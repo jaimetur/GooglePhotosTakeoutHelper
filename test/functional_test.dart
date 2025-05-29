@@ -4,6 +4,21 @@
 /// Google Photos Takeout Helper's album handling and file movement options
 /// as described in the README.md documentation.
 ///
+/// ## Test Architecture
+///
+/// These tests simulate real Google Takeout structures with:
+/// - Year folders (Photos from YYYY) containing original photos
+/// - Album folders containing duplicate copies of photos
+/// - JSON metadata files with photo timestamps
+/// - Album-only photos that exist only in album folders
+/// - Complex multi-album photo relationships
+///
+/// Each test validates end-to-end behavior by:
+/// 1. Creating realistic input structures
+/// 2. Processing media through the application pipeline
+/// 3. Verifying output structure and file relationships
+/// 4. Validating data integrity and performance characteristics
+///
 /// ## Album Handling Functional Tests
 ///
 /// ### Shortcut Mode (Recommended)
@@ -91,6 +106,18 @@ void main() {
     late List<Media> testMedia;
 
     /// Creates a realistic Google Takeout structure for testing
+    ///
+    /// This method simulates the exact structure that Google Takeout creates:
+    /// - Year folders containing original photos with JSON metadata
+    /// - Album folders containing duplicate copies of photos
+    /// - Album-only photos that don't exist in year folders
+    /// - Multi-album photos that appear in several albums
+    ///
+    /// The test structure includes:
+    /// - 4 photos in year folders (2020, 2022, 2023)
+    /// - 3 album folders with overlapping photo memberships
+    /// - 1 album-only photo for edge case testing
+    /// - Proper JSON metadata files with realistic timestamps
     Future<void> createTakeoutStructure() async {
       // Create year folders structure
       final year2020Dir = fixture.createDirectory('Photos from 2020');
@@ -260,6 +287,15 @@ void main() {
     });
 
     group('Album Handling - Shortcut Mode', () {
+      /// Tests the recommended shortcut mode which optimizes disk space
+      /// by creating shortcuts/symlinks from album folders to ALL_PHOTOS.
+      ///
+      /// This test validates:
+      /// - All original photos are moved to ALL_PHOTOS directory
+      /// - Album folders contain shortcuts/symlinks pointing to ALL_PHOTOS files
+      /// - No duplicate files exist (space efficient)
+      /// - Cross-platform compatibility (Windows .lnk vs Unix symlinks)
+      /// - Album organization is preserved through shortcuts
       test('creates shortcuts from album folders to ALL_PHOTOS files', () async {
         // Execute shortcut mode
         await moveFiles(
@@ -330,6 +366,13 @@ void main() {
         expect(nonShortcutFiles.length, equals(5));
       });
 
+      /// Verifies that album organization is preserved when using shortcuts.
+      ///
+      /// This test ensures:
+      /// - Each album folder contains the correct number of shortcuts
+      /// - Shortcuts correspond to photos that were actually in those albums
+      /// - Album structure matches the original Google Takeout organization
+      /// - No album associations are lost during processing
       test('preserves album organization with shortcuts', () async {
         await moveFiles(
           testMedia,
@@ -363,6 +406,15 @@ void main() {
         expect(holidayItems.length, equals(1));
       });
 
+      /// Tests handling of album-only photos (photos that exist only in albums,
+      /// not in year folders) in shortcut mode.
+      ///
+      /// Album-only photos are an edge case where Google Takeout includes
+      /// photos in album folders that don't have corresponding files in
+      /// year folders. This test validates:
+      /// - Album-only photos are moved to ALL_PHOTOS
+      /// - Shortcuts are created in the original album folders
+      /// - These photos are not lost during processing
       test('handles album-only photos correctly in shortcut mode', () async {
         await moveFiles(
           testMedia,
@@ -397,6 +449,14 @@ void main() {
     });
 
     group('Album Handling - Duplicate Copy Mode', () {
+      /// Tests duplicate copy mode which creates physical file copies
+      /// in both ALL_PHOTOS and each album folder.
+      ///
+      /// This mode provides maximum compatibility and independence:
+      /// - Each photo exists as a separate physical file in every location
+      /// - Album folders are completely independent of ALL_PHOTOS
+      /// - Compatible with all systems and applications
+      /// - Uses more disk space but provides complete redundancy
       test(
         'creates physical copies in both ALL_PHOTOS and album folders',
         () async {
@@ -454,6 +514,13 @@ void main() {
         },
       );
 
+      /// Validates that duplicate copies have identical content to ensure
+      /// data integrity across all file copies.
+      ///
+      /// This test verifies:
+      /// - All copies of the same photo have identical byte content
+      /// - No corruption occurs during the copying process
+      /// - File integrity is maintained across multiple copies
       test('ensures duplicate copies have identical content', () async {
         await moveFiles(
           testMedia,
@@ -493,6 +560,14 @@ void main() {
         }
       });
 
+      /// Tests the independence feature of duplicate copy mode where
+      /// album folders can be deleted without affecting ALL_PHOTOS.
+      ///
+      /// This validates the key benefit of duplicate copy mode:
+      /// - Album folders can be deleted independently
+      /// - ALL_PHOTOS remains intact and complete
+      /// - No dependencies exist between folders
+      /// - Complete backup safety is provided
       test('provides complete independence between folders', () async {
         await moveFiles(
           testMedia,
@@ -529,6 +604,14 @@ void main() {
     });
 
     group('Album Handling - Reverse Shortcut Mode', () {
+      /// Tests reverse shortcut mode where files remain in album folders
+      /// and shortcuts are created in ALL_PHOTOS pointing to albums.
+      ///
+      /// This mode preserves album-centric organization:
+      /// - Original files stay in their album folders
+      /// - ALL_PHOTOS contains shortcuts to album files
+      /// - Album organization takes priority over centralized storage
+      /// - Useful when album structure is more important than centralization
       test(
         'keeps files in album folders with shortcuts in ALL_PHOTOS',
         () async {
@@ -582,6 +665,13 @@ void main() {
         },
       );
 
+      /// Validates that album-centric organization is preserved in reverse
+      /// shortcut mode, with actual files remaining in album folders.
+      ///
+      /// This test ensures:
+      /// - Album folders contain actual files, not shortcuts
+      /// - File locations respect the original album organization
+      /// - ALL_PHOTOS serves as a convenient access point via shortcuts
       test('preserves album-centric organization', () async {
         await moveFiles(
           testMedia,
@@ -615,6 +705,15 @@ void main() {
         expect(familyFiles.length, greaterThan(0));
       });
 
+      /// Tests handling of photos that appear in multiple albums to ensure
+      /// only one physical copy exists while maintaining access from all albums.
+      ///
+      /// For multi-album photos, this mode must decide where to place the
+      /// single physical copy while ensuring all albums can access it.
+      /// This test validates:
+      /// - Only one physical copy exists for each unique photo
+      /// - Shortcuts provide access from multiple album locations
+      /// - No duplicate physical files are created
       test('handles single copy for multi-album photos', () async {
         await moveFiles(
           testMedia,
@@ -653,6 +752,15 @@ void main() {
     });
 
     group('Album Handling - JSON Mode', () {
+      /// Tests JSON mode which creates the most space-efficient organization
+      /// with all files in ALL_PHOTOS and album metadata in JSON format.
+      ///
+      /// JSON mode provides:
+      /// - Single ALL_PHOTOS folder with all photos
+      /// - albums-info.json containing album association metadata
+      /// - Most space-efficient option (no duplicates, no shortcuts)
+      /// - Programmatically accessible album information
+      /// - Simple, clean folder structure
       test('creates single ALL_PHOTOS folder with albums-info.json', () async {
         await moveFiles(
           testMedia,
@@ -694,6 +802,14 @@ void main() {
         expect(allPhotosFiles.length, equals(5));
       });
 
+      /// Validates that the albums-info.json file contains correct metadata
+      /// about which photos belong to which albums.
+      ///
+      /// The JSON file should provide:
+      /// - Complete mapping of photos to their album memberships
+      /// - Accurate album names and associations
+      /// - Structured data for programmatic access
+      /// - No loss of album organization information
       test('generates correct album metadata in JSON', () async {
         await moveFiles(
           testMedia,
@@ -745,6 +861,14 @@ void main() {
         expect(foundAlbumOnlyPhoto, isTrue);
       });
 
+      /// Verifies that JSON mode provides the most space-efficient organization
+      /// with minimal file duplication and simple structure.
+      ///
+      /// Space efficiency characteristics:
+      /// - Each photo appears only once as a physical file
+      /// - No shortcuts or symlinks (minimal filesystem overhead)
+      /// - Single directory structure (simple navigation)
+      /// - Metadata stored efficiently in JSON format
       test('provides most space-efficient organization', () async {
         await moveFiles(
           testMedia,
@@ -774,6 +898,15 @@ void main() {
     });
 
     group('Album Handling - Nothing Mode', () {
+      /// Tests nothing mode which ignores albums entirely and creates
+      /// only ALL_PHOTOS with files from year folders.
+      ///
+      /// Nothing mode provides:
+      /// - Simplest possible processing (fastest execution)
+      /// - Only ALL_PHOTOS directory created
+      /// - Files from year folders only (album info discarded)
+      /// - Clean, single-folder result
+      /// - Complete loss of album organization (intentional)
       test('ignores albums and creates only ALL_PHOTOS', () async {
         await moveFiles(
           testMedia,
@@ -805,6 +938,14 @@ void main() {
         expect(allFiles.length, equals(yearFolderPhotos));
       });
 
+      /// Validates that nothing mode provides the fastest execution
+      /// with the cleanest, simplest result structure.
+      ///
+      /// Performance and simplicity characteristics:
+      /// - Minimal processing overhead (no album handling)
+      /// - Single directory output (simplest structure)
+      /// - Fastest execution time
+      /// - No complex file relationships to manage
       test('provides fastest execution with clean result', () async {
         final stopwatch = Stopwatch()..start();
 
@@ -837,6 +978,14 @@ void main() {
         expect(files.length, equals(expectedFileCount));
       });
 
+      /// Verifies that album organization is completely lost in nothing mode,
+      /// which is the intended behavior for users who don't want albums.
+      ///
+      /// This test confirms:
+      /// - No album folders are created
+      /// - No album metadata is preserved
+      /// - Only year folder files are processed
+      /// - Album-only photos are excluded (unless linkable to year folders)
       test('completely loses album organization', () async {
         await moveFiles(
           testMedia,
@@ -871,6 +1020,15 @@ void main() {
     });
 
     group('File Movement - Copy vs Move Mode', () {
+      /// Tests copy mode which preserves the original Google Takeout structure
+      /// while creating the organized output structure.
+      ///
+      /// Copy mode characteristics:
+      /// - Original files remain in their takeout locations
+      /// - New organized structure is created separately
+      /// - Safer option for preserving backups
+      /// - Uses more disk space (original + organized)
+      /// - Slower processing due to file copying
       test('copy mode preserves original takeout structure', () async {
         // Create reference to original files before processing
         final originalFiles = <String, bool>{};
@@ -907,6 +1065,15 @@ void main() {
         expect(outputFiles.length, greaterThan(0));
       });
 
+      /// Tests move mode which removes original files to save disk space
+      /// while creating the organized structure.
+      ///
+      /// Move mode characteristics:
+      /// - Original files are moved (not copied) to new locations
+      /// - Faster processing (no file copying)
+      /// - More space efficient (no duplication)
+      /// - Original takeout structure is modified
+      /// - Default mode for most users
       test('move mode removes original files to save space', () async {
         // Create reference to original files before processing
         final originalFilePaths = <String>[];
@@ -950,6 +1117,14 @@ void main() {
         expect(movedFiles, greaterThan(0));
       });
 
+      /// Validates file operation safety and data integrity for both
+      /// copy and move modes to ensure no data corruption occurs.
+      ///
+      /// Safety and integrity checks:
+      /// - File content remains identical after operations
+      /// - File sizes are preserved correctly
+      /// - No corruption occurs during file operations
+      /// - Error handling prevents data loss
       test('validates file operation safety and integrity', () async {
         // Test with a specific file to ensure content integrity
         final testFile = fixture.createImageWithExif('integrity_test.jpg');
@@ -996,6 +1171,15 @@ void main() {
     });
 
     group('Complex Integration Scenarios', () {
+      /// Tests handling of photos that appear in multiple albums with
+      /// different album behaviors to ensure correct processing.
+      ///
+      /// Multi-album photos are common in Google Takeout and present
+      /// complex scenarios for organization. This test validates:
+      /// - Photos appearing in 3+ albums are handled correctly
+      /// - Album behaviors work properly with multi-album relationships
+      /// - No duplicate processing or file corruption occurs
+      /// - All album associations are preserved correctly
       test(
         'handles photos in multiple albums with different behaviors',
         () async {
@@ -1074,6 +1258,15 @@ void main() {
         },
       );
 
+      /// Tests processing of various file types and naming conventions
+      /// to ensure compatibility with diverse Google Photos exports.
+      ///
+      /// Google Photos creates files with various naming patterns:
+      /// - Screenshots (Screenshot_YYYYMMDD-HHMMSS.jpg)
+      /// - Motion photos (MVIMG_YYYYMMDD_HHMMSS.jpg)
+      /// - Edited photos (IMG_YYYYMMDD_HHMMSS-edited.jpg)
+      /// - Unicode characters in filenames
+      /// This test validates all patterns are handled correctly.
       test('handles mixed file types and naming conventions', () async {
         // Create files with various naming patterns
         final screenshotFile = fixture.createImageWithExif(
@@ -1134,6 +1327,14 @@ void main() {
         expect(fileNames, contains('Urlaub_in_München_🏔️.jpg'));
       });
 
+      /// Tests performance characteristics with a large number of files
+      /// to ensure the application scales appropriately.
+      ///
+      /// Performance testing validates:
+      /// - Processing time scales reasonably with file count
+      /// - Memory usage remains manageable
+      /// - No performance degradation with large collections
+      /// - All files are processed correctly regardless of collection size
       test('performance with large number of files', () async {
         // Create a large number of test files for performance testing
         final largeMediaList = <Media>[];
@@ -1183,6 +1384,15 @@ void main() {
     });
 
     group('Error Handling and Edge Cases', () {
+      /// Tests graceful handling of corrupt or inaccessible files
+      /// to ensure the application doesn't crash on problematic files.
+      ///
+      /// Real-world scenarios may include:
+      /// - Corrupt files in the takeout
+      /// - Files with permission issues
+      /// - Files locked by other applications
+      /// - Network storage connectivity issues
+      /// This test validates robust error handling.
       test('handles corrupt or inaccessible files gracefully', () async {
         // Create a file and then make it inaccessible (if possible)
         final testFile = fixture.createImageWithExif('test_file.jpg');
@@ -1208,6 +1418,14 @@ void main() {
         }, returnsNormally);
       });
 
+      /// Tests behavior when insufficient disk space is available
+      /// to ensure graceful degradation rather than crashes.
+      ///
+      /// Disk space scenarios include:
+      /// - Insufficient space for copying large collections
+      /// - Disk space exhaustion during processing
+      /// - Temporary space issues during file operations
+      /// The application should handle these gracefully.
       test('handles insufficient disk space scenarios', () async {
         // This is difficult to test without actually filling up disk space
         // But we can verify the error handling mechanisms are in place
@@ -1234,6 +1452,14 @@ void main() {
         }, returnsNormally);
       });
 
+      /// Validates cross-platform compatibility for shortcuts and symlinks
+      /// to ensure the application works correctly on all supported platforms.
+      ///
+      /// Platform-specific features tested:
+      /// - Windows .lnk shortcut creation and functionality
+      /// - Unix/Linux/macOS symlink creation and functionality
+      /// - File path handling across different filesystems
+      /// - Character encoding compatibility
       test('validates cross-platform compatibility', () async {
         // Test platform-specific features
         final testFile = fixture.createImageWithExif('platform_test.jpg');
