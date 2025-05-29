@@ -36,18 +36,24 @@ Unzip all files and merge them so you have one unified "Takeout" folder.
 **ExifTool** (required for metadata handling):
 
 - **Windows**: Download from [exiftool.org](https://exiftool.org/) and rename `exiftool(-k).exe` to `exiftool.exe`
+  - Place `exiftool.exe` in your system PATH, or
+  - Place `exiftool.exe` in the same folder as `gpth.exe`
   ```bash
-  # Or with Chocolatey:
+  # Or with Chocolatey (automatically adds to PATH):
   choco install exiftool
   ```
 - **Mac**: 
   ```bash
   brew install exiftool
   ```
+  - Or download from [exiftool.org](https://exiftool.org/) and place `exiftool` in PATH or same folder as `gpth`
 - **Linux**: 
   ```bash
   sudo apt install libimage-exiftool-perl
   ```
+  - Or download from [exiftool.org](https://exiftool.org/) and place `exiftool` in PATH or same folder as `gpth`
+
+**Note**: If ExifTool is not found in PATH or the same directory as GPTH, the tool will fall back to basic EXIF reading with limited format support.
 
 ### 4. Download and Run GPTH
 
