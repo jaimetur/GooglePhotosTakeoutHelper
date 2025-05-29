@@ -1,3 +1,5 @@
+// Tests for Media class, grouping, duplicate detection, and extras.
+
 // ignore_for_file: avoid_redundant_argument_values
 
 import 'dart:io';
@@ -21,6 +23,7 @@ void main() {
     });
 
     group('Media Class', () {
+      /// Should create Media object with required properties.
       test('creates Media object with required properties', () {
         final file = fixture.createFile('test.jpg', [1, 2, 3]);
         final media = Media({null: file});
@@ -31,6 +34,7 @@ void main() {
         expect(media.dateTakenAccuracy, isNull);
       });
 
+      /// Should create Media object with date information.
       test('creates Media object with date information', () {
         final file = fixture.createFile('test.jpg', [1, 2, 3]);
         final date = DateTime(2023, 1);
@@ -44,6 +48,7 @@ void main() {
         expect(media.dateTakenAccuracy, 1);
       });
 
+      /// Should compute hash property correctly for small files.
       test('hash property works correctly for small files', () {
         final file1 = fixture.createFile('test1.jpg', [1, 2, 3]);
         final file2 = fixture.createFile('test2.jpg', [1, 2, 3]);
@@ -57,6 +62,7 @@ void main() {
         expect(media1.hash, isNot(media3.hash));
       });
 
+      /// Should provide a useful string representation.
       test('toString provides useful representation', () {
         final file = fixture.createFile('test.jpg', [1, 2, 3]);
         final date = DateTime(2023, 1);
@@ -74,6 +80,7 @@ void main() {
     });
 
     group('Duplicate Detection', () {
+      /// Should remove exact duplicates, keeping the best accuracy.
       test('removes exact duplicates', () {
         final file1 = fixture.createFile('test1.jpg', [1, 2, 3]);
         final file2 = fixture.createFile('test2.jpg', [
@@ -120,6 +127,7 @@ void main() {
         );
       });
 
+      /// Should group identical files by size and hash.
       test('groupIdentical groups files by size and hash', () {
         final file1 = fixture.createFile('test1.jpg', [1, 2, 3]);
         final file2 = fixture.createFile('test2.jpg', [
@@ -156,6 +164,7 @@ void main() {
     });
 
     group('Album Detection', () {
+      /// Should merge album files with main files.
       test('findAlbums merges album files with main files', () {
         final albumDir = fixture.createDirectory('Vacation');
         final mainFile = fixture.createFile('photo.jpg', [1, 2, 3]);
@@ -190,6 +199,7 @@ void main() {
     });
 
     group('Extras Detection', () {
+      /// Should remove edited versions as extras.
       test('removeExtras removes edited versions', () {
         final originalFile = fixture.createFile('photo.jpg', [1, 2, 3]);
         final editedFile = fixture.createFile('photo-edited.jpg', [4, 5, 6]);
@@ -206,6 +216,7 @@ void main() {
         expect(mediaList.first.firstFile.path, originalFile.path);
       });
 
+      /// Should correctly identify edited files as extras.
       test('isExtra correctly identifies edited files', () {
         expect(isExtra('photo-edited.jpg'), isTrue);
         expect(isExtra('photo-bearbeitet.jpg'), isTrue);

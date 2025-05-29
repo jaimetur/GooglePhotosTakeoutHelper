@@ -1,3 +1,5 @@
+// Tests for moving logic: album behaviors, file operations, date division, and error handling.
+
 import 'dart:io';
 import 'package:collection/collection.dart';
 import 'package:gpth/grouping.dart';
@@ -104,6 +106,7 @@ void main() {
     });
 
     group('Album Behavior', () {
+      /// Should create shortcuts/symlinks for album files.
       test('shortcut - creates shortcuts/symlinks for album files', () async {
         await moveFiles(
           testMedia,
@@ -142,6 +145,7 @@ void main() {
         expect(dirSet.contains('Vacation'), isTrue);
       });
 
+      /// Should ignore album associations.
       test('nothing - ignores album associations', () async {
         await moveFiles(
           testMedia,
@@ -167,6 +171,7 @@ void main() {
         expect(dirNames.contains('ALL_PHOTOS'), isTrue);
       });
 
+      /// Should create duplicate copies for album files.
       test(
         'duplicate-copy - creates duplicate copies for album files',
         () async {
@@ -221,6 +226,7 @@ void main() {
         },
       );
 
+      /// Should create JSON file with album information.
       test('json - creates JSON file with album information', () async {
         await moveFiles(
           testMedia,
@@ -279,6 +285,7 @@ void main() {
     });
 
     group('File Operations', () {
+      /// Should preserve original files in copy mode.
       test('copy mode preserves original files', () async {
         final originalPaths = testMedia
             .map((final m) => m.firstFile.path)
@@ -302,6 +309,7 @@ void main() {
         }
       });
 
+      /// Should remove original files in move mode.
       test('move mode removes original files', () async {
         // Create a test file specifically for this test
         final testFile = fixture.createFile('test_file_to_move.jpg', [1, 2, 3]);
@@ -335,6 +343,7 @@ void main() {
     });
 
     group('Date Division', () {
+      /// Should create year-based folders when dividing by year.
       test('divideToDates creates year-based folders', () async {
         // Create files with specific dates (without using a special directory)
         final file2020 = fixture.createFile('file_2020.jpg', [1, 2, 3]);
@@ -384,6 +393,7 @@ void main() {
     });
 
     group('Error Handling', () {
+      /// Should handle non-existent output directory.
       test('handles non-existent output directory', () async {
         final nonExistentOutput = Directory(
           p.join(fixture.basePath, 'non-existent', 'output'),
@@ -402,6 +412,7 @@ void main() {
         expect(nonExistentOutput.listSync().isNotEmpty, isTrue);
       });
 
+      /// Should handle empty media list gracefully.
       test('handles empty media list', () async {
         await moveFiles(
           <Media>[],

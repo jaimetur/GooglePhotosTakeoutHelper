@@ -1,3 +1,5 @@
+// Tests for folder classification: year folders, album folders, and edge cases.
+
 import 'dart:io';
 import 'package:gpth/folder_classify.dart';
 import 'package:path/path.dart' as p;
@@ -18,6 +20,7 @@ void main() {
     });
 
     group('Year Folder Detection', () {
+      /// Should identify standard year folders.
       test('identifies standard year folders', () {
         final yearDirs = [
           fixture.createDirectory('Photos from 2023'),
@@ -33,6 +36,7 @@ void main() {
         }
       });
 
+      /// Should identify alternative year folder patterns.
       test('identifies alternative year folder patterns', () {
         final yearDirs = [
           fixture.createDirectory('2023'),
@@ -47,6 +51,7 @@ void main() {
         }
       });
 
+      /// Should reject non-year folders.
       test('rejects non-year folders', () {
         final nonYearDirs = [
           fixture.createDirectory('Vacation'),
@@ -63,6 +68,7 @@ void main() {
         }
       });
 
+      /// Should handle edge cases for year detection.
       test('handles edge cases for year detection', () {
         final edgeCases = [
           fixture.createDirectory('Photos from 1900'), // Minimum valid year
@@ -81,6 +87,7 @@ void main() {
         expect(isYearFolder(edgeCases[4]), isTrue); // 2023 with suffix
       });
 
+      /// Should extract year from year folders correctly.
       test('extracts year from year folders correctly', () {
         final yearDir2023 = fixture.createDirectory('Photos from 2023');
         final yearDir1995 = fixture.createDirectory('1995');
@@ -94,6 +101,7 @@ void main() {
     });
 
     group('Album Folder Detection', () {
+      /// Should identify album folders with media files.
       test('identifies album folders with media files', () async {
         final albumDir = fixture.createDirectory('Vacation Photos');
         fixture.createFile('${albumDir.path}/photo1.jpg', [1, 2, 3]);
@@ -103,6 +111,7 @@ void main() {
         expect(await isAlbumFolder(albumDir), isTrue);
       });
 
+      /// Should identify album folders with mixed content.
       test('identifies album folders with mixed content', () async {
         final albumDir = fixture.createDirectory('Mixed Album');
         fixture.createFile('${albumDir.path}/photo.jpg', [1, 2, 3]);
@@ -112,6 +121,7 @@ void main() {
         expect(await isAlbumFolder(albumDir), isTrue);
       });
 
+      /// Should reject folders without media files.
       test('rejects folders without media files', () async {
         final nonAlbumDir = fixture.createDirectory('Documents');
         fixture.createFile('${nonAlbumDir.path}/document.txt', [1, 2, 3]);
@@ -121,12 +131,14 @@ void main() {
         expect(await isAlbumFolder(nonAlbumDir), isFalse);
       });
 
+      /// Should reject empty folders.
       test('rejects empty folders', () async {
         final emptyDir = fixture.createDirectory('Empty Folder');
 
         expect(await isAlbumFolder(emptyDir), isFalse);
       });
 
+      /// Should handle folders with only metadata files.
       test('handles folders with only metadata files', () async {
         final metadataDir = fixture.createDirectory('Metadata Only');
         fixture.createFile('${metadataDir.path}/photo.jpg.json', [1, 2, 3]);
@@ -135,6 +147,7 @@ void main() {
         expect(await isAlbumFolder(metadataDir), isFalse);
       });
 
+      /// Should handle nested album folders.
       test('handles nested album folders', () async {
         final parentDir = fixture.createDirectory('Parent Album');
         final subDir = fixture.createDirectory('${parentDir.path}/Sub Album');
@@ -146,6 +159,7 @@ void main() {
         expect(await isAlbumFolder(subDir), isTrue);
       });
 
+      /// Should identify album folders with various media formats.
       test('identifies album folders with various media formats', () async {
         final albumDir = fixture.createDirectory('Multi Format Album');
 
@@ -163,6 +177,7 @@ void main() {
         expect(await isAlbumFolder(albumDir), isTrue);
       });
 
+      /// Should handle folders with hidden files.
       test('handles folders with hidden files', () async {
         final albumDir = fixture.createDirectory('Album with Hidden Files');
         fixture.createFile('${albumDir.path}/photo.jpg', [1, 2, 3]);
@@ -174,6 +189,7 @@ void main() {
     });
 
     group('Folder Name Analysis', () {
+      /// Should extract year from various folder name patterns.
       test('extracts year from various folder name patterns', () {
         final testCases = [
           ['Photos from 2023', 2023],
@@ -200,6 +216,7 @@ void main() {
         }
       });
 
+      /// Should handle special characters in folder names.
       test('handles special characters in folder names', () {
         final specialDirs = [
           fixture.createDirectory('Photos from 2023 (Backup)'),
@@ -214,6 +231,7 @@ void main() {
         }
       });
 
+      /// Should handle Unicode characters in folder names.
       test('handles Unicode characters in folder names', () {
         final unicodeDirs = [
           fixture.createDirectory('Photos from 2023 📸'),
@@ -230,6 +248,7 @@ void main() {
     });
 
     group('Folder Classification Logic', () {
+      /// Should prioritize year folder classification over album.
       test('prioritizes year folder classification over album', () async {
         final yearAlbumDir = fixture.createDirectory('Photos from 2023');
         fixture.createFile('${yearAlbumDir.path}/photo.jpg', [1, 2, 3]);
@@ -239,6 +258,7 @@ void main() {
         // Year classification should take priority
       });
 
+      /// Should correctly classify ambiguous folder names.
       test('correctly classifies ambiguous folder names', () {
         final ambiguousDirs = [
           fixture.createDirectory('2023'), // Could be year or album
@@ -253,6 +273,7 @@ void main() {
         expect(isYearFolder(ambiguousDirs[3]), isFalse); // Generic media
       });
 
+      /// Should handle case sensitivity in folder names.
       test('handles case sensitivity in folder names', () {
         final caseDirs = [
           fixture.createDirectory('PHOTOS FROM 2023'),
@@ -268,6 +289,7 @@ void main() {
     });
 
     group('Performance and Edge Cases', () {
+      /// Should handle very long folder names.
       test('handles very long folder names', () {
         // Create a long but reasonable folder name to avoid filesystem limits
         final longName = '${'A' * 50} Photos from 2023 ${'B' * 50}';
@@ -276,6 +298,7 @@ void main() {
         expect(isYearFolder(longDir), isTrue);
       });
 
+      /// Should handle folders with no valid year.
       test('handles folders with no valid year', () {
         final noYearDirs = [
           fixture.createDirectory('Photos from tomorrow'),
@@ -289,6 +312,7 @@ void main() {
         }
       });
 
+      /// Should handle non-existent directories gracefully.
       test('handles non-existent directories gracefully', () {
         final nonExistent = Directory(p.join(fixture.basePath, 'nonexistent'));
 
@@ -296,6 +320,7 @@ void main() {
         expect(isYearFolder(nonExistent), isFalse);
       });
 
+      /// Should handle permission-denied scenarios.
       test('handles permission-denied scenarios', () async {
         // This would require platform-specific permission manipulation
         // For now, we'll test that the functions don't throw
@@ -305,6 +330,7 @@ void main() {
         expect(() async => isAlbumFolder(testDir), returnsNormally);
       });
 
+      /// Should handle symbolic links and junctions.
       test('handles symbolic links and junctions', () async {
         final realDir = fixture.createDirectory('Real Album');
         fixture.createFile('${realDir.path}/photo.jpg', [1, 2, 3]);
@@ -318,6 +344,7 @@ void main() {
         }
       });
 
+      /// Should handle concurrent access to folders.
       test('handles concurrent access to folders', () async {
         final concurrentDir = fixture.createDirectory('Concurrent Test');
         fixture.createFile('${concurrentDir.path}/photo.jpg', [1, 2, 3]);

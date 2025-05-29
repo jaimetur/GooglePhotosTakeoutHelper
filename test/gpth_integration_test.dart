@@ -1,3 +1,5 @@
+// Integration tests for the full GPTH pipeline and edge cases.
+
 import 'dart:convert';
 import 'dart:io';
 
@@ -134,6 +136,7 @@ void main() {
     });
 
     group('End-to-End Processing Pipeline', () {
+      /// Should process the full pipeline: remove duplicates, extras, find albums, move files.
       test(
         'full media processing pipeline: duplicates -> albums -> moving',
         () async {
@@ -197,6 +200,7 @@ void main() {
         },
       );
 
+      /// Should handle emoji folder processing end-to-end.
       test('emoji folder processing end-to-end', () async {
         const String emojiFolderName = 'test_💖❤️';
         final Directory emojiDir = fixture.createDirectory(emojiFolderName);
@@ -245,6 +249,7 @@ void main() {
         expect(p.basename(restoredDir.path), emojiFolderName);
       });
 
+      /// Should handle mixed content with date extractors.
       test('handles mixed content with date extractors', () async {
         // Create files with different date sources
         final imgWithExif = fixture.createImageWithExif('with_exif.jpg');
@@ -275,6 +280,7 @@ void main() {
         expect(unknownDate, isNull);
       });
 
+      /// Should perform well with a large number of media objects.
       test('performance with large number of media objects', () async {
         // Create a larger set of media for performance testing
         final largeMediaList = <Media>[];
@@ -307,6 +313,7 @@ void main() {
     });
 
     group('Error Handling and Edge Cases', () {
+      /// Should handle empty media lists gracefully.
       test('handles empty media lists', () async {
         final emptyMedia = <Media>[];
 
@@ -327,6 +334,7 @@ void main() {
         expect(events, isNotNull);
       });
 
+      /// Should handle special characters in file paths.
       test('handles special characters in file paths', () async {
         // Create files with special characters
         final specialFiles = [

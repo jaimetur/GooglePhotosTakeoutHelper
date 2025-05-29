@@ -1,3 +1,5 @@
+// Tests for moving logic: album behaviors, date division, file operations.
+
 import 'dart:io';
 import 'package:collection/collection.dart';
 import 'package:gpth/grouping.dart';
@@ -114,6 +116,7 @@ void main() {
     });
 
     group('Album Behavior - Shortcut', () {
+      /// Should create shortcuts for album files.
       test('creates shortcuts for album files', () async {
         await moveFiles(
           testMedia,
@@ -150,6 +153,7 @@ void main() {
         expect(dirs, containsAll(['ALL_PHOTOS', 'Vacation']));
       });
 
+      /// Should ensure shortcut points to correct album file.
       test('shortcut points to correct album file', () async {
         await moveFiles(
           testMedia,
@@ -176,6 +180,7 @@ void main() {
     });
 
     group('Album Behavior - Duplicate Copy', () {
+      /// Should create copies of album files.
       test('creates copies of album files', () async {
         await moveFiles(
           testMedia,
@@ -210,6 +215,7 @@ void main() {
         expect(duplicateFiles.isNotEmpty, isTrue);
       });
 
+      /// Should ensure album copies have identical content.
       test('album copies have identical content', () async {
         await moveFiles(
           testMedia,
@@ -242,6 +248,7 @@ void main() {
     });
 
     group('Album Behavior - JSON', () {
+      /// Should create albums-info.json file.
       test('creates albums-info.json file', () async {
         await moveFiles(
           testMedia,
@@ -275,6 +282,7 @@ void main() {
         expect(jsonContent, contains('Vacation'));
       });
 
+      /// Should ensure albums-info.json contains correct album information.
       test('albums-info.json contains correct album information', () async {
         await moveFiles(
           testMedia,
@@ -298,6 +306,7 @@ void main() {
     });
 
     group('Album Behavior - Nothing', () {
+      /// Should ignore album information.
       test('ignores album information', () async {
         await moveFiles(
           testMedia,
@@ -325,6 +334,7 @@ void main() {
     });
 
     group('Date Division', () {
+      /// Should put all files in ALL_PHOTOS if divideToDates is 0.
       test('divideToDates: 0 puts all files in ALL_PHOTOS', () async {
         await moveFiles(
           testMedia,
@@ -344,6 +354,7 @@ void main() {
         expect(dirs.length, 1);
       });
 
+      /// Should create year folders if divideToDates is 1.
       test('divideToDates: 1 creates year folders', () async {
         await moveFiles(
           testMedia,
@@ -366,6 +377,7 @@ void main() {
         expect(dirs, contains('2015'));
       });
 
+      /// Should create year-month folders if divideToDates is 2.
       test('divideToDates: 2 creates year-month folders', () async {
         await moveFiles(
           testMedia,
@@ -386,6 +398,7 @@ void main() {
         expect(dirs.any((final dir) => dir.contains('2022')), isTrue);
       });
 
+      /// Should put files without dates in ALL_PHOTOS.
       test('files without dates go to ALL_PHOTOS', () async {
         await moveFiles(
           testMedia,
@@ -407,6 +420,7 @@ void main() {
     });
 
     group('Copy vs Move Operations', () {
+      /// Should preserve original files when copy is true.
       test('copy: true preserves original files', () async {
         final originalFiles = testMedia.map((final m) => m.firstFile).toList();
         final originalExists = originalFiles
@@ -434,6 +448,7 @@ void main() {
         expect(outputFiles.length, testMedia.length);
       });
 
+      /// Should move files (remove originals) when copy is false.
       test('copy: false moves files (simulated)', () async {
         // Create separate test files for move operation
         final moveTestMedia = [
@@ -467,6 +482,7 @@ void main() {
     });
 
     group('File Name Handling', () {
+      /// Should handle special characters in filenames.
       test('handles special characters in filenames', () async {
         await moveFiles(
           testMedia,
@@ -490,6 +506,7 @@ void main() {
         expect(fileNames.any((final name) => name.contains('-')), isTrue);
       });
 
+      /// Should handle duplicate filenames with numbering.
       test('handles duplicate filenames with numbering', () async {
         // Create media with potential name conflicts
         final conflictMedia = [
@@ -520,6 +537,7 @@ void main() {
         expect(names, contains('test(1).jpg'));
       });
 
+      /// Should preserve file extensions.
       test('preserves file extensions', () async {
         await moveFiles(
           testMedia,
@@ -543,6 +561,7 @@ void main() {
     });
 
     group('Progress and Error Handling', () {
+      /// Should emit progress events from moveFiles stream.
       test('moveFiles stream emits progress events', () async {
         final events = <int>[];
 
@@ -561,6 +580,7 @@ void main() {
         // Events should contain progress information
       });
 
+      /// Should handle output directory creation.
       test('handles output directory creation', () async {
         final newOutputDir = Directory('${fixture.basePath}/new_output');
         expect(newOutputDir.existsSync(), isFalse);
@@ -581,6 +601,7 @@ void main() {
         expect(files.length, testMedia.length);
       });
 
+      /// Should handle empty media list gracefully.
       test('handles empty media list', () async {
         final events = await moveFiles(
           [],
@@ -594,6 +615,7 @@ void main() {
         // Should handle gracefully without crashing
       });
 
+      /// Should handle missing source files gracefully.
       test('handles missing source files gracefully', () async {
         final missingMedia = [
           Media(<String?, File>{
@@ -615,6 +637,7 @@ void main() {
     });
 
     group('Complex Scenarios', () {
+      /// Should handle mixed album behaviors with date division.
       test('handles mixed album behaviors with date division', () async {
         await moveFiles(
           testMedia,
@@ -637,6 +660,7 @@ void main() {
         expect(dirs.contains('Vacation'), isTrue);
       });
 
+      /// Should handle a large number of files efficiently.
       test('handles large number of files efficiently', () async {
         // Create more test media
         final largeMediaList = <Media>[];
@@ -671,6 +695,7 @@ void main() {
         expect(outputFiles.length, largeMediaList.length);
       });
 
+      /// Should maintain file integrity during operations.
       test('maintains file integrity during operations', () async {
         await moveFiles(
           testMedia,

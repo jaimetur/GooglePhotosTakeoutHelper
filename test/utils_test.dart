@@ -1,3 +1,5 @@
+// Tests for utility functions: stream extensions, file operations, disk, logging, directory validation, platform, JSON, and pixel motion.
+
 import 'dart:io';
 import 'package:gpth/moving.dart';
 import 'package:gpth/utils.dart';
@@ -19,12 +21,14 @@ void main() {
     });
 
     group('Stream Extensions', () {
+      /// Should filter stream by type using whereType.
       test('whereType filters stream correctly', () {
         final stream = Stream.fromIterable([1, 'a', 2, 'b', 3, 'c']);
 
         expect(stream.whereType<int>(), emitsInOrder([1, 2, 3, emitsDone]));
       });
 
+      /// Should filter media files using wherePhotoVideo.
       test('wherePhotoVideo filters media files', () {
         final stream = Stream<FileSystemEntity>.fromIterable([
           File('${fixture.basePath}/photo.jpg'),
@@ -42,6 +46,7 @@ void main() {
     });
 
     group('File Operations', () {
+      /// Should generate unique filename if file exists.
       test('findNotExistingName generates unique filename', () {
         final existingFile = fixture.createFile('test.jpg', [1, 2, 3]);
 
@@ -51,6 +56,7 @@ void main() {
         expect(uniqueFile.existsSync(), isFalse);
       });
 
+      /// Should return original if file does not exist.
       test('findNotExistingName returns original if file does not exist', () {
         final nonExistentFile = File('${fixture.basePath}/nonexistent.jpg');
 
@@ -61,6 +67,7 @@ void main() {
     });
 
     group('Disk Operations', () {
+      /// Should return non-null value for disk free space.
       test('getDiskFree returns non-null value', () async {
         final freeSpace = await getDiskFree('.');
 
@@ -70,6 +77,7 @@ void main() {
     });
 
     group('File Size Formatting', () {
+      /// Should format bytes correctly to human-readable string.
       test('filesize formats bytes correctly', () {
         expect(filesize(1024), contains('KB'));
         expect(filesize(1024 * 1024), contains('MB'));
@@ -78,6 +86,7 @@ void main() {
     });
 
     group('Logging', () {
+      /// Should handle different log levels without throwing.
       test('log function handles different levels', () {
         // Test that log function doesn't throw
         expect(() => log('test info'), returnsNormally);
@@ -87,6 +96,7 @@ void main() {
     });
 
     group('Directory Validation', () {
+      /// Should succeed for existing directory.
       test('validateDirectory succeeds for existing directory', () async {
         final dir = fixture.createDirectory('test_dir');
 
@@ -95,6 +105,7 @@ void main() {
         expect(result, isTrue);
       });
 
+      /// Should fail for non-existing directory when should exist.
       test(
         'validateDirectory fails for non-existing directory when should exist',
         () async {
@@ -108,6 +119,7 @@ void main() {
     });
 
     group('Platform-specific Operations', () {
+      /// Should handle Windows shortcuts (Windows only test).
       test(
         'createShortcutWin handles Windows shortcuts',
         () async {
@@ -127,6 +139,7 @@ void main() {
     });
 
     group('JSON File Processing', () {
+      /// Should handle supplemental metadata suffix in JSON files.
       test('renameJsonFiles handles supplemental metadata suffix', () async {
         final jsonFile = fixture.createJsonFile(
           'test-supplemental-metadata.json',
@@ -142,6 +155,7 @@ void main() {
     });
 
     group('Pixel Motion Photos', () {
+      /// Placeholder for changeMPExtensions logic.
       test('changeMPExtensions renames MP/MV files', () async {
         // This would require Media objects and is more of an integration test
         // For now, we'll test the core logic in integration tests

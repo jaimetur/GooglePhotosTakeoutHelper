@@ -1,3 +1,5 @@
+// Tests for EXIF writing functionality, including GPS and DateTime.
+
 import 'package:coordinate_converter/coordinate_converter.dart';
 import 'package:exif_reader/exif_reader.dart';
 import 'package:gpth/exif_writer.dart';
@@ -25,6 +27,7 @@ void main() {
     });
 
     group('GPS Coordinates Writing', () {
+      /// Should write GPS coordinates to a JPEG file.
       test('writeGpsToExif writes GPS coordinates to JPEG file', () async {
         final testImage = fixture.createImageWithoutExif('test.jpg');
         final coordinates = DMSCoordinates(
@@ -52,6 +55,7 @@ void main() {
         }
       });
 
+      /// Should return false for unsupported file formats (e.g., text files).
       test(
         'writeGpsToExif returns false for unsupported file formats',
         () async {
@@ -75,6 +79,7 @@ void main() {
     });
 
     group('DateTime Writing', () {
+      /// Should write DateTime to an image without EXIF data.
       test(
         'writeDateTimeToExif writes DateTime to image without EXIF',
         () async {
@@ -95,6 +100,7 @@ void main() {
         },
       );
 
+      /// Should skip writing DateTime if EXIF DateTime already exists.
       test(
         'writeDateTimeToExif skips files with existing EXIF DateTime',
         () async {
@@ -107,6 +113,7 @@ void main() {
         },
       );
 
+      /// Should return false for unsupported file formats.
       test(
         'writeDateTimeToExif returns false for unsupported file formats',
         () async {
@@ -119,6 +126,7 @@ void main() {
         },
       );
 
+      /// Should handle JPEG files correctly when writing DateTime.
       test('writeDateTimeToExif handles JPEG files correctly', () async {
         final testImage = fixture.createImageWithoutExif('test.jpg');
         final testDateTime = DateTime(2023, 12, 25, 15, 30, 45);
@@ -135,6 +143,7 @@ void main() {
         expect(newExifData['Image DateTime'], isNotNull);
       });
 
+      /// Should handle corrupted image files gracefully.
       test(
         'writeDateTimeToExif handles corrupted image files gracefully',
         () async {
@@ -156,6 +165,7 @@ void main() {
     });
 
     group('Native vs ExifTool Writing', () {
+      /// Should prefer native JPEG writing when available.
       test('prefers native JPEG writing when available', () async {
         final testImage = fixture.createImageWithoutExif('test.jpg');
         final testDateTime = DateTime(2023, 12, 25, 15, 30, 45);
@@ -167,6 +177,7 @@ void main() {
         // just that it succeeded
       });
 
+      /// Should fall back to ExifTool for non-JPEG files (placeholder).
       test(
         'falls back to ExifTool for non-JPEG files',
         () async {

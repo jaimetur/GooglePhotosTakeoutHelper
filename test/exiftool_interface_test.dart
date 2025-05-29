@@ -1,3 +1,5 @@
+// Tests for ExifTool interface: reading and writing EXIF data.
+
 import 'dart:io';
 import 'package:exif_reader/exif_reader.dart';
 import 'package:gpth/exiftoolInterface.dart';
@@ -25,6 +27,7 @@ void main() {
     });
 
     group('EXIF Reading Operations', () {
+      /// Should read EXIF data from an image with metadata.
       test('readExif returns EXIF data for image with metadata', () async {
         if (exiftool == null) return; // Skip if exiftool not available
 
@@ -34,6 +37,7 @@ void main() {
         expect(tags.isNotEmpty, isTrue);
       });
 
+      /// Should return only requested tags in batch read.
       test('readExifBatch returns specific requested tags', () async {
         if (exiftool == null) return;
 
@@ -55,6 +59,7 @@ void main() {
         }
       });
 
+      /// Should return empty map for empty tag list in batch read.
       test('readExifBatch returns empty map for empty tag list', () async {
         if (exiftool == null) return;
 
@@ -63,6 +68,7 @@ void main() {
         expect(tags, isEmpty);
       });
 
+      /// Should handle non-existent tags gracefully in batch read.
       test('readExifBatch handles non-existent tags gracefully', () async {
         if (exiftool == null) return;
 
@@ -76,6 +82,7 @@ void main() {
         // Should be empty or only contain tags that actually exist
       });
 
+      /// Should handle images without EXIF data.
       test('readExif handles image without EXIF data', () async {
         if (exiftool == null) return;
 
@@ -85,6 +92,7 @@ void main() {
         // May have basic file info but no EXIF metadata
       });
 
+      /// Should handle unsupported file types gracefully.
       test('readExif handles unsupported file types', () async {
         if (exiftool == null) return;
 
@@ -103,6 +111,7 @@ void main() {
         testImage = fixture.createImageWithoutExif('test_write.jpg');
       });
 
+      /// Should write a single EXIF tag successfully.
       test('writeExifBatch writes single tag successfully', () async {
         if (exiftool == null) return;
 
@@ -118,6 +127,7 @@ void main() {
         expect(writtenTags['Artist'], 'Test Artist');
       });
 
+      /// Should write multiple EXIF tags successfully.
       test('writeExifBatch writes multiple tags successfully', () async {
         if (exiftool == null) return;
 
@@ -140,6 +150,7 @@ void main() {
         }
       });
 
+      /// Should succeed even with an empty tag map.
       test('writeExifBatch handles empty tag map', () async {
         if (exiftool == null) return;
 
@@ -149,6 +160,7 @@ void main() {
         expect(result, isA<bool>());
       });
 
+      /// Should overwrite existing EXIF tags.
       test('writeExifBatch overwrites existing tags', () async {
         if (exiftool == null) return;
 
@@ -168,6 +180,7 @@ void main() {
         expect(updatedTags['Artist'], 'Updated Artist');
       });
 
+      /// Should handle special characters in tag values.
       test('writeExifBatch handles special characters', () async {
         if (exiftool == null) return;
 
@@ -193,6 +206,7 @@ void main() {
         }
       });
 
+      /// Should fail for unsupported file types.
       test('writeExifBatch fails for unsupported file types', () async {
         if (exiftool == null) return;
 
@@ -204,6 +218,7 @@ void main() {
         expect(result, isFalse);
       });
 
+      /// Should handle very long tag values.
       test('writeExifBatch handles very long tag values', () async {
         if (exiftool == null) return;
 
@@ -230,6 +245,7 @@ void main() {
         testImage = fixture.createImageWithoutExif('test_gps.jpg');
       });
 
+      /// Should write GPS coordinates correctly.
       test('writes GPS coordinates correctly', () async {
         if (exiftool == null) return;
 
@@ -253,6 +269,7 @@ void main() {
         expect(writtenTags['GPSLongitudeRef'], 'E');
       });
 
+      /// Should handle GPS coordinates in DMS format.
       test('handles GPS coordinates in different formats', () async {
         if (exiftool == null) return;
 
@@ -268,6 +285,7 @@ void main() {
         expect(result, isA<bool>());
       });
 
+      /// Should handle GPS altitude and precision data.
       test('handles GPS altitude and precision data', () async {
         if (exiftool == null) return;
 
@@ -295,6 +313,7 @@ void main() {
         testImage = fixture.createImageWithoutExif('test_datetime.jpg');
       });
 
+      /// Should write DateTime tags correctly.
       test('writes DateTime tags correctly', () async {
         if (exiftool == null) return;
 
@@ -317,6 +336,7 @@ void main() {
         }
       });
 
+      /// Should handle different DateTime formats.
       test('handles different DateTime formats', () async {
         if (exiftool == null) return;
 
@@ -336,6 +356,7 @@ void main() {
         }
       });
 
+      /// Should handle timezone information in EXIF.
       test('handles timezone information', () async {
         if (exiftool == null) return;
 
@@ -351,6 +372,7 @@ void main() {
     });
 
     group('Error Handling and Edge Cases', () {
+      /// Should throw for non-existent files.
       test('handles non-existent files gracefully', () async {
         if (exiftool == null) return;
 
@@ -366,6 +388,7 @@ void main() {
         );
       });
 
+      /// Should handle corrupted image files gracefully.
       test('handles corrupted image files', () async {
         if (exiftool == null) return;
 
@@ -380,6 +403,7 @@ void main() {
         expect(() => exiftool!.readExif(corruptedFile), returnsNormally);
       });
 
+      /// Should handle very large image files.
       test('handles very large image files', () async {
         if (exiftool == null) return;
 
@@ -390,6 +414,7 @@ void main() {
         expect(() => exiftool!.readExif(largeFile), returnsNormally);
       });
 
+      /// Should handle concurrent EXIF operations.
       test('handles concurrent EXIF operations', () async {
         if (exiftool == null) return;
 
@@ -410,6 +435,7 @@ void main() {
         }
       });
 
+      /// Should handle file permission issues.
       test('handles file permission issues', () async {
         if (exiftool == null) return;
 
@@ -420,6 +446,7 @@ void main() {
         expect(() => exiftool!.readExif(testImage), returnsNormally);
       });
 
+      /// Should handle invalid tag names gracefully.
       test('handles invalid tag names gracefully', () async {
         if (exiftool == null) return;
 
@@ -439,6 +466,7 @@ void main() {
     });
 
     group('Performance and Optimization', () {
+      /// Should be more efficient in batch operations than individual calls.
       test(
         'batch operations are more efficient than individual calls',
         () async {
@@ -464,6 +492,7 @@ void main() {
         },
       );
 
+      /// Should handle multiple file operations efficiently.
       test('handles multiple file operations efficiently', () async {
         if (exiftool == null) return;
 
@@ -490,6 +519,7 @@ void main() {
     });
 
     group('Integration with Other Components', () {
+      /// Should work with exif_reader library for comparison.
       test('works with exif_reader library for comparison', () async {
         if (exiftool == null) return;
 
@@ -510,6 +540,7 @@ void main() {
         expect(exifReaderTags.isNotEmpty, isTrue);
       });
 
+      /// Should preserve data written by other EXIF tools.
       test('preserves data written by other EXIF tools', () async {
         if (exiftool == null) return;
 

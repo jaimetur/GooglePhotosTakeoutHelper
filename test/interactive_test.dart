@@ -1,3 +1,5 @@
+// Tests for interactive module: album options, input validation, and user experience.
+
 import 'dart:io';
 import 'package:gpth/interactive.dart' as interactive;
 import 'package:test/test.dart';
@@ -17,6 +19,7 @@ void main() {
     });
 
     group('Album Options', () {
+      /// Should provide valid album behavior options.
       test('provides valid album behavior options', () {
         expect(interactive.albumOptions, isA<Map<String, String>>());
         expect(interactive.albumOptions.isNotEmpty, isTrue);
@@ -28,6 +31,7 @@ void main() {
         expect(interactive.albumOptions.keys, contains('nothing'));
       });
 
+      /// Should ensure album options have descriptions.
       test('album options have descriptions', () {
         for (final entry in interactive.albumOptions.entries) {
           expect(
@@ -43,6 +47,7 @@ void main() {
         }
       });
 
+      /// Should ensure album options are properly formatted.
       test('album options are properly formatted', () {
         for (final entry in interactive.albumOptions.entries) {
           // Key should be lowercase and may contain hyphens
@@ -63,12 +68,14 @@ void main() {
     });
 
     group('Interactive Mode Detection', () {
+      /// Should indicate interactive mode availability.
       test('indeed property indicates interactive mode availability', () {
         expect(interactive.indeed, isA<bool>());
       });
     });
 
     group('User Input Validation', () {
+      /// Should handle directory validation for interactive input.
       test('handles directory validation for interactive input', () async {
         // Create test directories
         final validDir = fixture.createDirectory('valid_input');
@@ -79,6 +86,7 @@ void main() {
         expect(Directory(invalidPath).existsSync(), isFalse);
       });
 
+      /// Should validate album behavior options.
       test('validates album behavior options', () {
         final validOptions = interactive.albumOptions.keys.toList();
 
@@ -101,6 +109,7 @@ void main() {
     });
 
     group('Output Cleaning Confirmation', () {
+      /// Should handle output directory scenarios for cleaning confirmation.
       test('askForCleanOutput handles output directory scenarios', () async {
         // Create output directory with existing content
         final outputDir = fixture.createDirectory('output');
@@ -112,12 +121,14 @@ void main() {
         expect(outputDir.listSync().isNotEmpty, isTrue);
       });
 
+      /// Should handle empty output directories.
       test('handles empty output directories', () async {
         final emptyOutputDir = fixture.createDirectory('empty_output');
 
         expect(emptyOutputDir.listSync().isEmpty, isTrue);
       });
 
+      /// Should handle non-existent output directories.
       test('handles non-existent output directories', () async {
         final nonExistentOutput = Directory(
           '${fixture.basePath}/nonexistent_output',
@@ -128,6 +139,7 @@ void main() {
     });
 
     group('Input Directory Selection', () {
+      /// Should handle valid input directory structures.
       test('handles valid input directory structures', () async {
         // Create a Google Takeout-like structure
         final inputDir = fixture.createDirectory('input');
@@ -144,6 +156,7 @@ void main() {
         expect(photosDir.existsSync(), isTrue);
       });
 
+      /// Should handle multiple Takeout directories.
       test('handles multiple Takeout directories', () async {
         final inputDir = fixture.createDirectory('input_multiple');
 
@@ -171,6 +184,7 @@ void main() {
         expect(takeoutDirs.length, 3);
       });
 
+      /// Should handle nested album structures.
       test('handles nested album structures', () async {
         final inputDir = fixture.createDirectory('input_albums');
         final takeoutDir = fixture.createDirectory('${inputDir.path}/Takeout');
@@ -200,17 +214,20 @@ void main() {
     });
 
     group('Error Handling', () {
+      /// Should handle permission errors gracefully.
       test('handles permission errors gracefully', () {
         // This would test how interactive functions handle permission denied errors
         // In a real scenario, we'd mock file system operations
         expect(() => interactive.albumOptions, returnsNormally);
       });
 
+      /// Should handle invalid input gracefully.
       test('handles invalid input gracefully', () {
         // Test that invalid inputs don't crash the interactive functions
         expect(interactive.albumOptions.containsKey(null), isFalse);
       });
 
+      /// Should handle interruption signals.
       test('handles interruption signals', () {
         // In a real interactive session, users might press Ctrl+C
         // The interactive functions should handle this gracefully
@@ -219,6 +236,7 @@ void main() {
     });
 
     group('Platform Compatibility', () {
+      /// Should handle Windows paths correctly.
       test('handles Windows paths correctly', () {
         if (Platform.isWindows) {
           // Test Windows-specific path handling
@@ -231,6 +249,7 @@ void main() {
         }
       });
 
+      /// Should handle different path separators.
       test('handles different path separators', () {
         final testDir = fixture.createDirectory('path_test');
         final separator = Platform.pathSeparator;
@@ -238,6 +257,7 @@ void main() {
         expect(testDir.path.contains(separator), isTrue);
       });
 
+      /// Should handle long file paths.
       test('handles long file paths', () {
         // Test handling of long paths (especially important on Windows)
         final longPath = '${'a' * 50}/${'b' * 50}/${'c' * 50}';
@@ -250,6 +270,7 @@ void main() {
     });
 
     group('Configuration Options', () {
+      /// Should cover all expected album behavior options.
       test('album options cover all expected behaviors', () {
         final requiredOptions = [
           'shortcut',
@@ -267,6 +288,7 @@ void main() {
         }
       });
 
+      /// Should ensure album option descriptions are informative.
       test('album option descriptions are informative', () {
         for (final entry in interactive.albumOptions.entries) {
           final description = entry.value.toLowerCase();
@@ -280,6 +302,7 @@ void main() {
         }
       });
 
+      /// Should ensure a default album option exists.
       test('default album option exists', () {
         // There should be a reasonable default option
         expect(interactive.albumOptions.keys, contains('shortcut'));
@@ -287,6 +310,7 @@ void main() {
     });
 
     group('User Experience', () {
+      /// Should ensure option keys are user-friendly.
       test('option keys are user-friendly', () {
         for (final key in interactive.albumOptions.keys) {
           // Keys should be readable and not too cryptic
@@ -305,6 +329,7 @@ void main() {
     });
 
     group('Integration Scenarios', () {
+      /// Should support typical Google Photos Takeout structure.
       test('supports typical Google Photos Takeout structure', () async {
         // Create a realistic Google Photos Takeout structure
         final takeoutRoot = fixture.createDirectory('Takeout');
@@ -335,6 +360,7 @@ void main() {
         expect(vacation.listSync().length, 2); // jpg + json
       });
 
+      /// Should handle mixed content scenarios.
       test('handles mixed content scenarios', () async {
         final inputDir = fixture.createDirectory('mixed_content');
 
