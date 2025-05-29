@@ -68,7 +68,6 @@ for your OS and make sure the executable is in a folder in the \$PATH.
 Then, run: gpth --input "folder/with/all/takeouts" --output "your/output/folder"
 ...and gpth will parse and organize all photos into one big chronological folder
 ''';
-const int barWidth = 40;
 
 /// ##############################################################
 /// This is the main function that will be run when user runs gpth
@@ -491,7 +490,7 @@ Future<void> main(final List<String> arguments) async {
   final FillingBar barExtract = FillingBar(
     total: media.length,
     desc: '[Step 4/8] Extracting dates from files',
-    width: barWidth,
+    width: defaultBarWidth,
   );
 
   // Collect statistics for reporting
@@ -553,7 +552,7 @@ Future<void> main(final List<String> arguments) async {
     final FillingBar barJsonToExifExtractor = FillingBar(
       total: media.length,
       desc: '[Step 5/8] Getting EXIF data from JSONs and applying it to media',
-      width: barWidth,
+      width: defaultBarWidth,
     );
 
     for (int i = 0; i < media.length; i++) {
@@ -649,7 +648,7 @@ Future<void> main(final List<String> arguments) async {
     total: outputFileCount(media, args['albums']),
     desc:
         "[Step 7/8] ${args['copy'] ? 'Copying' : 'Moving'} media to output folder",
-    width: barWidth,
+    width: defaultBarWidth,
   );
   await moveFiles(
     media,
@@ -685,7 +684,7 @@ Future<void> main(final List<String> arguments) async {
     );
     updatedCreationTimeCounter = await updateCreationTimeRecursively(output);
     print('');
-    print('=' * barWidth);
+    print('=' * defaultBarWidth);
   } else {
     print('[Step 8/8] Skipping: Updating creation time (Windows only)');
   }
@@ -701,7 +700,7 @@ Future<void> main(final List<String> arguments) async {
       total: outputDirs.length,
       desc:
           '[Step 8/8] Looking for folders with emojis and renaming them back.',
-      width: barWidth,
+      width: defaultBarWidth,
     );
     for (final dir in outputDirs) {
       final String decodedPath = decodeAndRestoreAlbumEmoji(dir.path);
@@ -721,7 +720,7 @@ Future<void> main(final List<String> arguments) async {
   /// Also helps with testing because you can run a diverse and large dataset with the same options through a new version and expect the same (or better) stats.
   /// If they got worse, you did smth wrong.
   print('');
-  print('=' * barWidth);
+  print('=' * defaultBarWidth);
   print('DONE! FREEEEEDOOOOM!!!');
   print('Some statistics for the achievement hunters:');
   //This check will print an error if no stats are available.
@@ -764,6 +763,6 @@ Future<void> main(final List<String> arguments) async {
     'https://ko-fi.com/thelastgimbus\n'
     'Thank you ❤',
   );
-  print('=' * barWidth);
+  print('=' * defaultBarWidth);
   quit(0);
 }

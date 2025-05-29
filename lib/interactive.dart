@@ -277,25 +277,25 @@ Future<bool> askModifyJson() async {
 /// Prompts user to choose album handling behavior
 ///
 /// Returns one of the album option keys from [albumOptions]
-/// 
+///
 /// Available album modes:
-/// 
+///
 /// - **shortcut**: Creates shortcuts/symlinks from album folders to the main file in ALL_PHOTOS.
 ///   The original file is moved to ALL_PHOTOS, and shortcuts are created in album folders.
 ///   This saves space while maintaining album organization.
-/// 
+///
 /// - **duplicate-copy**: Creates actual copies of files in both ALL_PHOTOS and album folders.
 ///   Each file appears in ALL_PHOTOS and in every album it belongs to as separate physical files.
 ///   Uses more disk space but provides complete independence between folders.
-/// 
+///
 /// - **reverse-shortcut**: The opposite of shortcut mode. Files remain in album folders,
 ///   and shortcuts are created in ALL_PHOTOS pointing to the album locations.
 ///   Maintains files in their album context while providing access via ALL_PHOTOS.
-/// 
+///
 /// - **json**: Creates a single ALL_PHOTOS folder with all files, plus an albums-info.json
 ///   file that contains metadata about which albums each file belonged to.
 ///   Most space-efficient option with programmatic album information.
-/// 
+///
 /// - **nothing**: Ignores albums entirely. Only creates ALL_PHOTOS folder with files
 ///   from year folders. Album-only files are skipped unless they have null keys assigned.
 ///   Simplest option for users who don't care about album organization.

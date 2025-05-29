@@ -12,9 +12,9 @@ import '../utils.dart';
 /// You can try this with *any* file, it either works or not 🤷
 Future<DateTime?> exifDateTimeExtractor(final File file) async {
   //If file is >maxFileSize - return null. https://github.com/brendan-duncan/image/issues/457#issue-1549020643
-  if (await file.length() > maxFileSize && enforceMaxFileSize) {
+  if (await file.length() > defaultMaxFileSize && enforceMaxFileSize) {
     log(
-      '[Step 4/8] The file is larger than the maximum supported file size of ${maxFileSize.toString()} bytes. File: ${file.path}',
+      '[Step 4/8] The file is larger than the maximum supported file size of ${defaultMaxFileSize.toString()} bytes. File: ${file.path}',
       level: 'error',
     );
     return null;

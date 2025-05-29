@@ -10,8 +10,9 @@ import 'media.dart';
 // remember to bump this
 const String version = '4.0.4';
 
-/// max file size to read for exif/hash/anything
-const int maxFileSize = 64 * 1024 * 1024;
+// Processing constants
+const int defaultBarWidth = 40;
+const int defaultMaxFileSize = 64 * 1024 * 1024; // 64MB
 
 //initialising some global variables
 bool isVerbose = false;
@@ -420,5 +421,33 @@ void log(
     print(
       '\r$color[${level.toUpperCase()}] $message\x1B[0m',
     ); // Reset color after the message
+  }
+}
+
+/// Validates directory exists and is accessible
+Future<bool> validateDirectory(
+  final Directory dir, {
+  bool shouldExist = true,
+}) async {
+  final exists = await dir.exists();
+  if (shouldExist && !exists) {
+    error('Directory does not exist: ${dir.path}');
+    return false;
+  }
+  if (!shouldExist && exists) {
+    error('Directory already exists: ${dir.path}');
+    return false;
+  }
+  return true;
+}
+
+/// Safely creates directory with error handling
+Future<bool> safeCreateDirectory(final Directory dir) async {
+  try {
+    await dir.create(recursive: true);
+    return true;
+  } catch (e) {
+    error('Failed to create directory ${dir.path}: $e');
+    return false;
   }
 }
