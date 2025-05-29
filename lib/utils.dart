@@ -34,6 +34,9 @@ Never quit([final int code = 1]) {
   exit(code);
 }
 
+//Support raw formats (dng, cr2) and Pixel motion photos (mp, mv)
+const List<String> _moreExtensions = <String>['.mp', '.mv', '.dng', '.cr2'];
+
 extension X on Iterable<FileSystemEntity> {
   /// Easy extension allowing you to filter for files that are photo or video
   Iterable<File> wherePhotoVideo() => whereType<File>().where((final File e) {
@@ -63,9 +66,6 @@ extension Y on Stream<FileSystemEntity> {
         _moreExtensions.contains(fileExtension);
   });
 }
-
-//Support raw formats (dng, cr2) and Pixel motion photos (mp, mv)
-const List<String> _moreExtensions = <String>['.mp', '.mv', '.dng', '.cr2'];
 
 extension Util on Stream {
   Stream<T> whereType<T>() => where((final e) => e is T).cast<T>();
