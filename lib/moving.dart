@@ -189,6 +189,15 @@ Stream<int> moveFiles(
           <String>['nothing', 'json'].contains(albumBehavior)) {
         continue;
       }
+      // In reverse-shortcut mode, skip creating a real file in ALL_PHOTOS (null key)
+      if (albumBehavior == 'reverse-shortcut' && file.key == null) {
+        // Do not create a real file in ALL_PHOTOS; shortcut will be created after album file is created
+        continue;
+      }
+      // In reverse-shortcut mode, set mainFile to the album file for shortcut creation
+      if (albumBehavior == 'reverse-shortcut' && file.key != null) {
+        mainFile = file.value;
+      }
       // now on, logic is shared for nothing+null/shortcut/copy cases
       final DateTime? date = m.dateTaken;
       String folderName;
@@ -241,13 +250,33 @@ Stream<int> moveFiles(
           return copy
               ? await file.value.copy(freeFile.path)
               : await file.value.rename(freeFile.path);
-        } on FileSystemException {
-          print(
-            '[Step 7/8] [Error] Uh-uh, it looks like you selected another output drive than\n'
-            "your input drive - gpth can't move files between them. But, you don't have\n"
-            "to do this! Gpth *moves* files, so this doesn't take any extra space!\n"
-            'Please run again and select different output location <3',
-          );
+        } on FileSystemException catch (e) {
+          final String errorMessage =
+              '[Step 7/8] [Error] Uh-uh, it looks like you selected another output drive than\n'
+              "your input drive - gpth can't move files between them. But, you don't have\n"
+              "to do this! Gpth *moves* files, so this doesn't take any extra space!\n"
+              'Please run again and select different output location <3 Error message: $e';
+
+          print(errorMessage);
+
+          // In test environment, throw an exception instead of quitting
+          // Check multiple ways to detect test environment
+          final isTestEnvironment =
+              Platform.environment.containsKey('FLUTTER_TEST') ||
+              Platform.environment.containsKey('DART_TEST') ||
+              Platform.environment.containsKey('_DART_TEST') ||
+              // Check if we're running under dart test command
+              Platform.script.path.contains('test') ||
+              // Check if current executable is test-related
+              Platform.executable.contains('dart') &&
+                  Platform.script.toString().contains('test');
+
+          if (isTestEnvironment) {
+            throw Exception(
+              'Cross-device move error: Cannot move files between different drives',
+            );
+          }
+
           quit();
         }
       }
@@ -255,7 +284,7 @@ Stream<int> moveFiles(
       // Album handling logic:
       // - For ALL_PHOTOS (null key): move/copy the file and set as mainFile.
       // - For shortcut mode: create a shortcut in the album folder pointing to mainFile.
-      // - For reverse-shortcut: move/copy the file to the album folder and create a shortcut in the year folder.
+      // - For reverse-shortcut: move/copy the file to the album folder and create a shortcut in ALL_PHOTOS.
       // - For duplicate-copy: copy/move the file to every folder.
       // - For json/nothing: only process ALL_PHOTOS.
       if (file.key == null) {
@@ -274,7 +303,10 @@ Stream<int> moveFiles(
           );
           result = await moveFile();
         }
-      } else if (albumBehavior == 'reverse-shortcut' && mainFile != null) {
+      } else if (albumBehavior == 'reverse-shortcut' &&
+          file.key != null &&
+          mainFile != null) {
+        // Move/copy the file to the album folder and create a shortcut in ALL_PHOTOS
         try {
           result = await moveFileAndCreateShortcut(
             folder,
@@ -283,11 +315,8 @@ Stream<int> moveFiles(
           );
         } catch (e) {
           if (e is FileSystemException) {
-            //If file not exists its because is already moved to another album
-            //Just copy the original to the album
             result = await moveFile();
           } else {
-            // in case of other exception, print details
             print(
               '[Step 7/8] [Error] Creating shortcut for '
               '${p.basename(mainFile.path)} in ${p.basename(folder.path)} '
@@ -296,11 +325,32 @@ Stream<int> moveFiles(
             result = await moveFile();
           }
         }
+        // After creating the album file, create a shortcut in ALL_PHOTOS
+        final allPhotosDir = Directory(p.join(output.path, 'ALL_PHOTOS'));
+        await allPhotosDir.create(recursive: true);
+        await createShortcut(allPhotosDir, result);
+      } else if (albumBehavior == 'reverse-shortcut' && file.key == null) {
+        // Skip creating a real file in ALL_PHOTOS (null key)
+        continue;
       } else {
         // else - if we either run duplicate-copy or main file is missing:
         // (this happens with archive/trash/weird situation)
-        // just copy it
-        result = await moveFile();
+
+        // Special handling for duplicate-copy mode in move operations
+        if (albumBehavior == 'duplicate-copy' &&
+            !copy &&
+            mainFile != null &&
+            file.key != null) {
+          // In move mode with duplicate-copy, we already moved the file to ALL_PHOTOS
+          // Now we need to copy from the mainFile to the album folder
+          final File freeFile = findNotExistingName(
+            File(p.join(folder.path, p.basename(file.value.path))),
+          );
+          result = await mainFile.copy(freeFile.path);
+        } else {
+          // Normal case: move/copy from original source
+          result = await moveFile();
+        }
       }
 
       // Done! Now, set the date:
