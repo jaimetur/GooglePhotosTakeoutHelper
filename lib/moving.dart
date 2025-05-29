@@ -76,25 +76,27 @@ Future<File> createShortcut(final Directory location, final File target) async {
   }
 }
 
-/// Moves a file to new location and creates a shortcut in the original location
+/// Moves or copies a file to new location and creates a shortcut in the original location
 ///
 /// Used for reverse-shortcut album behavior where originals go to albums
 /// and shortcuts are created in year folders.
 ///
-/// [newLocation] Directory to move the file to
-/// [target] File to move
+/// [newLocation] Directory to move/copy the file to
+/// [target] File to move/copy
+/// [copy] Whether to copy (true) or move (false) the file
 /// Returns the created shortcut file
 Future<File> moveFileAndCreateShortcut(
   final Directory newLocation,
-  final File target,
-) async {
+  final File target, {
+  required final bool copy,
+}) async {
   final String newPath = p.join(newLocation.path, p.basename(target.path));
-  final File movedFile = await target.rename(
-    newPath,
-  ); // Move the file from year folder to album (new location)
+  final File outputFile = copy
+      ? await target.copy(newPath) // Copy the file if copy mode
+      : await target.rename(newPath); // Move the file if move mode
 
   // Create shortcut in the original path (year folder)
-  return createShortcut(target.parent, movedFile);
+  return createShortcut(target.parent, outputFile);
 }
 
 /// Big-ass logic of moving files from input to output
@@ -231,7 +233,11 @@ Stream<int> moveFiles(
         }
       } else if (albumBehavior == 'reverse-shortcut' && mainFile != null) {
         try {
-          result = await moveFileAndCreateShortcut(folder, mainFile);
+          result = await moveFileAndCreateShortcut(
+            folder,
+            mainFile,
+            copy: copy,
+          );
         } catch (e) {
           if (e is FileSystemException) {
             //If file not exists its because is already moved to another album
