@@ -307,7 +307,6 @@ void main() {
     });
 
     group('Error Handling and Edge Cases', () {
-
       test('handles empty media lists', () async {
         final emptyMedia = <Media>[];
 

@@ -287,7 +287,6 @@ void main() {
     });
 
     group('User Experience', () {
-
       test('option keys are user-friendly', () {
         for (final key in interactive.albumOptions.keys) {
           // Keys should be readable and not too cryptic

@@ -229,7 +229,10 @@ void main() {
         emojiDir.createSync(recursive: true);
 
         // Create image with EXIF data in the emoji folder
-        final File img = fixture.createImageWithExifInDir(emojiDir.path, 'img.jpg');
+        final File img = fixture.createImageWithExifInDir(
+          emojiDir.path,
+          'img.jpg',
+        );
         expect(img.existsSync(), isTrue, reason: 'Image file should exist');
 
         // 1. Encode and rename folder

@@ -38,7 +38,9 @@ void main() {
         final imgFile = fixture.createFile('test-edited.jpg', [1, 2, 3]);
         fixture.createJsonFile('test.jpg.json', 1599078832);
 
-        final DateTime? resultWithoutTryhard = await jsonDateTimeExtractor(imgFile);
+        final DateTime? resultWithoutTryhard = await jsonDateTimeExtractor(
+          imgFile,
+        );
         final resultWithTryhard = await jsonDateTimeExtractor(
           imgFile,
           tryhard: true,
