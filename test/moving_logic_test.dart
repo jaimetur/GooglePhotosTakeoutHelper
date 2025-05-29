@@ -1,4 +1,55 @@
-// Tests for moving logic: album behaviors, date division, file operations.
+/// # Moving Logic Test Suite
+///
+/// Comprehensive tests for the media moving and organization system used to
+/// reorganize Google Photos Takeout exports into structured directories.
+///
+/// ## Core Functionality Tested
+///
+/// ### Album Integration and Behavior
+/// - Album-based file organization and directory structure creation
+/// - Merging of files across albums while preserving metadata relationships
+/// - Album naming conventions and directory path generation
+/// - Handling of duplicate files within album contexts
+///
+/// ### Date-Based Organization Systems
+/// - Year/month directory hierarchies based on date metadata
+/// - Date extraction accuracy handling for reliable sorting
+/// - Fallback strategies for files without reliable date information
+/// - Mixed date accuracy scenarios and prioritization
+///
+/// ### File Operation Management
+/// - Safe file moving operations with collision detection
+/// - Filename sanitization and path validation for cross-platform compatibility
+/// - Deduplication during move operations to prevent data loss
+/// - Error handling for filesystem permission and space issues
+///
+/// ### Path Generation and Naming
+/// - Intelligent filename cleaning for filesystem compatibility
+/// - Special character handling and Unicode normalization
+/// - Duplicate filename resolution with automatic numbering
+/// - Extension preservation and case handling
+///
+/// ## Test Structure
+///
+/// Tests use a controlled filesystem fixture with various file types:
+/// - Regular photos with standard naming patterns
+/// - Screenshots with timestamp information embedded in filenames
+/// - Edited photos with language-specific suffixes (edited, modifié, etc.)
+/// - Files with complex naming including parentheses and special characters
+/// - Album files that duplicate content but have different metadata
+///
+/// Date scenarios covered include:
+/// - High accuracy dates from EXIF data (accuracy level 1)
+/// - Medium accuracy dates from filename parsing (accuracy level 2)
+/// - Low accuracy dates from fallback methods (accuracy level 3)
+/// - Files with no extractable date information
+///
+/// The test suite validates that the moving logic correctly:
+/// - Preserves the most accurate date information during organization
+/// - Creates appropriate directory structures for different scenarios
+/// - Handles edge cases like files without dates or conflicting information
+/// - Maintains data integrity during complex move operations
+library;
 
 import 'dart:io';
 import 'package:collection/collection.dart';
@@ -116,7 +167,9 @@ void main() {
     });
 
     group('Album Behavior - Shortcut', () {
-      /// Should create shortcuts for album files.
+      /// Tests album shortcut creation functionality where album files are
+      /// organized as symbolic links or shortcuts instead of full copies.
+      /// This approach saves disk space while maintaining album organization.
       test('creates shortcuts for album files', () async {
         await moveFiles(
           testMedia,
@@ -185,7 +238,9 @@ void main() {
     });
 
     group('Album Behavior - Duplicate Copy', () {
-      /// Should create copies of album files.
+      /// Tests album duplicate copy functionality where album files are
+      /// physically duplicated to maintain album structure while preserving
+      /// original file organization. Creates full file copies for albums.
       test('creates copies of album files', () async {
         await moveFiles(
           testMedia,
@@ -253,7 +308,9 @@ void main() {
     });
 
     group('Album Behavior - JSON', () {
-      /// Should create albums-info.json file.
+      /// Tests album metadata JSON generation functionality where album
+      /// information is stored in albums-info.json files rather than
+      /// creating physical album directories or duplicates.
       test('creates albums-info.json file', () async {
         await moveFiles(
           testMedia,
@@ -311,7 +368,9 @@ void main() {
     });
 
     group('Album Behavior - Nothing', () {
-      /// Should ignore album information.
+      /// Tests album behavior when album information should be completely
+      /// ignored, treating all files as individual items without any
+      /// album-based organization or metadata preservation.
       test('ignores album information', () async {
         await moveFiles(
           testMedia,
@@ -339,7 +398,9 @@ void main() {
     });
 
     group('Date Division', () {
-      /// Should put all files in ALL_PHOTOS if divideToDates is 0.
+      /// Tests date-based directory organization functionality that creates
+      /// hierarchical folder structures based on photo dates. Supports various
+      /// levels of date granularity from no division to year/month organization.
       test('divideToDates: 0 puts all files in ALL_PHOTOS', () async {
         await moveFiles(
           testMedia,
@@ -439,7 +500,9 @@ void main() {
     });
 
     group('Copy vs Move Operations', () {
-      /// Should preserve original files when copy is true.
+      /// Tests the difference between copy and move operations, ensuring
+      /// files are either preserved in original locations (copy) or
+      /// transferred completely (move) while maintaining data integrity.
       test('copy: true preserves original files', () async {
         final originalFiles = testMedia.map((final m) => m.firstFile).toList();
         final originalExists = originalFiles
@@ -501,7 +564,9 @@ void main() {
     });
 
     group('File Name Handling', () {
-      /// Should handle special characters in filenames.
+      /// Tests filename sanitization and special character handling to ensure
+      /// cross-platform compatibility and proper filesystem operations.
+      /// Validates Unicode normalization and illegal character replacement.
       test('handles special characters in filenames', () async {
         await moveFiles(
           testMedia,
@@ -580,7 +645,9 @@ void main() {
     });
 
     group('Progress and Error Handling', () {
-      /// Should emit progress events from moveFiles stream.
+      /// Tests progress reporting and error handling during file operations,
+      /// ensuring proper feedback for long-running operations and graceful
+      /// handling of filesystem errors and edge cases.
       test('moveFiles stream emits progress events', () async {
         final events = <int>[];
 
@@ -622,7 +689,9 @@ void main() {
     });
 
     group('Complex Scenarios', () {
-      /// Should handle mixed album behaviors with date division.
+      /// Tests complex integration scenarios combining multiple features like
+      /// album behaviors with date division, mixed file types, and edge cases
+      /// that represent real-world Google Photos Takeout processing.
       test('handles mixed album behaviors with date division', () async {
         await moveFiles(
           testMedia,

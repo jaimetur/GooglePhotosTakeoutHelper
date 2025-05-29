@@ -1,3 +1,35 @@
+/// Test suite for the Emoji Cleaner functionality.
+///
+/// This test suite verifies the emoji handling functionality that allows
+/// Google Photos Takeout Helper to work with filesystem-incompatible emoji
+/// characters in album names and file paths. The emoji cleaner handles:
+///
+/// 1. Detection of emoji characters in filenames and directory names
+/// 2. Encoding emoji to hex representation for filesystem compatibility
+/// 3. Decoding hex-encoded emoji back to original Unicode characters
+/// 4. Safe renaming of directories containing emoji
+/// 5. Preservation of file structure during emoji processing
+///
+/// Key Components Tested:
+/// - Emoji detection across various Unicode ranges (BMP and supplementary)
+/// - Hex encoding/decoding of emoji characters
+/// - Directory renaming with emoji handling
+/// - File system compatibility checks
+/// - Error handling for invalid emoji sequences
+///
+/// Test Data:
+/// The tests use a variety of emoji types including:
+/// - Basic emoticons (😊, 😀)
+/// - Hearts and symbols (❤️, ⚠️)
+/// - Flag emojis (🇺🇸)
+/// - Number emojis (1️⃣)
+/// - Complex emoji sequences with variation selectors
+///
+/// File System Compatibility:
+/// Tests verify that emoji-containing names are properly converted to
+/// filesystem-safe hex representations while maintaining reversibility.
+library;
+
 import 'dart:io';
 import 'package:emoji_regex/emoji_regex.dart' as r;
 import 'package:exif_reader/exif_reader.dart';
@@ -8,12 +40,36 @@ import 'package:test/test.dart';
 
 import './test_setup.dart';
 
-/// Helper function to check if a string contains emoji
+/// Helper function to check if a string contains emoji characters.
+///
+/// This function detects emoji using two methods:
+/// 1. The emoji_regex package for standard emoji detection
+/// 2. A custom regex for Unicode variation selectors (FE0F, FE0E)
+///
+/// Returns true if the text contains any emoji characters.
+/// Used throughout the test suite to verify emoji detection logic.
 bool containsEmoji(final String text) =>
     r.emojiRegex().hasMatch(text) ||
     RegExp(r'\u{FE0F}|\u{FE0E}', unicode: true).hasMatch(text);
 
-/// Helper function to encode emoji in a string (simplified version for testing)
+/// Helper function to encode emoji in a string (simplified test version).
+///
+/// This is a simplified implementation for testing purposes that converts
+/// emoji characters to hexadecimal representation surrounded by underscores.
+///
+/// Process:
+/// 1. Iterates through each character in the input string
+/// 2. Handles Unicode surrogate pairs for emoji outside the BMP
+/// 3. Converts emoji characters to _0xHEX_ format
+/// 4. Preserves non-emoji characters unchanged
+///
+/// Example: "test_😊.jpg" → "test__0x1f60a_.jpg"
+///
+/// Args:
+///   text: The input string that may contain emoji
+///
+/// Returns:
+///   String with emoji encoded as hex representations
 String encodeEmoji(final String text) {
   if (!containsEmoji(text)) return text;
 
@@ -44,7 +100,25 @@ String encodeEmoji(final String text) {
   return result.toString();
 }
 
-/// Helper function to decode emoji from hex representation
+/// Helper function to decode emoji from hex representation.
+///
+/// This function reverses the encoding process by converting hex-encoded
+/// emoji back to their original Unicode characters. It uses a regex pattern
+/// to find _0xHEX_ sequences and converts them back to emoji.
+///
+/// Process:
+/// 1. Finds all _0xHEX_ patterns in the input string
+/// 2. Parses the hexadecimal value to get the Unicode code point
+/// 3. Converts the code point back to the original emoji character
+/// 4. Handles parsing errors gracefully by preserving original text
+///
+/// Example: "test__0x1f60a_.jpg" → "test_😊.jpg"
+///
+/// Args:
+///   text: The input string containing hex-encoded emoji
+///
+/// Returns:
+///   String with hex representations decoded back to emoji
 String decodeEmoji(final String text) {
   final RegExp emojiPattern = RegExp(r'_0x([0-9a-fA-F]+)_');
   return text.replaceAllMapped(emojiPattern, (final Match match) {
@@ -57,7 +131,22 @@ String decodeEmoji(final String text) {
   });
 }
 
-/// Helper function for renaming directories back from hex encoding
+/// Helper function for renaming directories back from hex encoding.
+///
+/// This function attempts to decode and rename a directory that may have
+/// been encoded with hex emoji representations. It's used in tests to
+/// restore original directory names after emoji processing.
+///
+/// Process:
+/// 1. Attempts to decode the directory path using decodeAndRestoreAlbumEmoji
+/// 2. If the decoded path differs from original, renames the directory
+/// 3. Returns a Directory object pointing to the final path
+///
+/// Args:
+///   hexDir: Directory that may contain hex-encoded emoji in its path
+///
+/// Returns:
+///   Directory object with decoded path (renamed if necessary)
 Directory decodeAndRenameAlbumIfHex(final Directory hexDir) {
   final String decodedPath = decodeAndRestoreAlbumEmoji(hexDir.path);
   if (decodedPath != hexDir.path) {
@@ -68,77 +157,137 @@ Directory decodeAndRenameAlbumIfHex(final Directory hexDir) {
 }
 
 void main() {
-  group('Emoji Cleaner', () {
+  group('Emoji Cleaner - Comprehensive Test Suite', () {
     late TestFixture fixture;
 
     setUpAll(() async {
+      // Initialize ExifTool interface for tests that require EXIF operations
       await initExiftool();
     });
 
     setUp(() async {
+      // Create a fresh test fixture for each test to ensure isolation
       fixture = TestFixture();
       await fixture.setUp();
     });
 
     tearDown(() async {
+      // Clean up test artifacts to prevent interference between tests
       await fixture.tearDown();
     });
 
-    group('Emoji Detection and Encoding', () {
+    group('Emoji Detection and Encoding - Core Functionality', () {
+      /// Verifies that the emoji detection function correctly identifies
+      /// emoji characters in various filename patterns commonly found
+      /// in Google Photos albums. This is critical for determining which
+      /// files and directories need emoji processing.
       test('containsEmoji detects emoji in filenames', () {
+        // Test basic emoji detection in common filename patterns
         expect(containsEmoji('test_😊.jpg'), isTrue);
         expect(containsEmoji('vacation_💖❤️'), isTrue);
+        expect(containsEmoji('test_🎉_party'), isTrue);
+
+        // Verify that normal filenames without emoji are not flagged
         expect(containsEmoji('no_emoji.jpg'), isFalse);
         expect(containsEmoji('regular_folder'), isFalse);
-        expect(containsEmoji('test_🎉_party'), isTrue);
       });
 
-      test('containsEmoji detects various emoji types', () {
-        expect(containsEmoji('face_😀'), isTrue); // Smiling face
-        expect(containsEmoji('heart_❤️'), isTrue); // Red heart
-        expect(containsEmoji('flag_🇺🇸'), isTrue); // Flag emoji
-        expect(containsEmoji('number_1️⃣'), isTrue); // Number emoji
-        expect(containsEmoji('symbol_⚠️'), isTrue); // Warning symbol
-      });
+      /// Tests emoji detection across different Unicode categories and ranges.
+      /// This ensures comprehensive coverage of emoji types that might appear
+      /// in Google Photos album names, including complex emoji with modifiers.
+      test(
+        'containsEmoji detects various emoji types across Unicode ranges',
+        () {
+          // Basic emoticons (U+1F600-U+1F64F)
+          expect(containsEmoji('face_😀'), isTrue); // Smiling face
 
+          // Miscellaneous symbols (U+2600-U+26FF)
+          expect(
+            containsEmoji('heart_❤️'),
+            isTrue,
+          ); // Red heart with variation selector
+          expect(containsEmoji('symbol_⚠️'), isTrue); // Warning symbol
+
+          // Regional indicator symbols for flags (U+1F1E6-U+1F1FF)
+          expect(
+            containsEmoji('flag_🇺🇸'),
+            isTrue,
+          ); // US flag (surrogate pair)
+
+          // Enclosed alphanumeric supplement (U+1F100-U+1F1FF)
+          expect(containsEmoji('number_1️⃣'), isTrue); // Keycap number 1
+        },
+      );
+
+      /// Validates that emoji encoding properly converts emoji characters
+      /// to filesystem-safe hex representations. This is essential for
+      /// creating directory names that work across different operating systems.
       test('encodeEmoji converts emoji to hex representation', () {
         final result = encodeEmoji('test_😊.jpg');
+
+        // Verify that hex encoding occurred
         expect(result, contains('_0x'));
+        // Verify that original emoji was removed
         expect(result, isNot(contains('😊')));
       });
 
-      test('encodeEmoji handles multiple emojis', () {
+      /// Tests encoding of multiple emoji characters in a single string,
+      /// which is common in Google Photos album names that contain
+      /// multiple emoji for emphasis or categorization.
+      test('encodeEmoji handles multiple emojis in sequence', () {
         final result = encodeEmoji('vacation_💖❤️');
-        expect(result, contains('_0x1f496_')); // 💖
-        expect(result, contains('_0x2764_')); // ❤
-        expect(result, contains('_0xfe0f_')); // Variation selector
+
+        // Verify specific emoji hex codes are present
+        expect(result, contains('_0x1f496_')); // 💖 (sparkling heart)
+        expect(result, contains('_0x2764_')); // ❤ (red heart)
+        expect(result, contains('_0xfe0f_')); // Variation selector FE0F
       });
 
-      test('encodeEmoji preserves non-emoji content', () {
+      /// Ensures that non-emoji content is preserved during the encoding
+      /// process, maintaining the structure and readability of filenames
+      /// while only transforming the problematic emoji characters.
+      test('encodeEmoji preserves non-emoji content unchanged', () {
         final result = encodeEmoji('test_😊_file.jpg');
+
+        // Verify file structure is maintained
         expect(result, startsWith('test_'));
         expect(result, endsWith('_file.jpg'));
+        // Verify emoji was encoded
         expect(result, contains('_0x'));
       });
     });
 
-    group('Emoji Decoding', () {
-      test('decodeEmoji converts hex back to emoji', () {
-        final encoded = encodeEmoji('test_😊.jpg');
-        final decoded = decodeEmoji(encoded);
-        expect(decoded, 'test_😊.jpg');
-      });
-
-      test('decodeEmoji handles multiple emojis', () {
-        const original = 'vacation_💖❤️';
+    group('Emoji Decoding - Reversibility Verification', () {
+      /// Verifies that the encoding/decoding process is fully reversible,
+      /// ensuring that original emoji can be restored from hex representations.
+      /// This is crucial for maintaining user-readable album names.
+      test('decodeEmoji converts hex back to original emoji', () {
+        const original = 'test_😊.jpg';
         final encoded = encodeEmoji(original);
         final decoded = decodeEmoji(encoded);
+
+        // Verify complete round-trip conversion
         expect(decoded, original);
       });
 
+      /// Tests decoding of multiple emoji characters to ensure complex
+      /// album names with multiple emoji are properly restored.
+      test('decodeEmoji handles multiple emojis correctly', () {
+        const original = 'vacation_💖❤️';
+        final encoded = encodeEmoji(original);
+        final decoded = decodeEmoji(encoded);
+
+        // Verify complete restoration of complex emoji sequence
+        expect(decoded, original);
+      });
+
+      /// Ensures that strings without hex codes are not modified during
+      /// the decoding process, providing safe handling of mixed content.
       test('decodeEmoji preserves strings without hex codes', () {
         const original = 'regular_filename.jpg';
         final decoded = decodeEmoji(original);
+
+        // Verify no changes to non-encoded content
         expect(decoded, original);
       });
 

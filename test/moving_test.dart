@@ -1,4 +1,78 @@
-// Tests for moving logic: album behaviors, file operations, date division, and error handling.
+/// # Moving Operations Test Suite
+///
+/// Comprehensive tests for file moving and organization operations that form
+/// the core of Google Photos Takeout Helper's media reorganization capabilities.
+/// Tests the complete file moving pipeline from source to destination.
+///
+/// ## Core Functionality Tested
+///
+/// ### File Moving Pipeline
+/// - Complete media file relocation from takeout exports to organized directories
+/// - Batch processing capabilities for large photo collections
+/// - Progress tracking and reporting during long-running operations
+/// - Error recovery and rollback mechanisms for failed operations
+/// - Integrity verification to ensure no data loss during moves
+///
+/// ### Album Integration and Organization
+/// - Various album behavior modes (shortcut, duplicate-copy, JSON, nothing)
+/// - Album directory structure creation and file organization
+/// - Handling of duplicate files across different albums
+/// - Metadata preservation during album-based organization
+/// - Cross-referencing between album and date-based structures
+///
+/// ### Date-Based Directory Organization
+/// - Hierarchical directory creation based on photo timestamps
+/// - Multiple date division levels (year, year/month, etc.)
+/// - Handling of files with missing or inaccurate date information
+/// - Fallback organization strategies for undated media
+/// - Mixed date accuracy scenarios and conflict resolution
+///
+/// ### File Operation Management
+/// - Copy vs move operation modes with different preservation behaviors
+/// - Safe file operations with conflict detection and resolution
+/// - Filename sanitization and special character handling
+/// - Cross-platform compatibility for different file systems
+/// - Permission handling and access control validation
+///
+/// ## Integration Testing Scenarios
+///
+/// ### Real-World Use Cases
+/// - Processing of actual Google Photos Takeout export structures
+/// - Mixed media types (photos, videos, screenshots, edited files)
+/// - Various filename patterns and international character sets
+/// - Large-scale operations with thousands of files
+/// - Edge cases like corrupted files or incomplete exports
+///
+/// ### Error Handling and Recovery
+/// - Network interruption during large file operations
+/// - Insufficient disk space scenarios and graceful handling
+/// - Permission errors and access control issues
+/// - Corrupted or locked files that cannot be moved
+/// - Partial operation recovery and continuation capabilities
+///
+/// ### Performance and Scalability
+/// - Memory usage optimization for large photo collections
+/// - I/O efficiency during batch file operations
+/// - Progress reporting accuracy and user experience
+/// - Resource cleanup and temporary file management
+/// - Concurrent operation handling and thread safety
+///
+/// ## Test Structure and Validation
+///
+/// Tests use realistic file scenarios including:
+/// - Photos with various editing suffixes (edited, modifié, bearbeitet)
+/// - Screenshots with embedded timestamp information
+/// - Files with complex special characters and Unicode names
+/// - Mixed accuracy date metadata from different sources
+/// - Album relationships and duplicate file scenarios
+///
+/// Validation covers:
+/// - Correct destination directory structure creation
+/// - File content integrity after move operations
+/// - Metadata preservation and EXIF data handling
+/// - Progress event accuracy and completion reporting
+/// - Error state handling and user notification
+library;
 
 import 'dart:io';
 import 'package:collection/collection.dart';

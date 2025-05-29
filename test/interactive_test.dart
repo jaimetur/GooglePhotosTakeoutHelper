@@ -1,3 +1,38 @@
+/// Test suite for the Interactive Module functionality.
+///
+/// This comprehensive test suite validates the interactive components of
+/// Google Photos Takeout Helper that handle user input and provide
+/// configuration options. The interactive module is responsible for:
+///
+/// 1. Album Processing Options:
+///    - Providing users with different strategies for handling album files
+///    - Validating album option configurations and descriptions
+///    - Ensuring proper formatting of user-facing option text
+///
+/// 2. Input Validation:
+///    - Validating user input for various configuration parameters
+///    - Handling edge cases and invalid input gracefully
+///    - Providing meaningful error messages for invalid configurations
+///
+/// 3. User Experience:
+///    - Testing interactive prompts and menu systems
+///    - Validating help text and user guidance
+///    - Ensuring consistent user interface behavior
+///
+/// Key Components Tested:
+/// - Album behavior options (shortcut, duplicate-copy, json, nothing)
+/// - Input validation functions for paths, options, and parameters
+/// - Interactive prompt handling and response processing
+/// - Error handling for invalid user input
+/// - Help system and user guidance features
+///
+/// Testing Strategy:
+/// The tests use controlled input scenarios to verify that the interactive
+/// module correctly handles various user inputs and provides appropriate
+/// feedback. Mock input streams and controlled test environments ensure
+/// repeatable and reliable test results.
+library;
+
 // Tests for interactive module: album options, input validation, and user experience.
 
 import 'dart:io';
@@ -6,33 +41,40 @@ import 'package:test/test.dart';
 import './test_setup.dart';
 
 void main() {
-  group('Interactive Module', () {
+  group('Interactive Module - User Interface and Input Handling', () {
     late TestFixture fixture;
 
     setUp(() async {
+      // Set up a clean test environment for each test
       fixture = TestFixture();
       await fixture.setUp();
     });
 
     tearDown(() async {
+      // Clean up test artifacts to prevent interference
       await fixture.tearDown();
     });
 
-    group('Album Options', () {
-      /// Should provide valid album behavior options.
+    group('Album Options - Configuration and Validation', () {
+      /// Validates that the album options map contains all expected
+      /// configuration options for handling album files. These options
+      /// determine how the tool processes album relationships and file
+      /// organization during the takeout processing.
       test('provides valid album behavior options', () {
         expect(interactive.albumOptions, isA<Map<String, String>>());
         expect(interactive.albumOptions.isNotEmpty, isTrue);
 
-        // Check for expected album options
+        // Verify all expected album processing strategies are available
         expect(interactive.albumOptions.keys, contains('shortcut'));
         expect(interactive.albumOptions.keys, contains('duplicate-copy'));
         expect(interactive.albumOptions.keys, contains('json'));
         expect(interactive.albumOptions.keys, contains('nothing'));
       });
 
-      /// Should ensure album options have descriptions.
-      test('album options have descriptions', () {
+      /// Ensures that each album option has a meaningful description
+      /// that helps users understand the behavior and consequences
+      /// of each processing strategy.
+      test('album options have comprehensive descriptions', () {
         for (final entry in interactive.albumOptions.entries) {
           expect(
             entry.value,
@@ -47,8 +89,10 @@ void main() {
         }
       });
 
-      /// Should ensure album options are properly formatted.
-      test('album options are properly formatted', () {
+      /// Verifies that album option descriptions are properly formatted
+      /// for display in user interfaces, with appropriate capitalization
+      /// and punctuation for professional presentation.
+      test('album options are properly formatted for user display', () {
         for (final entry in interactive.albumOptions.entries) {
           // Key should be lowercase and may contain hyphens
           expect(

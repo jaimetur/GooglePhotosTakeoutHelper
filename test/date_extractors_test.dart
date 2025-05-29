@@ -1,4 +1,63 @@
-// Tests for date extraction from JSON, EXIF, and filename guessing.
+/// # Date Extractors Test Suite
+///
+/// Comprehensive tests for date extraction functionality that recovers timestamp
+/// information from various sources in Google Photos Takeout exports, ensuring
+/// accurate chronological organization of media files.
+///
+/// ## Core Functionality Tested
+///
+/// ### JSON Metadata Extraction
+/// - Extraction of creation timestamps from Google Photos JSON metadata files
+/// - Handling of Unix timestamp formats and timezone conversions
+/// - Support for "tryhard" mode that attempts to match related JSON files
+/// - Fallback strategies for missing or corrupted JSON metadata
+/// - Special handling for edited filenames (e.g., "photo-edited.jpg" → "photo.jpg.json")
+///
+/// ### EXIF Data Extraction
+/// - Reading DateTimeOriginal from EXIF metadata in image files
+/// - Support for various EXIF date formats and camera manufacturer variations
+/// - Handling of timezone information when available in EXIF data
+/// - Extraction from both JPEG and other supported image formats
+/// - Error handling for corrupted or incomplete EXIF data
+///
+/// ### Filename Pattern Recognition
+/// - Intelligent date guessing from filename patterns and conventions
+/// - Support for common timestamp formats embedded in filenames
+/// - Recognition of screenshot patterns with embedded timestamps
+/// - Handling of various date formats (ISO, regional, custom patterns)
+/// - Fallback parsing for non-standard filename conventions
+///
+/// ## Extraction Strategy and Accuracy
+///
+/// The date extraction system uses a hierarchical approach to maximize accuracy:
+///
+/// 1. **Primary Sources** (Highest Accuracy):
+///    - Google Photos JSON metadata with precise Unix timestamps
+///    - EXIF DateTimeOriginal from camera metadata
+///
+/// 2. **Secondary Sources** (Medium Accuracy):
+///    - EXIF DateTime or DateTimeDigitized fields
+///    - Structured filename patterns with embedded dates
+///
+/// 3. **Fallback Sources** (Lower Accuracy):
+///    - File system timestamps (creation/modification dates)
+///    - Heuristic filename parsing for partial date information
+///
+/// ## Test Coverage Areas
+///
+/// ### Edge Cases and Error Handling
+/// - Files with missing or multiple potential JSON matches
+/// - Corrupted EXIF data or unsupported metadata formats
+/// - Ambiguous filename patterns requiring disambiguation
+/// - Timezone handling and UTC conversion accuracy
+/// - Performance with large batches of files
+///
+/// ### Integration Scenarios
+/// - Coordination between multiple extraction methods
+/// - Confidence scoring for extracted dates
+/// - Handling of conflicting dates from different sources
+/// - Support for edited files with modified timestamps
+library;
 
 import 'dart:io';
 import 'package:gpth/date_extractors/date_extractor.dart';
@@ -19,7 +78,9 @@ void main() {
     });
 
     group('JSON Date Extractor', () {
-      /// Should extract date from a valid JSON metadata file.
+      /// Tests JSON metadata parsing for precise timestamp extraction from
+      /// Google Photos metadata files, including tryhard matching for
+      /// edited filenames and error handling for missing files.
       test('extracts date from valid JSON file', () async {
         final imgFile = fixture.createFile('test.jpg', [1, 2, 3]);
         fixture.createJsonFile('test.jpg.json', 1599078832);
@@ -69,7 +130,9 @@ void main() {
     });
 
     group('EXIF Date Extractor', () {
-      /// Should extract date from EXIF metadata in an image.
+      /// Tests EXIF metadata parsing for camera-generated timestamps,
+      /// extracting DateTimeOriginal and handling cases where EXIF
+      /// data is missing or corrupted.
       test('extracts date from EXIF data', () async {
         final imgFile = fixture.createImageWithExif('test.jpg');
 
@@ -98,7 +161,9 @@ void main() {
     });
 
     group('Guess Date Extractor', () {
-      /// Should extract dates from various filename patterns.
+      /// Tests intelligent filename pattern recognition for date extraction
+      /// when other metadata sources are unavailable, supporting various
+      /// timestamp formats embedded in filenames.
       test('extracts dates from various filename patterns', () async {
         for (final pattern in testDatePatterns) {
           final filename = pattern[0];

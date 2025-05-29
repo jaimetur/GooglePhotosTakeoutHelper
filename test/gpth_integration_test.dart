@@ -1,4 +1,87 @@
-// Integration tests for the full GPTH pipeline and edge cases.
+/// # Google Photos Takeout Helper Integration Test Suite
+///
+/// Comprehensive integration tests that validate the complete Google Photos
+/// Takeout Helper pipeline from raw export processing to final organized
+/// media library. Tests end-to-end workflows and complex edge cases.
+///
+/// ## Full Pipeline Integration Testing
+///
+/// ### Complete Workflow Validation
+/// - End-to-end processing of Google Photos Takeout exports
+/// - Integration between all major components (classification, grouping, moving)
+/// - Real-world scenario simulation with complex file relationships
+/// - Performance validation with large-scale photo collections
+/// - Data integrity verification throughout the entire pipeline
+///
+/// ### Multi-Component Coordination
+/// - Folder classification feeding into media grouping
+/// - Duplicate detection coordinating with extras removal
+/// - Date extraction informing organization strategies
+/// - Album processing integrated with file moving operations
+/// - EXIF writing coordinated with metadata preservation
+///
+/// ### Complex Edge Case Scenarios
+/// - Mixed file types with inconsistent metadata quality
+/// - Corrupted or incomplete takeout exports
+/// - Files with conflicting information from multiple sources
+/// - International characters and Unicode handling across components
+/// - Large batches testing memory management and performance
+///
+/// ## Real-World Export Processing
+///
+/// ### Google Photos Export Structure Simulation
+/// - Realistic directory hierarchies matching actual takeout exports
+/// - Album folders with duplicate file relationships
+/// - JSON metadata files with various timestamp formats
+/// - Mixed file naming conventions and special characters
+/// - Partial exports and incomplete metadata scenarios
+///
+/// ### Metadata Integration Testing
+/// - Coordination between JSON metadata and EXIF data
+/// - Date extraction from multiple sources with conflict resolution
+/// - GPS coordinate handling and timezone conversion
+/// - Album relationship preservation during reorganization
+/// - Edited file detection and original file matching
+///
+/// ### Error Handling and Recovery
+/// - Graceful handling of corrupted or missing metadata
+/// - Recovery from partial operation failures
+/// - Validation of rollback capabilities when errors occur
+/// - User feedback and progress reporting during complex operations
+/// - Resource cleanup after failed or interrupted operations
+///
+/// ## Performance and Scalability Validation
+///
+/// ### Large-Scale Processing
+/// - Memory usage patterns with thousands of files
+/// - I/O efficiency during batch operations
+/// - Progress reporting accuracy for long-running operations
+/// - Resource utilization monitoring and optimization
+/// - Concurrent operation handling and thread safety
+///
+/// ### Cross-Platform Compatibility
+/// - Filesystem behavior differences across operating systems
+/// - Path handling and filename restriction compliance
+/// - Unicode normalization consistency across platforms
+/// - External tool integration (ExifTool) across environments
+/// - Permission and access control handling variations
+///
+/// ## Integration Test Structure
+///
+/// Tests simulate realistic takeout export scenarios including:
+/// - Multiple albums with overlapping content
+/// - Files with various editing states and naming patterns
+/// - Mixed date accuracy levels from different metadata sources
+/// - Special characters and international filename conventions
+/// - Corrupted files and incomplete export scenarios
+///
+/// Validation encompasses:
+/// - Complete pipeline execution without data loss
+/// - Proper error propagation and user notification
+/// - Performance characteristics within acceptable bounds
+/// - Resource cleanup and memory management
+/// - Final output structure correctness and accessibility
+library;
 
 import 'dart:convert';
 import 'dart:io';

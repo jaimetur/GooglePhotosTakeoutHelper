@@ -1,4 +1,54 @@
-// Tests for EXIF writing functionality, including GPS and DateTime.
+/// # EXIF Writer Test Suite
+///
+/// Comprehensive tests for EXIF metadata writing functionality that enables
+/// enriching media files with location, time, and other metadata information
+/// extracted from Google Photos Takeout JSON files.
+///
+/// ## Core Functionality Tested
+///
+/// ### GPS Coordinate Writing
+/// - Writing GPS coordinates to JPEG files using ExifTool
+/// - Coordinate format conversion from decimal degrees to DMS (Degrees, Minutes, Seconds)
+/// - Proper handling of latitude/longitude directions (North/South, East/West)
+/// - Validation of written GPS data through read-back verification
+/// - Support for various coordinate precision levels and edge cases
+///
+/// ### DateTime Metadata Management
+/// - Writing creation timestamps to EXIF DateTimeOriginal fields
+/// - Handling timezone information and UTC conversion
+/// - Support for various date formats from Google Photos metadata
+/// - Preservation of original timestamp accuracy during write operations
+/// - Fallback strategies for incomplete or malformed date information
+///
+/// ### EXIF Tag Integration
+/// - Integration with ExifTool for reliable metadata writing
+/// - Batch processing capabilities for multiple files
+/// - Error handling for corrupted or unsupported file formats
+/// - Preservation of existing EXIF data while adding new metadata
+/// - Cross-platform compatibility for different operating systems
+///
+/// ## Technical Implementation
+///
+/// The test suite validates EXIF writing using the ExifTool external binary,
+/// which provides robust support for reading and writing metadata across
+/// hundreds of file formats. Tests ensure:
+///
+/// - Coordinate precision is maintained during DMS conversion
+/// - GPS reference directions are correctly set based on coordinate signs
+/// - DateTime formats comply with EXIF specification requirements
+/// - Written metadata can be successfully read back and validated
+/// - Error conditions are properly handled and reported
+///
+/// ## Test Structure
+///
+/// Tests use controlled image files without existing EXIF data to ensure
+/// clean testing conditions. The suite covers:
+/// - Basic GPS coordinate writing with various precision levels
+/// - DateTime writing with different timezone scenarios
+/// - Error handling for invalid coordinates or malformed dates
+/// - Integration testing with real Google Photos JSON metadata
+/// - Performance validation for batch processing operations
+library;
 
 import 'package:coordinate_converter/coordinate_converter.dart';
 import 'package:exif_reader/exif_reader.dart';
@@ -27,7 +77,9 @@ void main() {
     });
 
     group('GPS Coordinates Writing', () {
-      /// Should write GPS coordinates to a JPEG file.
+      /// Tests GPS coordinate writing functionality that converts decimal
+      /// degree coordinates to DMS format and writes them to EXIF metadata.
+      /// Validates coordinate precision and direction handling.
       test('writeGpsToExif writes GPS coordinates to JPEG file', () async {
         final testImage = fixture.createImageWithoutExif('test.jpg');
         final coordinates = DMSCoordinates(
@@ -79,7 +131,9 @@ void main() {
     });
 
     group('DateTime Writing', () {
-      /// Should write DateTime to an image without EXIF data.
+      /// Tests DateTime metadata writing functionality that sets creation
+      /// timestamps in EXIF DateTimeOriginal fields, ensuring proper
+      /// timestamp preservation from Google Photos metadata.
       test(
         'writeDateTimeToExif writes DateTime to image without EXIF',
         () async {
@@ -165,7 +219,9 @@ void main() {
     });
 
     group('Native vs ExifTool Writing', () {
-      /// Should prefer native JPEG writing when available.
+      /// Tests the writing strategy selection between native Dart EXIF
+      /// writing and ExifTool external binary, ensuring optimal performance
+      /// while maintaining broad file format compatibility.
       test('prefers native JPEG writing when available', () async {
         final testImage = fixture.createImageWithoutExif('test.jpg');
         final testDateTime = DateTime(2023, 12, 25, 15, 30, 45);

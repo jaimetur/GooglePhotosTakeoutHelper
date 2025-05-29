@@ -1,4 +1,65 @@
-// Tests for utility functions: stream extensions, file operations, disk, logging, directory validation, platform, JSON, and pixel motion.
+/// # Utility Functions Test Suite
+///
+/// Comprehensive tests for utility functions that provide essential support
+/// services across the Google Photos Takeout Helper application, including
+/// stream processing, file operations, system validation, and helper utilities.
+///
+/// ## Core Functionality Tested
+///
+/// ### Stream Processing Extensions
+/// - Type filtering extensions for processing file streams efficiently
+/// - Media file filtering to identify photos and videos specifically
+/// - Stream transformation utilities for batch processing operations
+/// - Performance optimization for large directory traversals
+///
+/// ### File System Operations
+/// - Intelligent filename generation to avoid conflicts during operations
+/// - Safe file operations with collision detection and resolution
+/// - Cross-platform path handling and normalization
+/// - File extension detection and validation for media types
+/// - Directory creation and management with proper permissions
+///
+/// ### System Validation and Environment
+/// - Disk space checking before large file operations
+/// - Platform-specific behavior detection and adaptation
+/// - Memory usage monitoring for resource-intensive operations
+/// - External tool availability verification (ExifTool, etc.)
+///
+/// ### JSON and Data Processing
+/// - Safe JSON parsing with error handling for malformed metadata
+/// - Timestamp conversion utilities for various date formats
+/// - Unicode normalization for cross-platform filename compatibility
+/// - Data validation and sanitization for user inputs
+///
+/// ### Logging and Progress Tracking
+/// - Structured logging utilities for operation tracking
+/// - Progress reporting mechanisms for long-running operations
+/// - Error categorization and user-friendly message formatting
+/// - Debug information collection for troubleshooting
+///
+/// ## Technical Implementation
+///
+/// The utility functions provide a foundation for reliable operations across
+/// different operating systems and file systems. Key areas include:
+///
+/// ### Cross-Platform Compatibility
+/// - Handling of different path separators and filename restrictions
+/// - Unicode normalization for international character support
+/// - Case sensitivity handling for different file systems
+/// - Permission and access control validation
+///
+/// ### Performance Optimization
+/// - Efficient stream processing for large photo collections
+/// - Memory-conscious operations for resource-constrained systems
+/// - Batch processing capabilities to minimize I/O overhead
+/// - Caching mechanisms for frequently accessed metadata
+///
+/// ### Error Recovery and Resilience
+/// - Graceful handling of filesystem errors and permissions issues
+/// - Retry mechanisms for transient failures
+/// - Fallback strategies when preferred methods are unavailable
+/// - Comprehensive error reporting for user guidance
+library;
 
 import 'dart:io';
 import 'package:gpth/moving.dart';
@@ -21,7 +82,9 @@ void main() {
     });
 
     group('Stream Extensions', () {
-      /// Should filter stream by type using whereType.
+      /// Tests stream processing extensions that efficiently filter and
+      /// transform file streams for media processing operations, including
+      /// type filtering and media-specific file identification.
       test('whereType filters stream correctly', () {
         final stream = Stream.fromIterable([1, 'a', 2, 'b', 3, 'c']);
 
@@ -46,7 +109,9 @@ void main() {
     });
 
     group('File Operations', () {
-      /// Should generate unique filename if file exists.
+      /// Tests file system operations including intelligent filename generation
+      /// to prevent conflicts, safe file operations, and cross-platform
+      /// path handling with proper collision resolution.
       test('findNotExistingName generates unique filename', () {
         final existingFile = fixture.createFile('test.jpg', [1, 2, 3]);
 
