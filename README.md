@@ -25,9 +25,13 @@ When you export photos from Google Photos using [Google Takeout](https://takeout
 2. Deselect all, then select only **Google Photos**
 3. Download all ZIP files
 
+<img width="75%" alt="gpth usage image tutorial" src="https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/assets/40139196/8e85f58c-9958-466a-a176-51af85bb73dd">
+
 ### 2. Extract and Merge
 
 Unzip all files and merge them so you have one unified "Takeout" folder.
+
+<img width="75%" alt="Unzip image tutorial" src="https://user-images.githubusercontent.com/40139196/229361367-b9803ab9-2724-4ddf-9af5-4df507e02dfe.png">
 
 **⚠️ Keep the original ZIPs as backup!**
 
