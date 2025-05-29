@@ -129,6 +129,15 @@ Future<bool> writeGpsToExif(
   }
 }
 
+/// Writes DateTime to EXIF using native Dart libraries (JPEG only)
+///
+/// Only supports JPEG files
+/// using the 'image' package for EXIF manipulation.
+///
+/// [file] Image file to write to
+/// [dateTime] DateTime to write to EXIF fields
+/// [mimeTypeFromHeader] MIME type detected from file header
+/// Returns true if write was successful
 Future<bool> _noExifToolDateTimeWriter(
   final File file,
   final DateTime dateTime,
@@ -183,6 +192,15 @@ Future<bool> _noExifToolDateTimeWriter(
   return false;
 }
 
+/// Writes GPS coordinates to EXIF using native Dart libraries (JPEG only)
+///
+/// Only supports JPEG files
+/// using the 'image' package for EXIF manipulation.
+///
+/// [file] Image file to write to
+/// [coordinates] GPS coordinates to write
+/// [mimeTypeFromHeader] MIME type detected from file header
+/// Returns true if write was successful
 Future<bool> _noExifGPSWriter(
   final File file,
   final DMSCoordinates coordinates,

@@ -14,8 +14,10 @@ import 'interactive.dart' as interactive;
 import 'media.dart';
 import 'utils.dart';
 
-/// This will add (1) add end of file name over and over until file with such
-/// name doesn't exist yet. Will leave without "(1)" if is free already
+/// Creates a unique file name by appending (1), (2), etc. until non-existing
+///
+/// [initialFile] The file to find a unique name for
+/// Returns a File object with a unique path that doesn't exist yet
 File findNotExistingName(final File initialFile) {
   File file = initialFile;
   while (file.existsSync()) {
@@ -24,11 +26,12 @@ File findNotExistingName(final File initialFile) {
   return file;
 }
 
-/// This will create symlink on unix and shortcut on windoza
+/// Creates a symbolic link (Unix) or shortcut (Windows) to target file
 ///
-/// Uses [findNotExistingName] for safety
-///
-/// WARN: Crashes with non-ascii names :(
+/// [location] Directory where the link/shortcut will be created
+/// [target] File to link to
+/// Returns the created link/shortcut file
+/// Uses relative paths to avoid breaking when folders are moved
 Future<File> createShortcut(final Directory location, final File target) async {
   final String name =
       '${p.basename(target.path)}${Platform.isWindows ? '.lnk' : ''}';
@@ -73,6 +76,14 @@ Future<File> createShortcut(final Directory location, final File target) async {
   }
 }
 
+/// Moves a file to new location and creates a shortcut in the original location
+///
+/// Used for reverse-shortcut album behavior where originals go to albums
+/// and shortcuts are created in year folders.
+///
+/// [newLocation] Directory to move the file to
+/// [target] File to move
+/// Returns the created shortcut file
 Future<File> moveFileAndCreateShortcut(
   final Directory newLocation,
   final File target,

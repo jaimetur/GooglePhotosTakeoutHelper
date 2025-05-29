@@ -1,143 +1,232 @@
+# Google Photos Takeout Helper 📸
+
 [![AUR](https://img.shields.io/aur/version/gpth-bin?logo=arch-linux)](https://aur.archlinux.org/packages/gpth-bin)
-[![total Github Releases downloads](https://img.shields.io/github/downloads/TheLastGimbus/GooglePhotosTakeoutHelper/total?label=total%20downloads)](https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/releases/)
-[![latest version downloads](https://img.shields.io/github/downloads/TheLastGimbus/GooglePhotosTakeoutHelper/latest/total?label=latest%20version%20downloads)](https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/releases/latest)
-[![resolved Github issues](https://img.shields.io/github/issues-closed/TheLastGimbus/GooglePhotosTakeoutHelper?label=resolved%20issues)](https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/issues)
-[![commit activity](https://img.shields.io/github/commit-activity/y/TheLastGimbus/GooglePhotosTakeoutHelper)](https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/graphs/contributors)
+[![Downloads](https://img.shields.io/github/downloads/TheLastGimbus/GooglePhotosTakeoutHelper/total?label=downloads)](https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/releases/)
+[![Issues](https://img.shields.io/github/issues-closed/TheLastGimbus/GooglePhotosTakeoutHelper?label=resolved%20issues)](https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/issues)
 
-# Google Photos Takeout Helper 📸🆘
-## What is this for 🧐
-If you ever want to move from Google Photos to other platform/solution, your fastest choice to export all photos is [Google Takeout 🥡](https://takeout.google.com/)
+Transform your chaotic Google Photos Takeout into organized photo libraries with proper dates, albums, and metadata.
 
-But when you download it, you will find yourself with zips with hundreds of little folders with weird `.json` files inside 🍝. 
-What if you want to just have one folder with all photos, in chronological order? Good luck copying all of that 🙃
+## What This Tool Does
 
-This script does just that - it organizes and cleans up your Takeout for you 🧹😌
+When you export photos from Google Photos using [Google Takeout](https://takeout.google.com/), you get a mess of folders with weird `.json` files and broken timestamps. This tool:
 
-It will take all of those folders, find all photos in them, set their `file last modified` correctly, and put it in one big folder (or folders divided by a month) 🗄
+- ✅ **Organizes photos chronologically** with correct dates
+- ✅ **Restores album structure** with multiple handling options
+- ✅ **Fixes timestamps** from JSON metadata and EXIF data
+- ✅ **Writes GPS coordinates and timestamps** back to media files
+- ✅ **Removes duplicates** automatically
+- ✅ **Handles special formats** (HEIC, Motion Photos, etc.)
 
-## How to use:
-Since `v3.2.0`, `gpth` is interactive 🎉 - you don't need to type any complicated arguments - just get your takeout, run gpth, and follow prompted instructions 💃
+## Quick Start
 
-If you want to run it on Synology, have problems with interactive, or just love cmd, look at ["Running manually with cmd"](#running-manually-with-cmd). Otherwise, just:
+### 1. Get Your Photos from Google Takeout
 
-### 1. Get all your photos from [Google Takeout](https://takeout.google.com/) 📥
-"deselect all" and then select only Google Photos
-      
-<img width="75%" alt="gpth usage image tutorial" src="https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/assets/40139196/8e85f58c-9958-466a-a176-51af85bb73dd">
+1. Go to [Google Takeout](https://takeout.google.com/)
+2. Deselect all, then select only **Google Photos**
+3. Download all ZIP files
 
-### 2. Unzip them all and merge into one, so that all "Takeout" folders become one
-   
-   **NOTE:** Keep those original zips, you may need them if anything goes wrong
-   
-   <img width="75%" alt="Unzip image tutorial" src="https://user-images.githubusercontent.com/40139196/229361367-b9803ab9-2724-4ddf-9af5-4df507e02dfe.png">
-   
-### 3. Download the executable for your system from [releases tab](https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/releases) 🛒 ([also available on AUR 😏](https://aur.archlinux.org/packages/gpth-bin))
+### 2. Extract and Merge
 
-### 4. Install Exiftool
-    - On Windoza: download [exiftool for Windows](https://exiftool.org/) and put `exiftool(-k).exe` in the same folder as `gpth.exe`. Important! Rename it to `exiftool.exe`.
-      - Alternatively, you can install it with [Chocolatey](https://chocolatey.org/):
-        ```bash
-        choco install exiftool
-        ```
-    - On Mac: install with Homebrew:
-      ```bash
-      brew install exiftool
-      ```
-    - On Linux: install with your package manager, e.g. on Ubuntu:
-      ```bash
-      sudo apt install libimage-exiftool-perl
-      ```
+Unzip all files and merge them so you have one unified "Takeout" folder.
 
-### 5. Run `gpth`
-   - On Windoza: just double-click the downloaded `.exe` 🎉 - tell windoza defender that it's safe, and follow prompted instructions 🧾
-   - On Mac/Linux: open terminal, `cd` to the folder with downloaded executable and run it:
-     ```bash
-     # if you have Mac with M1/M2 chip, you need to enable x86 emulation
-     # otherwise, just skip it
-     softwareupdate --install-rosetta
-     
-     cd Downloads # probably
-     # add execute permission for file
-     chmod +x gpth-macos # or gpth-linux
-     # tell MacOS Gatekeeper to not worry
-     xattr -r -d com.apple.quarantine gpth-macos
-     # run it 🏃
-     ./gpth-macos # or ./gpth-linux
-     # follow prompted instructions 🥰
-     ```
+**⚠️ Keep the original ZIPs as backup!**
 
-   **Fun fact:** `gpth` *moves* files around by default - so if anything goes wrong mid-way, re-export the zips again :pray:
+### 3. Install Prerequisites
 
-Done! Enjoy your photos!!!
+**ExifTool** (required for metadata handling):
 
-### Running manually with cmd
+- **Windows**: Download from [exiftool.org](https://exiftool.org/) and rename `exiftool(-k).exe` to `exiftool.exe`
+  ```bash
+  # Or with Chocolatey:
+  choco install exiftool
+  ```
+- **Mac**: 
+  ```bash
+  brew install exiftool
+  ```
+- **Linux**: 
+  ```bash
+  sudo apt install libimage-exiftool-perl
+  ```
 
-You may still need this mode if:
-- You want to run on Synology where there are no ui programs required for interactive
-  - You can read/discuss in [#157](https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/discussions/157) for any help
-- ~~Interactive unzipping crashes for you (known issue in windoza 😢 #178)~~ - disabled for now
-- Want to use this in other script/automation
+### 4. Download and Run GPTH
 
-In that case:
-1. Manually unzip all your takeout zips and merge them into one folder
-2. Open cmd and:
-   - For windoza:
-     ```bash
-     # psst: in windoza cmd, you can just drag and drop files/folders to type them in
-     # 1. change working directory to where gpth.exe is:
-     cd Downloads  # Most probably
-     # run it, selecting input and output folders with options like this:
-     # (you can try to drag and drop them)
-     gpth.exe --write-exif --input "Downloads\you\input\folder" --output "C:\some\other\location" --albums "shortcut"
-     # select which album solution you like - see --help for all of them
-     # remember to use "" !
-     ```
-   - For Linux/macOS:
-     ```bash
-     # ssh/whatever to where you're running it
-     cd Downloads  # folder with gpth
-     chmod +x gpth  # add execute permission
-     # tell MacOS Gatekeeper to not worry
-     xattr -r -d com.apple.quarantine gpth-macos
-     ./gpth --write-exif --input "/some/input/folder" --output "other/output/folder" --albums "shortcut"
-     # select which album solution you like - see --help for all of them
-     ```
+1. Download the latest executable from [releases](https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/releases)
+2. **Interactive Mode** (recommended for beginners):
+   - Windows: Double-click `gpth.exe`
+   - Mac/Linux: Run `./gpth-macos` or `./gpth-linux` in terminal
+3. Follow the prompts to select input/output folders and options
 
-You can check all cmd flags by running `gpth --help` - for example, the `--divide-to-dates` flag
+## Album Handling Options
 
-## If I helped you, you can consider donating me ☕
-I spent **a lot of** time fixing bugs and making this work stable 💖 - would be super thankful for any donations 🥰
+GPTH offers several ways to handle your Google Photos albums:
 
-[![Donate](https://img.shields.io/badge/Donate-PayPal-blue.svg?logo=paypal&style=for-the-badge)](https://www.paypal.me/TheLastGimbus)
-[![Donate using ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/A0A6HO71P)
-[![Donate using Liberapay](https://liberapay.com/assets/widgets/donate.svg)](https://liberapay.com/TheLastGimbus/donate)
+### 🔗 Shortcut (Recommended)
+Creates shortcuts/symlinks from album folders to files in `ALL_PHOTOS`. Saves space while maintaining organization.
 
-## After exporting 🤔
-### Be aware if you move your photos on your Android phone... ☝
-(99% of the times), if you move some files in Android, their creation and modification time is reset to current.
+### 📁 Duplicate Copy
+Creates actual file copies in both `ALL_PHOTOS` and album folders. Uses more space but works across all systems.
 
-"Simple Gallery" app usually keeps original file creation time when moving and copying (but I don't guarantee it). It's also pretty cool - check it out: https://github.com/SimpleMobileTools/Simple-Gallery
+### 🔄 Reverse Shortcut
+Files stay in album folders, shortcuts created in `ALL_PHOTOS`. Good for album-centric organization.
 
-### What to do when you got rid of Google Photos? What are the alternatives? 🗺
- - I really recommend you using [Syncthing](https://syncthing.net/) for syncing your photos and files across devices. It does so through your local Wi-Fi, so you're not dependent on any service or internet connection. It will also keep original file creation date and metadata, so it resolves Android issue that I mentioned before.
+### 📄 JSON
+Single `ALL_PHOTOS` folder plus `albums-info.json` with metadata. Most space-efficient, programmatically accessible.
 
- - [Immich](https://immich.app/) aims to be full blown GPhotos replacement - it's still under development, but already looks great!
+### ❌ Nothing
+Ignores albums entirely, creates only `ALL_PHOTOS`. Simplest option.
 
- - Same with [Photoprism](https://photoprism.org/), tho this one is in development longer (may be more mature)
+## Command Line Usage
 
- - If you want something more centralized but also self-hosted, [Nextcloud](https://nextcloud.com) is a nice choice, but its approach to photos is still not perfect. (And you need to set up your own server)
+For automation, headless systems, or advanced users:
 
-### Other Takeout projects
-I used this tool to export my notes to markdown - you can then edit them with any markdown editor you like :)
+```bash
+gpth --input "/path/to/takeout" --output "/path/to/organized" --albums "shortcut"
+```
 
-https://github.com/vHanda/google-keep-exporter
+### Core Arguments
 
-### Where is the Python script 🐍 ??
-Yeah, the whole thing got re-written in Dart, and now it's way more stable and faster. If you still want Python for some reason, check out v2.x - in releases/tags
+| Argument | Description |
+|----------|-------------|
+| `--input`, `-i` | Input folder containing extracted Takeout |
+| `--output`, `-o` | Output folder for organized photos |
+| `--albums` | Album handling: `shortcut`, `duplicate-copy`, `reverse-shortcut`, `json`, `nothing` |
+| `--help`, `-h` | Show help and exit |
 
-### TODO (Pull Requests welcome):
-- [x] GPS data: from JSON to Exif - ~~Thank you @DalenW 💖~~ - Implemented by @Xentraxx
-- [x] Writing data from `.json`s back to `EXIF` data - Implemented by @Xentraxx
-- [x] Some way to handle albums - THANK YOU @bitsondatadev 😘 🎉 💃
-- [ ] Bringing back interactive unzipping
-- [ ] Integrating upload to Nextcloud
+### Organization Options
+
+| Argument | Description |
+|----------|-------------|
+| `--divide-to-dates` | Folder structure: `0`=one folder, `1`=by year, `2`=year/month, `3`=year/month/day |
+| `--copy` | Copy files instead of moving (safer but uses more space) |
+| `--skip-extras` | Skip extra images like "-edited" versions |
+
+### Metadata & Processing
+
+| Argument | Description |
+|----------|-------------|
+| `--write-exif` | Write GPS coordinates and dates to EXIF metadata |
+| `--modify-json` | Fix JSON files with "supplemental-metadata" suffix |
+| `--transform-pixel-mp` | Convert Pixel Motion Photos (.MP/.MV) to .mp4 |
+| `--guess-from-name` | Extract dates from filenames (enabled by default) |
+| `--update-creation-time` | Sync creation time with modified time (Windows only) |
+| `--limit-filesize` | Skip files larger than 64MB (for low-RAM systems) |
+
+### Other Options
+
+| Argument | Description |
+|----------|-------------|
+| `--interactive` | Force interactive mode |
+| `--verbose`, `-v` | Show detailed logging output |
+| `--fix` | Special mode: fix dates in any folder (not just Takeout) |
+
+### Example Commands
+
+**Basic usage:**
+```bash
+gpth --input "~/Takeout" --output "~/Photos" --albums "shortcut"
+```
+
+**Copy files with year folders:**
+```bash
+gpth --input "~/Takeout" --output "~/Photos" --copy --divide-to-dates 1
+```
+
+**Full metadata processing:**
+```bash
+gpth --input "~/Takeout" --output "~/Photos" --write-exif --transform-pixel-mp --albums "duplicate-copy"
+```
+
+**Fix dates in existing folder:**
+```bash
+gpth --fix "~/existing-photos"
+```
+
+## Features & Capabilities
+
+### 📅 Date Extraction
+GPTH uses multiple methods to determine correct photo dates:
+1. **JSON metadata** (most accurate)
+2. **EXIF data** from photo files
+3. **Filename patterns** (Screenshot_20190919-053857.jpg, etc.)
+4. **Aggressive matching** for difficult cases
+
+### 🔍 Duplicate Detection
+Removes identical files using content hashing, keeping the best copy (shortest filename, most metadata).
+
+### 🌍 GPS Coordinates & Timestamps
+Extracts location data and timestamps from JSON files and writes them to media file EXIF data for compatibility with photo viewers and other applications.
+
+### 🎯 Smart File Handling
+- **Motion Photos**: Pixel .MP/.MV files can be converted to .mp4
+- **HEIC/RAW support**: Handles modern camera formats
+- **Unicode filenames**: Properly handles international characters
+- **Large files**: Optional size limits for resource-constrained systems
+
+### 📁 Flexible Organization
+- Multiple date-based folder structures
+- Preserve or reorganize album structure
+- Copy or move files (safety vs. efficiency)
+
+## Installation
+
+### Pre-built Binaries
+Download from [releases page](https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/releases)
+
+### Package Managers
+- **Arch Linux**: `yay -S gpth-bin`
+
+### Building from Source
+```bash
+git clone https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper.git
+cd GooglePhotosTakeoutHelper
+dart pub get
+dart compile exe bin/gpth.dart -o gpth
+```
+
+## Troubleshooting
+
+### Common Issues
+
+**"No photos found"**: Make sure you have a unified Takeout folder structure with "Photos from YYYY" folders.
+
+**Permission errors**: Run with administrator/sudo privileges if moving files across drives.
+
+**Memory issues**: Use `--limit-filesize` for systems with limited RAM.
+
+**Encoding errors**: Some JSON files may have encoding issues; the tool handles most cases automatically.
+
+### Platform-Specific Notes
+
+**Windows**: Creation time updates require administrator privileges.
+
+**macOS**: You may need to allow the executable in Security & Privacy settings.
+
+**Linux**: Ensure ExifTool is installed for full functionality.
+
+## After Migration
+
+### Recommended Apps
+- **[Immich](https://immich.app/)**: Self-hosted Google Photos alternative
+- **[PhotoPrism](https://photoprism.org/)**: AI-powered photo management
+- **[Syncthing](https://syncthing.net/)**: Sync photos across devices while preserving dates
+
+### Android Users
+Standard file managers reset photo dates when moving files. Use **Simple Gallery** to preserve timestamps.
+
+## Support This Project
+
+If GPTH saved you time and frustration, consider supporting development:
+
+[![PayPal](https://img.shields.io/badge/Donate-PayPal-blue.svg?logo=paypal&style=for-the-badge)](https://www.paypal.me/TheLastGimbus)
+[![Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/A0A6HO71P)
+[![Liberapay](https://liberapay.com/assets/widgets/donate.svg)](https://liberapay.com/TheLastGimbus/donate)
+
+## Related Projects
+
+- **[Google Keep Exporter](https://github.com/vHanda/google-keep-exporter)**: Export Google Keep notes to Markdown
+- **[PhotoMigrator](https://github.com/jaimetur/PhotoMigrator)**: Uses GPTH 4.x.x which has been designed to Interact and Manage different Photos Cloud services, and allow users to do an Automatic Migration from one Photo Cloud service to other or from one account to a new account of the same Photo Cloud service.
+
+---
+
+**Note**: This tool moves files by default to avoid using extra disk space. Always keep backups of your original Takeout files!

@@ -75,6 +75,9 @@ String decodeAndRestoreAlbumEmoji(final String encodedPath) {
 
 /// Internal helper function to decode hex-encoded emoji characters back to UTF-8.
 ///
+/// Processes strings containing patterns like "_0x1f600_" and converts them
+/// back to their corresponding Unicode characters.
+///
 /// [component] A string potentially containing hex-encoded emojis
 /// Returns the string with all hex-encoded emojis converted back to UTF-8
 String _decodeEmojiComponent(final String component) {

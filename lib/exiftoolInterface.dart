@@ -7,6 +7,12 @@ import 'utils.dart';
 
 ExiftoolInterface? exiftool;
 
+/// Initializes the global ExiftoolInterface instance
+///
+/// Attempts to find and initialize exiftool, setting the global
+/// [exifToolInstalled] flag accordingly.
+///
+/// Returns true if exiftool was found and initialized successfully
 Future<bool> initExiftool() async {
   exiftool = await ExiftoolInterface.find();
   if (exiftool != null) {
@@ -177,7 +183,12 @@ class ExiftoolInterface {
   }
 }
 
-/// Helper to find an executable in PATH (like 'which' or 'where')
+/// Cross-platform helper to find an executable in system PATH
+///
+/// Similar to Unix 'which' or Windows 'where' commands.
+///
+/// [bin] Executable name to search for
+/// Returns full path to executable or null if not found
 Future<String?> _which(final String bin) async {
   final result = await Process.run(Platform.isWindows ? 'where' : 'which', [
     bin,

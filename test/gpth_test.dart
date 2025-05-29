@@ -143,6 +143,11 @@ AD/2gAMAwEAAhEDEQA/ACHIF3//2Q==''';
     imgFile5.writeAsBytesSync(<int>[12, 13, 14]);
     imgFile6.writeAsBytesSync(<int>[15, 16, 17]);
     imgFile6_1.writeAsBytesSync(<int>[18, 19, 20]);
+
+    /// Writes a JSON file with test metadata for the given timestamp
+    ///
+    /// [file] The JSON file to write
+    /// [time] Unix timestamp for the photoTakenTime field
     void writeJson(final File file, final int time) {
       file.createSync(recursive: true);
       file.writeAsStringSync(

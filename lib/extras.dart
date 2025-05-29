@@ -29,8 +29,14 @@ const List<String> extraFormats = <String>[
   // They need to be lowercase.
 ];
 
-/// Removes any media that match any of "extra" formats
-/// Returns count of removed
+/// Removes media files that match "extra" format patterns (edited versions)
+///
+/// Filters out files with names ending in language-specific "edited" suffixes
+/// like "-edited", "-bearbeitet", "-modifié", etc. Uses Unicode normalization
+/// to handle accented characters correctly on macOS.
+///
+/// [media] List of Media objects to filter
+/// Returns count of removed items
 int removeExtras(final List<Media> media) {
   final List<Media> copy = media.toList();
   int count = 0;

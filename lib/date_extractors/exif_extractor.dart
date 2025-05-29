@@ -98,7 +98,14 @@ Future<DateTime?> exifDateTimeExtractor(final File file) async {
   return result; //If we can't get mimeType, result will be null as there is probably no point in moving forward to read other metadata.
 }
 
-///Extracts DateTime from File through ExifTool library
+/// Extracts DateTime from file using ExifTool
+///
+/// Reads various DateTime tags in order of reliability and attempts to
+/// parse them into a valid DateTime object. Handles date normalization
+/// and validates against edge cases.
+///
+/// [file] File to extract DateTime from
+/// Returns parsed DateTime or null if extraction fails
 Future<DateTime?> _exifToolExtractor(final File file) async {
   try {
     final tags = await exiftool!.readExifBatch(file, [
@@ -159,7 +166,13 @@ Future<DateTime?> _exifToolExtractor(final File file) async {
   }
 }
 
-///Extracts DateTime from File through Exif_reader library
+/// Extracts DateTime from file using native exif_reader library
+///
+/// Faster than ExifTool but supports fewer file formats. Reads standard
+/// EXIF DateTime tags and normalizes the format for parsing using the native exif_reader library.
+///
+/// [file] File to extract DateTime from
+/// Returns parsed DateTime or null if extraction fails
 Future<DateTime?> _nativeExif_readerExtractor(final File file) async {
   final bytes = await file.readAsBytes();
   // this returns empty {} if file doesn't have exif so don't worry
