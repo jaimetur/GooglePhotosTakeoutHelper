@@ -431,7 +431,7 @@ void main() {
 
         expect(results.length, images.length);
         for (final result in results) {
-          expect(result, isA<Map<String, String>>());
+          expect(result, isA<Map<String, dynamic>>());
         }
       });
 
@@ -487,7 +487,7 @@ void main() {
           final batchTime = stopwatch.elapsedMicroseconds;
           stopwatch.stop();
 
-          expect(batchResult, isA<Map<String, String>>());
+          expect(batchResult, isA<Map<String, dynamic>>());
           expect(batchTime, greaterThan(0));
         },
       );
@@ -532,7 +532,7 @@ void main() {
         final bytes = await testImage.readAsBytes();
         final exifReaderTags = await readExifFromBytes(bytes);
 
-        expect(exiftoolTags, isA<Map<String, String>>());
+        expect(exiftoolTags, isA<Map<String, dynamic>>());
         expect(exifReaderTags, isA<Map<String, dynamic>>());
 
         // Both should detect that the image has EXIF data

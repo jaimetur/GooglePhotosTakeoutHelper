@@ -135,8 +135,8 @@ void main() {
           print('Entity: ${entity.path} (${entity.runtimeType})');
         }
 
-        // Should have 3 (All_PHOTOS, date-unknown, Vacation) folders + media files + 1 album shortcut
-        expect(outputted.length, 3 + testMedia.length + 1);
+        // Should have 2 (All_PHOTOS, Vacation) folders + media files + 1 album shortcut
+        expect(outputted.length, 2 + testMedia.length + 1);
 
         if (Platform.isWindows) {
           // Windows shortcuts
@@ -369,17 +369,16 @@ void main() {
           albumBehavior: 'nothing',
         ).toList();
 
-        final dirs = await outputDir
-            .list()
+        final allDirs = (await outputDir.list(recursive: true).toList())
             .whereType<Directory>()
             .map((final dir) => p.basename(dir.path))
             .toList();
 
-        // Should have year folders based on media dates
-        expect(dirs, contains('2020'));
-        expect(dirs, contains('2022'));
-        expect(dirs, contains('2019'));
-        expect(dirs, contains('2015'));
+        // Should have year folders (they are created under ALL_PHOTOS)
+        expect(allDirs, contains('2020'));
+        expect(allDirs, contains('2022'));
+        expect(allDirs, contains('2019'));
+        expect(allDirs, contains('2015'));
       });
 
       /// Should create year-month folders if divideToDates is 2.
@@ -392,18 +391,29 @@ void main() {
           albumBehavior: 'nothing',
         ).toList();
 
-        final dirs = await outputDir
-            .list()
-            .whereType<Directory>()
-            .map((final dir) => p.basename(dir.path))
-            .toList();
+        // Year-month folders are created under ALL_PHOTOS directory
+        final allPhotosDir = Directory('${outputDir.path}/ALL_PHOTOS');
+        expect(allPhotosDir.existsSync(), isTrue);
 
-        // Should have year-month folders
-        expect(dirs.any((final dir) => dir.contains('2020')), isTrue);
-        expect(dirs.any((final dir) => dir.contains('2022')), isTrue);
+        // Recursively check for year and month folders under ALL_PHOTOS
+        final allDirs = <String>[];
+        await for (final entity in allPhotosDir.list(recursive: true)) {
+          if (entity is Directory) {
+            allDirs.add(p.basename(entity.path));
+          }
+        }
+
+        // Should have year folders and month folders
+        expect(allDirs.any((final dir) => dir.contains('2020')), isTrue);
+        expect(allDirs.any((final dir) => dir.contains('2022')), isTrue);
+        // Should also have month folders (01, 09, 10, etc.)
+        expect(
+          allDirs.any((final dir) => RegExp(r'^\d{2}$').hasMatch(dir)),
+          isTrue,
+        );
       });
 
-      /// Should put files without dates in ALL_PHOTOS.
+      /// Should put files without dates in ALL_PHOTOS/date-unknown.
       test('files without dates go to ALL_PHOTOS', () async {
         await moveFiles(
           testMedia,
@@ -414,13 +424,17 @@ void main() {
         ).toList();
 
         final allPhotosDir = Directory('${outputDir.path}/ALL_PHOTOS');
-        if (allPhotosDir.existsSync()) {
-          final filesInAllPhotos = await allPhotosDir
-              .list()
-              .whereType<File>()
-              .toList();
-          expect(filesInAllPhotos.isNotEmpty, isTrue);
-        }
+        expect(allPhotosDir.existsSync(), isTrue);
+
+        // Files without dates should be in the date-unknown subdirectory
+        final dateUnknownDir = Directory('${allPhotosDir.path}/date-unknown');
+        expect(dateUnknownDir.existsSync(), isTrue);
+
+        final filesInDateUnknown = await dateUnknownDir
+            .list()
+            .whereType<File>()
+            .toList();
+        expect(filesInDateUnknown.isNotEmpty, isTrue);
       });
     });
 

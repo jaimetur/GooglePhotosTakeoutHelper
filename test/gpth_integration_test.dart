@@ -33,7 +33,7 @@ void main() {
       albumDir = fixture.createDirectory('Vacation');
 
       // Create test files with various scenarios
-      final imgFile1 = fixture.createFile('image-edited.jpg', [0, 1, 2]);
+      final imgFile1 = fixture.createFile('image-vacation.jpg', [0, 1, 2]);
       final imgFile2 = fixture.createFile(
         'Urlaub in Knaufspesch in der Schneifel (38).JPG',
         [3, 4, 5],
@@ -42,13 +42,13 @@ void main() {
         'Screenshot_2022-10-28-09-31-43-118_com.snapchat.jpg',
         [6, 7, 8],
       );
-      final imgFile4 = fixture.createFile('simple_file_20200101-edited.jpg', [
+      final imgFile4 = fixture.createFile('simple_file_20200101-version.jpg', [
         9,
         10,
         11,
       ]);
       final imgFile4_1 = fixture.createFile(
-        'simple_file_20200101-edited(1).jpg',
+        'simple_file_20200101-version(1).jpg',
         [9, 10, 11],
       ); // duplicate
       final imgFile5 = fixture.createFile(
@@ -66,10 +66,11 @@ void main() {
       );
 
       // Copy one file to album folder to create album relationship
-      imgFile1.copySync('${albumDir.path}/${p.basename(imgFile1.path)}');
+      final albumFile1 = File('${albumDir.path}/${p.basename(imgFile1.path)}');
+      imgFile1.copySync(albumFile1.path);
 
       // Create corresponding JSON files with metadata
-      fixture.createJsonFile('image-edited.jpg.json', 1599078832);
+      fixture.createJsonFile('image-vacation.jpg.json', 1599078832);
       fixture.createJsonFile(
         'Urlaub in Knaufspesch in der Schneifel (38).JPG.json',
         1683078832,
@@ -93,7 +94,7 @@ void main() {
           dateTakenAccuracy: 1,
         ),
         Media(
-          <String?, File>{albumName(albumDir): imgFile1},
+          <String?, File>{albumName(albumDir): albumFile1},
           dateTaken: DateTime(2022, 9),
           dateTakenAccuracy: 2,
         ),

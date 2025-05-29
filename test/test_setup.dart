@@ -41,11 +41,14 @@ class TestFixture {
   /// Initialize the test fixture with a unique temporary directory
   Future<void> setUp() async {
     final String current = Directory.current.path;
+    final String timestamp = DateTime.now().microsecondsSinceEpoch.toString();
+    final String randomSuffix = DateTime.now().millisecondsSinceEpoch
+        .toRadixString(36);
     basePath = p.join(
       current,
       'test',
       'generated',
-      'fixture_${DateTime.now().millisecondsSinceEpoch}',
+      'fixture_${timestamp}_$randomSuffix',
     );
     baseDir = Directory(basePath);
     await baseDir.create(recursive: true);
@@ -54,12 +57,96 @@ class TestFixture {
 
   /// Clean up all created files and directories
   Future<void> tearDown() async {
-    for (final entity in _createdEntities.toList()) {
-      if (await entity.exists()) {
-        await entity.delete(recursive: true);
-      }
+    // First, try to force-close any file handles
+    await Future.delayed(const Duration(milliseconds: 100));
+
+    // Reverse order to delete files before directories
+    final entities = _createdEntities.toList().reversed.toList();
+
+    for (final entity in entities) {
+      await _safeDelete(entity);
     }
     _createdEntities.clear();
+  }
+
+  /// Safely delete a file system entity with retry logic
+  Future<void> _safeDelete(final FileSystemEntity entity) async {
+    const maxRetries = 3;
+    for (int retry = 0; retry < maxRetries; retry++) {
+      try {
+        if (await entity.exists()) {
+          if (entity is File) {
+            await entity.delete();
+          } else if (entity is Directory) {
+            await _deleteDirectoryRecursively(entity);
+          } else if (entity is Link) {
+            await entity.delete();
+          }
+        }
+        return; // Success, exit retry loop
+      } catch (e) {
+        if (retry == maxRetries - 1) {
+          // Last retry, log but don't fail
+          print(
+            'Warning: Failed to delete ${entity.path} after $maxRetries attempts: $e',
+          );
+        } else {
+          // Wait before retry
+          await Future.delayed(Duration(milliseconds: 100 * (retry + 1)));
+        }
+      }
+    }
+  }
+
+  /// Recursively delete directory contents and the directory itself
+  Future<void> _deleteDirectoryRecursively(final Directory dir) async {
+    try {
+      // First, try to list and delete all contents
+      final contents = await dir.list().toList();
+
+      // Delete files first, then directories
+      final files = contents.whereType<File>().toList();
+      final links = contents.whereType<Link>().toList();
+      final subdirs = contents.whereType<Directory>().toList();
+
+      // Delete files and links
+      for (final file in files) {
+        await _safeDelete(file);
+      }
+      for (final link in links) {
+        await _safeDelete(link);
+      }
+
+      // Delete subdirectories recursively
+      for (final subdir in subdirs) {
+        await _safeDelete(subdir);
+      }
+
+      // Finally delete the directory itself
+      await dir.delete();
+    } catch (e) {
+      // If listing fails, try force deletion
+      try {
+        await dir.delete(recursive: true);
+      } catch (e2) {
+        // As last resort, try using platform-specific commands
+        await _forceDeleteDirectory(dir);
+      }
+    }
+  }
+
+  /// Force delete directory using platform-specific commands
+  Future<void> _forceDeleteDirectory(final Directory dir) async {
+    try {
+      if (Platform.isWindows) {
+        await Process.run('rmdir', ['/s', '/q', dir.path]);
+      } else {
+        await Process.run('rm', ['-rf', dir.path]);
+      }
+    } catch (e) {
+      // Final fallback - log the error but don't fail
+      print('Warning: Could not force delete ${dir.path}: $e');
+    }
   }
 
   /// Create a test image file with EXIF data

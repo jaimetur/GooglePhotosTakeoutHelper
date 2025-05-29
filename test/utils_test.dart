@@ -142,13 +142,13 @@ void main() {
       /// Should handle supplemental metadata suffix in JSON files.
       test('renameJsonFiles handles supplemental metadata suffix', () async {
         final jsonFile = fixture.createJsonFile(
-          'test-supplemental-metadata.json',
+          'test.jpg.supplemental-metadata.json',
           1599078832,
         );
 
         await renameIncorrectJsonFiles(fixture.baseDir);
 
-        final renamedFile = File('${fixture.basePath}/test.json');
+        final renamedFile = File('${fixture.basePath}/test.jpg.json');
         expect(renamedFile.existsSync(), isTrue);
         expect(jsonFile.existsSync(), isFalse);
       });

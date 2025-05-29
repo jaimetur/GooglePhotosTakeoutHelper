@@ -54,7 +54,8 @@ void main() {
 
       // Create album directory and copy a file there
       final albumDir = fixture.createDirectory('Vacation');
-      imgFile1.copySync(p.join(albumDir.path, p.basename(imgFile1.path)));
+      final albumFile = File(p.join(albumDir.path, p.basename(imgFile1.path)));
+      imgFile1.copySync(albumFile.path);
 
       // Setup test media list with different dates and album associations
       testMedia = [
@@ -64,7 +65,7 @@ void main() {
           dateTakenAccuracy: 1,
         ),
         Media(
-          {'Vacation': imgFile1},
+          {'Vacation': albumFile}, // Use the album copy, not the original
           dateTaken: DateTime(2022, 9),
           dateTakenAccuracy: 2,
         ),
@@ -211,6 +212,7 @@ void main() {
                 'img_(87).(vacation stuff).lol(87).jpg',
                 'IMG-20150125-WA0003-modifié.jpg',
                 'IMG-20150125-WA0003-modifié(1).jpg',
+                'simple_file_20200101-edited.jpg',
               ],
             ),
             true,
@@ -255,6 +257,8 @@ void main() {
             .map((final dir) => p.basename(dir.path))
             .toSet();
         expect(dirNames.contains('ALL_PHOTOS'), isTrue);
+        // With divideToDates: 0, no date-based folders should be created
+        expect(dirNames.contains('date-unknown'), isFalse);
 
         expect(
           const UnorderedIterableEquality<String>().equals(
@@ -269,6 +273,7 @@ void main() {
               'img_(87).(vacation stuff).lol(87).jpg',
               'IMG-20150125-WA0003-modifié.jpg',
               'IMG-20150125-WA0003-modifié(1).jpg',
+              'simple_file_20200101-edited.jpg',
             ],
           ),
           true,

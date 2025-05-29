@@ -89,6 +89,11 @@ class ExiftoolInterface {
 
   /// Reads all EXIF data from [file] and returns as a Map
   Future<Map<String, dynamic>> readExif(final File file) async {
+    // Check if file exists before trying to read it
+    if (!await file.exists()) {
+      throw FileSystemException('File not found', file.path);
+    }
+
     final result = await Process.run(exiftoolPath, ['-j', '-n', file.path]);
     if (result.exitCode != 0) {
       log(
@@ -122,6 +127,11 @@ class ExiftoolInterface {
     final List<String> tags,
   ) async {
     final String filepath = file.path;
+
+    // Check if file exists before trying to read it
+    if (!await file.exists()) {
+      throw FileSystemException('File not found', file.path);
+    }
 
     if (tags.isEmpty) {
       return <String, dynamic>{};
@@ -162,6 +172,11 @@ class ExiftoolInterface {
     final Map<String, String> tags,
   ) async {
     final String filepath = file.path;
+
+    // Check if file exists before trying to write to it
+    if (!await file.exists()) {
+      throw FileSystemException('File not found', file.path);
+    }
 
     final args = <String>['-overwrite_original'];
     tags.forEach((final tag, final value) => args.add('-$tag=$value'));

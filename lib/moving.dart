@@ -160,7 +160,9 @@ Stream<int> moveFiles(
       }
 
       String dateFolder;
-      if (date == null) {
+      if (divideToDates == 0) {
+        dateFolder = '';
+      } else if (date == null) {
         dateFolder = 'date-unknown';
       } else {
         if (divideToDates == 3) {
