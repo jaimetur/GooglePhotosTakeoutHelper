@@ -68,19 +68,88 @@ Unzip all files and merge them so you have one unified "Takeout" folder.
 GPTH offers several ways to handle your Google Photos albums:
 
 ### 🔗 Shortcut (Recommended)
-Creates shortcuts/symlinks from album folders to files in `ALL_PHOTOS`. Saves space while maintaining organization.
+**What it does:** Creates shortcuts/symlinks from album folders to files in `ALL_PHOTOS`. The original files are moved to `ALL_PHOTOS`, and shortcuts are created in album folders.
+
+**Advantages:**
+- Saves maximum disk space (no duplicate files)
+- Maintains album organization
+- Fast processing
+
+**Disadvantages:**
+- Shortcuts may break when moving folders between systems
+- Not all applications support shortcuts/symlinks
+- Windows shortcuts (.lnk files) don't work on Mac/Linux
+
+**Best for:** Most users who want space efficiency and plan to keep photos on the same system.
 
 ### 📁 Duplicate Copy
-Creates actual file copies in both `ALL_PHOTOS` and album folders. Uses more space but works across all systems.
+**What it does:** Creates actual file copies in both `ALL_PHOTOS` and album folders. Each photo appears as a separate physical file in every location.
+
+**Advantages:**
+- Works across all systems and applications
+- Complete independence between folders
+- Safe for moving/copying folders between devices
+- Album photos remain accessible even if `ALL_PHOTOS` is deleted
+
+**Disadvantages:**
+- Uses significantly more disk space (multiplied by number of albums)
+- Slower processing due to file copying
+- Changes to one copy don't affect others
+
+**Best for:** Users who need maximum compatibility, plan to share folders across different systems, or have plenty of disk space.
 
 ### 🔄 Reverse Shortcut
-Files stay in album folders, shortcuts created in `ALL_PHOTOS`. Good for album-centric organization.
+**What it does:** The opposite of shortcut mode. Files remain in their original album folders, and shortcuts are created in `ALL_PHOTOS` pointing to the album locations.
+
+**Advantages:**
+- Preserves album-centric organization
+- Original files stay in their natural album context
+- Good for users who primarily browse by albums
+
+**Disadvantages:**
+- `ALL_PHOTOS` becomes dependent on album folders
+- If a photo is in multiple albums, only one copy exists (in first album found)
+- Shortcuts in `ALL_PHOTOS` may break if album folders are moved
+
+**Best for:** Users who primarily organize and browse photos by albums rather than chronologically.
 
 ### 📄 JSON
-Single `ALL_PHOTOS` folder plus `albums-info.json` with metadata. Most space-efficient, programmatically accessible.
+**What it does:** Creates a single `ALL_PHOTOS` folder with all files, plus an `albums-info.json` file containing metadata about which albums each file belonged to.
+
+**Advantages:**
+- Most space-efficient option
+- Programmatically accessible album information
+- Simple folder structure
+- Perfect for developers or automated processing
+
+**Disadvantages:**
+- No visual album folders
+- Requires custom software to utilize album information
+- Not user-friendly for manual browsing
+
+**Best for:** Developers, users migrating to photo management software that can read JSON metadata, or those who don't care about visual album organization.
 
 ### ❌ Nothing
-Ignores albums entirely, creates only `ALL_PHOTOS`. Simplest option.
+**What it does:** Ignores albums entirely and creates only `ALL_PHOTOS` with files from year folders. Album-only files are included if they can be linked to year folders.
+
+**Advantages:**
+- Simplest processing
+- Fastest execution
+- Clean, single-folder result
+- No complex album logic
+
+**Disadvantages:**
+- Completely loses album organization
+- Some album-only photos might be skipped
+- No way to recover album information later
+
+**Best for:** Users who don't care about album organization and just want all photos in chronological order.
+
+## Important Notes
+
+- **File Movement:** By default, GPTH moves (not copies) files to save space. Use `--copy` flag if you want to preserve the original takeout structure.
+- **Album-Only Photos:** Some photos exist only in albums (not in year folders). GPTH handles these differently depending on the mode chosen.
+- **Duplicate Handling:** If a photo appears in multiple albums, the behavior varies by mode (shortcuts link to same file, duplicate-copy creates multiple copies, etc.).
 
 ## Command Line Usage
 
