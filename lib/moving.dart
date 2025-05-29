@@ -1,5 +1,38 @@
-/// This file contains logic/utils for final act of moving actual files once
-/// we have everything grouped, de-duplicated and sorted
+// moving.dart
+//
+// This file contains the core logic for moving, copying, and organizing media files exported from Google Photos Takeout.
+// It provides utilities for de-duplicating, sorting, and placing files into user-friendly folder structures, supporting various album handling modes.
+//
+// Key Features:
+// - Unique file naming to avoid overwrites
+// - Cross-platform shortcut/symlink creation (Windows/Unix)
+// - Multiple album handling strategies: shortcut, reverse-shortcut, duplicate-copy, json, nothing
+// - Flexible date-based folder organization
+// - Robust error handling for file operations
+// - Metadata preservation (modification dates)
+//
+// Main Functions:
+//
+// 1. findNotExistingName: Ensures a file path is unique by appending (1), (2), etc. if needed.
+// 2. createShortcut: Creates a shortcut (Windows .lnk) or symlink (Unix) to a target file, using relative paths for portability.
+// 3. moveFileAndCreateShortcut: Moves/copies a file to a new location and creates a shortcut in the original location (used for reverse-shortcut mode).
+// 4. moveFiles: The main entry point. Iterates over all media, applies the selected album handling mode, and moves/copies/links files into the output structure. Supports progress reporting via Stream.
+//
+// Album Handling Modes:
+// - shortcut: All real files go to ALL_PHOTOS; album folders contain shortcuts.
+// - reverse-shortcut: Real files go to album folders; ALL_PHOTOS contains shortcuts.
+// - duplicate-copy: Every folder gets a real copy (max compatibility, more space).
+// - json: Only ALL_PHOTOS with real files; album membership is written to albums-info.json.
+// - nothing: Only ALL_PHOTOS with real files from year folders; albums ignored.
+//
+// Error Handling:
+// - Handles cross-device move errors, PowerShell failures, and Windows date limitations.
+// - Ensures no data loss by falling back to copy if move/shortcut fails.
+//
+// Usage:
+// - Used by the main application to process Google Photos Takeout exports into organized, deduplicated, and user-friendly folder structures.
+// - Designed for extensibility and robust cross-platform operation.
+
 // ignore_for_file: prefer_single_quotes
 
 library;
@@ -44,6 +77,7 @@ Future<File> createShortcut(final Directory location, final File target) async {
   );
   final String targetPath = target.absolute.path;
   if (Platform.isWindows) {
+    // Try native shortcut creation, fallback to PowerShell if needed.
     try {
       await createShortcutWin(link.path, targetPath);
     } catch (e) {
@@ -72,6 +106,7 @@ Future<File> createShortcut(final Directory location, final File target) async {
     }
     return File(link.path);
   } else {
+    // Unix: create a symlink
     return File((await Link(link.path).create(targetRelativePath)).path);
   }
 }
@@ -128,9 +163,11 @@ Stream<int> moveFiles(
   final Map<String, List<String>> infoJson = <String, List<String>>{};
   int i = 0;
   for (final Media m in allMediaFinal) {
-    // main file shortcuts will link to
+    // mainFile is the real file that album shortcuts/symlinks will point to.
     File? mainFile;
 
+    // Sort files so the null key (ALL_PHOTOS/year folder) comes first.
+    // This ensures shortcuts in albums point to the correct file.
     final List<MapEntry<String?, File>> nullFirst = albumBehavior == 'json'
         // in 'json' case, we want to copy ALL files (like Archive) as normals
         ? <MapEntry<Null, File>>[
@@ -147,7 +184,7 @@ Stream<int> moveFiles(
     // ignore non-nulls with 'ignore', copy with 'duplicate-copy',
     // symlink with 'shortcut' etc
     for (final MapEntry<String?, File> file in nullFirst) {
-      // if it's not from year folder and we're doing nothing/json, skip
+      // Skip album files in 'nothing' and 'json' modes.
       if (file.key != null &&
           <String>['nothing', 'json'].contains(albumBehavior)) {
         continue;
@@ -215,6 +252,12 @@ Stream<int> moveFiles(
         }
       }
 
+      // Album handling logic:
+      // - For ALL_PHOTOS (null key): move/copy the file and set as mainFile.
+      // - For shortcut mode: create a shortcut in the album folder pointing to mainFile.
+      // - For reverse-shortcut: move/copy the file to the album folder and create a shortcut in the year folder.
+      // - For duplicate-copy: copy/move the file to every folder.
+      // - For json/nothing: only process ALL_PHOTOS.
       if (file.key == null) {
         // if it's just normal "Photos from .." (null) file, just move it
         result = await moveFile();
@@ -288,15 +331,17 @@ Stream<int> moveFiles(
         ); //If error code 0, no need to notify user. Only log.
       }
 
-      // one copy/move/whatever - one yield
+      // Yield progress for each file processed.
       yield ++i;
 
+      // In 'json' mode, record album membership for this file.
       if (albumBehavior == 'json') {
         infoJson[p.basename(result.path)] = m.files.keys.nonNulls.toList();
       }
     }
     // done with this media - next!
   }
+  // If in 'json' mode, write the album membership info to albums-info.json in the output folder.
   if (albumBehavior == 'json') {
     await File(
       p.join(output.path, 'albums-info.json'),
