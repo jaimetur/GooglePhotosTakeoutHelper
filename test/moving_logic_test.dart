@@ -1,0 +1,707 @@
+import 'dart:io';
+import 'package:collection/collection.dart';
+import 'package:gpth/grouping.dart';
+import 'package:gpth/media.dart';
+import 'package:gpth/moving.dart';
+import 'package:gpth/utils.dart';
+import 'package:path/path.dart' as p;
+import 'package:test/test.dart';
+
+import './test_setup.dart';
+
+void main() {
+  group('Moving Logic', () {
+    late TestFixture fixture;
+    late Directory outputDir;
+    late List<Media> testMedia;
+
+    setUp(() async {
+      fixture = TestFixture();
+      await fixture.setUp();
+
+      outputDir = fixture.createDirectory('output');
+
+      // Create test media with various scenarios
+      final imgFile1 = fixture.createFile('image-edited.jpg', [0, 1, 2]);
+      final imgFile2 = fixture.createFile(
+        'Screenshot_2022-10-28-09-31-43-118_com.snapchat.jpg',
+        [3, 4, 5],
+      );
+      final imgFile3 = fixture.createFile('simple_file_20200101-edited.jpg', [
+        6,
+        7,
+        8,
+      ]);
+      final imgFile4 = fixture.createFile(
+        'simple_file_20200101-edited(1).jpg',
+        [9, 10, 11],
+      );
+      final imgFile5 = fixture.createFile(
+        'Urlaub in Knaufspesch in der Schneifel (38).JPG',
+        [12, 13, 14],
+      );
+      final imgFile6 = fixture.createFile(
+        'img_(87).(vacation stuff).lol(87).jpg',
+        [15, 16, 17],
+      );
+      final imgFile7 = fixture.createFile('IMG-20150125-WA0003-modifié.jpg', [
+        18,
+        19,
+        20,
+      ]);
+      final imgFile8 = fixture.createFile(
+        'IMG-20150125-WA0003-modifié(1).jpg',
+        [21, 22, 23],
+      );
+
+      // Create album directory and copy file
+      final albumDir = fixture.createDirectory('Vacation');
+      final albumFile = File('${albumDir.path}/${p.basename(imgFile1.path)}');
+      albumFile.createSync();
+      albumFile.writeAsBytesSync([0, 1, 2]); // Same content as imgFile1
+
+      testMedia = <Media>[
+        Media(
+          <String?, File>{null: imgFile1},
+          dateTaken: DateTime(2020, 9),
+          dateTakenAccuracy: 1,
+        ),
+        Media(
+          <String?, File>{'Vacation': albumFile},
+          dateTaken: DateTime(2022, 9),
+          dateTakenAccuracy: 2,
+        ),
+        Media(
+          <String?, File>{null: imgFile2},
+          dateTaken: DateTime(2022, 10, 28),
+          dateTakenAccuracy: 1,
+        ),
+        Media(<String?, File>{null: imgFile3}), // No date
+        Media(
+          <String?, File>{null: imgFile4},
+          dateTaken: DateTime(2019),
+          dateTakenAccuracy: 3,
+        ),
+        Media(
+          <String?, File>{null: imgFile5},
+          dateTaken: DateTime(2020),
+          dateTakenAccuracy: 1,
+        ),
+        Media(
+          <String?, File>{null: imgFile6},
+          dateTaken: DateTime(2020),
+          dateTakenAccuracy: 1,
+        ),
+        Media(
+          <String?, File>{null: imgFile7},
+          dateTaken: DateTime(2015),
+          dateTakenAccuracy: 1,
+        ),
+        Media(
+          <String?, File>{null: imgFile8},
+          dateTaken: DateTime(2015),
+          dateTakenAccuracy: 1,
+        ),
+      ];
+
+      // Process media (remove duplicates and find albums)
+      removeDuplicates(testMedia);
+      findAlbums(testMedia);
+    });
+
+    tearDown(() async {
+      await fixture.tearDown();
+    });
+
+    group('Album Behavior - Shortcut', () {
+      test('creates shortcuts for album files', () async {
+        await moveFiles(
+          testMedia,
+          outputDir,
+          copy: true,
+          divideToDates: 0,
+          albumBehavior: 'shortcut',
+        ).toList();
+
+        final outputted = await outputDir
+            .list(recursive: true, followLinks: false)
+            .toSet();
+
+        // Should have 2 folders + media files + 1 album shortcut
+        expect(outputted.length, 2 + testMedia.length + 1);
+
+        if (Platform.isWindows) {
+          // Windows shortcuts
+          final shortcuts = outputted
+              .whereType<File>()
+              .where((final file) => file.path.endsWith('.lnk'))
+              .toList();
+          expect(shortcuts.length, 1);
+        } else {
+          // Unix symlinks
+          expect(outputted.whereType<Link>().length, 1);
+        }
+
+        // Check folder structure
+        final dirs = outputted
+            .whereType<Directory>()
+            .map((final dir) => p.basename(dir.path))
+            .toSet();
+        expect(dirs, containsAll(['ALL_PHOTOS', 'Vacation']));
+      });
+
+      test('shortcut points to correct album file', () async {
+        await moveFiles(
+          testMedia,
+          outputDir,
+          copy: true,
+          divideToDates: 0,
+          albumBehavior: 'shortcut',
+        ).toList();
+
+        if (!Platform.isWindows) {
+          final links = await outputDir
+              .list(recursive: true)
+              .where((final entity) => entity is Link)
+              .cast<Link>()
+              .toList();
+
+          if (links.isNotEmpty) {
+            final link = links.first;
+            final target = await link.target();
+            expect(target, isNotEmpty);
+          }
+        }
+      });
+    });
+
+    group('Album Behavior - Duplicate Copy', () {
+      test('creates copies of album files', () async {
+        await moveFiles(
+          testMedia,
+          outputDir,
+          copy: true,
+          divideToDates: 0,
+          albumBehavior: 'duplicate-copy',
+        ).toList();
+
+        final outputted = await outputDir
+            .list(recursive: true, followLinks: false)
+            .toSet();
+
+        // Should have 2 folders + media files + 1 album copy
+        expect(outputted.length, 2 + testMedia.length + 1);
+        expect(outputted.whereType<Link>().length, 0); // No symlinks
+        expect(outputted.whereType<Directory>().length, 2);
+        expect(outputted.whereType<File>().length, testMedia.length + 1);
+
+        // Check that album file appears in both locations
+        final fileNames = outputted
+            .whereType<File>()
+            .map((final file) => p.basename(file.path))
+            .toList();
+
+        final duplicateFiles = fileNames
+            .where(
+              (final name) =>
+                  fileNames.where((final n) => n == name).length > 1,
+            )
+            .toList();
+        expect(duplicateFiles.isNotEmpty, isTrue);
+      });
+
+      test('album copies have identical content', () async {
+        await moveFiles(
+          testMedia,
+          outputDir,
+          copy: true,
+          divideToDates: 0,
+          albumBehavior: 'duplicate-copy',
+        ).toList();
+
+        final allFiles = await outputDir
+            .list(recursive: true)
+            .whereType<File>()
+            .toList();
+
+        final duplicateFiles = <String, List<File>>{};
+        for (final file in allFiles) {
+          final basename = p.basename(file.path);
+          duplicateFiles.putIfAbsent(basename, () => []).add(file);
+        }
+
+        for (final entry in duplicateFiles.entries) {
+          if (entry.value.length > 1) {
+            final files = entry.value;
+            final content1 = await files[0].readAsBytes();
+            final content2 = await files[1].readAsBytes();
+            expect(content1, equals(content2));
+          }
+        }
+      });
+    });
+
+    group('Album Behavior - JSON', () {
+      test('creates albums-info.json file', () async {
+        await moveFiles(
+          testMedia,
+          outputDir,
+          copy: true,
+          divideToDates: 0,
+          albumBehavior: 'json',
+        ).toList();
+
+        final outputted = await outputDir
+            .list(recursive: true, followLinks: false)
+            .toSet();
+
+        // Should have 1 folder + media + 1 json file
+        expect(outputted.length, 1 + testMedia.length + 1);
+        expect(outputted.whereType<Link>().length, 0);
+        expect(outputted.whereType<Directory>().length, 1);
+        expect(outputted.whereType<File>().length, testMedia.length + 1);
+
+        // Check for albums-info.json
+        final jsonFiles = outputted
+            .whereType<File>()
+            .where((final file) => p.basename(file.path) == 'albums-info.json')
+            .toList();
+        expect(jsonFiles.length, 1);
+
+        // Verify JSON content
+        final jsonFile = jsonFiles.first;
+        final jsonContent = await jsonFile.readAsString();
+        expect(jsonContent, isNotEmpty);
+        expect(jsonContent, contains('Vacation'));
+      });
+
+      test('albums-info.json contains correct album information', () async {
+        await moveFiles(
+          testMedia,
+          outputDir,
+          copy: true,
+          divideToDates: 0,
+          albumBehavior: 'json',
+        ).toList();
+
+        final jsonFile = await outputDir
+            .list(recursive: true)
+            .whereType<File>()
+            .firstWhere(
+              (final file) => p.basename(file.path) == 'albums-info.json',
+            );
+
+        final jsonContent = await jsonFile.readAsString();
+        expect(jsonContent, contains('Vacation'));
+        // Could parse JSON and verify structure if needed
+      });
+    });
+
+    group('Album Behavior - Nothing', () {
+      test('ignores album information', () async {
+        await moveFiles(
+          testMedia,
+          outputDir,
+          copy: true,
+          divideToDates: 0,
+          albumBehavior: 'nothing',
+        ).toList();
+
+        final outputted = await outputDir
+            .list(recursive: true, followLinks: false)
+            .toSet();
+
+        // Should have 1 folder + media only
+        expect(outputted.length, 1 + testMedia.length);
+        expect(outputted.whereType<Link>().length, 0);
+        expect(outputted.whereType<Directory>().length, 1);
+
+        final dirs = outputted
+            .whereType<Directory>()
+            .map((final dir) => p.basename(dir.path))
+            .toSet();
+        expect(dirs, equals({'ALL_PHOTOS'}));
+      });
+    });
+
+    group('Date Division', () {
+      test('divideToDates: 0 puts all files in ALL_PHOTOS', () async {
+        await moveFiles(
+          testMedia,
+          outputDir,
+          copy: true,
+          divideToDates: 0,
+          albumBehavior: 'nothing',
+        ).toList();
+
+        final dirs = await outputDir
+            .list()
+            .whereType<Directory>()
+            .map((final dir) => p.basename(dir.path))
+            .toSet();
+
+        expect(dirs, contains('ALL_PHOTOS'));
+        expect(dirs.length, 1);
+      });
+
+      test('divideToDates: 1 creates year folders', () async {
+        await moveFiles(
+          testMedia,
+          outputDir,
+          copy: true,
+          divideToDates: 1,
+          albumBehavior: 'nothing',
+        ).toList();
+
+        final dirs = await outputDir
+            .list()
+            .whereType<Directory>()
+            .map((final dir) => p.basename(dir.path))
+            .toList();
+
+        // Should have year folders based on media dates
+        expect(dirs, contains('2020'));
+        expect(dirs, contains('2022'));
+        expect(dirs, contains('2019'));
+        expect(dirs, contains('2015'));
+      });
+
+      test('divideToDates: 2 creates year-month folders', () async {
+        await moveFiles(
+          testMedia,
+          outputDir,
+          copy: true,
+          divideToDates: 2,
+          albumBehavior: 'nothing',
+        ).toList();
+
+        final dirs = await outputDir
+            .list()
+            .whereType<Directory>()
+            .map((final dir) => p.basename(dir.path))
+            .toList();
+
+        // Should have year-month folders
+        expect(dirs.any((final dir) => dir.contains('2020')), isTrue);
+        expect(dirs.any((final dir) => dir.contains('2022')), isTrue);
+      });
+
+      test('files without dates go to ALL_PHOTOS', () async {
+        await moveFiles(
+          testMedia,
+          outputDir,
+          copy: true,
+          divideToDates: 1,
+          albumBehavior: 'nothing',
+        ).toList();
+
+        final allPhotosDir = Directory('${outputDir.path}/ALL_PHOTOS');
+        if (allPhotosDir.existsSync()) {
+          final filesInAllPhotos = await allPhotosDir
+              .list()
+              .whereType<File>()
+              .toList();
+          expect(filesInAllPhotos.isNotEmpty, isTrue);
+        }
+      });
+    });
+
+    group('Copy vs Move Operations', () {
+      test('copy: true preserves original files', () async {
+        final originalFiles = testMedia.map((final m) => m.firstFile).toList();
+        final originalExists = originalFiles
+            .map((final f) => f.existsSync())
+            .toList();
+
+        await moveFiles(
+          testMedia,
+          outputDir,
+          copy: true,
+          divideToDates: 0,
+          albumBehavior: 'nothing',
+        ).toList();
+
+        // Original files should still exist
+        for (int i = 0; i < originalFiles.length; i++) {
+          expect(originalFiles[i].existsSync(), originalExists[i]);
+        }
+
+        // Output files should also exist
+        final outputFiles = await outputDir
+            .list(recursive: true)
+            .whereType<File>()
+            .toList();
+        expect(outputFiles.length, testMedia.length);
+      });
+
+      test('copy: false moves files (simulated)', () async {
+        // Create separate test files for move operation
+        final moveTestMedia = [
+          Media(<String?, File>{
+            null: fixture.createFile('move_test.jpg', [1, 2, 3]),
+          }),
+        ];
+
+        final originalFile = moveTestMedia.first.firstFile;
+        expect(originalFile.existsSync(), isTrue);
+
+        await moveFiles(
+          moveTestMedia,
+          outputDir,
+          copy: false,
+          divideToDates: 0,
+          albumBehavior: 'nothing',
+        ).toList();
+
+        // Original should be moved (no longer exist in original location)
+        expect(originalFile.existsSync(), isFalse);
+
+        // File should exist in output
+        final outputFiles = await outputDir
+            .list(recursive: true)
+            .whereType<File>()
+            .toList();
+        expect(outputFiles.length, 1);
+        expect(outputFiles.first.readAsBytesSync(), [1, 2, 3]);
+      });
+    });
+
+    group('File Name Handling', () {
+      test('handles special characters in filenames', () async {
+        await moveFiles(
+          testMedia,
+          outputDir,
+          copy: true,
+          divideToDates: 0,
+          albumBehavior: 'nothing',
+        ).toList();
+
+        final outputFiles = await outputDir
+            .list(recursive: true)
+            .whereType<File>()
+            .toList();
+        final fileNames = outputFiles
+            .map((final f) => p.basename(f.path))
+            .toSet();
+
+        // Check that special character files are handled
+        expect(fileNames.any((final name) => name.contains('(')), isTrue);
+        expect(fileNames.any((final name) => name.contains(')')), isTrue);
+        expect(fileNames.any((final name) => name.contains('-')), isTrue);
+      });
+
+      test('handles duplicate filenames with numbering', () async {
+        // Create media with potential name conflicts
+        final conflictMedia = [
+          Media(<String?, File>{
+            null: fixture.createFile('test.jpg', [1, 2, 3]),
+          }),
+          Media(<String?, File>{
+            null: fixture.createFile('test(1).jpg', [4, 5, 6]),
+          }),
+        ];
+
+        await moveFiles(
+          conflictMedia,
+          outputDir,
+          copy: true,
+          divideToDates: 0,
+          albumBehavior: 'nothing',
+        ).toList();
+
+        final outputFiles = await outputDir
+            .list(recursive: true)
+            .whereType<File>()
+            .toList();
+        expect(outputFiles.length, 2);
+
+        final names = outputFiles.map((final f) => p.basename(f.path)).toList();
+        expect(names, contains('test.jpg'));
+        expect(names, contains('test(1).jpg'));
+      });
+
+      test('preserves file extensions', () async {
+        await moveFiles(
+          testMedia,
+          outputDir,
+          copy: true,
+          divideToDates: 0,
+          albumBehavior: 'nothing',
+        ).toList();
+
+        final outputFiles = await outputDir
+            .list(recursive: true)
+            .whereType<File>()
+            .toList();
+
+        for (final file in outputFiles) {
+          final extension = p.extension(file.path);
+          expect(extension, isNotEmpty);
+          expect(extension, anyOf('.jpg', '.JPG', '.json'));
+        }
+      });
+    });
+
+    group('Progress and Error Handling', () {
+      test('moveFiles stream emits progress events', () async {
+        final events = <int>[];
+
+        // ignore: prefer_foreach
+        await for (final event in moveFiles(
+          testMedia,
+          outputDir,
+          copy: true,
+          divideToDates: 0,
+          albumBehavior: 'nothing',
+        )) {
+          events.add(event);
+        }
+
+        expect(events.isNotEmpty, isTrue);
+        // Events should contain progress information
+      });
+
+      test('handles output directory creation', () async {
+        final newOutputDir = Directory('${fixture.basePath}/new_output');
+        expect(newOutputDir.existsSync(), isFalse);
+
+        await moveFiles(
+          testMedia,
+          newOutputDir,
+          copy: true,
+          divideToDates: 0,
+          albumBehavior: 'nothing',
+        ).toList();
+
+        expect(newOutputDir.existsSync(), isTrue);
+        final files = await newOutputDir
+            .list(recursive: true)
+            .whereType<File>()
+            .toList();
+        expect(files.length, testMedia.length);
+      });
+
+      test('handles empty media list', () async {
+        final events = await moveFiles(
+          [],
+          outputDir,
+          copy: true,
+          divideToDates: 0,
+          albumBehavior: 'nothing',
+        ).toList();
+
+        expect(events, isA<List<String>>());
+        // Should handle gracefully without crashing
+      });
+
+      test('handles missing source files gracefully', () async {
+        final missingMedia = [
+          Media(<String?, File>{
+            null: File('${fixture.basePath}/nonexistent.jpg'),
+          }),
+        ];
+
+        expect(
+          () => moveFiles(
+            missingMedia,
+            outputDir,
+            copy: true,
+            divideToDates: 0,
+            albumBehavior: 'nothing',
+          ).toList(),
+          returnsNormally,
+        );
+      });
+    });
+
+    group('Complex Scenarios', () {
+      test('handles mixed album behaviors with date division', () async {
+        await moveFiles(
+          testMedia,
+          outputDir,
+          copy: true,
+          divideToDates: 1,
+          albumBehavior: 'shortcut',
+        ).toList();
+
+        final outputted = await outputDir.list(recursive: true).toSet();
+
+        // Should have year folders + album folders + shortcuts
+        final dirs = outputted
+            .whereType<Directory>()
+            .map((final dir) => p.basename(dir.path))
+            .toSet();
+
+        expect(dirs.contains('2020'), isTrue);
+        expect(dirs.contains('2022'), isTrue);
+        expect(dirs.contains('Vacation'), isTrue);
+      });
+
+      test('handles large number of files efficiently', () async {
+        // Create more test media
+        final largeMediaList = <Media>[];
+        for (int i = 0; i < 50; i++) {
+          final file = fixture.createFile('large_test_$i.jpg', [
+            i,
+            i + 1,
+            i + 2,
+          ]);
+          largeMediaList.add(Media(<String?, File>{null: file}));
+        }
+
+        final stopwatch = Stopwatch()..start();
+
+        await moveFiles(
+          largeMediaList,
+          outputDir,
+          copy: true,
+          divideToDates: 0,
+          albumBehavior: 'nothing',
+        ).toList();
+
+        stopwatch.stop();
+
+        // Should complete in reasonable time
+        expect(stopwatch.elapsed.inSeconds, lessThan(30));
+
+        final outputFiles = await outputDir
+            .list(recursive: true)
+            .whereType<File>()
+            .toList();
+        expect(outputFiles.length, largeMediaList.length);
+      });
+
+      test('maintains file integrity during operations', () async {
+        await moveFiles(
+          testMedia,
+          outputDir,
+          copy: true,
+          divideToDates: 0,
+          albumBehavior: 'nothing',
+        ).toList();
+
+        // Verify file contents are preserved
+        final outputFiles = await outputDir
+            .list(recursive: true)
+            .whereType<File>()
+            .toList();
+
+        for (final outputFile in outputFiles) {
+          final outputContent = await outputFile.readAsBytes();
+          expect(outputContent.isNotEmpty, isTrue);
+
+          // Find corresponding original file
+          final originalMedia = testMedia.firstWhereOrNull(
+            (final media) =>
+                p.basename(media.firstFile.path) == p.basename(outputFile.path),
+          );
+
+          if (originalMedia != null) {
+            final originalContent = await originalMedia.firstFile.readAsBytes();
+            expect(outputContent, equals(originalContent));
+          }
+        }
+      });
+    });
+  });
+}

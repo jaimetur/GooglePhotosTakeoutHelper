@@ -427,7 +427,7 @@ void log(
 /// Validates directory exists and is accessible
 Future<bool> validateDirectory(
   final Directory dir, {
-  bool shouldExist = true,
+  final bool shouldExist = true,
 }) async {
   final exists = await dir.exists();
   if (shouldExist && !exists) {

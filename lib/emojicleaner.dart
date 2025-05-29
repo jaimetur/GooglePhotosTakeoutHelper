@@ -49,7 +49,11 @@ Directory encodeAndRenameAlbumIfEmoji(final Directory albumDir) {
 
   final String newPath = p.join(parentPath, cleanName.toString());
   if (albumDir.path != newPath) {
+    try{
     albumDir.renameSync(newPath);
+    }catch(e){
+      Exception('Error while trying to rename directory with emoji. Does not Exist!');
+    }
   }
   return Directory(newPath);
 }

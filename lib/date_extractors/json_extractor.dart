@@ -5,7 +5,6 @@ import 'package:coordinate_converter/coordinate_converter.dart';
 import 'package:path/path.dart' as p;
 import 'package:unorm_dart/unorm_dart.dart' as unorm;
 import '../extras.dart' as extras;
-import '../extras.dart' show extraFormats;
 import '../utils.dart';
 
 /// Finds corresponding json file with info from media file and gets 'photoTakenTime' from it
