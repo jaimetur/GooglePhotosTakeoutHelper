@@ -715,6 +715,23 @@ void main() {
       /// - Shortcuts provide access from multiple album locations
       /// - No duplicate physical files are created
       test('handles single copy for multi-album photos', () async {
+        // Debug: Print initial test media state
+        print('\n=== DEBUG: Initial testMedia state ===');
+        for (int i = 0; i < testMedia.length; i++) {
+          final media = testMedia[i];
+          print('Media $i:');
+          print('  Date: ${media.dateTaken}');
+          print('  Files: ${media.files.keys.toList()}');
+          for (final entry in media.files.entries) {
+            print(
+              '    ${entry.key}: ${entry.value.path} (exists: ${entry.value.existsSync()})',
+            );
+          }
+          print(
+            '  Albums: ${media.files.keys.where((final key) => key != null).toList()}',
+          );
+        }
+
         await moveFiles(
           testMedia,
           outputDir,
@@ -723,31 +740,164 @@ void main() {
           albumBehavior: 'reverse-shortcut',
         ).toList();
 
+        // Debug: Print output directory structure
+        print('\n=== DEBUG: Output directory structure ===');
+        final allEntities = await outputDir
+            .list(recursive: true, followLinks: false)
+            .toList();
+        for (final entity in allEntities) {
+          if (entity is Directory) {
+            print('DIR:  ${entity.path}');
+          } else if (entity is File) {
+            print('FILE: ${entity.path} (size: ${await entity.length()})');
+          } else if (entity is Link) {
+            final target = await entity.target();
+            print('LINK: ${entity.path} -> $target');
+          }
+        }
+
         // For photos in multiple albums, verify only one physical copy exists
         // and shortcuts point to the same file
-        final allEntities = await outputDir.list(recursive: true).toList();
-        final allFiles = allEntities
-            .whereType<File>()
-            .where((final file) => !file.path.endsWith('.lnk'))
-            .toList();
+        final allFiles = <File>[];
+        for (final entity in allEntities) {
+          if (entity is File) {
+            // Check if it's a Windows shortcut
+            if (entity.path.endsWith('.lnk')) {
+              continue;
+            }
+            // Check if it's a Unix symlink by checking the file type
+            final stat = await entity.stat();
+            if (stat.type != FileSystemEntityType.link) {
+              allFiles.add(entity);
+            }
+          }
+        }
 
         // Debug: print all non-shortcut files
-        print('DEBUG: All non-shortcut files (${allFiles.length}):');
+        print('\n=== DEBUG: All non-shortcut files (${allFiles.length}) ===');
         for (final file in allFiles) {
           print('  ${file.path}');
         }
 
-        // Group files by basename
+        // Group files by basename to identify duplicates
+        final fileGroups = <String, List<File>>{};
+        for (final file in allFiles) {
+          final basename = p.basename(file.path);
+          fileGroups.putIfAbsent(basename, () => []).add(file);
+        }
+
+        print('\n=== DEBUG: Files grouped by basename ===');
+        for (final entry in fileGroups.entries) {
+          print('${entry.key}: ${entry.value.length} copies');
+          for (final file in entry.value) {
+            print('  -> ${file.path}');
+          }
+        }
+
+        // Check for multi-album photos specifically
+        print('\n=== DEBUG: Multi-album photo analysis ===');
+        final multiAlbumPhotos = <String>[];
+        for (final media in testMedia) {
+          // Albums are stored as keys in the files map (excluding null key)
+          final albumKeys = media.files.keys
+              .where((final key) => key != null)
+              .toList();
+          if (albumKeys.length > 1) {
+            final filename = media.files[null] != null
+                ? p.basename(media.files[null]!.path)
+                : 'unknown';
+            multiAlbumPhotos.add(filename);
+            print('Multi-album photo: $filename in albums: $albumKeys');
+          }
+        }
+
+        // Debug: Check ALL_PHOTOS content
+        final allPhotosDir = allEntities
+            .whereType<Directory>()
+            .where((final dir) => p.basename(dir.path) == 'ALL_PHOTOS')
+            .firstOrNull;
+
+        if (allPhotosDir != null) {
+          print('\n=== DEBUG: ALL_PHOTOS directory contents ===');
+          final allPhotosContents = await allPhotosDir.list().toList();
+          for (final item in allPhotosContents) {
+            if (item is File) {
+              print('  FILE: ${p.basename(item.path)}');
+            } else if (item is Link) {
+              final target = await item.target();
+              print('  LINK: ${p.basename(item.path)} -> $target');
+            }
+          }
+        } else {
+          print('\n=== DEBUG: ALL_PHOTOS directory not found! ===');
+        }
+
+        // Debug: Check album directories
+        print('\n=== DEBUG: Album directories analysis ===');
+        final albumDirs = allEntities
+            .whereType<Directory>()
+            .where((final dir) => p.basename(dir.path) != 'ALL_PHOTOS')
+            .toList();
+
+        for (final albumDir in albumDirs) {
+          final albumName = p.basename(albumDir.path);
+          print('Album: $albumName');
+          final albumContents = await albumDir.list().toList();
+          for (final item in albumContents) {
+            if (item is File) {
+              print('  FILE: ${p.basename(item.path)}');
+            } else if (item is Link) {
+              final target = await item.target();
+              print('  LINK: ${p.basename(item.path)} -> $target');
+            }
+          }
+        }
+
+        // Group files by basename for duplicate analysis
         final fileBasenames = allFiles
             .map((final file) => p.basename(file.path))
             .toList();
 
-        print('DEBUG: File basenames: $fileBasenames');
-        print('DEBUG: Unique basenames: ${fileBasenames.toSet()}');
+        print('\n=== DEBUG: File basename analysis ===');
+        print('All file basenames: $fileBasenames');
+        print('Unique basenames: ${fileBasenames.toSet()}');
+        print('Total files: ${fileBasenames.length}');
+        print('Unique files: ${fileBasenames.toSet().length}');
 
-        // Each unique photo should appear only once as actual file
+        // Check for specific duplicates
+        final basenameCount = <String, int>{};
+        for (final basename in fileBasenames) {
+          basenameCount[basename] = (basenameCount[basename] ?? 0) + 1;
+        }
+
+        print('\n=== DEBUG: Basename frequency ===');
+        for (final entry in basenameCount.entries) {
+          if (entry.value > 1) {
+            print('DUPLICATE: ${entry.key} appears ${entry.value} times');
+          } else {
+            print('UNIQUE: ${entry.key} appears once');
+          }
+        }
+
+        // Verify expected behavior: each unique photo should appear only once as actual file
         final uniqueBasenames = fileBasenames.toSet();
-        expect(fileBasenames.length, equals(uniqueBasenames.length));
+
+        print('\n=== DEBUG: Final validation ===');
+        print('Expected: ${uniqueBasenames.length} unique files');
+        print('Actual: ${fileBasenames.length} total files');
+        print(
+          'Test assertion: fileBasenames.length (${fileBasenames.length}) should equal uniqueBasenames.length (${uniqueBasenames.length})',
+        );
+
+        // The main assertion - each unique photo should appear only once as actual file
+        expect(
+          fileBasenames.length,
+          equals(uniqueBasenames.length),
+          reason:
+              'Each unique photo should appear only once as a physical file in reverse-shortcut mode. '
+              'Found ${fileBasenames.length} total files but expected ${uniqueBasenames.length} unique files. '
+              'Duplicates: ${basenameCount.entries.where((final e) => e.value > 1).map((final e) => '${e.key} (${e.value}x)').join(', ')}',
+        );
       });
     });
 
