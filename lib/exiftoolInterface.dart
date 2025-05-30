@@ -99,6 +99,7 @@ class ExiftoolInterface {
     // On Windows, explicitly set UTF-8 encoding for Unicode character support
     if (Platform.isWindows) {
       args.addAll(['-charset', 'filename=UTF8']);
+      args.addAll(['-charset', 'exif=UTF8']);
     }
 
     args.add(file.path);
@@ -158,6 +159,7 @@ class ExiftoolInterface {
     // On Windows, explicitly set UTF-8 encoding for Unicode character support
     if (Platform.isWindows) {
       args.addAll(['-charset', 'filename=UTF8']);
+      args.addAll(['-charset', 'exif=UTF8']);
     }
 
     args.addAll(tags.map((final tag) => '-$tag'));
@@ -213,8 +215,8 @@ class ExiftoolInterface {
 
     // On Windows, explicitly set UTF-8 encoding for Unicode character support
     if (Platform.isWindows) {
-      args.add('-charset');
-      args.add('filename=UTF8');
+      args.addAll(['-charset', 'filename=UTF8']);
+      args.addAll(['-charset', 'exif=UTF8']);
     }
 
     tags.forEach((final tag, final value) => args.add('-$tag=$value'));
