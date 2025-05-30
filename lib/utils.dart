@@ -375,6 +375,17 @@ Future<void> createShortcutWin(
   if (!parentDir.existsSync()) {
     parentDir.createSync(recursive: true);
   }
+  
+  // Ensure target path is absolute and target exists
+  final String absoluteTargetPath = p.isAbsolute(targetPath) 
+      ? targetPath 
+      : p.absolute(targetPath);
+  
+  // Verify target exists before creating shortcut
+  if (!File(absoluteTargetPath).existsSync() && !Directory(absoluteTargetPath).existsSync()) {
+    throw Exception('Target path does not exist: $absoluteTargetPath');
+  }
+  
   // Use PowerShell for reliable shortcut creation
   final ProcessResult res = await Process.run('powershell.exe', <String>[
     '-ExecutionPolicy',
@@ -386,7 +397,7 @@ Future<void> createShortcutWin(
     // ignore: no_adjacent_strings_in_list
     '\$ws = New-Object -ComObject WScript.Shell; '
         '\$s = \$ws.CreateShortcut("$shortcutPath"); '
-        '\$s.TargetPath = "$targetPath"; '
+        '\$s.TargetPath = "$absoluteTargetPath"; '
         '\$s.Save()',
   ]);
   if (res.exitCode != 0) {
