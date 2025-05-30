@@ -375,17 +375,18 @@ Future<void> createShortcutWin(
   if (!parentDir.existsSync()) {
     parentDir.createSync(recursive: true);
   }
-  
+
   // Ensure target path is absolute and target exists
-  final String absoluteTargetPath = p.isAbsolute(targetPath) 
-      ? targetPath 
+  final String absoluteTargetPath = p.isAbsolute(targetPath)
+      ? targetPath
       : p.absolute(targetPath);
-  
+
   // Verify target exists before creating shortcut
-  if (!File(absoluteTargetPath).existsSync() && !Directory(absoluteTargetPath).existsSync()) {
+  if (!File(absoluteTargetPath).existsSync() &&
+      !Directory(absoluteTargetPath).existsSync()) {
     throw Exception('Target path does not exist: $absoluteTargetPath');
   }
-  
+
   // Use PowerShell for reliable shortcut creation
   final ProcessResult res = await Process.run('powershell.exe', <String>[
     '-ExecutionPolicy',
