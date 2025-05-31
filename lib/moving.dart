@@ -69,7 +69,11 @@ Future<File> createShortcut(final Directory location, final File target) async {
   final String name =
       '${p.basename(target.path)}${Platform.isWindows ? '.lnk' : ''}';
   final File link = findNotExistingName(File(p.join(location.path, name)));
-  
+  // Ensure the parent directory for the shortcut exists (important for Windows)
+  final linkDir = Directory(p.dirname(link.path));
+  if (!linkDir.existsSync()) {
+    await linkDir.create(recursive: true);
+  }
   // Ensure the target directory exists before creating shortcuts
   if (!location.existsSync()) {
     await location.create(recursive: true);
@@ -83,18 +87,44 @@ Future<File> createShortcut(final Directory location, final File target) async {
   );
   final String targetPath = target.absolute.path;
   if (Platform.isWindows) {
-    // Use createShortcutWin which handles PowerShell internally
+    // Try native shortcut creation, fallback to PowerShell if needed.
     try {
       await createShortcutWin(link.path, targetPath);
     } catch (e) {
-      throw Exception(
-        'PowerShell shortcut creation failed - \n\n'
-        'report that to @TheLastGimbus on GitHub:\n\n'
-        'https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/issues\n\n'
-        '...or try other album solution\n'
-        'sorry for inconvenience :('
-        '\nError: $e',
-      );
+      try {
+        final ProcessResult res = await Process.run('powershell.exe', <String>[
+          '-ExecutionPolicy',
+          'Bypass',
+          '-NoLogo',
+          '-NonInteractive',
+          '-NoProfile',
+          '-Command',
+          '''
+          try {
+            \$ws = New-Object -ComObject WScript.Shell
+            \$s = \$ws.CreateShortcut("${link.path}")
+            \$s.TargetPath = "$targetPath"
+            \$s.Save()
+          } catch {
+            Write-Error \$_.Exception.Message
+            exit 1
+          }
+          ''',
+        ]);
+        if (res.exitCode != 0) {
+          throw Exception('PowerShell shortcut creation failed: ${res.stderr}');
+        }
+      } catch (fallbackError) {
+        throw Exception(
+          'PowerShell doesnt work :( - \n\n'
+          'report that to @TheLastGimbus on GitHub:\n\n'
+          'https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/issues\n\n'
+          '...or try other album solution\n'
+          'sorry for inconvenience :('
+          '\nOriginal error: $e'
+          '\nFallback error: $fallbackError',
+        );
+      }
     }
     return File(link.path);
   } else {
