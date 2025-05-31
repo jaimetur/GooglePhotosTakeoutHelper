@@ -69,6 +69,11 @@ Future<File> createShortcut(final Directory location, final File target) async {
   final String name =
       '${p.basename(target.path)}${Platform.isWindows ? '.lnk' : ''}';
   final File link = findNotExistingName(File(p.join(location.path, name)));
+  // Ensure the target directory exists before creating shortcuts
+  if (!location.existsSync()) {
+    await location.create(recursive: true);
+  }
+
   // this must be relative to not break when user moves whole folder around:
   // https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/issues/232
   final String targetRelativePath = p.relative(
@@ -81,26 +86,38 @@ Future<File> createShortcut(final Directory location, final File target) async {
     try {
       await createShortcutWin(link.path, targetPath);
     } catch (e) {
-      final ProcessResult res = await Process.run('powershell.exe', <String>[
-        '-ExecutionPolicy',
-        'Bypass',
-        '-NoLogo',
-        '-NonInteractive',
-        '-NoProfile',
-        '-Command',
-        "\$ws = New-Object -ComObject WScript.Shell; ",
-        "\$s = \$ws.CreateShortcut(\"${link.path}\"); ",
-        "\$s.TargetPath = \"$targetPath\"; ",
-        "\$s.Save()",
-      ]);
-      if (res.exitCode != 0) {
+      try {
+        final ProcessResult res = await Process.run('powershell.exe', <String>[
+          '-ExecutionPolicy',
+          'Bypass',
+          '-NoLogo',
+          '-NonInteractive',
+          '-NoProfile',
+          '-Command',
+          '''
+          try {
+            \$ws = New-Object -ComObject WScript.Shell
+            \$s = \$ws.CreateShortcut("${link.path}")
+            \$s.TargetPath = "$targetPath"
+            \$s.Save()
+          } catch {
+            Write-Error \$_.Exception.Message
+            exit 1
+          }
+          ''',
+        ]);
+        if (res.exitCode != 0) {
+          throw Exception('PowerShell shortcut creation failed: ${res.stderr}');
+        }
+      } catch (fallbackError) {
         throw Exception(
           'PowerShell doesnt work :( - \n\n'
           'report that to @TheLastGimbus on GitHub:\n\n'
           'https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/issues\n\n'
           '...or try other album solution\n'
           'sorry for inconvenience :('
-          '\nshortcut exc -> $e',
+          '\nOriginal error: $e'
+          '\nFallback error: $fallbackError',
         );
       }
     }

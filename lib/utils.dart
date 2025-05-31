@@ -376,7 +376,7 @@ Future<void> createShortcutWin(
     parentDir.createSync(recursive: true);
   }
 
-  // Ensure target path is absolute and target exists
+  // Ensure target path is absolute
   final String absoluteTargetPath = p.isAbsolute(targetPath)
       ? targetPath
       : p.absolute(targetPath);
@@ -387,7 +387,7 @@ Future<void> createShortcutWin(
     throw Exception('Target path does not exist: $absoluteTargetPath');
   }
 
-  // Use PowerShell for reliable shortcut creation
+  ////FIXME currently native mode is disabled due to heap exception issues. Uses Powershell for now.
   final ProcessResult res = await Process.run('powershell.exe', <String>[
     '-ExecutionPolicy',
     'Bypass',
