@@ -366,7 +366,7 @@ Future<bool> _executePShellCreationTimeCmd(final String commandChunk) async {
 /// [shortcutPath] Path where the shortcut will be created
 /// [targetPath] Path to the target file/folder
 /// Throws Exception if PowerShell command fails
-Future<File> createShortcutWin(
+Future<void> createShortcutWin(
   final String shortcutPath,
   final String targetPath,
 ) async {
@@ -386,6 +386,7 @@ Future<File> createShortcutWin(
       !Directory(absoluteTargetPath).existsSync()) {
     throw Exception('Target path does not exist: $absoluteTargetPath');
   }
+
   ////FIXME currently native mode is disabled due to heap exception issues. Uses Powershell for now.
   final ProcessResult res = await Process.run('powershell.exe', <String>[
     '-ExecutionPolicy',
@@ -403,7 +404,6 @@ Future<File> createShortcutWin(
   if (res.exitCode != 0) {
     throw Exception('PowerShell failed to create shortcut: ${res.stderr}');
   }
-  return File(shortcutPath);
 }
 
 /// Custom logging function with color-coded output levels
