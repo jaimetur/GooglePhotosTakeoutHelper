@@ -389,9 +389,9 @@ void main() {
           p.join(outputDir.path, 'Holiday Memories'),
         );
 
-        expect(vacationDir.existsSync(), isTrue);
-        expect(familyDir.existsSync(), isTrue);
-        expect(holidaysDir.existsSync(), isTrue);
+        expect(await vacationDir.exists(), isTrue);
+        expect(await familyDir.exists(), isTrue);
+        expect(await holidaysDir.exists(), isTrue);
 
         // Count items in vacation folder (should have 3: 2 from year folders + 1 album-only)
         final vacationItems = await vacationDir.list().toList();
@@ -685,8 +685,8 @@ void main() {
         final vacationDir = Directory(p.join(outputDir.path, 'Vacation 2022'));
         final familyDir = Directory(p.join(outputDir.path, 'Family Photos'));
 
-        expect(vacationDir.existsSync(), isTrue);
-        expect(familyDir.existsSync(), isTrue);
+        expect(await vacationDir.exists(), isTrue);
+        expect(await familyDir.exists(), isTrue);
 
         // Count actual files in album folders
         final vacationEntities = await vacationDir.list().toList();

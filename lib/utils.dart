@@ -8,7 +8,7 @@ import 'interactive.dart' as interactive;
 import 'media.dart';
 
 // remember to bump this
-const String version = '4.0.4';
+const String version = '4.0.5';
 
 // Processing constants
 const int defaultBarWidth = 40;
@@ -372,8 +372,8 @@ Future<void> createShortcutWin(
 ) async {
   // Make sure parent directory exists
   final Directory parentDir = Directory(p.dirname(shortcutPath));
-  if (!parentDir.existsSync()) {
-    parentDir.createSync(recursive: true);
+  if (!await parentDir.exists()) {
+    await parentDir.create(recursive: true);
   }
 
   // Ensure target path is absolute

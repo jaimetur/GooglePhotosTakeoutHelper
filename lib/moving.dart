@@ -74,14 +74,15 @@ Future<File> createShortcut(final Directory location, final File target) async {
   final String name = Platform.isWindows
       ? (basename.endsWith('.lnk') ? basename : '$basename.lnk')
       : basename;
-  final File link = findNotExistingName(File(p.join(location.path, name)));
-  // Ensure the parent directory for the shortcut exists (important for Windows)
+  final File link = findNotExistingName(
+    File(p.join(location.path, name)),
+  ); // Ensure the parent directory for the shortcut exists (important for Windows)
   final linkDir = Directory(p.dirname(link.path));
-  if (!linkDir.existsSync()) {
+  if (!await linkDir.exists()) {
     await linkDir.create(recursive: true);
   }
   // Ensure the target directory exists before creating shortcuts
-  if (!location.existsSync()) {
+  if (!await location.exists()) {
     await location.create(recursive: true);
   }
 
