@@ -57,8 +57,19 @@ class TestFixture {
 
   /// Clean up all created files and directories
   Future<void> tearDown() async {
-    // First, try to force-close any file handles
-    await Future.delayed(const Duration(milliseconds: 100));
+    // Windows-specific: Force garbage collection to release file handles
+    if (Platform.isWindows) {
+      // Force GC to release any lingering file handles
+      for (int i = 0; i < 3; i++) {
+        await Future.delayed(const Duration(milliseconds: 50));
+        // Trigger garbage collection attempt
+        final List<int> temp = List.filled(1000, 0);
+        temp.clear();
+      }
+    }
+
+    // Give file system time to release handles
+    await Future.delayed(const Duration(milliseconds: 200));
 
     // Reverse order to delete files before directories
     final entities = _createdEntities.toList().reversed.toList();
@@ -71,10 +82,17 @@ class TestFixture {
 
   /// Safely delete a file system entity with retry logic
   Future<void> _safeDelete(final FileSystemEntity entity) async {
-    const maxRetries = 3;
+    final maxRetries = Platform.isWindows ? 5 : 3;
+    final baseDelayMs = Platform.isWindows ? 200 : 100;
+
     for (int retry = 0; retry < maxRetries; retry++) {
       try {
         if (await entity.exists()) {
+          // Windows-specific: Additional delay before deletion attempt
+          if (Platform.isWindows && retry > 0) {
+            await Future.delayed(Duration(milliseconds: baseDelayMs * retry));
+          }
+
           if (entity is File) {
             await entity.delete();
           } else if (entity is Directory) {
@@ -85,14 +103,21 @@ class TestFixture {
         }
         return; // Success, exit retry loop
       } catch (e) {
+        if (Platform.isWindows && e.toString().contains('errno = 32')) {
+          // Windows file in use error - additional wait
+          await Future.delayed(Duration(milliseconds: baseDelayMs));
+        }
+
         if (retry == maxRetries - 1) {
           // Last retry, log but don't fail
           print(
             'Warning: Failed to delete ${entity.path} after $maxRetries attempts: $e',
           );
         } else {
-          // Wait before retry
-          await Future.delayed(Duration(milliseconds: 100 * (retry + 1)));
+          // Wait before retry with exponential backoff
+          await Future.delayed(
+            Duration(milliseconds: baseDelayMs * (retry + 1)),
+          );
         }
       }
     }
@@ -153,7 +178,17 @@ class TestFixture {
   File createImageWithExif(final String name) {
     final file = File(p.join(basePath, name));
     file.createSync(recursive: true);
-    file.writeAsBytesSync(base64.decode(greenImgBase64.replaceAll('\n', '')));
+
+    // Use explicit file handle management for better Windows compatibility
+    final content = base64.decode(greenImgBase64.replaceAll('\n', ''));
+    final randomAccessFile = file.openSync(mode: FileMode.write);
+    try {
+      randomAccessFile.writeFromSync(content);
+      randomAccessFile.flushSync();
+    } finally {
+      randomAccessFile.closeSync();
+    }
+
     _createdEntities.add(file);
     return file;
   }
@@ -162,9 +197,19 @@ class TestFixture {
   File createImageWithoutExif(final String name) {
     final file = File(p.join(basePath, name));
     file.createSync(recursive: true);
-    file.writeAsBytesSync(
-      base64.decode(greenImgNoMetaDataBase64.replaceAll('\n', '')),
+
+    // Use explicit file handle management for better Windows compatibility
+    final content = base64.decode(
+      greenImgNoMetaDataBase64.replaceAll('\n', ''),
     );
+    final randomAccessFile = file.openSync(mode: FileMode.write);
+    try {
+      randomAccessFile.writeFromSync(content);
+      randomAccessFile.flushSync();
+    } finally {
+      randomAccessFile.closeSync();
+    }
+
     _createdEntities.add(file);
     return file;
   }
@@ -173,7 +218,16 @@ class TestFixture {
   File createFile(final String name, final List<int> content) {
     final file = File(p.join(basePath, name));
     file.createSync(recursive: true);
-    file.writeAsBytesSync(content);
+
+    // Use explicit file handle management for better Windows compatibility
+    final randomAccessFile = file.openSync(mode: FileMode.write);
+    try {
+      randomAccessFile.writeFromSync(content);
+      randomAccessFile.flushSync();
+    } finally {
+      randomAccessFile.closeSync();
+    }
+
     _createdEntities.add(file);
     return file;
   }
