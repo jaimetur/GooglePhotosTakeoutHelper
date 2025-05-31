@@ -152,8 +152,8 @@ class TestFixture {
   /// Create a test image file with EXIF data
   File createImageWithExif(final String name) {
     final file = File(p.join(basePath, name));
-    file.create(recursive: true);
-    file.writeAsBytes(base64.decode(greenImgBase64.replaceAll('\n', '')));
+    file.createSync(recursive: true);
+    file.writeAsBytesSync(base64.decode(greenImgBase64.replaceAll('\n', '')));
     _createdEntities.add(file);
     return file;
   }
@@ -161,8 +161,8 @@ class TestFixture {
   /// Create a test image file without EXIF data
   File createImageWithoutExif(final String name) {
     final file = File(p.join(basePath, name));
-    file.create(recursive: true);
-    file.writeAsBytes(
+    file.createSync(recursive: true);
+    file.writeAsBytesSync(
       base64.decode(greenImgNoMetaDataBase64.replaceAll('\n', '')),
     );
     _createdEntities.add(file);
@@ -172,8 +172,8 @@ class TestFixture {
   /// Create a test file with custom content
   File createFile(final String name, final List<int> content) {
     final file = File(p.join(basePath, name));
-    file.create(recursive: true);
-    file.writeAsBytes(content);
+    file.createSync(recursive: true);
+    file.writeAsBytesSync(content);
     _createdEntities.add(file);
     return file;
   }
@@ -181,7 +181,7 @@ class TestFixture {
   /// Create a test directory
   Directory createDirectory(final String name) {
     final dir = Directory(p.join(basePath, name));
-    dir.create(recursive: true);
+    dir.createSync(recursive: true);
     _createdEntities.add(dir);
     return dir;
   }
@@ -189,8 +189,8 @@ class TestFixture {
   /// Create a JSON file with test metadata
   File createJsonFile(final String name, final int timestamp) {
     final file = File(p.join(basePath, name));
-    file.create(recursive: true);
-    file.writeAsString(
+    file.createSync(recursive: true);
+    file.writeAsStringSync(
       jsonEncode({
         'title': 'test.jpg',
         'description': '',
@@ -229,19 +229,16 @@ class TestFixture {
   }
 
   /// Create a test image file with EXIF data in a specific directory
-  Future<File> createImageWithExifInDir(
-    final String dirPath,
-    final String name,
-  ) async {
+  File createImageWithExifInDir(final String dirPath, final String name) {
     final dir = Directory(dirPath);
-    if (!await dir.exists()) {
-      await dir.create(recursive: true);
+    if (!dir.existsSync()) {
+      dir.createSync(recursive: true);
       _createdEntities.add(dir);
     }
 
     final file = File(p.join(dirPath, name));
-    await file.create(recursive: true);
-    await file.writeAsBytes(base64.decode(greenImgBase64.replaceAll('\n', '')));
+    file.createSync(recursive: true);
+    file.writeAsBytesSync(base64.decode(greenImgBase64.replaceAll('\n', '')));
     _createdEntities.add(file);
     return file;
   }
@@ -401,7 +398,7 @@ Future<void> generateRealisticDataset({
         // Add unique content to make each photo different
         final uniqueBytes = List<int>.from(baseBytes);
         uniqueBytes.addAll('unique_${i}_${j}_$filename'.codeUnits);
-        await photoFile.writeAsBytes(uniqueBytes);
+        photoFile.writeAsBytesSync(uniqueBytes);
       } else {
         final baseBytes = base64.decode(
           greenImgNoMetaDataBase64.replaceAll('\n', ''),
@@ -409,14 +406,14 @@ Future<void> generateRealisticDataset({
         // Add unique content to make each photo different
         final uniqueBytes = List<int>.from(baseBytes);
         uniqueBytes.addAll('unique_${i}_${j}_$filename'.codeUnits);
-        await photoFile.writeAsBytes(uniqueBytes);
+        photoFile.writeAsBytesSync(uniqueBytes);
       }
       createdEntities.add(photoFile);
       createdPhotos.add(filename);
 
       // Create JSON metadata file
       final jsonFile = File('$photoPath.json');
-      await jsonFile.writeAsString(
+      jsonFile.writeAsStringSync(
         jsonEncode({
           'title': filename,
           'description': '',
@@ -493,7 +490,7 @@ Future<void> generateRealisticDataset({
           p.join(googlePhotosDir.path, 'Photos from $year'),
         );
         final potentialPath = p.join(yearDir.path, photoName);
-        if (await File(potentialPath).exists()) {
+        if (File(potentialPath).existsSync()) {
           originalPhoto = File(potentialPath);
           break;
         }
@@ -502,12 +499,12 @@ Future<void> generateRealisticDataset({
       if (originalPhoto != null) {
         // Copy photo to album
         final albumPhotoPath = p.join(albumDir.path, photoName);
-        await originalPhoto.copy(albumPhotoPath);
+        originalPhoto.copySync(albumPhotoPath);
 
         // Copy JSON file too
         final originalJsonPath = '${originalPhoto.path}.json';
-        if (await File(originalJsonPath).exists()) {
-          await File(originalJsonPath).copy('$albumPhotoPath.json');
+        if (File(originalJsonPath).existsSync()) {
+          File(originalJsonPath).copySync('$albumPhotoPath.json');
         }
       }
     }
@@ -543,12 +540,12 @@ Future<void> generateRealisticDataset({
     // Add unique content to make each album-only photo different
     final uniqueBytes = List<int>.from(baseBytes);
     uniqueBytes.addAll('album_only_${albumName}_${i}_$filename'.codeUnits);
-    await photoFile.writeAsBytes(uniqueBytes);
+    photoFile.writeAsBytesSync(uniqueBytes);
     createdEntities.add(photoFile);
 
     // Create JSON metadata for album-only photo
     final jsonFile = File('$photoPath.json');
-    await jsonFile.writeAsString(
+    jsonFile.writeAsStringSync(
       jsonEncode({
         'title': filename,
         'description': 'Album-only photo for testing',
@@ -609,14 +606,14 @@ Future<void> generateRealisticDataset({
         final photoPath = p.join(specialDir.path, filename);
 
         final photoFile = File(photoPath);
-        await photoFile.writeAsBytes(
+        photoFile.writeAsBytesSync(
           base64.decode(greenImgNoMetaDataBase64.replaceAll('\n', '')),
         );
         createdEntities.add(photoFile);
 
         // Create JSON metadata
         final jsonFile = File('$photoPath.json');
-        await jsonFile.writeAsString(
+        jsonFile.writeAsStringSync(
           jsonEncode({
             'title': filename,
             'description': 'Screenshot from mobile device',

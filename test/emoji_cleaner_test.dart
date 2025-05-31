@@ -378,7 +378,7 @@ void main() {
         emojiDir.createSync(recursive: true);
 
         // Create image with EXIF data in the emoji folder
-        final File img = await fixture.createImageWithExifInDir(
+        final File img = fixture.createImageWithExifInDir(
           emojiDir.path,
           'img.jpg',
         );
