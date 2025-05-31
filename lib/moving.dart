@@ -53,8 +53,12 @@ import 'utils.dart';
 /// Returns a File object with a unique path that doesn't exist yet
 File findNotExistingName(final File initialFile) {
   File file = initialFile;
+  int counter = 1;
   while (file.existsSync()) {
-    file = File('${p.withoutExtension(file.path)}(1)${p.extension(file.path)}');
+    final String baseName = p.withoutExtension(initialFile.path);
+    final String extension = p.extension(initialFile.path);
+    file = File('$baseName($counter)$extension');
+    counter++;
   }
   return file;
 }
@@ -66,8 +70,10 @@ File findNotExistingName(final File initialFile) {
 /// Returns the created link/shortcut file
 /// Uses relative paths to avoid breaking when folders are moved
 Future<File> createShortcut(final Directory location, final File target) async {
-  final String name =
-      '${p.basename(target.path)}${Platform.isWindows ? '.lnk' : ''}';
+  final String basename = p.basename(target.path);
+  final String name = Platform.isWindows
+      ? (basename.endsWith('.lnk') ? basename : '$basename.lnk')
+      : basename;
   final File link = findNotExistingName(File(p.join(location.path, name)));
   // Ensure the parent directory for the shortcut exists (important for Windows)
   final linkDir = Directory(p.dirname(link.path));
