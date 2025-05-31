@@ -217,6 +217,7 @@ class ExiftoolInterface {
     if (Platform.isWindows) {
       args.addAll(['-charset', 'filename=UTF8']);
       args.addAll(['-charset', 'exif=UTF8']);
+      args.addAll(['-charset', 'id=UTF8']);
     }
 
     tags.forEach((final tag, final value) => args.add('-$tag=$value'));
