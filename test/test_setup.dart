@@ -397,13 +397,15 @@ Future<void> generateRealisticDataset({
         final baseBytes = base64.decode(greenImgBase64.replaceAll('\n', ''));
         // Add unique content to make each photo different
         final uniqueBytes = List<int>.from(baseBytes);
-        uniqueBytes.addAll('unique_${i}_${j}_${filename}'.codeUnits);
+        uniqueBytes.addAll('unique_${i}_${j}_$filename'.codeUnits);
         photoFile.writeAsBytesSync(uniqueBytes);
       } else {
-        final baseBytes = base64.decode(greenImgNoMetaDataBase64.replaceAll('\n', ''));
+        final baseBytes = base64.decode(
+          greenImgNoMetaDataBase64.replaceAll('\n', ''),
+        );
         // Add unique content to make each photo different
         final uniqueBytes = List<int>.from(baseBytes);
-        uniqueBytes.addAll('unique_${i}_${j}_${filename}'.codeUnits);
+        uniqueBytes.addAll('unique_${i}_${j}_$filename'.codeUnits);
         photoFile.writeAsBytesSync(uniqueBytes);
       }
       createdEntities.add(photoFile);
