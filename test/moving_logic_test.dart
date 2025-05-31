@@ -67,7 +67,6 @@ void main() {
     late TestFixture fixture;
     late Directory outputDir;
     late List<Media> testMedia;
-
     setUp(() async {
       fixture = TestFixture();
       await fixture.setUp();
@@ -111,7 +110,16 @@ void main() {
       final albumDir = fixture.createDirectory('Vacation');
       final albumFile = File('${albumDir.path}/${p.basename(imgFile1.path)}');
       albumFile.createSync();
-      albumFile.writeAsBytesSync([0, 1, 2]); // Same content as imgFile1
+      albumFile.writeAsBytesSync([
+        0,
+        1,
+        2,
+      ], flush: true); // Same content as imgFile1 with explicit flush
+
+      // Give Windows a moment to ensure file handles are properly released
+      if (Platform.isWindows) {
+        await Future.delayed(const Duration(milliseconds: 50));
+      }
 
       testMedia = <Media>[
         Media(

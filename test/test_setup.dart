@@ -44,11 +44,14 @@ class TestFixture {
     final String timestamp = DateTime.now().microsecondsSinceEpoch.toString();
     final String randomSuffix = DateTime.now().millisecondsSinceEpoch
         .toRadixString(36);
+    // Add a more unique identifier to avoid conflicts in concurrent test scenarios
+    final String uniqueId =
+        '${DateTime.now().microsecondsSinceEpoch % 1000000}';
     basePath = p.join(
       current,
       'test',
       'generated',
-      'fixture_${timestamp}_$randomSuffix',
+      'fixture_${timestamp}_${randomSuffix}_$uniqueId',
     );
     baseDir = Directory(basePath);
     await baseDir.create(recursive: true);
@@ -57,8 +60,14 @@ class TestFixture {
 
   /// Clean up all created files and directories
   Future<void> tearDown() async {
-    // First, try to force-close any file handles
-    await Future.delayed(const Duration(milliseconds: 100));
+    // Wait longer to ensure all file operations have completed
+    await Future.delayed(const Duration(milliseconds: 50));
+
+    // Force garbage collection to help release file handles
+    if (Platform.isWindows) {
+      // On Windows, give extra time for file handles to be released
+      await Future.delayed(const Duration(milliseconds: 50));
+    }
 
     // Reverse order to delete files before directories
     final entities = _createdEntities.toList().reversed.toList();
@@ -71,11 +80,19 @@ class TestFixture {
 
   /// Safely delete a file system entity with retry logic
   Future<void> _safeDelete(final FileSystemEntity entity) async {
-    const maxRetries = 3;
+    const maxRetries = 5; // Increased retries for Windows
     for (int retry = 0; retry < maxRetries; retry++) {
       try {
         if (await entity.exists()) {
           if (entity is File) {
+            // On Windows, try to change file attributes to remove read-only before deletion
+            if (Platform.isWindows) {
+              try {
+                await Process.run('attrib', ['-R', entity.path]);
+              } catch (e) {
+                // Ignore attrib errors
+              }
+            }
             await entity.delete();
           } else if (entity is Directory) {
             await _deleteDirectoryRecursively(entity);
@@ -91,8 +108,15 @@ class TestFixture {
             'Warning: Failed to delete ${entity.path} after $maxRetries attempts: $e',
           );
         } else {
-          // Wait before retry
-          await Future.delayed(Duration(milliseconds: 100 * (retry + 1)));
+          // Progressive backoff: wait longer on each retry
+          final delayMs = 200 * (retry + 1); // 200ms, 400ms, 600ms, 800ms
+          await Future.delayed(Duration(milliseconds: delayMs));
+
+          // Force garbage collection on Windows to help release handles
+          if (Platform.isWindows && retry > 0) {
+            // Give the OS more time to release file handles
+            await Future.delayed(const Duration(milliseconds: 100));
+          }
         }
       }
     }
@@ -153,7 +177,11 @@ class TestFixture {
   File createImageWithExif(final String name) {
     final file = File(p.join(basePath, name));
     file.createSync(recursive: true);
-    file.writeAsBytesSync(base64.decode(greenImgBase64.replaceAll('\n', '')));
+    // Use writeAsBytesSync with flush: true to ensure data is written immediately
+    file.writeAsBytesSync(
+      base64.decode(greenImgBase64.replaceAll('\n', '')),
+      flush: true,
+    );
     _createdEntities.add(file);
     return file;
   }
@@ -162,8 +190,10 @@ class TestFixture {
   File createImageWithoutExif(final String name) {
     final file = File(p.join(basePath, name));
     file.createSync(recursive: true);
+    // Use writeAsBytesSync with flush: true to ensure data is written immediately
     file.writeAsBytesSync(
       base64.decode(greenImgNoMetaDataBase64.replaceAll('\n', '')),
+      flush: true,
     );
     _createdEntities.add(file);
     return file;
@@ -173,7 +203,8 @@ class TestFixture {
   File createFile(final String name, final List<int> content) {
     final file = File(p.join(basePath, name));
     file.createSync(recursive: true);
-    file.writeAsBytesSync(content);
+    // Use writeAsBytesSync with flush: true to ensure data is written immediately
+    file.writeAsBytesSync(content, flush: true);
     _createdEntities.add(file);
     return file;
   }
@@ -223,6 +254,7 @@ class TestFixture {
           'mobileUpload': {'deviceType': 'IOS_PHONE'},
         },
       }),
+      flush: true,
     );
     _createdEntities.add(file);
     return file;
@@ -238,7 +270,11 @@ class TestFixture {
 
     final file = File(p.join(dirPath, name));
     file.createSync(recursive: true);
-    file.writeAsBytesSync(base64.decode(greenImgBase64.replaceAll('\n', '')));
+    // Use writeAsBytesSync with flush: true to ensure data is written immediately
+    file.writeAsBytesSync(
+      base64.decode(greenImgBase64.replaceAll('\n', '')),
+      flush: true,
+    );
     _createdEntities.add(file);
     return file;
   }
@@ -389,16 +425,16 @@ Future<void> generateRealisticDataset({
       final photoPath = p.join(yearDir.path, filename);
 
       // Determine if this photo should have EXIF data
-      final hasExif = (j / photosPerYear) < exifRatio;
-
-      // Create photo file with unique content
+      final hasExif =
+          (j / photosPerYear) <
+          exifRatio; // Create photo file with unique content
       final photoFile = File(photoPath);
       if (hasExif) {
         final baseBytes = base64.decode(greenImgBase64.replaceAll('\n', ''));
         // Add unique content to make each photo different
         final uniqueBytes = List<int>.from(baseBytes);
         uniqueBytes.addAll('unique_${i}_${j}_$filename'.codeUnits);
-        photoFile.writeAsBytesSync(uniqueBytes);
+        photoFile.writeAsBytesSync(uniqueBytes, flush: true);
       } else {
         final baseBytes = base64.decode(
           greenImgNoMetaDataBase64.replaceAll('\n', ''),
@@ -406,12 +442,10 @@ Future<void> generateRealisticDataset({
         // Add unique content to make each photo different
         final uniqueBytes = List<int>.from(baseBytes);
         uniqueBytes.addAll('unique_${i}_${j}_$filename'.codeUnits);
-        photoFile.writeAsBytesSync(uniqueBytes);
+        photoFile.writeAsBytesSync(uniqueBytes, flush: true);
       }
       createdEntities.add(photoFile);
-      createdPhotos.add(filename);
-
-      // Create JSON metadata file
+      createdPhotos.add(filename); // Create JSON metadata file
       final jsonFile = File('$photoPath.json');
       jsonFile.writeAsStringSync(
         jsonEncode({
@@ -456,6 +490,7 @@ Future<void> generateRealisticDataset({
               },
             },
         }),
+        flush: true,
       );
       createdEntities.add(jsonFile);
     }
@@ -532,18 +567,17 @@ Future<void> generateRealisticDataset({
 
     final filename =
         'album_only_${albumName.replaceAll(RegExp(r'[^\w\s-]'), '')}_${albumOnlyDate.year}${albumOnlyDate.month.toString().padLeft(2, '0')}${albumOnlyDate.day.toString().padLeft(2, '0')}_$i.jpg';
-    final photoPath = p.join(albumDir.path, filename);
-
-    // Create album-only photo with EXIF data and unique content
+    final photoPath = p.join(
+      albumDir.path,
+      filename,
+    ); // Create album-only photo with EXIF data and unique content
     final photoFile = File(photoPath);
     final baseBytes = base64.decode(greenImgBase64.replaceAll('\n', ''));
     // Add unique content to make each album-only photo different
     final uniqueBytes = List<int>.from(baseBytes);
     uniqueBytes.addAll('album_only_${albumName}_${i}_$filename'.codeUnits);
-    photoFile.writeAsBytesSync(uniqueBytes);
-    createdEntities.add(photoFile);
-
-    // Create JSON metadata for album-only photo
+    photoFile.writeAsBytesSync(uniqueBytes, flush: true);
+    createdEntities.add(photoFile); // Create JSON metadata for album-only photo
     final jsonFile = File('$photoPath.json');
     jsonFile.writeAsStringSync(
       jsonEncode({
@@ -583,6 +617,7 @@ Future<void> generateRealisticDataset({
           'mobileUpload': {'deviceType': 'IOS_PHONE'},
         },
       }),
+      flush: true,
     );
     createdEntities.add(jsonFile);
 
@@ -604,14 +639,12 @@ Future<void> generateRealisticDataset({
         final filename =
             'Screenshot_${screenshotDate.year}-${screenshotDate.month.toString().padLeft(2, '0')}-${screenshotDate.day.toString().padLeft(2, '0')}-${screenshotDate.hour.toString().padLeft(2, '0')}-${screenshotDate.minute.toString().padLeft(2, '0')}-${screenshotDate.second.toString().padLeft(2, '0')}_com.example.app.jpg';
         final photoPath = p.join(specialDir.path, filename);
-
         final photoFile = File(photoPath);
         photoFile.writeAsBytesSync(
           base64.decode(greenImgNoMetaDataBase64.replaceAll('\n', '')),
+          flush: true,
         );
-        createdEntities.add(photoFile);
-
-        // Create JSON metadata
+        createdEntities.add(photoFile); // Create JSON metadata
         final jsonFile = File('$photoPath.json');
         jsonFile.writeAsStringSync(
           jsonEncode({
@@ -637,6 +670,7 @@ Future<void> generateRealisticDataset({
               'mobileUpload': {'deviceType': 'ANDROID_PHONE'},
             },
           }),
+          flush: true,
         );
         createdEntities.add(jsonFile);
       }
