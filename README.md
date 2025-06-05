@@ -6,6 +6,13 @@
 
 Transform your chaotic Google Photos Takeout into organized photo libraries with proper dates, albums, and metadata.
 
+## Important Note
+I did my part but unfortunately I can't maintain this project anymore. I spend hours every day on it and the more tests I write, the more edge cases appear.
+It's quite complex under the hood. I am certain that we layed good groundwork for anyone who wants to extend on this functionality.
+I can only encourage to write e2e tests for different flag combinations. This will reveal some fundamental problems (e.g. with how special folders are handled). I attempted to fix this in the 4.0.6-development branch, but I just gave up due to the complexity. Everyone is welcome to fork the project and continue it. However, the last release here should be stable enough for the average user.
+
+**Acknowledgment**: This project is based on the original work by [TheLastGimbus](https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper). We are grateful for their foundational contributions to the Google Photos Takeout ecosystem.
+
 ## What This Tool Does
 
 When you export photos from Google Photos using [Google Takeout](https://takeout.google.com/), you get a mess of folders with weird `.json` files and broken timestamps. This tool:
@@ -184,7 +191,7 @@ gpth --input "/path/to/takeout" --output "/path/to/organized" --albums "shortcut
 
 | Argument | Description |
 |----------|-------------|
-| `--write-exif` | Write GPS coordinates and dates to EXIF metadata |
+| `--write-exif` | Write GPS coordinates and dates to EXIF metadata (enabled by default) |
 | `--modify-json` | Fix JSON files with "supplemental-metadata" suffix |
 | `--transform-pixel-mp` | Convert Pixel Motion Photos (.MP/.MV) to .mp4 |
 | `--guess-from-name` | Extract dates from filenames (enabled by default) |
@@ -213,7 +220,7 @@ gpth --input "~/Takeout" --output "~/Photos" --copy --divide-to-dates 1
 
 **Full metadata processing:**
 ```bash
-gpth --input "~/Takeout" --output "~/Photos" --write-exif --transform-pixel-mp --albums "duplicate-copy"
+gpth --input "~/Takeout" --output "~/Photos" --transform-pixel-mp --albums "duplicate-copy"
 ```
 
 **Fix dates in existing folder:**
@@ -304,7 +311,7 @@ If GPTH saved you time and frustration, consider supporting development:
 ## Related Projects
 
 - **[Google Keep Exporter](https://github.com/vHanda/google-keep-exporter)**: Export Google Keep notes to Markdown
-- **[PhotoMigrator](https://github.com/jaimetur/PhotoMigrator)**: Uses GPTH 4.x.x and has been designed to Interact and Manage different Photos Cloud services, and allow users to do an Automatic Migration from one Photo Cloud service to other or from one account to a new account of the same Photo Cloud service.
+- **[PhotoMigrator](https://github.com/jaimetur/PhotoMigrator)**: Uses GPTH 4.x.x which has been designed to Interact and Manage different Photos Cloud services, and allow users to do an Automatic Migration from one Photo Cloud service to other or from one account to a new account of the same Photo Cloud service.
 
 ---
 

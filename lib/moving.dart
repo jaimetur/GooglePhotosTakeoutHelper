@@ -63,6 +63,21 @@ File findNotExistingName(final File initialFile) {
   return file;
 }
 
+/// Decodes hex-encoded emoji characters in album names back to original emoji
+///
+/// This ensures that album names in albums-info.json contain readable emoji
+/// instead of hex-encoded representations like "_0x1f600_"
+///
+/// [albumName] Album name that may contain hex-encoded emoji
+/// Returns the album name with emoji restored
+String _decodeAlbumNameEmoji(final String albumName) {
+  final RegExp emojiPattern = RegExp(r'_0x([0-9a-fA-F]+)_');
+  return albumName.replaceAllMapped(emojiPattern, (final Match match) {
+    final int codePoint = int.parse(match.group(1)!, radix: 16);
+    return String.fromCharCode(codePoint);
+  });
+}
+
 /// Creates a symbolic link (Unix) or shortcut (Windows) to target file
 ///
 /// [location] Directory where the link/shortcut will be created
@@ -94,45 +109,8 @@ Future<File> createShortcut(final Directory location, final File target) async {
   );
   final String targetPath = target.absolute.path;
   if (Platform.isWindows) {
-    // Try native shortcut creation, fallback to PowerShell if needed.
-    try {
-      await createShortcutWin(link.path, targetPath);
-    } catch (e) {
-      try {
-        final ProcessResult res = await Process.run('powershell.exe', <String>[
-          '-ExecutionPolicy',
-          'Bypass',
-          '-NoLogo',
-          '-NonInteractive',
-          '-NoProfile',
-          '-Command',
-          '''
-          try {
-            \$ws = New-Object -ComObject WScript.Shell
-            \$s = \$ws.CreateShortcut("${link.path}")
-            \$s.TargetPath = "$targetPath"
-            \$s.Save()
-          } catch {
-            Write-Error \$_.Exception.Message
-            exit 1
-          }
-          ''',
-        ]);
-        if (res.exitCode != 0) {
-          throw Exception('PowerShell shortcut creation failed: ${res.stderr}');
-        }
-      } catch (fallbackError) {
-        throw Exception(
-          'PowerShell doesnt work :( - \n\n'
-          'report that to @TheLastGimbus on GitHub:\n\n'
-          'https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/issues\n\n'
-          '...or try other album solution\n'
-          'sorry for inconvenience :('
-          '\nOriginal error: $e'
-          '\nFallback error: $fallbackError',
-        );
-      }
-    }
+    // Use the main shortcut creation function from utils.dart
+    await createShortcutWin(link.path, targetPath);
     return File(link.path);
   } else {
     // Unix: create a symlink
@@ -416,14 +394,19 @@ Stream<int> moveFiles(
       // In 'json' mode, record album membership for this file.
       if (albumBehavior == 'json') {
         infoJson[p.basename(result.path)] = m.files.keys.nonNulls.toList();
+        // Decode hex-encoded emoji album names back to original emoji for JSON
+        final decodedAlbumNames = m.files.keys.nonNulls
+            .map(_decodeAlbumNameEmoji)
+            .toList();
+        infoJson[p.basename(result.path)] = decodedAlbumNames;
+        // done with this media - next!
+      }
+      // If in 'json' mode, write the album membership info to albums-info.json in the output folder.
+      if (albumBehavior == 'json') {
+        await File(
+          p.join(output.path, 'albums-info.json'),
+        ).writeAsString(jsonEncode(infoJson));
       }
     }
-    // done with this media - next!
-  }
-  // If in 'json' mode, write the album membership info to albums-info.json in the output folder.
-  if (albumBehavior == 'json') {
-    await File(
-      p.join(output.path, 'albums-info.json'),
-    ).writeAsString(jsonEncode(infoJson));
   }
 }
