@@ -135,13 +135,6 @@ Future<void> main(final List<String> arguments) async {
           "but doesn't break your input folder\n",
     )
     ..addFlag(
-      'modify-json',
-      help:
-          'Delete the "supplemental-metadata" suffix from \n'
-          '.json files to ensure that script works correctly (enabled by default)\n',
-      defaultsTo: true,
-    )
-    ..addFlag(
       'transform-pixel-mp',
       help: 'Transform Pixel .MP or .MV extensions to ".mp4"\n',
     )
@@ -246,8 +239,6 @@ Future<void> main(final List<String> arguments) async {
     args['limit-filesize'] = await interactive.askIfLimitFileSize();
     print('');
     args['divide-to-dates'] = await interactive.askDivideDates();
-    print('');
-    args['modify-json'] = await interactive.askModifyJson();
     print('');
     args['albums'] = await interactive.askAlbums();
     print('');
@@ -386,17 +377,9 @@ Future<void> main(final List<String> arguments) async {
   /// ##############################################################
   /// ################# STEP 1 #####################################
   /// ##### Fixing JSON files (if needed) ##########################
-  final Stopwatch sw1 = Stopwatch()
-    ..start(); //Creation of our debugging stopwatch for each step.
-  if (args['modify-json']) {
-    print(
-      '[Step 1/8] Fixing JSON files. Removing suffix... (this may take some time)',
-    );
-    await renameIncorrectJsonFiles(input);
-  }
-  sw1.stop();
+
   print(
-    '[Step 1/8] Step 1 took ${sw1.elapsed.inMinutes} minutes or ${sw1.elapsed.inSeconds} seconds to complete.',
+    '[Step 1/8] Ignore Step 1. It was deemed unnecessary and was removed. Continuing...',
   );
 
   /// ##############################################################
@@ -755,7 +738,7 @@ Future<void> main(final List<String> arguments) async {
     print('$extractionMethodString: ${entry.value} files');
   }
   print(
-    'In total the script took ${(sw1.elapsed + sw2.elapsed + sw3.elapsed + sw4.elapsed + sw5.elapsed + sw6.elapsed + sw7.elapsed + sw8.elapsed).inMinutes} minutes to complete',
+    'In total the script took ${(sw2.elapsed + sw3.elapsed + sw4.elapsed + sw5.elapsed + sw6.elapsed + sw7.elapsed + sw8.elapsed).inMinutes} minutes to complete',
   );
   print(
     "Last thing - I've spent *a ton* of time on this script - \n"

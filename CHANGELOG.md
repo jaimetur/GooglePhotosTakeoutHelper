@@ -13,6 +13,7 @@
 - Enhanced test coverage for folder classification functionality
 - Improved test documentation and organization
 - Strengthened year folder validation to prevent false positives
+- Removed --modify-json flag from wachees fork due to issues.
 
 ## 4.0.5-wacheee-xentraxx-beta
 

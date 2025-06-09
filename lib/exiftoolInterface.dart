@@ -210,10 +210,7 @@ class ExiftoolInterface {
     tags.forEach((final tag, final value) => args.add('-$tag=$value'));
     args.add(filepath);
 
-    final result = await Process.run(
-      exiftoolPath,
-      args
-    );
+    final result = await Process.run(exiftoolPath, args);
 
     if (result.exitCode != 0) {
       log(

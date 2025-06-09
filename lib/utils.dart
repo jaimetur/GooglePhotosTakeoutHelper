@@ -198,57 +198,6 @@ extension Z on String {
   }
 }
 
-/// Renames incorrectly named JSON files by removing supplemental metadata suffix
-///
-/// Searches recursively for .json files with patterns like:
-/// filename.jpg.supplemental-metadata.json -> filename.jpg.json
-///
-/// [directory] Root directory to search recursively
-Future<void> renameIncorrectJsonFiles(final Directory directory) async {
-  int renamedCount = 0;
-  await for (final FileSystemEntity entity in directory.list(recursive: true)) {
-    if (entity is File && p.extension(entity.path) == '.json') {
-      final String originalName = p.basename(entity.path);
-
-      // Regex to dettect pattern
-      final RegExp regex = RegExp(
-        r'^(.*\.[a-z0-9]{3,5})\..+\.json$',
-        caseSensitive: false,
-      );
-
-      final RegExpMatch? match = regex.firstMatch(originalName);
-      if (match != null) {
-        final String newName = '${match.group(1)}.json';
-        if (newName != originalName) {
-          final String newPath = p.join(p.dirname(entity.path), newName);
-          final File newFile = File(newPath);
-
-          // Verify if the file renamed already exists
-          if (await newFile.exists()) {
-            log(
-              '[Step 1/8] Skipped renaming of json because it already exists: $newPath',
-            );
-          } else {
-            try {
-              await entity.rename(newPath);
-              renamedCount++;
-              log('[Step 1/8] Renamed: ${entity.path} -> $newPath');
-            } on FileSystemException catch (e) {
-              log(
-                '[Step 1/8] While renaming json ${entity.path}: ${e.message}',
-                level: 'error',
-              );
-            }
-          }
-        }
-      }
-    }
-  }
-  print(
-    '[Step 1/8] Successfully renamed JSON files (suffix removed): $renamedCount',
-  );
-}
-
 /// Changes file extensions from .MP/.MV to specified extension (usually .mp4)
 ///
 /// Updates Media objects in-place to reflect the new file paths

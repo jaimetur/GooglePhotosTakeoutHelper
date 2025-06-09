@@ -206,22 +206,6 @@ void main() {
       );
     });
 
-    group('JSON File Processing', () {
-      /// Should handle supplemental metadata suffix in JSON files.
-      test('renameJsonFiles handles supplemental metadata suffix', () async {
-        final jsonFile = fixture.createJsonFile(
-          'test.jpg.supplemental-metadata.json',
-          1599078832,
-        );
-
-        await renameIncorrectJsonFiles(fixture.baseDir);
-
-        final renamedFile = File('${fixture.basePath}/test.jpg.json');
-        expect(renamedFile.existsSync(), isTrue);
-        expect(jsonFile.existsSync(), isFalse);
-      });
-    });
-
     group('Pixel Motion Photos', () {
       /// Placeholder for changeMPExtensions logic.
       test('changeMPExtensions renames MP/MV files', () async {

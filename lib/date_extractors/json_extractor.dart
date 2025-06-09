@@ -63,7 +63,16 @@ Future<File?> _jsonForFile(
       _removeDigit, // most files with '(digit)' have jsons, so it's last
     ],
   ]) {
-    final File jsonFile = File(p.join(dir.path, '${method(name)}.json'));
+    final String processedName = method(name);
+
+    // First try supplemental-metadata format
+    final File supplementalJsonFile = File(
+      p.join(dir.path, '$processedName.supplemental-metadata.json'),
+    );
+    if (await supplementalJsonFile.exists()) return supplementalJsonFile;
+
+    // Then try standard JSON format
+    final File jsonFile = File(p.join(dir.path, '$processedName.json'));
     if (await jsonFile.exists()) return jsonFile;
   }
   return null;

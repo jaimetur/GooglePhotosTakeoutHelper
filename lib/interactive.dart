@@ -244,36 +244,6 @@ Future<num> askDivideDates() async {
   }
 }
 
-/// Asks user whether to remove "supplemental-metadata" suffix from JSON files
-///
-/// Returns true if suffix should be removed
-Future<bool> askModifyJson() async {
-  print(
-    'Check if your .json files of your photos contains "supplemental-metadata" '
-    'between the original extension and .json. If this suffix is present, '
-    'the script will not detect the corresponding JSON file',
-  );
-  print('For example: myImageName.jpg.supplemental-metadata.json');
-  print(
-    '[1] (Erase suffix) - [Recommended] Yes, the photos have the suffix "supplemental-metadata"',
-  );
-  print('[2] (Dont Erease suffix) - No');
-  print('(Type a number or press enter for default):');
-  final String answer = await askForInt();
-  switch (answer) {
-    case '1':
-    case '':
-      print('Will erease the suffix "supplemental-metadata"');
-      return true;
-    case '2':
-      print('Will not erease the suffix');
-      return false;
-    default:
-      error('Invalid answer - try again');
-      return askModifyJson();
-  }
-}
-
 /// Prompts user to choose album handling behavior
 ///
 /// Returns one of the album option keys from [albumOptions]
