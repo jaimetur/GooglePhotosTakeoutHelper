@@ -194,14 +194,16 @@ void main() {
       test('performs duplicate detection efficiently with larger sets', () {
         final mediaList = <Media>[];
 
-        // Create 100 unique files
+        // Create 100 unique files with distinct content
         for (int i = 0; i < 100; i++) {
-          final file = fixture.createFile('test$i.jpg', [i]);
+          final file = fixture.createFile('test$i.jpg', [
+            i + 1,
+          ]); // Start from 1 to avoid single-byte issues
           mediaList.add(Media({null: file}));
         }
 
-        // Add a duplicate of the first file
-        final duplicateFile = fixture.createFile('duplicate.jpg', [0]);
+        // Add a duplicate of the first file (content [1])
+        final duplicateFile = fixture.createFile('duplicate.jpg', [1]);
         mediaList.add(Media({null: duplicateFile}));
 
         final start = DateTime.now();

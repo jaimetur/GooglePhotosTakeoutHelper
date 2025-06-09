@@ -104,13 +104,7 @@ class ExiftoolInterface {
 
     args.add(file.path);
 
-    final result = await Process.run(
-      exiftoolPath,
-      args,
-      // Ensure UTF-8 encoding for the process
-      stdoutEncoding: utf8,
-      stderrEncoding: utf8,
-    );
+    final result = await Process.run(exiftoolPath, args);
 
     if (result.exitCode != 0) {
       log(
@@ -165,13 +159,7 @@ class ExiftoolInterface {
     args.addAll(tags.map((final tag) => '-$tag'));
     args.add(filepath);
 
-    final result = await Process.run(
-      exiftoolPath,
-      args,
-      // Ensure UTF-8 encoding for the process
-      stdoutEncoding: utf8,
-      stderrEncoding: utf8,
-    );
+    final result = await Process.run(exiftoolPath, args);
 
     if (result.exitCode != 0) {
       log(
