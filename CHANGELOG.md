@@ -1,3 +1,19 @@
+## 4.0.7-Xentraxx
+
+### Fork/Alternate version
+
+#### Bug fixes
+
+- Simplified year folder detection logic to strictly match "Photos from YYYY" format
+- Updated folder classification tests to align with more restrictive year folder recognition
+- Fixed test failures related to year folder pattern matching
+
+#### General improvements
+
+- Enhanced test coverage for folder classification functionality
+- Improved test documentation and organization
+- Strengthened year folder validation to prevent false positives
+
 ## 4.0.5-wacheee-xentraxx-beta
 
 ### Fork/Alternate version
