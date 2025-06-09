@@ -330,7 +330,7 @@ void main() {
       /// classification algorithm scales appropriately.
       test('handles very long folder names', () {
         // Create a long but reasonable folder name that still matches the pattern
-        final longName = 'Photos from 2023';
+        const longName = 'Photos from 2023';
         final longDir = fixture.createDirectory(longName);
 
         expect(isYearFolder(longDir), isTrue);
