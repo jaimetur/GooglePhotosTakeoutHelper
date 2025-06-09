@@ -102,6 +102,16 @@ Future<bool> writeGpsToExif(
       );
       return false;
     }
+    if (mimeTypeFromExtension == 'video/x-msvideo' ||
+        mimeTypeFromHeader == 'video/x-msvideo') {
+      //Skipping AVI files
+      log(
+        'GPSWriter - File has mimeType video/x-msvideo. Exiftool would fail, skipping.\n ${file.path}',
+        level: 'error',
+        forcePrint: true,
+      );
+      return false;
+    }
 
     //Check if the file already has EXIF data and if yes, skip.
     final Map coordinatesMap = await exiftool!.readExifBatch(file, [
