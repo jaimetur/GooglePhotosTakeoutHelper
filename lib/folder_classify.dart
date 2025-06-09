@@ -34,9 +34,9 @@ bool isYearFolder(final Directory dir) {
   if (match == null) return false;
 
   final int year = int.parse(match.group(1)!);
-  const int currentYear = 2024; // Fixed to avoid future years in tests
+  final int currentYear = DateTime.now().year; // Use current year as int
 
-  // Valid year range: 1900 to 2024 (not future years)
+  // Valid year range: 1900 to current year (not future years)
   return year >= 1900 && year <= currentYear;
 }
 

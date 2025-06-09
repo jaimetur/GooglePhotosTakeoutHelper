@@ -7,9 +7,9 @@
 Transform your chaotic Google Photos Takeout into organized photo libraries with proper dates, albums, and metadata.
 
 ## Important Note
-I did my part but unfortunately I can't maintain this project anymore. I spend hours every day on it and the more tests I write, the more edge cases appear.
+I will only sporadically look at issues and pull requests. For weeks I spend a couple of hours a day on this project and the more tests I write, the more edge cases appear.
 It's quite complex under the hood. I am certain that we layed good groundwork for anyone who wants to extend on this functionality.
-I can only encourage to write e2e tests for different flag combinations. This will reveal some fundamental problems (e.g. with how special folders are handled). I attempted to fix this in the 4.0.6-development branch, but I just gave up due to the complexity. Everyone is welcome to fork the project and continue it. However, the last release here should be stable enough for the average user.
+I can only encourage to write e2e tests for different flag combinations. This will reveal some fundamental problems (e.g. with how special folders are handled). I attempted to fix this in the 4.0.6-development branch, but I just gave up due to the complexity. Everyone is welcome to fork the project and continue it. I will only fix critical bugs. The last release here should be stable enough for the average user.
 
 **Acknowledgment**: This project is based on the original work by [TheLastGimbus](https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper). We are grateful for their foundational contributions to the Google Photos Takeout ecosystem.
 
