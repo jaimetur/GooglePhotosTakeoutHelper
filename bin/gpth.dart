@@ -124,7 +124,7 @@ Future<void> main(final List<String> arguments) async {
     ..addFlag('skip-extras', help: 'Skip extra images (like -edited etc)\n')
     ..addFlag(
       'guess-from-name',
-      help: 'Try to guess file dates from their names\n',
+      help: 'Try to guess file dates from their names (enabled by default)\n',
       defaultsTo: true,
     )
     ..addFlag(
@@ -138,7 +138,7 @@ Future<void> main(final List<String> arguments) async {
       'modify-json',
       help:
           'Delete the "supplemental-metadata" suffix from \n'
-          '.json files to ensure that script works correctly\n',
+          '.json files to ensure that script works correctly (enabled by default)\n',
       defaultsTo: true,
     )
     ..addFlag(
@@ -155,8 +155,8 @@ Future<void> main(final List<String> arguments) async {
     ..addFlag(
       'write-exif',
       help:
-          'Writes geodata from json files and the extracted DateTime to EXIF. \n'
-          'It always writes to original data, even if combined with --copy! (default)',
+          'Writes geodata from json files and the extracted DateTime to EXIF. (enabled by default)\n'
+          'It always writes to original data, even if combined with --copy!',
       defaultsTo: true,
     )
     ..addFlag(
