@@ -212,10 +212,7 @@ class ExiftoolInterface {
 
     final result = await Process.run(
       exiftoolPath,
-      args,
-      // Ensure UTF-8 encoding for the process
-      stdoutEncoding: utf8,
-      stderrEncoding: utf8,
+      args
     );
 
     if (result.exitCode != 0) {
