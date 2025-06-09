@@ -40,6 +40,16 @@ Future<bool> writeDateTimeToExif(
       );
       return false;
     }
+    if (mimeTypeFromExtension == 'video/x-msvideo' ||
+        mimeTypeFromHeader == 'video/x-msvideo') {
+      //Skipping AVI files
+      log(
+        'DateWriter - File has mimeType video/x-msvideo. Exiftool would fail, skipping.\n ${file.path}',
+        level: 'error',
+        forcePrint: true,
+      );
+      return false;
+    }
 
     final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
     final String dt = exifFormat.format(dateTime);

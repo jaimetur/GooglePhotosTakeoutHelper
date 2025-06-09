@@ -14,7 +14,7 @@ import 'interactive.dart' as interactive;
 import 'media.dart';
 
 // remember to bump this
-const String version = '4.0.5-wacheee-Xentraxx-beta';
+const String version = '4.0.7-Xentraxx';
 
 // Processing constants
 const int defaultBarWidth = 40;
