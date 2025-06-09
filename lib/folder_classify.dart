@@ -10,35 +10,13 @@ import 'utils.dart';
 
 /// Determines if a directory is a Google Photos year folder
 ///
-/// Checks if the folder name contains a valid year pattern (1900-2024).
-/// Supports various patterns including:
-/// - "Photos from YYYY"
-/// - "YYYY" (just the year)
-/// - "YYYY Photos"
-/// - "Photos from YYYY (extra)"
-/// - Case insensitive matching
-/// - Underscores instead of spaces
+/// Checks if the folder name matches the pattern "Photos from YYYY" where YYYY is a year from 1800 to 2099.
+/// This is a strict match and does not cover all possible year folder naming conventions.
 ///
 /// [dir] Directory to check
 /// Returns true if it's a year folder
-bool isYearFolder(final Directory dir) {
-  final String folderName = p
-      .basename(dir.path)
-      .toLowerCase()
-      .replaceAll('_', ' '); // Normalize underscores to spaces
-
-  // Extract year from folder name using regex
-  final RegExp yearPattern = RegExp(r'\b(19[0-9]{2}|20[0-2][0-9])\b');
-  final Match? match = yearPattern.firstMatch(folderName);
-
-  if (match == null) return false;
-
-  final int year = int.parse(match.group(1)!);
-  final int currentYear = DateTime.now().year; // Use current year as int
-
-  // Valid year range: 1900 to current year (not future years)
-  return year >= 1900 && year <= currentYear;
-}
+bool isYearFolder(final Directory dir) =>
+    RegExp(r'^Photos from (20|19|18)\d{2}$').hasMatch(p.basename(dir.path));
 
 /// Determines if a directory is an album folder
 ///
