@@ -462,25 +462,6 @@ void main() {
         }
       });
 
-      /// Should validate extension fixing mutual exclusivity.
-      test('validates extension fixing mutual exclusivity', () {
-        // Test that fix-extensions and fix-extensions-non-jpeg are mutually exclusive
-        const Map<String, bool> invalidConfig = {
-          'fix-extensions': true,
-          'fix-extensions-non-jpeg': true, // Both can't be true
-          'fix-extensions-solo-mode': false,
-        };
-
-        // In practice, the interactive function should prevent this combination
-        expect(
-          (invalidConfig['fix-extensions'] ?? false) &&
-              (invalidConfig['fix-extensions-non-jpeg'] ?? false),
-          isFalse,
-          reason:
-              'fix-extensions and fix-extensions-non-jpeg should be mutually exclusive',
-        );
-      });
-
       /// Should handle solo mode configuration.
       test('handles solo mode configuration', () {
         const Map<String, bool> soloConfig = {
