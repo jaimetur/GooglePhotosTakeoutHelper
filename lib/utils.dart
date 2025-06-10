@@ -9,12 +9,12 @@ import 'package:path/path.dart' as p;
 import 'package:proper_filesize/proper_filesize.dart';
 import 'package:unorm_dart/unorm_dart.dart' as unorm;
 import 'package:win32/win32.dart';
-
+import 'extras.dart';
 import 'interactive.dart' as interactive;
 import 'media.dart';
 
 // remember to bump this
-const String version = '4.0.7-Xentraxx';
+const String version = '4.0.8-Xentraxx';
 
 // Processing constants
 const int defaultBarWidth = 40;
@@ -50,6 +50,7 @@ Never quit([final int code = 1]) {
 }
 
 //Support raw formats (dng, cr2) and Pixel motion photos (mp, mv)
+//CR2: https://github.com/dart-lang/tools/pull/2105
 const List<String> _moreExtensions = <String>['.mp', '.mv', '.dng', '.cr2'];
 
 extension X on Iterable<FileSystemEntity> {
@@ -196,6 +197,101 @@ extension Z on String {
     if (lastIndex == -1) return this;
     return replaceRange(lastIndex, lastIndex + from.length, to);
   }
+}
+
+/// Fixes incorrectly named files by renaming them to match their actual MIME type
+///
+/// Searches recursively through the directory for photo/video files where the
+/// file extension doesn't match the actual content type (detected by file header).
+/// This commonly occurs when Google Photos compresses images to JPEG but keeps
+/// the original filename extension, or when web-downloaded images have incorrect extensions.
+///
+/// The function:
+/// 1. Reads the first 128 bytes of each file to detect the actual MIME type
+/// 2. Compares this with the MIME type suggested by the file extension
+/// 3. If they don't match, renames the file with the correct extension
+/// 4. Also renames associated .json metadata files to maintain the pairing
+/// 5. Skips TIFF-based files (like RAW formats) as they're often misidentified
+/// 6. Optionally skips JPEG files based on the nonJpeg parameter
+///
+/// [directory] Root directory to search recursively
+/// [nonJpeg] If true, also skips files with actual JPEG headers for more conservative fixing
+/// Returns count of files that were successfully renamed
+Future<int> fixIncorrectExtensions(
+  final Directory directory,
+  final bool? nonJpeg,
+) async {
+  int fixedCount = 0;
+  await for (final FileSystemEntity file
+      in directory.list(recursive: true).wherePhotoVideo()) {
+    final List<int> headerBytes = await File(file.path).openRead(0, 128).first;
+    final String? mimeTypeFromHeader = lookupMimeType(
+      file.path,
+      headerBytes: headerBytes,
+    );
+
+    if (nonJpeg == true && mimeTypeFromHeader == 'image/jpeg') {
+      continue; // Skip 'actual' JPEGs in non-jpeg mode
+    }
+
+    final String? mimeTypeFromExtension = lookupMimeType(file.path);
+
+    // Since for ex. CR2 is based on TIFF and mime lib does not support RAW
+    // lets skip everything that has TIFF header
+    if (mimeTypeFromHeader != null &&
+        mimeTypeFromHeader != 'image/tiff' &&
+        mimeTypeFromHeader != mimeTypeFromExtension) {
+      final String? newExtension = extensionFromMime(mimeTypeFromHeader);
+
+      if (newExtension == null) {
+        log(
+          '[Step 1/8] Could not determine correct extension for file ${p.basename(file.path)}. Moving on..',
+          level: 'warning',
+        );
+        continue;
+      }
+
+      final String newFilePath = '${file.path}.$newExtension';
+      final File newFile = File(newFilePath);
+      final File jsonFile = File('${file.path}.json');
+
+      if (!jsonFile.existsSync() && !isExtra(file.path)) {
+        log(
+          '[Step 1/8] unable to find matching json: ${jsonFile.path}',
+          level: 'warning',
+          forcePrint: true,
+        );
+      }
+
+      // Verify if the file renamed already exists
+      if (await newFile.exists()) {
+        log(
+          '[Step 1/8] Skipped fixing extension because it already exists: $newFilePath',
+          level: 'warning',
+          forcePrint: true,
+        );
+        continue;
+      }
+
+      try {
+        if (jsonFile.existsSync() && !isExtra(file.path)) {
+          // There is only one .json file for both original and any edited files
+          await jsonFile.rename('$newFilePath.json');
+          log('[Step 1/8] Fixed: ${jsonFile.path} -> $newFilePath.json');
+        }
+        await file.rename(newFilePath);
+        log('[Step 1/8] Fixed: ${file.path} -> $newFilePath');
+        fixedCount++;
+      } on FileSystemException catch (e) {
+        log(
+          '[Step 1/8] While fixing extension ${file.path}: ${e.message}',
+          level: 'error',
+          forcePrint: true,
+        );
+      }
+    }
+  }
+  return fixedCount;
 }
 
 /// Changes file extensions from .MP/.MV to specified extension (usually .mp4)

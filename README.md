@@ -23,6 +23,7 @@ When you export photos from Google Photos using [Google Takeout](https://takeout
 - ✅ **Writes GPS coordinates and timestamps** back to media files
 - ✅ **Removes duplicates** automatically
 - ✅ **Handles special formats** (HEIC, Motion Photos, etc.)
+- ✅ **Fixes mismatches of file name and mime type** if google photos renamed e.g. a .heic to .jpeg (but mime type remains heic) we can fix this mismatch
 
 ## Quick Start
 
@@ -196,6 +197,26 @@ gpth --input "/path/to/takeout" --output "/path/to/organized" --albums "shortcut
 | `--guess-from-name` | Extract dates from filenames (enabled by default) |
 | `--update-creation-time` | Sync creation time with modified time (Windows only) |
 | `--limit-filesize` | Skip files larger than 64MB (for low-RAM systems) |
+
+### Invalid extensions
+
+Google Photos has an option of 'data saving' which will most likely compress images into JPEGs, but will leave the
+filename as it was in the original upload.
+Some web-downloaded images also may have an incorrect extension (ex. a file with the filename extension `.jpeg` may actually be a `.heif` when looking at the mime type).
+
+GPTH natively writes EXIF into anything that has a `.jpeg` file signature (header), other file types are processed by
+exiftool, and it will most likely fail on files with invalid file type extension.
+
+NOTE: Some RAW formats are actually TIFF file format (and they contain TIFF header) such cases are not deemed invalid.
+
+Because of all that, GPTH by default will skip writing EXIF into any files that have a mismatch of the filename extension and the mime type (based on
+its header), except if that file has JPEG or TIFF signature. There are several options to fix extensions:
+
+| Argument                     | Description                                                   |
+|------------------------------|---------------------------------------------------------------|
+| `--fix-extensions`           | Renames files where the extension doesn't match the mime type, but skips TIFF-based files (like RAW formats)    |
+| `--fix-extensions-non-jpeg`  | Like above, but also skips actual JPEG files to be more conservative |
+| `--fix-extensions-solo-mode` | Performs extension fixing and then exits, useful for preprocessing files before running the main processing (standalone mode)|
 
 ### Other Options
 

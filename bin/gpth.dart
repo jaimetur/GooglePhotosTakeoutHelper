@@ -135,6 +135,28 @@ Future<void> main(final List<String> arguments) async {
           "but doesn't break your input folder\n",
     )
     ..addFlag(
+      'fix-extensions',
+      help:
+          'Fix incorrect file extensions by renaming files to match their actual MIME type. \n'
+          'Skips TIFF-based files (like RAW formats) that are often misidentified. \n'
+          'Useful when Google Photos changed extensions during compression or \n'
+          'for web-downloaded images with wrong extensions.\n',
+    )
+    ..addFlag(
+      'fix-extensions-non-jpeg',
+      help:
+          'Fix incorrect file extensions like --fix-extensions, but more conservative. \n'
+          'Skips both TIFF-based files AND actual JPEG files for maximum safety. \n'
+          'Use when you want to fix only obviously wrong extensions.\n',
+    )
+    ..addFlag(
+      'fix-extensions-solo-mode',
+      help:
+          'Fix incorrect file extensions like --fix-extensions, then exit immediately. \n'
+          'Use this for preprocessing files before running the main GPTH processing. \n'
+          'Useful for batch fixing extensions across multiple Takeout folders.\n',
+    )
+    ..addFlag(
       'transform-pixel-mp',
       help: 'Transform Pixel .MP or .MV extensions to ".mp4"\n',
     )
@@ -243,6 +265,14 @@ Future<void> main(final List<String> arguments) async {
     args['albums'] = await interactive.askAlbums();
     print('');
     args['transform-pixel-mp'] = await interactive.askTransformPixelMP();
+    print('');
+    final Map<String, bool> fixExtensionsResult = await interactive
+        .askFixExtensions();
+    args['fix-extensions'] = fixExtensionsResult['fix-extensions'];
+    args['fix-extensions-non-jpeg'] =
+        fixExtensionsResult['fix-extensions-non-jpeg'];
+    args['fix-extensions-solo-mode'] =
+        fixExtensionsResult['fix-extensions-solo-mode'];
     print('');
     if (Platform.isWindows) {
       //Only in windows is going to ask
@@ -376,11 +406,30 @@ Future<void> main(final List<String> arguments) async {
   /// #### Here we start the actual work ###########################
   /// ##############################################################
   /// ################# STEP 1 #####################################
-  /// ##### Fixing JSON files (if needed) ##########################
+  /// ##### Fixing extensions (if needed) ##########################
 
+  int fixedExtenionsCounter = 0;
+  final Stopwatch sw1 = Stopwatch()
+    ..start(); //Creation of our debugging stopwatch for each step.
+  if (args['fix-extensions'] ||
+      args['fix-extensions-non-jpeg'] ||
+      args['fix-extensions-solo-mode']) {
+    print('[Step 1/8] Fixing file extensions... (this may take some time)');
+    fixedExtenionsCounter = await fixIncorrectExtensions(
+      input,
+      args['fix-extensions-non-jpeg'],
+    );
+  } else {
+    print('[Step 1/8] Skipping fix extenions mode...');
+  }
+  sw1.stop();
   print(
-    '[Step 1/8] Ignore Step 1. It was deemed unnecessary and was removed. Continuing...',
+    '[Step 1/8] Step took ${sw1.elapsed.inMinutes} minutes or ${sw1.elapsed.inSeconds} seconds to complete.',
   );
+
+  if (args['fix-extensions-solo-mode']) {
+    return; // Quit further processing after this mode
+  }
 
   /// ##############################################################
   /// ################# STEP 2 #####################################
@@ -712,7 +761,8 @@ Future<void> main(final List<String> arguments) async {
       updatedCreationTimeCounter > 0 &&
       exifccounter > 0 &&
       exifdtcounter > 0 &&
-      args['skip-extras']) {
+      args['skip-extras'] &&
+      fixedExtenionsCounter > 0) {
     print('Error! No stats available (This is weird!)');
   }
   if (updatedCreationTimeCounter > 0) {
@@ -727,7 +777,10 @@ Future<void> main(final List<String> arguments) async {
     );
   }
   if (exifdtcounter > 0) {
-    print('$exifdtcounter got their DateTime set in EXIF data');
+    print('$exifdtcounter files got their DateTime set in EXIF data');
+  }
+  if (fixedExtenionsCounter > 0) {
+    print('$fixedExtenionsCounter files got their extensions fixed');
   }
   if (args['skip-extras']) print('$countExtras extras were skipped');
 
@@ -738,7 +791,7 @@ Future<void> main(final List<String> arguments) async {
     print('$extractionMethodString: ${entry.value} files');
   }
   print(
-    'In total the script took ${(sw2.elapsed + sw3.elapsed + sw4.elapsed + sw5.elapsed + sw6.elapsed + sw7.elapsed + sw8.elapsed).inMinutes} minutes to complete',
+    'In total the script took ${(sw1.elapsed + sw2.elapsed + sw3.elapsed + sw4.elapsed + sw5.elapsed + sw6.elapsed + sw7.elapsed + sw8.elapsed).inMinutes} minutes to complete',
   );
   print(
     "Last thing - I've spent *a ton* of time on this script - \n"

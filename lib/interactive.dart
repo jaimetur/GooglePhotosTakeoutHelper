@@ -494,3 +494,53 @@ Future<bool> askIfLimitFileSize() async {
       return askIfLimitFileSize();
   }
 }
+
+/// Asks user whether to fix incorrect file extensions
+///
+/// Returns a map with keys:
+/// - 'fix-extensions': boolean
+/// - 'fix-extensions-non-jpeg': boolean
+/// - 'fix-extensions-solo-mode': boolean
+Future<Map<String, bool>> askFixExtensions() async {
+  print(
+    'Some files from Google Photos may have incorrect extensions due to '
+    'compression or web downloads. For example, a file named "photo.jpeg" '
+    'might actually be a HEIF file internally. This can cause issues when '
+    'writing EXIF data.',
+  );
+  print('');
+  print('Do you want to fix incorrect file extensions?');
+  print('[1] (Default) - No, keep original extensions');
+  print('[2] - Yes, fix extensions (skip TIFF-based files like RAW)');
+  print('[3] - Yes, fix extensions (skip TIFF and JPEG files)');
+  print('(Type 1-3 or press enter for default):');
+
+  final String answer = await askForInt();
+  switch (answer) {
+    case '1':
+    case '':
+      print('Okay, will keep original extensions');
+      return {
+        'fix-extensions': false,
+        'fix-extensions-non-jpeg': false,
+        'fix-extensions-solo-mode': false,
+      };
+    case '2':
+      print('Okay, will fix incorrect extensions (except TIFF-based files)');
+      return {
+        'fix-extensions': true,
+        'fix-extensions-non-jpeg': false,
+        'fix-extensions-solo-mode': false,
+      };
+    case '3':
+      print('Okay, will fix incorrect extensions (except TIFF and JPEG files)');
+      return {
+        'fix-extensions': false,
+        'fix-extensions-non-jpeg': true,
+        'fix-extensions-solo-mode': false,
+      };
+    default:
+      error('Invalid answer - try again');
+      return askFixExtensions();
+  }
+}

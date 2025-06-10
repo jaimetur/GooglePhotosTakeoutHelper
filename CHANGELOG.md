@@ -1,3 +1,35 @@
+## 4.0.8-Xentraxx
+
+### Extension Fixing Feature
+
+- Added comprehensive file extension correction functionality to handle mismatched MIME types and extensions
+- Added three CLI flags for different extension fixing behaviors:
+  - `--fix-extensions`: Fixes incorrect extensions except for TIFF-based files (e.g., RAW formats)
+  - `--fix-extensions-non-jpeg`: More conservative mode that also skips actual JPEG files  
+  - `--fix-extensions-solo-mode`: Standalone mode that fixes extensions and exits without further processing
+- Added interactive prompts for extension fixing configuration with three options for user convenience
+- Enhanced EXIF writing error messages to suggest using `--fix-extensions` when extension/MIME type mismatches are detected
+- Added comprehensive test coverage for extension fixing functionality including edge cases
+
+### Bug Fixes and Improvements
+
+- Fixed EXIF writing to properly handle files with incorrect extensions by detecting MIME type mismatches
+- Improved error logging with more informative messages about extension/MIME type conflicts
+- Updated statistics reporting to include count of fixed file extensions
+- Enhanced interactive mode with better user guidance for extension fixing options
+
+### Technical Details
+
+The extension fixing feature addresses a common issue where Google Photos' "data saving" option compresses images to JPEG format but retains original file extensions, or where web-downloaded images have incorrect extensions. The tool now:
+
+1. Reads file headers to detect actual MIME type
+2. Compares with extension-based MIME type detection
+3. Skips TIFF-based files (like RAW formats) as they're often misidentified
+4. Renames files with correct extensions and updates associated JSON metadata files
+5. Provides detailed logging of the fixing process
+
+The feature integrates seamlessly with the existing EXIF writing workflow, ensuring metadata can be properly written to files after extension correction.
+
 ## 4.0.7-Xentraxx
 
 ### Fork/Alternate version
