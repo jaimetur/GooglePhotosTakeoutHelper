@@ -11,6 +11,21 @@
 - Enhanced EXIF writing error messages to suggest using `--fix-extensions` when extension/MIME type mismatches are detected
 - Added comprehensive test coverage for extension fixing functionality including edge cases
 
+#### Known limitation
+
+Currently doesn't support the fixing of AVI to MP4 extension. Planned for future release. Pull requests welcome!
+
+### JSON File Matching Improvements
+
+- Added support for removing partial extra format suffixes from truncated filenames (issue #29)
+- Enhanced JSON file matching for media files with filename truncation due to filesystem limits
+- Added `removePartialExtraFormats` function to handle cases where suffixes like "-ed" need to be removed to match corresponding JSON files
+- Improved date extraction reliability for files with truncated names ending in partial extra format patterns
+
+#### Technical Details
+
+When filenames are truncated due to filesystem character limits, partial suffixes (e.g., "-ed" from "-edited") can prevent proper JSON file matching for date extraction. The new functionality identifies and removes these partial patterns, allowing the JSON extractor to find corresponding metadata files and extract accurate photo dates.
+
 ### Bug Fixes and Improvements
 
 - Fixed EXIF writing to properly handle files with incorrect extensions by detecting MIME type mismatches
