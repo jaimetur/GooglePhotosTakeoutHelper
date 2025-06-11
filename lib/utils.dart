@@ -255,17 +255,24 @@ Future<int> fixIncorrectExtensions(
 
       final String newFilePath = '${file.path}.$newExtension';
       final File newFile = File(newFilePath);
-      final File? jsonFile = await jsonForFile(
+      File? jsonFile = await jsonForFile(
         File(file.path),
         tryhard: false,
       ); //Getting json file for the original file
 
       if (jsonFile == null) {
-        log(
-          '[Step 1/8] unable to find matching json for file: ${file.path}',
-          level: 'warning',
-          forcePrint: true,
-        );
+        jsonFile = await jsonForFile(
+          File(file.path),
+          tryhard: true,
+        ); //Getting json file for the original file with tryhard mode
+        if (jsonFile == null) {
+          // If we still can't find a json file, log a warning
+          log(
+            '[Step 1/8] unable to find matching json for file: ${file.path}',
+            level: 'warning',
+            forcePrint: true,
+          );
+        }
       }
 
       // Verify if the file renamed already exists
