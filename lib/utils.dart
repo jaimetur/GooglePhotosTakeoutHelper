@@ -236,13 +236,23 @@ Future<int> fixIncorrectExtensions(
       continue; // Skip 'actual' JPEGs in non-jpeg mode
     }
 
-    final String? mimeTypeFromExtension = lookupMimeType(file.path);
-
-    // Since for ex. CR2 is based on TIFF and mime lib does not support RAW
+    final String? mimeTypeFromExtension = lookupMimeType(
+      file.path,
+    ); // Since for ex. CR2 is based on TIFF and mime lib does not support RAW
     // lets skip everything that has TIFF header
     if (mimeTypeFromHeader != null &&
         mimeTypeFromHeader != 'image/tiff' &&
         mimeTypeFromHeader != mimeTypeFromExtension) {
+      // Special case: Handle AVI files that Google Photos incorrectly renamed to .MP4
+      // This addresses the known issue where AVI files are internally renamed to .mp4
+      // but retain their original AVI headers (video/x-msvideo)
+      if (mimeTypeFromExtension == 'video/mp4' &&
+          mimeTypeFromHeader == 'video/x-msvideo') {
+        log(
+          '[Step 1/8] Detected AVI file incorrectly named as .mp4: ${p.basename(file.path)}',
+        );
+      }
+
       final String? newExtension = extensionFromMime(mimeTypeFromHeader);
 
       if (newExtension == null) {

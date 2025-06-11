@@ -29,6 +29,20 @@
 
 #### Workflow Integration
 - Seamlessly integrated into interactive mode with clear user prompts
+
+### AVI to MP4 Extension Fix
+
+#### Issue Resolution
+- **Fixed AVI files incorrectly renamed to .MP4**: Google Photos sometimes internally renames AVI files to .mp4 while retaining their original AVI headers
+- **Detection and correction**: The `fixIncorrectExtensions()` function now specifically detects when `mimeTypeFromExtension == 'video/mp4'` and `mimeTypeFromHeader == 'video/x-msvideo'`
+- **Proper renaming**: Files are correctly renamed from `.mp4` back to `.avi` extension with associated JSON metadata files
+- **Enhanced logging**: Added specific log messages when AVI files incorrectly named as .mp4 are detected and fixed
+
+#### Technical Implementation
+- Added special case handling in `fixIncorrectExtensions()` function
+- Leverages existing MIME type detection infrastructure from the `mime` package
+- Maintains compatibility with existing JSON metadata file handling
+- Preserves all existing functionality while adding this specific fix
 - Automatic space calculation and free space validation
 - Temporary extraction directory management with cleanup
 - Preserved existing command-line workflow for users who prefer pre-extracted files
@@ -63,10 +77,6 @@ This restoration addresses the historical issues that led to the deprecation of 
 - Added interactive prompts for extension fixing configuration with three options for user convenience
 - Enhanced EXIF writing error messages to suggest using `--fix-extensions` when extension/MIME type mismatches are detected
 - Added comprehensive test coverage for extension fixing functionality including edge cases
-
-#### Known limitation
-
-Currently doesn't support the fixing of AVI to MP4 extension. Planned for future release. Pull requests welcome!
 
 ### JSON File Matching Improvements
 

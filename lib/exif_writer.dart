@@ -40,16 +40,6 @@ Future<bool> writeDateTimeToExif(
       );
       return false;
     }
-    if (mimeTypeFromExtension == 'video/x-msvideo' ||
-        mimeTypeFromHeader == 'video/x-msvideo') {
-      //Skipping AVI files
-      log(
-        'DateWriter - File has mimeType video/x-msvideo. Exiftool would fail, skipping.\n ${file.path}',
-        level: 'warning',
-        forcePrint: true,
-      );
-      return false;
-    }
 
     final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
     final String dt = exifFormat.format(dateTime);
@@ -99,16 +89,6 @@ Future<bool> writeGpsToExif(
         "GPSWriter - File has a wrong extension indicating '$mimeTypeFromExtension' but actually it is '$mimeTypeFromHeader'.\n"
         'Exiftool would fail, skipping. You may want to run GPTH with --fix-extensions.\n ${file.path}',
         level: 'error',
-        forcePrint: true,
-      );
-      return false;
-    }
-    if (mimeTypeFromExtension == 'video/x-msvideo' ||
-        mimeTypeFromHeader == 'video/x-msvideo') {
-      //Skipping AVI files
-      log(
-        'GPSWriter - File has mimeType video/x-msvideo. Exiftool would fail, skipping.\n ${file.path}',
-        level: 'warning',
         forcePrint: true,
       );
       return false;
