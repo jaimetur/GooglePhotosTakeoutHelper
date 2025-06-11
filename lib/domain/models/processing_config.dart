@@ -26,6 +26,12 @@ class ProcessingConfig {
     this.isInteractiveMode = false,
   });
 
+  /// Creates a builder for configuring ProcessingConfig
+  static ProcessingConfigBuilder builder({
+    required final String inputPath,
+    required final String outputPath,
+  }) => ProcessingConfigBuilder._(inputPath, outputPath);
+
   final String inputPath;
   final String outputPath;
   final AlbumBehavior albumBehavior;
@@ -104,6 +110,134 @@ class ProcessingConfig {
     verbose: verbose ?? this.verbose,
     isInteractiveMode: isInteractiveMode ?? this.isInteractiveMode,
   );
+}
+
+/// Builder pattern for creating ProcessingConfig instances with fluent API
+///
+/// This makes configuration creation more readable and maintainable:
+/// ```dart
+/// final config = ProcessingConfig.builder(
+///   inputPath: '/path/to/input',
+///   outputPath: '/path/to/output',
+/// )
+/// .withVerboseOutput()
+/// .withAlbumBehavior(AlbumBehavior.duplicateCopy)
+/// .withDateDivision(DateDivisionLevel.month)
+/// .withExtensionFixing(nonJpeg: true)
+/// .build();
+/// ```
+class ProcessingConfigBuilder {
+  ProcessingConfigBuilder._(this._inputPath, this._outputPath);
+
+  final String _inputPath;
+  final String _outputPath;
+
+  AlbumBehavior _albumBehavior = AlbumBehavior.shortcut;
+  DateDivisionLevel _dateDivision = DateDivisionLevel.none;
+  bool _copyMode = false;
+  bool _writeExif = true;
+  bool _skipExtras = false;
+  bool _guessFromName = true;
+  bool _fixExtensions = false;
+  bool _fixExtensionsNonJpeg = false;
+  bool _fixExtensionsSoloMode = false;
+  bool _transformPixelMp = false;
+  bool _updateCreationTime = false;
+  bool _limitFileSize = false;
+  bool _verbose = false;
+  bool _isInteractiveMode = false;
+
+  /// Set album behavior (shortcut, reverse-shortcut, duplicate-copy, json, nothing)
+  set albumBehavior(final AlbumBehavior behavior) {
+    _albumBehavior = behavior;
+  }
+
+  /// Set date division level (none, year, month, day)
+  set dateDivision(final DateDivisionLevel level) {
+    _dateDivision = level;
+  }
+
+  /// Enable copy mode instead of move mode
+  set copyMode(final bool enable) {
+    _copyMode = enable;
+  }
+
+  /// Configure EXIF writing
+  set exifWriting(final bool enable) {
+    _writeExif = enable;
+  }
+
+  /// Skip extra files (Live Photo videos, etc.)
+  set skipExtras(final bool enable) {
+    _skipExtras = enable;
+  }
+
+  /// Enable/disable guessing dates from filenames
+  set guessFromName(final bool enable) {
+    _guessFromName = enable;
+  }
+
+  /// Configure extension fixing options
+  void setExtensionFixing({
+    final bool jpeg = false,
+    final bool nonJpeg = false,
+    final bool soloMode = false,
+  }) {
+    _fixExtensions = jpeg;
+    _fixExtensionsNonJpeg = nonJpeg;
+    _fixExtensionsSoloMode = soloMode;
+  }
+
+  /// Enable Google Pixel motion photo transformation
+  set pixelTransformation(final bool enable) {
+    _transformPixelMp = enable;
+  }
+
+  /// Update file creation time (Windows only)
+  set creationTimeUpdate(final bool enable) {
+    _updateCreationTime = enable;
+  }
+
+  /// Limit file size during processing
+  set fileSizeLimit(final bool enable) {
+    _limitFileSize = enable;
+  }
+
+  /// Enable verbose output
+  set verboseOutput(final bool enable) {
+    _verbose = enable;
+  }
+
+  /// Enable interactive mode
+  set interactiveMode(final bool enable) {
+    _isInteractiveMode = enable;
+  }
+
+  /// Build the final ProcessingConfig instance
+  ProcessingConfig build() {
+    final config = ProcessingConfig(
+      inputPath: _inputPath,
+      outputPath: _outputPath,
+      albumBehavior: _albumBehavior,
+      dateDivision: _dateDivision,
+      copyMode: _copyMode,
+      writeExif: _writeExif,
+      skipExtras: _skipExtras,
+      guessFromName: _guessFromName,
+      fixExtensions: _fixExtensions,
+      fixExtensionsNonJpeg: _fixExtensionsNonJpeg,
+      fixExtensionsSoloMode: _fixExtensionsSoloMode,
+      transformPixelMp: _transformPixelMp,
+      updateCreationTime: _updateCreationTime,
+      limitFileSize: _limitFileSize,
+      verbose: _verbose,
+      isInteractiveMode: _isInteractiveMode,
+    );
+
+    // Validate the configuration before returning
+    config.validate();
+    return config;
+  }
 }
 
 /// Enum representing how albums should be handled
