@@ -117,7 +117,7 @@ String _removeExtra(final String filename) {
 ///
 /// More aggressive than _removeExtra, uses regex to match
 /// pattern like "something-edited(1).jpg" -> "something.jpg"
-///
+/// Also handles incomplete suffixes from extraFormats list, if they got cut because of the 48char limit.
 /// [filename] Original filename
 /// Returns filename with extra patterns removed
 String _removeExtraRegex(final String filename) {
@@ -134,6 +134,15 @@ String _removeExtraRegex(final String filename) {
       '',
     );
   }
+
+  // Try to remove partial suffix patterns (issue #29)
+  final String cleanedFilename = extras.removePartialExtraFormats(
+    normalizedFilename,
+  );
+  if (cleanedFilename != normalizedFilename) {
+    return cleanedFilename;
+  }
+
   return normalizedFilename;
 }
 

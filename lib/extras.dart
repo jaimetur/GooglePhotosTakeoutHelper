@@ -76,3 +76,36 @@ bool isExtra(final String filename) {
   }
   return false;
 }
+
+/// Removes partial extra format suffixes from filenames
+///
+/// Handles cases where filename truncation (e.g., due to filesystem limits)
+/// results in partial suffix matches. For example, "-ed" will be removed
+/// if it matches the beginning of a known extra format like "-edited".
+///
+/// This addresses issue #29 where truncated filenames prevent proper JSON
+/// file matching for date extraction.
+///
+/// [filename] Original filename that may contain partial suffixes
+/// Returns filename with partial suffixes removed, or original if no removal needed
+String removePartialExtraFormats(final String filename) {
+  final String ext = p.extension(filename);
+  final String nameWithoutExt = p.basenameWithoutExtension(filename);
+
+  for (final String suffix in extraFormats) {
+    for (int i = 2; i <= suffix.length; i++) {
+      final String partialSuffix = suffix.substring(0, i);
+      final RegExp regExp = RegExp(
+        RegExp.escape(partialSuffix) + r'(?:\(\d+\))?$',
+        caseSensitive: false,
+      );
+
+      if (regExp.hasMatch(nameWithoutExt)) {
+        final String cleanedName = nameWithoutExt.replaceAll(regExp, '');
+        return cleanedName + ext;
+      }
+    }
+  }
+
+  return filename;
+}
