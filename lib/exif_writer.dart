@@ -45,7 +45,7 @@ Future<bool> writeDateTimeToExif(
       //Skipping AVI files
       log(
         'DateWriter - File has mimeType video/x-msvideo. Exiftool would fail, skipping.\n ${file.path}',
-        level: 'error',
+        level: 'warning',
         forcePrint: true,
       );
       return false;
@@ -108,7 +108,7 @@ Future<bool> writeGpsToExif(
       //Skipping AVI files
       log(
         'GPSWriter - File has mimeType video/x-msvideo. Exiftool would fail, skipping.\n ${file.path}',
-        level: 'error',
+        level: 'warning',
         forcePrint: true,
       );
       return false;
