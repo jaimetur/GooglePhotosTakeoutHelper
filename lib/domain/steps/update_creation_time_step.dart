@@ -1,5 +1,5 @@
 import 'dart:io';
-
+import '../../utils.dart';
 import '../models/processing_step.dart';
 
 /// Step 8: Update creation times (Windows only)
@@ -162,19 +162,33 @@ class UpdateCreationTimeStep extends ProcessingStep {
           message: 'Creation time update skipped',
         );
       }
-
       if (context.config.verbose) {
         print('\n[Step 8/8] Updating creation times...');
-      } // This is a placeholder - the actual implementation would need
-      // to traverse the output directory and update creation times
-      // using Windows-specific APIs or PowerShell commands
-      const int updatedCount = 0;
+      }
 
-      // TODO: Implement actual creation time update logic
-      // This would involve:
-      // 1. Traversing the output directory
-      // 2. For each file, setting creation time = last modified time
-      // 3. Using Windows APIs or PowerShell for the operation
+      int updatedCount = 0;
+
+      // 1. Traverse the output directory and update creation times
+      final outputDir = Directory(context.config.outputPath);
+      if (!await outputDir.exists()) {
+        if (context.config.verbose) {
+          print(
+            'Output directory does not exist, skipping creation time update',
+          );
+        }
+
+        stopwatch.stop();
+        return StepResult.success(
+          stepName: name,
+          duration: stopwatch.elapsed,
+          data: {'updatedCount': 0, 'skipped': true},
+          message: 'Creation time update skipped - output directory not found',
+        );
+      }
+
+      // 2. For each file, set creation time = last modified time
+      // 3. Use Windows APIs/PowerShell for the operation (via updateCreationTimeRecursively)
+      updatedCount = await updateCreationTimeRecursively(outputDir);
 
       if (context.config.verbose) {
         print('Creation time update completed. Updated $updatedCount files.');

@@ -1,3 +1,8 @@
+import 'dart:io';
+import 'package:path/path.dart' as p;
+import '../../folder_classify.dart';
+import '../../media.dart';
+import '../../utils.dart';
 import '../models/processing_step.dart';
 
 /// Step 2: Discover and classify media files
@@ -101,19 +106,56 @@ class DiscoverMediaStep extends ProcessingStep {
         print('\n[Step 2/8] Discovering media files...');
       }
 
-      // TODO: Implement actual media discovery logic here
-      // This step will need to:
-      // 1. Scan year folders for media files
-      // 2. Scan album folders for additional media
-      // 3. Populate the MediaCollection with discovered media
-      // 4. Return statistics about discovery results
+      int yearFolderFiles = 0;
+      int albumFolderFiles = 0;
 
-      // For now, return success but with a placeholder message
-      // This will be implemented in Phase 3 when we build the processing pipeline
+      final inputDir = Directory(context.config.inputPath);
+      if (!await inputDir.exists()) {
+        throw Exception(
+          'Input directory does not exist: ${context.config.inputPath}',
+        );
+      }
+
+      // 1. Scan year folders for media files
+      await for (final entity in inputDir.list()) {
+        if (entity is Directory && isYearFolder(entity)) {
+          if (context.config.verbose) {
+            print('Scanning year folder: ${p.basename(entity.path)}');
+          }
+
+          await for (final mediaFile
+              in entity.list(recursive: true).wherePhotoVideo()) {
+            context.mediaCollection.add(Media({null: mediaFile}));
+            yearFolderFiles++;
+          }
+        }
+      }
+
+      // 2. Scan album folders for additional media
+      await for (final entity in inputDir.list()) {
+        if (entity is Directory &&
+            !isYearFolder(entity) &&
+            await isAlbumFolder(entity)) {
+          final albumName = p.basename(entity.path);
+          if (context.config.verbose) {
+            print('Scanning album folder: $albumName');
+          }
+
+          await for (final mediaFile
+              in entity.list(recursive: true).wherePhotoVideo()) {
+            context.mediaCollection.add(Media({albumName: mediaFile}));
+            albumFolderFiles++;
+          }
+        }
+      }
+
+      final totalFiles = yearFolderFiles + albumFolderFiles;
 
       if (context.config.verbose) {
-        print('Media discovery completed (placeholder implementation)');
-        print('  Current media count: ${context.mediaCollection.length}');
+        print('Media discovery completed');
+        print('Year folder files: $yearFolderFiles');
+        print('Album folder files: $albumFolderFiles');
+        print('Total files discovered: $totalFiles');
       }
 
       stopwatch.stop();
@@ -121,11 +163,12 @@ class DiscoverMediaStep extends ProcessingStep {
         stepName: name,
         duration: stopwatch.elapsed,
         data: {
-          'yearFolderFiles': 0,
-          'albumFolderFiles': 0,
-          'totalFiles': context.mediaCollection.length,
+          'yearFolderFiles': yearFolderFiles,
+          'albumFolderFiles': albumFolderFiles,
+          'totalFiles': totalFiles,
         },
-        message: 'Media discovery step ready for Phase 3 implementation',
+        message:
+            'Discovered $totalFiles media files ($yearFolderFiles from year folders, $albumFolderFiles from albums)',
       );
     } catch (e) {
       stopwatch.stop();
