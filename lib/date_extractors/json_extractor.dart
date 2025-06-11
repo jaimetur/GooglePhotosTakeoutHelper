@@ -140,9 +140,12 @@ String _removeExtraRegex(final String filename) {
     normalizedFilename,
   );
   if (cleanedFilename != normalizedFilename) {
+    log(
+      '$normalizedFilename was renamed to $cleanedFilename by the removePartialExtraFormats function.',
+    );
     return cleanedFilename;
   }
-
+  // If no matches found, return original filename
   return normalizedFilename;
 }
 
