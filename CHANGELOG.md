@@ -30,43 +30,6 @@
 #### Workflow Integration
 - Seamlessly integrated into interactive mode with clear user prompts
 
-### AVI to MP4 Extension Fix
-
-#### Issue Resolution
-- **Fixed AVI files incorrectly renamed to .MP4**: Google Photos sometimes internally renames AVI files to .mp4 while retaining their original AVI headers
-- **Detection and correction**: The `fixIncorrectExtensions()` function now specifically detects when `mimeTypeFromExtension == 'video/mp4'` and `mimeTypeFromHeader == 'video/x-msvideo'`
-- **Proper renaming**: Files are correctly renamed from `.mp4` back to `.avi` extension with associated JSON metadata files
-- **Enhanced logging**: Added specific log messages when AVI files incorrectly named as .mp4 are detected and fixed
-
-#### Technical Implementation
-- Added special case handling in `fixIncorrectExtensions()` function
-- Leverages existing MIME type detection infrastructure from the `mime` package
-- Maintains compatibility with existing JSON metadata file handling
-- Preserves all existing functionality while adding this specific fix
-- Automatic space calculation and free space validation
-- Temporary extraction directory management with cleanup
-- Preserved existing command-line workflow for users who prefer pre-extracted files
-
-#### Cross-Platform Compatibility
-- Robust filename handling for Windows, macOS, and Linux
-- Unicode normalization for international character sets
-- Platform-specific reserved name handling (Windows COM/LPT ports, etc.)
-- Proper file permission and timestamp preservation
-
-#### User Experience Improvements
-- Clear progress indicators during extraction
-- Detailed error messages with suggested solutions
-- Interactive prompts with sensible defaults
-- Comprehensive help text and user guidance
-
-#### Testing and Documentation
-- Added comprehensive test coverage for all unzipping functionality
-- Updated README with detailed unzipping feature documentation
-- Security vulnerability testing and validation
-- Cross-platform extraction testing
-
-This restoration addresses the historical issues that led to the deprecation of the unzipping feature while adding modern security practices and improved user experience. The implementation prioritizes data safety and provides users with flexible options for handling their Google Photos Takeout data.
-
 ### Extension Fixing Feature
 
 - Added comprehensive file extension correction functionality to handle mismatched MIME types and extensions
