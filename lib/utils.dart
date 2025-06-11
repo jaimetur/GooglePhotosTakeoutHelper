@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 import 'package:proper_filesize/proper_filesize.dart';
 import 'package:unorm_dart/unorm_dart.dart' as unorm;
 import 'package:win32/win32.dart';
+import 'date_extractors/date_extractor.dart';
 import 'extras.dart';
 import 'interactive.dart' as interactive;
 import 'media.dart';
@@ -216,6 +217,7 @@ extension Z on String {
 ///
 /// [directory] Root directory to search recursively
 /// [nonJpeg] If true, also skips files with actual JPEG headers for more conservative fixing
+/// [tryhard] If true tryhard mode will be used, which tries to find .json files
 /// Returns count of files that were successfully renamed
 Future<int> fixIncorrectExtensions(
   final Directory directory,
@@ -253,11 +255,14 @@ Future<int> fixIncorrectExtensions(
 
       final String newFilePath = '${file.path}.$newExtension';
       final File newFile = File(newFilePath);
-      final File jsonFile = File('${file.path}.json');
+      final File? jsonFile = await jsonForFile(
+        File(file.path),
+        tryhard: false,
+      ); //Getting json file for the original file
 
-      if (!jsonFile.existsSync() && !isExtra(file.path)) {
+      if (jsonFile == null) {
         log(
-          '[Step 1/8] unable to find matching json: ${jsonFile.path}',
+          '[Step 1/8] unable to find matching json for file: ${file.path}',
           level: 'warning',
           forcePrint: true,
         );
@@ -270,11 +275,11 @@ Future<int> fixIncorrectExtensions(
           level: 'warning',
           forcePrint: true,
         );
-        continue;
+        continue; // Skip if the new file already exists
       }
 
       try {
-        if (jsonFile.existsSync() && !isExtra(file.path)) {
+        if (jsonFile != null && jsonFile.existsSync() && !isExtra(file.path)) {
           // There is only one .json file for both original and any edited files
           await jsonFile.rename('$newFilePath.json');
           log('[Step 1/8] Fixed: ${jsonFile.path} -> $newFilePath.json');

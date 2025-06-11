@@ -12,7 +12,7 @@ Future<DateTime?> jsonDateTimeExtractor(
   final File file, {
   final bool tryhard = false,
 }) async {
-  final File? jsonFile = await _jsonForFile(file, tryhard: tryhard);
+  final File? jsonFile = await jsonForFile(file, tryhard: tryhard);
   if (jsonFile == null) return null;
   try {
     final dynamic data = jsonDecode(await jsonFile.readAsString());
@@ -40,7 +40,7 @@ Future<DateTime?> jsonDateTimeExtractor(
 /// [file] Media file to find JSON for
 /// [tryhard] If true, uses more aggressive matching strategies
 /// Returns the JSON file if found, null otherwise
-Future<File?> _jsonForFile(
+Future<File?> jsonForFile(
   final File file, {
   required final bool tryhard,
 }) async {
@@ -171,7 +171,7 @@ Future<DMSCoordinates?> jsonCoordinatesExtractor(
   final File file, {
   final bool tryhard = false,
 }) async {
-  final File? jsonFile = await _jsonForFile(file, tryhard: tryhard);
+  final File? jsonFile = await jsonForFile(file, tryhard: tryhard);
   if (jsonFile == null) return null;
   try {
     final Map<String, dynamic> data = jsonDecode(await jsonFile.readAsString());
