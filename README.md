@@ -37,9 +37,28 @@ When you export photos from Google Photos using [Google Takeout](https://takeout
 
 <img width="75%" alt="gpth usage image tutorial" src="https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/assets/40139196/8e85f58c-9958-466a-a176-51af85bb73dd">
 
-### 2. Extract and Merge
+### 2. Choose Your Extraction Method
 
-Unzip all files and merge them so you have one unified "Takeout" folder.
+GPTH now supports automatic extraction directly from ZIP files:
+
+#### Option A: Automatic ZIP Processing (Recommended)
+1. Keep your ZIP files from Google Takeout
+2. When running GPTH in interactive mode, select "Select ZIP files from Google Takeout"
+3. GPTH will automatically extract, merge, and process all files
+4. Original ZIP files are preserved; temporary extracted files are cleaned up automatically
+
+The automatic ZIP processing is recommended for most users as it:
+- Reduces manual work and potential errors
+- Ensures proper file merging across multiple ZIP files
+- Automatically cleans up temporary files
+
+The biggest downside is, that you need way more free disk space.
+If this is an issue, choose manual extraction.
+
+#### Option B: Manual Extraction (Traditional)
+1. Unzip all files manually
+2. Merge them so you have one unified "Takeout" folder
+3. When running GPTH, select "Use already extracted folder"
 
 <img width="75%" alt="Unzip image tutorial" src="https://user-images.githubusercontent.com/40139196/229361367-b9803ab9-2724-4ddf-9af5-4df507e02dfe.png">
 
@@ -71,7 +90,7 @@ Unzip all files and merge them so you have one unified "Takeout" folder.
 
 ### 4. Download and Run GPTH
 
-1. Download the latest executable from [releases](https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/releases)
+1. Download the latest executable from [releases](https://github.com/Xentraxx/GooglePhotosTakeoutHelper/releases)
 2. **Interactive Mode** (recommended for beginners):
    - Windows: Double-click `gpth.exe`
    - Mac/Linux: Run `./gpth-macos` or `./gpth-linux` in terminal
@@ -279,14 +298,14 @@ Extracts location data and timestamps from JSON files and writes them to media f
 ## Installation
 
 ### Pre-built Binaries
-Download from [releases page](https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/releases)
+Download from [releases page](https://github.com/Xentraxx/GooglePhotosTakeoutHelper/releases)
 
 ### Package Managers
 - **Arch Linux**: `yay -S gpth-bin`
 
 ### Building from Source
 ```bash
-git clone https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper.git
+git clone https://github.com/Xentraxx/GooglePhotosTakeoutHelper.git
 cd GooglePhotosTakeoutHelper
 dart pub get
 dart compile exe bin/gpth.dart -o gpth

@@ -1,5 +1,5 @@
+import 'package:gpth/extras.dart';
 import 'package:test/test.dart';
-import '../lib/extras.dart';
 
 void main() {
   group('removePartialExtraFormats', () {

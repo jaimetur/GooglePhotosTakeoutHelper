@@ -1,5 +1,58 @@
 ## 4.0.8-Xentraxx
 
+### Interactive ZIP File Extraction Restored
+
+#### Major Feature Restoration
+- **Restored interactive ZIP file extraction functionality** that was previously deprecated due to photo loss issues
+- Added comprehensive security measures to prevent data loss and security vulnerabilities
+- Implemented user-friendly choice between automatic ZIP extraction or using pre-extracted directories
+
+#### New Interactive ZIP Features
+- **`askIfUnzip()` function**: Provides users with clear options for handling Google Takeout data:
+  - Option 1: Select ZIP files for automatic extraction (Recommended)
+  - Option 2: Use already extracted directory
+- **Enhanced `getZips()` function**: Improved file picker with better validation and user feedback
+- **Secure `unzip()` function**: Comprehensive ZIP extraction with multiple safety layers
+
+#### Security and Safety Improvements
+- **ZIP Slip Protection**: Prevents malicious ZIP files from extracting outside the target directory
+- **Cross-platform filename sanitization**: Handles encoding issues and invalid characters safely
+- **Comprehensive error handling**: User-friendly error messages with actionable guidance
+- **File integrity validation**: Verifies ZIP files before extraction
+- **Progress reporting**: Real-time feedback during extraction process
+
+#### Technical Enhancements
+- **`_extractZipSafely()` helper**: Internal function with security checks and encoding handling
+- **`_sanitizeFileName()` helper**: Cross-platform filename normalization and safety checks
+- **`_handleExtractionError()` helper**: Context-specific error handling with detailed guidance
+- **`SecurityException` class**: Custom exception for handling security-related extraction issues
+
+#### Workflow Integration
+- Seamlessly integrated into interactive mode with clear user prompts
+- Automatic space calculation and free space validation
+- Temporary extraction directory management with cleanup
+- Preserved existing command-line workflow for users who prefer pre-extracted files
+
+#### Cross-Platform Compatibility
+- Robust filename handling for Windows, macOS, and Linux
+- Unicode normalization for international character sets
+- Platform-specific reserved name handling (Windows COM/LPT ports, etc.)
+- Proper file permission and timestamp preservation
+
+#### User Experience Improvements
+- Clear progress indicators during extraction
+- Detailed error messages with suggested solutions
+- Interactive prompts with sensible defaults
+- Comprehensive help text and user guidance
+
+#### Testing and Documentation
+- Added comprehensive test coverage for all unzipping functionality
+- Updated README with detailed unzipping feature documentation
+- Security vulnerability testing and validation
+- Cross-platform extraction testing
+
+This restoration addresses the historical issues that led to the deprecation of the unzipping feature while adding modern security practices and improved user experience. The implementation prioritizes data safety and provides users with flexible options for handling their Google Photos Takeout data.
+
 ### Extension Fixing Feature
 
 - Added comprehensive file extension correction functionality to handle mismatched MIME types and extensions

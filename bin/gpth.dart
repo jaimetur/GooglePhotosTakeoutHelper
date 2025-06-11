@@ -234,28 +234,57 @@ Future<void> main(final List<String> arguments) async {
 
   /// ##############################################################
   /// Here the Script asks interactively to fill all arguments
-
   if (interactive.indeed) {
     // greet user
     await interactive.greet();
     print('');
-    // @Deprecated('Interactive unzipping is suspended for now!')
-    // final zips = await interactive.getZips();
-    //TODO: Add functionality to unzip files again
+
+    // Ask user whether to unzip files or use pre-extracted directory
+    final bool shouldUnzip = await interactive.askIfUnzip();
+    print('');
+
     late Directory inDir;
-    try {
-      inDir = await interactive.getInputDir();
-    } catch (e) {
-      print(
-        'Hmm, interactive selecting input dir crashed... \n'
-        "it looks like you're running in headless/on Synology/NAS...\n"
-        "If so, you have to use cli options - run 'gpth --help' to see them",
-      );
-      exit(69);
+
+    if (shouldUnzip) {
+      // User wants to select and unzip ZIP files
+      final List<File> zips = await interactive.getZips();
+      print('');
+
+      final Directory out = await interactive.getOutput();
+      print('');
+
+      // Calculate approx space required for everything
+      final int cumZipsSize = zips
+          .map((final e) => e.lengthSync())
+          .reduce((final a, final b) => a + b);
+      final int requiredSpace = (cumZipsSize * 2) + 256 * 1024 * 1024;
+      await interactive.freeSpaceNotice(requiredSpace, out);
+      print('');
+
+      final Directory unzipDir = Directory(p.join(out.path, '.gpth-unzipped'));
+      inDir = unzipDir;
+      args['output'] = out.path;
+
+      await interactive.unzip(zips, unzipDir);
+      print('');
+    } else {
+      // User wants to use pre-extracted directory
+      try {
+        inDir = await interactive.getInputDir();
+      } catch (e) {
+        print(
+          'Hmm, interactive selecting input dir crashed... \n'
+          "it looks like you're running in headless/on Synology/NAS...\n"
+          "If so, you have to use cli options - run 'gpth --help' to see them",
+        );
+        exit(69);
+      }
+      print('');
+      final Directory out = await interactive.getOutput();
+      args['output'] = out.path;
+      print('');
     }
-    print('');
-    final Directory out = await interactive.getOutput();
-    print('');
+
     args['write-exif'] = await interactive.askIfWriteExif();
     print('');
     args['limit-filesize'] = await interactive.askIfLimitFileSize();
@@ -280,20 +309,7 @@ Future<void> main(final List<String> arguments) async {
       print('');
     }
 
-    // @Deprecated('Interactive unzipping is suspended for now!')
-    // // calculate approx space required for everything
-    // final cumZipsSize = zips.map((e) => e.lengthSync()).reduce((a, b) => a + b);
-    // final requiredSpace = (cumZipsSize * 2) + 256 * 1024 * 1024;
-    // await interactive.freeSpaceNotice(requiredSpace, out); // and notify this
-    // print('');
-    //
-    // final unzipDir = Directory(p.join(out.path, '.gpth-unzipped'));
-    // args['input'] = unzipDir.path;
     args['input'] = inDir.path;
-    args['output'] = out.path;
-    //
-    // await interactive.unzip(zips, unzipDir);
-    // print('');
   }
 
   // elastic list of extractors - can add/remove with cli flags
@@ -460,14 +476,15 @@ Future<void> main(final List<String> arguments) async {
       media.add(Media(<String?, File>{albumName(cleanedAlbumDir): file}));
     }
   }
-
   if (media.isEmpty) {
     await interactive.nothingFoundMessage();
-    // @Deprecated('Interactive unzipping is suspended for now!')
-    // if (interactive.indeed) {
-    //   print('([interactive] removing unzipped folder...)');
-    //   await input.delete(recursive: true);
-    // }
+    // Remove unzipped folder if it was created
+    if (interactive.indeed &&
+        args['input'] != null &&
+        args['input'].toString().endsWith('.gpth-unzipped')) {
+      print('([interactive] removing unzipped folder...)');
+      await input.delete(recursive: true);
+    }
     quit(13);
   }
   sw2.stop();
@@ -694,12 +711,13 @@ Future<void> main(final List<String> arguments) async {
   ).listen((final _) => barCopy.increment()).asFuture();
   print('\n[Step 7/8] Done moving/copying media!');
 
-  // @Deprecated('Interactive unzipping is suspended for now!')
-  // // remove unzipped folder if was created
-  // if (interactive.indeed) {
-  //   print('Removing unzipped folder...');
-  //   await input.delete(recursive: true);
-  // }
+  // Remove unzipped folder if it was created
+  if (interactive.indeed &&
+      args['input'] != null &&
+      args['input'].toString().endsWith('.gpth-unzipped')) {
+    print('Removing unzipped folder...');
+    await input.delete(recursive: true);
+  }
   sw7.stop();
   print(
     '[Step 7/8] Step 7 took ${sw7.elapsed.inMinutes} minutes or ${sw7.elapsed.inSeconds} seconds to complete.',
