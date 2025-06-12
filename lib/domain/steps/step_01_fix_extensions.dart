@@ -60,7 +60,7 @@ class FixExtensionsStep extends ProcessingStep {
         );
       }
 
-      print('\n[Step 1/8] Fixing file extensions...');
+      print('\n[Step 1/8] Fixing file extensions... (This might take a while)');
 
       final fixedCount = await fixIncorrectExtensions(
         context.inputDirectory,
