@@ -116,11 +116,12 @@ class JsonFileMatcher {
     ),
 
     // Strategy 9: Remove digit patterns (most aggressive, broad pattern matching)
-    const JsonMatchingStrategy(
-      name: 'Remove digit patterns',
-      description: 'Removes digit patterns like "(1)" from filenames',
-      transform: _removeDigit,
-    ),
+    //const JsonMatchingStrategy(
+    //  name: 'Remove digit patterns',
+    //  description: 'Removes digit patterns like "(1)" from filenames',
+    //  transform: _removeDigit,
+    //),
+    //Not doing this anymore because it only caused problems but leaving it here just in case.
   ];
 
   /// Gets all available strategies for debugging/testing purposes
@@ -268,5 +269,6 @@ String _removeExtraEdgeCase(final String filename) {
 }
 
 /// Removes digit patterns like "(1)" from filenames
+// ignore: unused_element
 String _removeDigit(final String filename) =>
     filename.replaceAll(RegExp(r'\(\d\)\.'), '.');
