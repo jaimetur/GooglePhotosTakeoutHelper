@@ -81,15 +81,11 @@ class FileOperationService {
           final fileSize = await sourceFile.length();
           if (fileSize > 100 * 1024 * 1024) {
             // 100MB threshold
-            final result = await Process.run(
-              'xcopy',
-              [
-                sourceFile.path,
-                targetFile.path,
-                '/Y', // Overwrite without prompting
-              ],
-              runInShell: true,
-            );
+            final result = await Process.run('xcopy', [
+              sourceFile.path,
+              targetFile.path,
+              '/Y', // Overwrite without prompting
+            ], runInShell: true);
             if (result.exitCode != 0) {
               throw FileOperationException('xcopy failed: ${result.stderr}');
             }

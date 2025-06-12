@@ -37,9 +37,10 @@ class MediaCollection {
 
   /// Remove duplicates from the collection and return the count removed
   int removeDuplicates() => grouping.removeDuplicates(_media);
+
   /// Ultra-fast async version of removeDuplicates for massive performance gains
   /// Uses parallel processing to dramatically improve performance on large collections
-  Future<int> removeDuplicatesAsyncOptimized() => 
+  Future<int> removeDuplicatesAsyncOptimized() =>
       grouping.removeDuplicatesAsyncOptimized(_media);
 
   /// Remove "extra" files (edited versions) and return the count removed
