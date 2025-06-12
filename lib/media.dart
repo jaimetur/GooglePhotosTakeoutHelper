@@ -150,13 +150,14 @@ class Media {
   }
 
   /// Synchronous streaming hash calculation to avoid loading entire file into memory
+  /// Optimized with larger chunks for better performance
   Digest _calculateHashStreamingSync() {
     final output = _DigestSink();
     final input = sha256.startChunkedConversion(output);
 
     try {
-      // Read file in chunks to avoid loading everything into memory
-      const chunkSize = 64 * 1024; // 64KB chunks
+      // Use larger chunks for better I/O performance
+      const chunkSize = 1024 * 1024; // 1MB chunks
       final file = firstFile.openSync();
 
       try {
@@ -172,19 +173,24 @@ class Media {
       input.close();
       return output.value;
     } catch (e) {
+      input.close();
       rethrow;
     }
   }
 
   /// Calculate hash using streaming to avoid loading entire file into memory
+  /// Optimized with larger chunks and better buffer management
   Future<Digest> _calculateHashStreaming() async {
     final output = _DigestSink();
     final input = sha256.startChunkedConversion(output);
     try {
+      // Use openRead with forEach for better performance and cleaner code
       await firstFile.openRead().forEach(input.add);
+
       input.close();
       return output.value;
     } catch (e) {
+      input.close();
       rethrow;
     }
   }

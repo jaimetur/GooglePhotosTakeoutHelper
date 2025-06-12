@@ -16,10 +16,10 @@ import 'media.dart';
 export 'domain/services/moving/file_operation_service.dart'
     show FileOperationException;
 
-/// Backwards-compatible interface to the refactored moving logic
+/// High-performance backwards-compatible interface to the refactored moving logic
 ///
 /// This function maintains the same signature as the original moveFiles function
-/// but delegates to the new modular architecture internally.
+/// but uses parallel processing internally for massive performance improvements.
 Stream<int> moveFiles(
   final List<Media> allMediaFinal,
   final Directory output, {
@@ -38,8 +38,8 @@ Stream<int> moveFiles(
   // Create the moving service
   final movingService = MediaMovingService();
 
-  // Delegate to the new service
-  yield* movingService.moveMediaFiles(allMediaFinal, context);
+  // Use parallel processing for better performance
+  yield* movingService.moveMediaFilesParallel(allMediaFinal, context);
 }
 
 /// Creates a unique file name by appending (1), (2), etc. until non-existing

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import '../../../media.dart';
 import 'file_operation_service.dart';
@@ -70,6 +71,81 @@ class MediaMovingService {
 
       processedCount++;
       yield processedCount;
+    }
+
+    // Perform any finalization steps
+    try {
+      final finalizationResults = await strategy.finalize(context, mediaList);
+      allResults.addAll(finalizationResults);
+
+      for (final result in finalizationResults) {
+        if (!result.success) {
+          print('[Error] Finalization failed: ${result.errorMessage}');
+        } else if (context.verbose) {
+          _logResult(result);
+        }
+      }
+    } catch (e) {
+      print('[Error] Strategy finalization failed: $e');
+    }
+
+    // Print summary
+    _printSummary(allResults, strategy);
+  }
+
+  /// High-performance parallel media moving with batched operations
+  ///
+  /// Processes multiple media files concurrently to dramatically improve
+  /// throughput for large collections while preventing system overload
+  Stream<int> moveMediaFilesParallel(
+    final List<Media> mediaList,
+    final MovingContext context,
+  ) async* {
+    // Create the appropriate strategy for the album behavior
+    final strategy = _strategyFactory.createStrategy(context.albumBehavior);
+
+    // Validate the context for this strategy
+    strategy.validateContext(context);
+
+    int processedCount = 0;
+    final List<MovingResult> allResults = [];
+
+    // Calculate optimal batch size based on system capabilities
+    final batchSize = Platform.numberOfProcessors.clamp(2, 8);
+
+    // Process media files in parallel batches
+    for (int i = 0; i < mediaList.length; i += batchSize) {
+      final batch = mediaList.skip(i).take(batchSize);
+
+      // Process each batch in parallel
+      final futures = batch.map((final media) async {
+        final results = <MovingResult>[];
+        await for (final result in strategy.processMedia(media, context)) {
+          results.add(result);
+
+          if (!result.success) {
+            print(
+              '[Error] Failed to process ${result.operation.sourceFile.path}: '
+              '${result.errorMessage}',
+            );
+          }
+
+          if (context.verbose) {
+            _logResult(result);
+          }
+        }
+        return results;
+      });
+
+      // Wait for batch completion
+      final batchResults = await Future.wait(futures);
+
+      // Flatten and add results
+      for (final results in batchResults) {
+        allResults.addAll(results);
+        processedCount++;
+        yield processedCount;
+      }
     }
 
     // Perform any finalization steps

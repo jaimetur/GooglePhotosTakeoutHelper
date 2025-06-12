@@ -58,6 +58,64 @@ class FileOperationService {
     }
   }
 
+  /// High-performance file copy using native operations when possible
+  ///
+  /// Uses platform-specific optimizations to maximize copy throughput
+  Future<File> moveOrCopyFileOptimized(
+    final File sourceFile,
+    final Directory targetDirectory, {
+    required final bool copyMode,
+  }) async {
+    // Ensure target directory exists
+    await targetDirectory.create(recursive: true);
+
+    final File targetFile = findUniqueFileName(
+      File(p.join(targetDirectory.path, p.basename(sourceFile.path))),
+    );
+
+    try {
+      if (copyMode) {
+        // Use optimized copy method
+        if (Platform.isWindows) {
+          // On Windows, use process-based copy for large files
+          final fileSize = await sourceFile.length();
+          if (fileSize > 100 * 1024 * 1024) {
+            // 100MB threshold
+            final result = await Process.run(
+              'xcopy',
+              [
+                sourceFile.path,
+                targetFile.path,
+                '/Y', // Overwrite without prompting
+              ],
+              runInShell: true,
+            );
+            if (result.exitCode != 0) {
+              throw FileOperationException('xcopy failed: ${result.stderr}');
+            }
+            return targetFile;
+          }
+        }
+
+        // Fallback to standard copy for smaller files or non-Windows
+        return await sourceFile.copy(targetFile.path);
+      } else {
+        // For move operations, try rename first (fastest)
+        return await sourceFile.rename(targetFile.path);
+      }
+    } on FileSystemException catch (e) {
+      // Handle cross-device move errors
+      if (e.osError?.errorCode == 18 || e.message.contains('cross-device')) {
+        throw FileOperationException(
+          'Cannot move files across different drives. '
+          'Please select an output location on the same drive as the input.',
+          originalException: e,
+        );
+      }
+      rethrow;
+    }
+  }
+
   /// Sets the last modified time for a file with proper error handling
   ///
   /// [file] The file to modify

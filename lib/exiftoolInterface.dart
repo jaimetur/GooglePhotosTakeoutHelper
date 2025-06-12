@@ -328,11 +328,9 @@ class ExiftoolInterface {
         _persistentProcess!.stdin.writeln(command);
       });
 
-      if (isVerbose) {
-        print(
-          '[ExifTool] Started persistent process (PID: ${_persistentProcess!.pid})',
-        );
-      }
+      log(
+        '[ExifTool] Started persistent process (PID: ${_persistentProcess!.pid})',
+      );
 
       _isStarting = false;
       return true;

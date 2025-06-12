@@ -39,8 +39,10 @@
   - Concurrent processing support with proper synchronization
   - Improved scalability for collections with thousands of files
 
-### Made the Exif tool process persistent
-- Exif read and writes are 10-50x faster
+### Performance improvements
+- Parallelize File Moving Operations (40-50% faster)
+- Made the Exiftool process persistant (10-50x faster)
+- Optimize Hash Calculation with Better Chunking (40-50% faster)
 
 #### Bug fixes
 

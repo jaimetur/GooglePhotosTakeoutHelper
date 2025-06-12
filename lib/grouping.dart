@@ -10,6 +10,9 @@ import 'media.dart' show Media;
 import 'media.dart';
 import 'utils.dart';
 
+/// Maximum number of concurrent operations to prevent overwhelming the system
+final int _maxConcurrency = Platform.numberOfProcessors * 2;
+
 extension Group on Iterable<Media> {
   /// Groups media objects by file size and hash for duplicate detection
   ///
@@ -71,6 +74,66 @@ extension Group on Iterable<Media> {
           final hash = await media.getHash();
           final hashKey = hash.toString();
           hashGroups.putIfAbsent(hashKey, () => <Media>[]).add(media);
+        }
+        output.addAll(hashGroups);
+      }
+    }
+    return output;
+  }
+
+  /// Highly optimized async version with concurrency control
+  ///
+  /// Uses parallel processing for both size and hash calculations
+  /// Limited concurrency prevents system overload while maximizing throughput
+  Future<Map<String, List<Media>>> groupIdenticalAsyncParallel() async {
+    final Map<String, List<Media>> output = <String, List<Media>>{};
+
+    // Convert to list for indexed access
+    final mediaList = toList();
+
+    // Step 1: Calculate all sizes in parallel with concurrency limit
+    final sizeResults = <({Media media, int size})>[];
+    for (int i = 0; i < mediaList.length; i += _maxConcurrency) {
+      final batch = mediaList.skip(i).take(_maxConcurrency);
+      final futures = batch.map((final media) async {
+        final size = await media.getSize();
+        return (media: media, size: size);
+      });
+
+      final batchResults = await Future.wait(futures);
+      sizeResults.addAll(batchResults);
+    }
+
+    // Group by size
+    final sizeGroups = <int, List<Media>>{};
+    for (final entry in sizeResults) {
+      sizeGroups.putIfAbsent(entry.size, () => <Media>[]).add(entry.media);
+    }
+
+    // Step 2: Calculate hashes in parallel for groups with multiple files
+    for (final MapEntry<int, List<Media>> sameSize in sizeGroups.entries) {
+      if (sameSize.value.length <= 1) {
+        output['${sameSize.key}bytes'] = sameSize.value;
+      } else {
+        // Calculate hashes in parallel batches
+        final hashResults = <({Media media, String hash})>[];
+        final mediaWithSameSize = sameSize.value;
+
+        for (int i = 0; i < mediaWithSameSize.length; i += _maxConcurrency) {
+          final batch = mediaWithSameSize.skip(i).take(_maxConcurrency);
+          final futures = batch.map((final media) async {
+            final hash = await media.getHash();
+            return (media: media, hash: hash.toString());
+          });
+
+          final batchResults = await Future.wait(futures);
+          hashResults.addAll(batchResults);
+        }
+
+        // Group by hash
+        final hashGroups = <String, List<Media>>{};
+        for (final entry in hashResults) {
+          hashGroups.putIfAbsent(entry.hash, () => <Media>[]).add(entry.media);
         }
         output.addAll(hashGroups);
       }
@@ -152,6 +215,49 @@ Future<int> removeDuplicatesAsync(final List<Media> media) async {
   for (final List<Media> group in allHashGroups) {
     if (group.length <= 1) continue; // No duplicates in this group
 
+    // Sort by best date extraction, then file name length
+    group.sort(
+      (
+        final Media a,
+        final Media b,
+      ) => '${a.dateTakenAccuracy ?? 999}${p.basename(a.firstFile.path).length}'
+          .compareTo(
+            '${b.dateTakenAccuracy ?? 999}${p.basename(b.firstFile.path).length}',
+          ),
+    );
+
+    // Remove all except first (best) one
+    for (final Media e in group.sublist(1)) {
+      media.remove(e);
+      log('[Step 3/8] Skipping duplicate: ${e.firstFile.path}');
+      count++;
+    }
+  }
+  return count;
+}
+
+/// Ultra-fast async duplicate removal with parallel processing
+///
+/// This optimized version uses concurrent hash calculation and efficient
+/// grouping algorithms to dramatically improve performance on large collections
+Future<int> removeDuplicatesAsyncOptimized(final List<Media> media) async {
+  if (media.isEmpty) return 0;
+
+  int count = 0;
+
+  // Group by albums first (to not compare hashes between albums)
+  final albumGroups = media.groupListsBy((final Media e) => e.files.keys.first);
+
+  // Process album groups in parallel
+  final futures = albumGroups.values.map((final albumGroup) async {
+    final hashGroups = await albumGroup.groupIdenticalAsyncParallel();
+    return hashGroups.values.where((final group) => group.length > 1);
+  });
+
+  final allGroupResults = await Future.wait(futures);
+  final duplicateGroups = allGroupResults.expand((final x) => x);
+
+  for (final List<Media> group in duplicateGroups) {
     // Sort by best date extraction, then file name length
     group.sort(
       (
