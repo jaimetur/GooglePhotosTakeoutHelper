@@ -871,7 +871,7 @@ Future<bool> safeCreateDirectory(final Directory dir) async {
 }
 
 /// Formats a [Duration] as a string: "Xs" if < 1 min, otherwise "Xm Ys".
-String formatDuration(Duration duration) {
+String formatDuration(final Duration duration) {
   if (duration.inSeconds < 60) {
     return '${duration.inSeconds}s';
   } else {

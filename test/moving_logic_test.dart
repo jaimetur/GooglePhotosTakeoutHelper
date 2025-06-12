@@ -528,14 +528,17 @@ void main() {
         // Original files should still exist
         for (int i = 0; i < originalFiles.length; i++) {
           expect(originalFiles[i].existsSync(), originalExists[i]);
-        }
-
-        // Output files should also exist
+        } // Output files should also exist
         final outputFiles = await outputDir
             .list(recursive: true)
             .whereType<File>()
-            .toList();
-        expect(outputFiles.length, testMedia.length);
+            .toList(); // In 'nothing' mode, only ALL_PHOTOS files are processed
+        // Count only non-album files (files with null key)
+        final expectedNonAlbumFiles = testMedia
+            .where((final media) => media.files.containsKey(null))
+            .length;
+
+        expect(outputFiles.length, expectedNonAlbumFiles);
       });
 
       /// Should move files (remove originals) when copy is false.
