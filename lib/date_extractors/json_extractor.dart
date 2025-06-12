@@ -36,6 +36,7 @@ Future<DateTime?> jsonDateTimeExtractor(
 ///
 /// Tries multiple strategies to locate JSON files, including handling
 /// filename truncation, bracket swapping, and extra format removal.
+/// Strategies are ordered from least to most aggressive (issue #29).
 ///
 /// [file] Media file to find JSON for
 /// [tryhard] If true, uses more aggressive matching strategies
@@ -46,23 +47,48 @@ Future<File?> jsonForFile(
 }) async {
   final Directory dir = Directory(p.dirname(file.path));
   final String name = p.basename(file.path);
-  // will try all methods to strip name to find json
-  for (final String Function(String s) method in <String Function(String s)>[
-    // none
+
+  // Basic strategies (always applied) - ordered from least to most aggressive
+  final basicStrategies = <String Function(String s)>[
+    // Strategy 1: No modification (most conservative)
     (final String s) => s,
+
+    // Strategy 2: Filename shortening (conservative, addresses filesystem limits)
     _shortenName,
-    // test: combining this with _shortenName?? which way around?
+
+    // Strategy 3: Bracket number swapping (conservative, known pattern)
     _bracketSwap,
-    _removeExtra,
+
+    // Strategy 4: Remove file extension (moderate, handles Google's extension addition)
     _noExtension,
-    // use those two only with tryhard
-    // look at https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/issues/175
-    // thanks @denouche for reporting this!
-    if (tryhard) ...<String Function(String filename)>[
-      _removeExtraRegex,
-      _removeDigit, // most files with '(digit)' have jsons, so it's last
-    ],
-  ]) {
+
+    // Strategy 5: Remove known complete extra formats (moderate, safe list)
+    _removeExtraComplete,
+  ];
+
+  // Aggressive strategies (only with tryhard=true) - ordered from least to most aggressive
+  final aggressiveStrategies = <String Function(String s)>[
+    // Strategy 6: Remove partial extra formats (moderate to aggressive, truncation handling)
+    _removeExtraPartial,
+
+    // Strategy 7: Extension restoration after partial removal (aggressive, reconstruction)
+    _removeExtraPartialWithExtensionRestore,
+
+    // Strategy 8: Edge case pattern removal (very aggressive, heuristic-based)
+    _removeExtraEdgeCase,
+
+    // Strategy 9: Remove digit patterns (most aggressive, broad pattern matching)
+    _removeDigit,
+  ];
+
+  // Combine strategies based on tryhard setting
+  final allStrategies = [
+    ...basicStrategies,
+    if (tryhard) ...aggressiveStrategies,
+  ];
+
+  // Try each strategy in order of increasing aggressiveness
+  for (final String Function(String s) method in allStrategies) {
     final String processedName = method(name);
 
     // First try supplemental-metadata format
@@ -97,56 +123,94 @@ String _removeDigit(final String filename) =>
 /// Removes "extra" format suffixes safely using predefined list
 ///
 /// Only removes suffixes from the known safe list in extraFormats.
+/// This is the safe, conservative approach that only matches known formats.
 /// Handles Unicode normalization for cross-platform compatibility.
 ///
 /// [filename] Original filename
 /// Returns filename with extra formats removed
-String _removeExtra(final String filename) {
+String _removeExtraComplete(final String filename) {
   // MacOS uses NFD that doesn't work with our accents 🙃🙃
   // https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/pull/247
   final String normalizedFilename = unorm.nfc(filename);
+  final String ext = p.extension(normalizedFilename);
+  final String nameWithoutExt = p.basenameWithoutExtension(normalizedFilename);
+
   for (final String extra in extras.extraFormats) {
-    if (normalizedFilename.contains(extra)) {
-      return normalizedFilename.replaceLast(extra, '');
+    // Check for exact suffix match with optional digit pattern
+    final RegExp exactPattern = RegExp(
+      RegExp.escape(extra) + r'(\(\d+\))?$',
+      caseSensitive: false,
+    );
+
+    if (exactPattern.hasMatch(nameWithoutExt)) {
+      final String cleanedName = nameWithoutExt.replaceAll(exactPattern, '');
+      return cleanedName + ext;
     }
   }
   return normalizedFilename;
 }
 
-/// Removes extra format suffixes using regex patterns
+/// Removes partial extra format suffixes for truncated cases
 ///
-/// More aggressive than _removeExtra, uses regex to match
-/// pattern like "something-edited(1).jpg" -> "something.jpg"
-/// Also handles incomplete suffixes from extraFormats list, if they got cut because of the 48char limit.
+/// Handles cases where filename truncation results in partial suffix matches.
+/// Only removes partial matches of known extra formats from extraFormats list.
+///
 /// [filename] Original filename
-/// Returns filename with extra patterns removed
-String _removeExtraRegex(final String filename) {
-  // MacOS uses NFD that doesn't work with our accents 🙃🙃
-  // https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/pull/247
-  final String normalizedFilename = unorm.nfc(filename);
-  // include all characters, also with accents
-  final Iterable<RegExpMatch> matches = RegExp(
-    r'(?<extra>-[A-Za-zÀ-ÖØ-öø-ÿ]+(\(\d\))?)\.\w+$',
-  ).allMatches(normalizedFilename);
-  if (matches.length == 1) {
-    return normalizedFilename.replaceAll(
-      matches.first.namedGroup('extra')!,
-      '',
-    );
-  }
+/// Returns filename with partial suffixes removed
+String _removeExtraPartial(final String filename) =>
+    extras.removePartialExtraFormats(filename);
 
-  // Try to remove partial suffix patterns (issue #29)
-  final String cleanedFilename = extras.removePartialExtraFormats(
-    normalizedFilename,
-  );
-  if (cleanedFilename != normalizedFilename) {
+/// Removes partial extra formats and restores truncated extensions
+///
+/// Combines partial suffix removal with extension restoration for cases
+/// where both the suffix and extension were truncated due to filename limits.
+///
+/// [filename] Original filename
+/// Returns filename with partial suffixes removed and extension restored
+String _removeExtraPartialWithExtensionRestore(final String filename) {
+  final String originalExt = p.extension(filename);
+  final String cleanedFilename = extras.removePartialExtraFormats(filename);
+
+  if (cleanedFilename != filename) {
     log(
-      '$normalizedFilename was renamed to $cleanedFilename by the removePartialExtraFormats function.',
+      '$filename was renamed to $cleanedFilename by the removePartialExtraFormats function.',
     );
+
+    // Try to restore truncated extension
+    final String restoredFilename = extras.restoreFileExtension(
+      cleanedFilename,
+      originalExt,
+    );
+
+    if (restoredFilename != cleanedFilename) {
+      log(
+        'Extension restored from ${p.extension(cleanedFilename)} to ${p.extension(restoredFilename)} for file: $restoredFilename',
+      );
+      return restoredFilename;
+    }
+
     return cleanedFilename;
   }
-  // If no matches found, return original filename
-  return normalizedFilename;
+
+  return filename;
+}
+
+/// Removes edge case extra format patterns as last resort
+///
+/// Handles edge cases where other strategies might miss truncated patterns.
+/// Uses heuristic-based pattern matching for missed truncated suffixes.
+///
+/// [filename] Original filename
+/// Returns filename with edge case patterns removed
+String _removeExtraEdgeCase(final String filename) {
+  final String? result = extras.removeEdgeCaseExtraFormats(filename);
+  if (result != null) {
+    log(
+      'Truncated suffix detected and removed by edge case handling: $filename -> $result',
+    );
+    return result;
+  }
+  return filename;
 }
 
 // this resolves years of bugs and head-scratches 😆
