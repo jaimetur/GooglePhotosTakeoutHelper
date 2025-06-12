@@ -145,20 +145,11 @@ class RemoveDuplicatesStep extends ProcessingStep {
     final stopwatch = Stopwatch()..start();
 
     try {
-      if (context.config.verbose) {
-        print(
-          '\n[Step 3/8] Finding and removing duplicates... (This might take some time!)',
-        );
-      }
+      print(
+        '\n[Step 3/8] Finding and removing duplicates... (This might take some time!)',
+      );
 
       final int removedCount = context.mediaCollection.removeDuplicates();
-
-      if (context.config.verbose) {
-        print(
-          'Removed $removedCount duplicates. '
-          '${context.mediaCollection.length} media files remain.',
-        );
-      }
 
       stopwatch.stop();
       return StepResult.success(
@@ -168,7 +159,8 @@ class RemoveDuplicatesStep extends ProcessingStep {
           'duplicatesRemoved': removedCount,
           'remainingMedia': context.mediaCollection.length,
         },
-        message: 'Removed $removedCount duplicate files',
+        message:
+            'Removed $removedCount duplicate files\n${context.mediaCollection.length} media files remain.',
       );
     } catch (e) {
       stopwatch.stop();

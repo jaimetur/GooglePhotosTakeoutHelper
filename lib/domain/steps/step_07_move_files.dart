@@ -1,3 +1,5 @@
+import 'package:console_bars/console_bars.dart';
+
 import '../../moving.dart';
 import '../models/pipeline_step_model.dart';
 
@@ -151,8 +153,14 @@ class MoveFilesStep extends ProcessingStep {
     final stopwatch = Stopwatch()..start();
 
     try {
+      // Initialize progress bar if verbose mode is enabled
+      FillingBar? progressBar;
       if (context.config.verbose) {
-        print('\n[Step 7/8] Moving files to output folder...');
+        progressBar = FillingBar(
+          desc: 'Moving files',
+          total: context.mediaCollection.length,
+          width: 50,
+        );
       }
 
       int processedCount = 0;
@@ -164,15 +172,9 @@ class MoveFilesStep extends ProcessingStep {
         albumBehavior: context.config.albumBehavior.value,
       )) {
         processedCount++;
-        if (context.config.verbose && processedCount % 10 == 0) {
-          print(
-            'Moved $processedCount/${context.mediaCollection.length} files',
-          );
+        if (context.config.verbose) {
+          progressBar?.update(processedCount);
         }
-      }
-
-      if (context.config.verbose) {
-        print('File moving completed. Processed $processedCount files.');
       }
 
       stopwatch.stop();

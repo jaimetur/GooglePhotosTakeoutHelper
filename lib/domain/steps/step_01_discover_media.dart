@@ -102,9 +102,7 @@ class DiscoverMediaStep extends ProcessingStep {
     final stopwatch = Stopwatch()..start();
 
     try {
-      if (context.config.verbose) {
-        print('\n[Step 2/8] Discovering media files...');
-      }
+      print('\n[Step 2/8] Discovering media files...');
 
       int yearFolderFiles = 0;
       int albumFolderFiles = 0;

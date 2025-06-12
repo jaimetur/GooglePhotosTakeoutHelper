@@ -123,9 +123,8 @@ class ExtractDatesStep extends ProcessingStep {
     final stopwatch = Stopwatch()..start();
 
     try {
-      if (context.config.verbose) {
-        print('\n[Step 4/8] Extracting metadata (this may take a while)...');
-      }
+      print('\n[Step 4/8] Extracting metadata (this may take a while)...');
+
       final extractors = context.config.dateExtractors;
 
       // Initialize progress bar if verbose mode is enabled
@@ -150,11 +149,9 @@ class ExtractDatesStep extends ProcessingStep {
             : null,
       );
 
-      if (context.config.verbose) {
-        print('Date extraction completed:');
-        for (final entry in extractionStats.entries) {
-          print('  ${entry.key.name}: ${entry.value} files');
-        }
+      print('Date extraction completed:');
+      for (final entry in extractionStats.entries) {
+        print('  ${entry.key.name}: ${entry.value} files');
       }
 
       stopwatch.stop();

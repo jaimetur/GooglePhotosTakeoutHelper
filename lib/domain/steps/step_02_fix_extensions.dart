@@ -51,9 +51,6 @@ class FixExtensionsStep extends ProcessingStep {
 
     try {
       if (context.config.extensionFixing == ExtensionFixingMode.none) {
-        if (context.config.verbose) {
-          print('\n[Step 1/8] Skipping extension fixing.');
-        }
         stopwatch.stop();
         return StepResult.success(
           stepName: name,
@@ -63,17 +60,12 @@ class FixExtensionsStep extends ProcessingStep {
         );
       }
 
-      if (context.config.verbose) {
-        print('\n[Step 1/8] Fixing file extensions...');
-      }
+      print('\n[Step 1/8] Fixing file extensions...');
+
       final fixedCount = await fixIncorrectExtensions(
         context.inputDirectory,
         context.config.extensionFixing == ExtensionFixingMode.conservative,
       );
-
-      if (context.config.verbose) {
-        print('Fixed $fixedCount file extensions.');
-      }
 
       // If in solo mode, processing should stop here
       final shouldContinue = context.config.shouldContinueAfterExtensionFix;

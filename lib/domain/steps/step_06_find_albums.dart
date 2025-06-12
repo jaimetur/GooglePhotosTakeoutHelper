@@ -129,18 +129,12 @@ class FindAlbumsStep extends ProcessingStep {
     final stopwatch = Stopwatch()..start();
 
     try {
-      if (context.config.verbose) {
-        print('\n[Step 6/8] Finding albums (this may take a while)...');
-      }
+      print('\n[Step 6/8] Finding albums (this may take a while)...');
 
       final initialCount = context.mediaCollection.length;
       context.mediaCollection.findAlbums();
       final finalCount = context.mediaCollection.length;
       final mergedCount = initialCount - finalCount;
-
-      if (context.config.verbose) {
-        print('Album finding completed. Merged $mergedCount media items.');
-      }
 
       stopwatch.stop();
       return StepResult.success(

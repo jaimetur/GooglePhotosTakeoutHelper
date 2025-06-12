@@ -1,3 +1,5 @@
+import 'package:console_bars/console_bars.dart';
+
 import '../models/pipeline_step_model.dart';
 
 /// Step 5: Write EXIF data to media files
@@ -160,9 +162,6 @@ class WriteExifStep extends ProcessingStep {
 
     try {
       if (!context.config.writeExif) {
-        if (context.config.verbose) {
-          print('\n[Step 5/8] Skipping writing data to EXIF.');
-        }
         stopwatch.stop();
         return StepResult.success(
           stepName: name,
@@ -176,15 +175,22 @@ class WriteExifStep extends ProcessingStep {
         );
       }
 
+      // Initialize progress bar if verbose mode is enabled
+      FillingBar? progressBar;
       if (context.config.verbose) {
-        print('\n[Step 5/8] Writing EXIF data...');
+        progressBar = FillingBar(
+          desc: 'Writing EXIF data',
+          total: context.mediaCollection.length,
+          width: 50,
+        );
       }
 
       final result = await context.mediaCollection.writeExifData(
         onProgress: context.config.verbose
             ? (final current, final total) {
-                if (current % 50 == 0 || current == total) {
-                  print('Processed $current/$total media files');
+                progressBar?.update(current);
+                if (current == total) {
+                  print(''); // Add a newline after progress bar completion
                 }
               }
             : null,
