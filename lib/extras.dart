@@ -14,15 +14,16 @@ const List<String> extraFormats = <String>[
   // DE - thanks @cintx
   '-bearbeitet',
   // NL - thanks @jaapp
-  '-bewerkt',
-  // JA - thanks @fossamagna
+  '-bewerkt', // JA - thanks @fossamagna
   '-編集済み',
+  // ZH - Chinese
+  '-编辑',
   // IT - thanks @rgstori
   '-modificato',
   // FR - for @palijn's problems <3
-  '-modifié',
-  // ES - @Sappstal report
+  '-modifié', // ES - @Sappstal report
   '-ha editado',
+  '-editado',
   // CA - @Sappstal report
   '-editat',
   // Add more "edited" flags in more languages if you want.
@@ -108,4 +109,121 @@ String removePartialExtraFormats(final String filename) {
   }
 
   return filename;
+}
+
+/// Strategy 1: Removes complete extra format suffixes using regex patterns
+///
+/// Uses regex to match complete suffixes with optional digit patterns.
+/// Example: "photo-edited(1).jpg" -> "photo.jpg"
+///
+/// [filename] Original filename
+/// Returns filename with complete extra patterns removed, or null if no match
+String? removeCompleteExtraFormats(final String filename) {
+  // MacOS uses NFD that doesn't work with our accents 🙃🙃
+  // https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/pull/247
+  final String normalizedFilename = unorm.nfc(filename);
+
+  // Include all characters, also with accents
+  final Iterable<RegExpMatch> matches = RegExp(
+    r'(?<extra>-[A-Za-zÀ-ÖØ-öø-ÿ]+(\(\d\))?)\.\w+$',
+  ).allMatches(normalizedFilename);
+
+  if (matches.length == 1) {
+    return normalizedFilename.replaceAll(
+      matches.first.namedGroup('extra')!,
+      '',
+    );
+  }
+
+  return null;
+}
+
+/// Strategy 3: Restores file extensions that may have been truncated
+///
+/// When filename truncation affects the extension, this function attempts
+/// to restore common photo/video extensions based on partial matches.
+/// Example: "truncated_name.jp" -> "truncated_name.jpg"
+///
+/// [filename] Filename with potentially truncated extension
+/// [originalExt] Original extension before processing (unused, kept for compatibility)
+/// Returns filename with restored extension, or original filename if no restoration needed
+String restoreFileExtension(final String filename, final String originalExt) {
+  final String currentExt = p.extension(filename);
+
+  // Only attempt restoration if the current extension looks truncated
+  if (currentExt.length > 4 || currentExt.length < 2) {
+    return filename;
+  }
+
+  // Common photo/video extensions that might get truncated
+  const List<String> commonExtensions = [
+    '.jpg',
+    '.jpeg',
+    '.png',
+    '.gif',
+    '.mp4',
+    '.mov',
+    '.avi',
+  ];
+
+  for (final String ext in commonExtensions) {
+    if (ext.toLowerCase().startsWith(currentExt.toLowerCase()) &&
+        ext.length <= 4) {
+      // Reasonable extension length
+      final String nameWithoutExt = p.basenameWithoutExtension(filename);
+      final String dirname = p.dirname(filename);
+      return dirname == '.'
+          ? '$nameWithoutExt$ext'
+          : p.join(dirname, '$nameWithoutExt$ext');
+    }
+  }
+  return filename;
+}
+
+/// Strategy 4: Last resort pattern matching for edge cases
+///
+/// Handles edge cases where other strategies might miss truncated patterns.
+/// Looks for any pattern ending with dash and partial text that could be
+/// a truncated "edited" suffix.
+///
+/// [filename] Original filename
+/// Returns filename with edge case patterns removed, or null if no match
+String? removeEdgeCaseExtraFormats(final String filename) {
+  // MacOS uses NFD that doesn't work with our accents 🙃🙃
+  final String normalizedFilename = unorm.nfc(filename);
+  final String originalExt = p.extension(normalizedFilename);
+
+  final RegExpMatch? lastDashMatch = RegExp(
+    r'-[a-zA-ZÀ-ÖØ-öø-ÿ\s]*(\(\d+\))?$',
+  ).firstMatch(p.basenameWithoutExtension(normalizedFilename));
+
+  if (lastDashMatch == null) return null;
+
+  final String beforeDash = p
+      .basenameWithoutExtension(normalizedFilename)
+      .substring(0, lastDashMatch.start);
+  final String afterDash = lastDashMatch.group(0)!;
+
+  // Check if the text after dash could be a truncated "edited" suffix
+  for (final String suffix in extraFormats) {
+    // Remove the leading dash for comparison
+    final String suffixWithoutDash = suffix.substring(1);
+    final String afterDashClean = afterDash
+        .replaceAll(RegExp(r'\(\d+\)'), '')
+        .substring(1);
+
+    // If what comes after dash could be start of any extra format
+    if (suffixWithoutDash.toLowerCase().startsWith(
+          afterDashClean.toLowerCase(),
+        ) &&
+        afterDashClean.length >= 2) {
+      // At least 2 chars to avoid false positives
+      final String dirname = p.dirname(normalizedFilename);
+      return dirname == '.'
+          ? '$beforeDash$originalExt'
+          : p.join(dirname, '$beforeDash$originalExt');
+    }
+  }
+
+  return null;
 }
