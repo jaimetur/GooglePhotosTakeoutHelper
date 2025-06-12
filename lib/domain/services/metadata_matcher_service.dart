@@ -35,9 +35,7 @@ class JsonFileMatcher {
     // Get strategies based on tryhard setting
     final strategies = tryhard
         ? [..._basicStrategies, ..._aggressiveStrategies]
-        : _basicStrategies;
-
-    // Try each strategy in order of increasing aggressiveness
+        : _basicStrategies; // Try each strategy in order of increasing aggressiveness
     for (final strategy in strategies) {
       final String processedName = strategy.transform(name);
 
@@ -46,8 +44,21 @@ class JsonFileMatcher {
         p.join(dir.path, '$processedName.supplemental-metadata.json'),
       );
       if (await supplementalJsonFile.exists()) {
-        return supplementalJsonFile; // Try truncated supplemental-metadata formats (for Google Photos 51-char limit)
+        return supplementalJsonFile;
       }
+
+      // Try numbered supplemental-metadata files for extension fixing scenarios
+      final File? numberedSupplementalFile = await _tryNumberedJsonFiles(
+        dir,
+        processedName,
+        name,
+        '.supplemental-metadata.json',
+      );
+      if (numberedSupplementalFile != null) {
+        return numberedSupplementalFile;
+      }
+
+      // Try truncated supplemental-metadata formats (for Google Photos 51-char limit)
       final String fullSupplementalPath =
           '$processedName.supplemental-metadata.json';
       if (fullSupplementalPath.length > 51) {
@@ -69,7 +80,72 @@ class JsonFileMatcher {
       // Then try standard JSON format
       final File jsonFile = File(p.join(dir.path, '$processedName.json'));
       if (await jsonFile.exists()) return jsonFile;
+
+      // Try numbered standard JSON files
+      final File? numberedJsonFile = await _tryNumberedJsonFiles(
+        dir,
+        processedName,
+        name,
+        '.json',
+      );
+      if (numberedJsonFile != null) {
+        return numberedJsonFile;
+      }
     }
+    return null;
+  }
+
+  /// Attempts to find numbered duplicate JSON files for extension fixing scenarios
+  ///
+  /// This handles cases where extension fixing creates files like IMG_2367(1).HEIC.jpg
+  /// that should match JSON files like:
+  /// - IMG_2367.HEIC.supplemental-metadata(1).json (number at end)
+  /// - IMG_2367.HEIC(1).supplemental-metadata.json (number in middle)
+  ///
+  /// [dir] Directory to search in
+  /// [processedName] The processed filename from the strategy
+  /// [originalName] The original media filename
+  /// [jsonSuffix] The JSON file suffix (.json or .supplemental-metadata.json)
+  static Future<File?> _tryNumberedJsonFiles(
+    final Directory dir,
+    final String processedName,
+    final String originalName,
+    final String jsonSuffix,
+  ) async {
+    // Extract number from original filename if it has a duplicate pattern like (1)
+    final RegExp numberPattern = RegExp(r'\((\d+)\)');
+    final RegExpMatch? numberMatch = numberPattern.firstMatch(originalName);
+
+    if (numberMatch != null) {
+      final String number = numberMatch.group(1)!;
+
+      // Remove the number from processed name to get base name
+      final String baseName = processedName.replaceAll(numberPattern, '');
+
+      // Pattern 1: Try numbered suffix at end - basename.suffix(number).json
+      final File numberedJsonFile = File(
+        p.join(
+          dir.path,
+          '$baseName$jsonSuffix'.replaceAll('.json', '($number).json'),
+        ),
+      );
+
+      if (await numberedJsonFile.exists()) {
+        return numberedJsonFile;
+      }
+
+      // Pattern 2: Try numbered suffix in middle - basename(number).suffix.json
+      if (jsonSuffix == '.supplemental-metadata.json') {
+        final File numberedMiddleJsonFile = File(
+          p.join(dir.path, '$baseName($number).supplemental-metadata.json'),
+        );
+
+        if (await numberedMiddleJsonFile.exists()) {
+          return numberedMiddleJsonFile;
+        }
+      }
+    }
+
     return null;
   }
 
@@ -113,14 +189,22 @@ class JsonFileMatcher {
 
   /// Aggressive strategies (only with tryhard=true) - ordered from least to most aggressive
   static final List<JsonMatchingStrategy> _aggressiveStrategies = [
-    // Strategy 6: Remove partial extra formats (moderate to aggressive, truncation handling)
+    // Strategy 6: Cross-extension matching (moderate, handles shared JSON files)
+    const JsonMatchingStrategy(
+      name: 'Cross-extension matching',
+      description:
+          'Matches MP4 files with HEIC JSON files and similar cross-format scenarios',
+      transform: _crossExtensionMatching,
+    ),
+
+    // Strategy 7: Remove partial extra formats (moderate to aggressive, truncation handling)
     const JsonMatchingStrategy(
       name: 'Remove partial extra formats',
       description: 'Removes truncated editing suffixes like "-ed"',
       transform: _removeExtraPartial,
     ),
 
-    // Strategy 7: Extension restoration after partial removal (aggressive, reconstruction)
+    // Strategy 8: Extension restoration after partial removal (aggressive, reconstruction)
     const JsonMatchingStrategy(
       name: 'Extension restoration after partial removal',
       description: 'Combines partial removal with extension restoration',
@@ -205,6 +289,33 @@ String _bracketSwap(final String filename) {
 /// Handles cases where original file had no extension but Google added one.
 String _noExtension(final String filename) =>
     p.basenameWithoutExtension(File(filename).path);
+
+/// Handles cross-extension matching for shared JSON files
+///
+/// This handles cases where MP4 files share JSON metadata files with HEIC files.
+/// For example: IMG_2367.MP4 should match IMG_2367.HEIC.supplemental-metadata.json
+/// Common patterns: MP4 ↔ HEIC, JPG ↔ HEIC, etc.
+String _crossExtensionMatching(final String filename) {
+  final String ext = p.extension(filename).toLowerCase();
+  final String nameWithoutExt = p.basenameWithoutExtension(filename);
+
+  // Map of cross-extension patterns (source → target)
+  // Use uppercase to match typical Google Photos naming
+  const Map<String, List<String>> crossExtensions = {
+    '.mp4': ['.HEIC', '.HEIF'],
+    '.mov': ['.HEIC', '.HEIF'],
+    '.jpg': ['.HEIC', '.HEIF'],
+    '.jpeg': ['.HEIC', '.HEIF'],
+  };
+
+  // If current extension has cross-extension patterns, try the first alternative
+  if (crossExtensions.containsKey(ext) && crossExtensions[ext]!.isNotEmpty) {
+    final String alternativeExt = crossExtensions[ext]!.first;
+    return '$nameWithoutExt$alternativeExt';
+  }
+
+  return filename;
+}
 
 /// Removes "extra" format suffixes safely using predefined list
 ///
