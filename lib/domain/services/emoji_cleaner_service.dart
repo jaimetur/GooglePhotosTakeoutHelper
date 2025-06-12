@@ -86,9 +86,7 @@ String decodeAndRestoreAlbumEmoji(final String encodedPath) {
 ///
 /// [text] String that may contain hex-encoded emoji sequences
 /// Returns the string with emoji restored
-String decodeEmojiInText(final String text) {
-  return _decodeEmojiComponent(text);
-}
+String decodeEmojiInText(final String text) => _decodeEmojiComponent(text);
 
 /// Internal helper function to decode hex-encoded emoji characters back to UTF-8.
 ///

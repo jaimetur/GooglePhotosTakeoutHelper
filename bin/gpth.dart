@@ -2,9 +2,11 @@
 
 import 'dart:io';
 import 'package:args/args.dart';
+import 'package:gpth/domain/models/input_output_paths.dart';
 import 'package:gpth/domain/models/processing_config.dart';
 import 'package:gpth/domain/models/processing_result.dart';
 import 'package:gpth/domain/processing_pipeline.dart';
+import 'package:gpth/domain/services/takeout_path_resolver.dart';
 import 'package:gpth/exiftoolInterface.dart';
 import 'package:gpth/interactive.dart' as interactive;
 import 'package:gpth/utils.dart';
@@ -331,29 +333,6 @@ Future<ProcessingConfig> _handleFixMode(final ArgResults res) async {
   return builder.build();
 }
 
-/// **INPUT/OUTPUT PATH DATA CLASS**
-///
-/// Simple data container for holding resolved input and output directory paths.
-/// This provides type safety and clarity for path handling throughout the
-/// argument parsing and validation process.
-///
-/// **PURPOSE:**
-/// - Encapsulates the two required paths in a single object
-/// - Provides type safety for path passing between functions
-/// - Makes function signatures clearer and more maintainable
-/// - Enables future extension with additional path-related metadata
-///
-/// **USAGE:**
-/// Used internally by path resolution functions to return validated
-/// input and output directory paths from either CLI arguments or
-/// interactive mode prompts.
-class _InputOutputPaths {
-  const _InputOutputPaths({required this.inputPath, required this.outputPath});
-
-  final String inputPath;
-  final String outputPath;
-}
-
 /// **INPUT/OUTPUT PATH RESOLUTION**
 ///
 /// Determines the input and output directories from either command line arguments
@@ -376,11 +355,12 @@ class _InputOutputPaths {
 /// - Input directory existence verification
 /// - Output directory creation and cleanup prompts
 /// - Path accessibility and permission checks
+/// - Automatic navigation to Google Photos directory within Takeout structure
 ///
 /// @param res Parsed command line arguments
 /// @returns InputOutputPaths object with resolved and validated paths
 /// @throws ProcessExit for invalid or inaccessible paths
-Future<_InputOutputPaths> _getInputOutputPaths(final ArgResults res) async {
+Future<InputOutputPaths> _getInputOutputPaths(final ArgResults res) async {
   String? inputPath = res['input'];
   String? outputPath = res['output'];
 
@@ -444,8 +424,15 @@ Future<_InputOutputPaths> _getInputOutputPaths(final ArgResults res) async {
     error('No --output folder specified :/');
     exit(10);
   }
+  // Resolve input path to Google Photos directory using the domain service
+  try {
+    inputPath = TakeoutPathResolver.resolveGooglePhotosPath(inputPath);
+  } catch (e) {
+    error('Path resolution failed: $e');
+    exit(12);
+  }
 
-  return _InputOutputPaths(inputPath: inputPath, outputPath: outputPath);
+  return InputOutputPaths(inputPath: inputPath, outputPath: outputPath);
 }
 
 /// **DEPENDENCY INITIALIZATION**
