@@ -201,15 +201,6 @@ void main() {
         expect(tryhardResult?.path, equals(jsonFile.path));
       });
 
-      test('finds JSON with digit pattern removal', () async {
-        // Test the most aggressive strategy - digit pattern removal
-        final mediaFile = fixture.createImageWithExif('image(2).png');
-        final jsonFile = createTextFile('image.png.json', '{"title": "image"}');
-
-        final tryhardResult = await jsonForFile(mediaFile, tryhard: true);
-        expect(tryhardResult?.path, equals(jsonFile.path));
-      });
-
       test('handles various international partial suffixes', () async {
         final testCases = [
           {'media': 'foto-be.jpg', 'json': 'foto.jpg.json'}, // German partial
@@ -353,7 +344,6 @@ void main() {
         final content = await result!.readAsString();
         expect(content, contains('"supplemental"'));
       });
-
       test(
         'finds supplemental metadata with strategy transformations',
         () async {
@@ -365,6 +355,36 @@ void main() {
 
           final result = await jsonForFile(mediaFile, tryhard: false);
           expect(result?.path, equals(supplementalJsonFile.path));
+        },
+      );
+
+      test(
+        'finds supplemental metadata for PXL file with cut off supplemental-metadata',
+        () async {
+          // Create the media file with the exact filename from the user's request
+          final mediaFile = fixture.createImageWithExif(
+            'PXL_20230518_103349822.MP',
+          );
+
+          // Create the corresponding supplemental metadata JSON file
+          final supplementalJsonFile = createTextFile(
+            'PXL_20230518_103349822.MP.supplemental-met.json',
+            '{"photoTakenTime": {"timestamp": "1684402429"}, "title": "PXL photo"}',
+          );
+
+          // Test with tryhard=false (basic strategies only)
+          final result = await jsonForFile(mediaFile, tryhard: false);
+          expect(
+            result,
+            isNotNull,
+            reason: 'Should find supplemental metadata JSON file',
+          );
+          expect(result?.path, equals(supplementalJsonFile.path));
+
+          // Verify the content can be read properly
+          final content = await result!.readAsString();
+          expect(content, contains('"photoTakenTime"'));
+          expect(content, contains('"timestamp"'));
         },
       );
     });

@@ -45,7 +45,26 @@ class JsonFileMatcher {
       final File supplementalJsonFile = File(
         p.join(dir.path, '$processedName.supplemental-metadata.json'),
       );
-      if (await supplementalJsonFile.exists()) return supplementalJsonFile;
+      if (await supplementalJsonFile.exists()) {
+        return supplementalJsonFile; // Try truncated supplemental-metadata formats (for Google Photos 51-char limit)
+      }
+      final String fullSupplementalPath =
+          '$processedName.supplemental-metadata.json';
+      if (fullSupplementalPath.length > 51) {
+        // Calculate intelligent truncation based on available space
+        final List<String> truncatedSuffixes =
+            _generateTruncatedSupplementalSuffixes(
+              processedName,
+              maxLength: 51,
+            );
+
+        for (final suffix in truncatedSuffixes) {
+          final File truncatedFile = File(
+            p.join(dir.path, '$processedName.$suffix'),
+          );
+          if (await truncatedFile.exists()) return truncatedFile;
+        }
+      }
 
       // Then try standard JSON format
       final File jsonFile = File(p.join(dir.path, '$processedName.json'));
@@ -272,3 +291,64 @@ String _removeExtraEdgeCase(final String filename) {
 // ignore: unused_element
 String _removeDigit(final String filename) =>
     filename.replaceAll(RegExp(r'\(\d\)\.'), '.');
+
+/// Generates intelligently truncated supplemental metadata suffixes
+///
+/// This function calculates what the truncated supplemental metadata filename
+/// would look like based on Google Photos' 51-character truncation behavior.
+/// It tries multiple truncation strategies to handle different edge cases.
+List<String> _generateTruncatedSupplementalSuffixes(
+  final String processedName, {
+  required final int maxLength,
+}) {
+  final List<String> suffixes = [];
+  const String jsonExt = '.json';
+
+  // Calculate how much space we have for the suffix after the processed name
+  final int baseNameLength = processedName.length + 1; // +1 for the dot
+  final int availableSpace = maxLength - baseNameLength;
+
+  // If we can't even fit ".json", return empty list
+  if (availableSpace < jsonExt.length) {
+    return suffixes;
+  }
+
+  // Strategy 1: Truncate "supplemental-metadata" intelligently
+  const String supplementalPart = 'supplemental-metadata';
+  final int maxSupplementalLength = availableSpace - jsonExt.length;
+
+  if (maxSupplementalLength > 0) {
+    // Try progressively shorter truncations of "supplemental-metadata"
+    final List<String> candidateTruncations = [];
+
+    // Smart truncation points (preserve meaningful parts)
+    final List<int> smartTruncationPoints = [
+      supplementalPart.length, // Full: supplemental-metadata
+      'supplemental-meta'.length, // supplemental-meta
+      'supplemental-met'.length, // supplemental-met
+      'supplemental-m'.length, // supplemental-m
+      'supplemental'.length, // supplemental
+      'supplement'.length, // supplement
+      'supplem'.length, // supplem
+      'suppl'.length, // suppl
+      'supp'.length, // supp
+    ];
+
+    for (final int truncPoint in smartTruncationPoints) {
+      if (truncPoint <= maxSupplementalLength && truncPoint > 0) {
+        final String truncated = supplementalPart.substring(0, truncPoint);
+        candidateTruncations.add('$truncated$jsonExt');
+      }
+    }
+
+    // Add the candidates to our suffix list
+    suffixes.addAll(candidateTruncations);
+  }
+
+  // Strategy 2: Try just "json" if everything else fails
+  if (availableSpace >= jsonExt.length) {
+    suffixes.add(jsonExt.substring(1)); // Remove the leading dot
+  }
+
+  return suffixes;
+}
