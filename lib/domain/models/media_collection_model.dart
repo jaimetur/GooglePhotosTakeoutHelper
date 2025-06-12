@@ -38,6 +38,10 @@ class MediaCollection {
   /// Remove duplicates from the collection and return the count removed
   int removeDuplicates() => grouping.removeDuplicates(_media);
 
+  /// Async version of removeDuplicates for better performance
+  /// Uses streaming hash calculation to avoid loading entire files into memory
+  Future<int> removeDuplicatesAsync() => grouping.removeDuplicatesAsync(_media);
+
   /// Remove "extra" files (edited versions) and return the count removed
   int removeExtras() => extras.removeExtras(_media);
 
@@ -45,6 +49,10 @@ class MediaCollection {
   void findAlbums() {
     grouping.findAlbums(_media);
   }
+
+  /// Async version of findAlbums for better performance
+  /// Uses streaming hash calculation to avoid loading entire files into memory
+  Future<void> findAlbumsAsync() => grouping.findAlbumsAsync(_media);
 
   /// Extract dates from all media using the provided extractors
   Future<Map<DateTimeExtractionMethod, int>> extractDates(

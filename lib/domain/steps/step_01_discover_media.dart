@@ -96,16 +96,12 @@ import '../models/pipeline_step_model.dart';
 /// - Enables proper handling of files that exist in multiple albums
 class DiscoverMediaStep extends ProcessingStep {
   const DiscoverMediaStep() : super('Discover Media');
-
   @override
   Future<StepResult> execute(final ProcessingContext context) async {
     final stopwatch = Stopwatch()..start();
 
     try {
       print('\n[Step 2/8] Discovering media files...');
-
-      int yearFolderFiles = 0;
-      int albumFolderFiles = 0;
 
       final inputDir = Directory(context.config.inputPath);
       if (!await inputDir.exists()) {
@@ -114,52 +110,22 @@ class DiscoverMediaStep extends ProcessingStep {
         );
       }
 
-      // 1. Scan year folders for media files
-      await for (final entity in inputDir.list()) {
-        if (entity is Directory && isYearFolder(entity)) {
-          if (context.config.verbose) {
-            print('Scanning year folder: ${p.basename(entity.path)}');
-          }
-
-          await for (final mediaFile
-              in entity.list(recursive: true).wherePhotoVideo()) {
-            context.mediaCollection.add(Media({null: mediaFile}));
-            yearFolderFiles++;
-          }
-        }
-      }
-
-      // 2. Scan album folders for additional media
-      await for (final entity in inputDir.list()) {
-        if (entity is Directory &&
-            !isYearFolder(entity) &&
-            await isAlbumFolder(entity)) {
-          final albumName = p.basename(entity.path);
-          if (context.config.verbose) {
-            print('Scanning album folder: $albumName');
-          }
-
-          await for (final mediaFile
-              in entity.list(recursive: true).wherePhotoVideo()) {
-            context.mediaCollection.add(Media({albumName: mediaFile}));
-            albumFolderFiles++;
-          }
-        }
-      }
-
-      final totalFiles = yearFolderFiles + albumFolderFiles;
+      // Use optimized single-pass directory scanning
+      final scanResult = await _scanDirectoriesOptimized(inputDir, context);
+      final totalFiles =
+          scanResult.yearFolderFiles + scanResult.albumFolderFiles;
 
       stopwatch.stop();
       return StepResult.success(
         stepName: name,
         duration: stopwatch.elapsed,
         data: {
-          'yearFolderFiles': yearFolderFiles,
-          'albumFolderFiles': albumFolderFiles,
+          'yearFolderFiles': scanResult.yearFolderFiles,
+          'albumFolderFiles': scanResult.albumFolderFiles,
           'totalFiles': totalFiles,
         },
         message:
-            'Discovered $totalFiles media files ($yearFolderFiles from year folders, $albumFolderFiles from albums)',
+            'Discovered $totalFiles media files (${scanResult.yearFolderFiles} from year folders, ${scanResult.albumFolderFiles} from albums)',
       );
     } catch (e) {
       stopwatch.stop();
@@ -172,6 +138,117 @@ class DiscoverMediaStep extends ProcessingStep {
     }
   }
 
+  /// Optimized single-pass directory scanning to avoid multiple traversals
+  ///
+  /// This method scans the input directory once and classifies directories
+  /// as either year folders or album folders, then processes media files
+  /// accordingly. This is much more efficient than the original dual-pass approach.
+  Future<_ScanResult> _scanDirectoriesOptimized(
+    final Directory inputDir,
+    final ProcessingContext context,
+  ) async {
+    int yearFolderFiles = 0;
+    int albumFolderFiles = 0;
+
+    // Cache for directory classification to avoid repeated checks
+    final directoryCache = <String, _DirectoryType>{};
+
+    // Single pass through all entities in input directory
+    final entities = await inputDir.list().toList();
+
+    // Classify directories first (cheaper operations)
+    final yearDirectories = <Directory>[];
+    final albumDirectories = <Directory>[];
+
+    for (final entity in entities) {
+      if (entity is Directory) {
+        final dirType = await _classifyDirectory(entity, directoryCache);
+        switch (dirType) {
+          case _DirectoryType.year:
+            yearDirectories.add(entity);
+            break;
+          case _DirectoryType.album:
+            albumDirectories.add(entity);
+            break;
+          case _DirectoryType.other:
+            // Ignore other directories
+            break;
+        }
+      }
+    }
+
+    // Process year directories
+    for (final yearDir in yearDirectories) {
+      if (context.config.verbose) {
+        print('Scanning year folder: ${p.basename(yearDir.path)}');
+      }
+
+      await for (final mediaFile
+          in yearDir.list(recursive: true).wherePhotoVideo()) {
+        context.mediaCollection.add(Media({null: mediaFile}));
+        yearFolderFiles++;
+      }
+    }
+
+    // Process album directories
+    for (final albumDir in albumDirectories) {
+      final albumName = p.basename(albumDir.path);
+      if (context.config.verbose) {
+        print('Scanning album folder: $albumName');
+      }
+
+      await for (final mediaFile
+          in albumDir.list(recursive: true).wherePhotoVideo()) {
+        context.mediaCollection.add(Media({albumName: mediaFile}));
+        albumFolderFiles++;
+      }
+    }
+
+    return _ScanResult(
+      yearFolderFiles: yearFolderFiles,
+      albumFolderFiles: albumFolderFiles,
+    );
+  }
+
+  /// Classify a directory as year, album, or other
+  ///
+  /// Uses caching to avoid repeated expensive operations
+  Future<_DirectoryType> _classifyDirectory(
+    final Directory directory,
+    final Map<String, _DirectoryType> cache,
+  ) async {
+    final path = directory.path;
+    if (cache.containsKey(path)) {
+      return cache[path]!;
+    }
+
+    _DirectoryType type;
+    if (isYearFolder(directory)) {
+      type = _DirectoryType.year;
+    } else if (await isAlbumFolder(directory)) {
+      type = _DirectoryType.album;
+    } else {
+      type = _DirectoryType.other;
+    }
+
+    cache[path] = type;
+    return type;
+  }
+
   @override
   bool shouldSkip(final ProcessingContext context) => false;
 }
+
+/// Result of directory scanning operation
+class _ScanResult {
+  const _ScanResult({
+    required this.yearFolderFiles,
+    required this.albumFolderFiles,
+  });
+
+  final int yearFolderFiles;
+  final int albumFolderFiles;
+}
+
+/// Directory classification for efficient processing
+enum _DirectoryType { year, album, other }

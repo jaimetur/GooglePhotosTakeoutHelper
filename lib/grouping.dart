@@ -38,6 +38,45 @@ extension Group on Iterable<Media> {
     }
     return output;
   }
+
+  /// Async version of groupIdentical for better performance
+  ///
+  /// This version uses async hash calculation to avoid blocking the main thread
+  /// and uses streaming hash calculation to avoid loading entire files into memory
+  Future<Map<String, List<Media>>> groupIdenticalAsync() async {
+    final Map<String, List<Media>> output = <String, List<Media>>{};
+
+    // Pre-populate sizes asynchronously to avoid repeated sync calls
+    final mediaWithSizes = <({Media media, int size})>[];
+    for (final media in this) {
+      final size = await media.getSize();
+      mediaWithSizes.add((media: media, size: size));
+    }
+
+    // Group by size first (cheap comparison)
+    final sizeGroups = <int, List<Media>>{};
+    for (final entry in mediaWithSizes) {
+      sizeGroups.putIfAbsent(entry.size, () => <Media>[]).add(entry.media);
+    }
+
+    // Process each size group
+    for (final MapEntry<int, List<Media>> sameSize in sizeGroups.entries) {
+      // Just add with "...bytes" key if just one
+      if (sameSize.value.length <= 1) {
+        output['${sameSize.key}bytes'] = sameSize.value;
+      } else {
+        // Calculate hashes asynchronously for files with same size
+        final hashGroups = <String, List<Media>>{};
+        for (final media in sameSize.value) {
+          final hash = await media.getHash();
+          final hashKey = hash.toString();
+          hashGroups.putIfAbsent(hashKey, () => <Media>[]).add(media);
+        }
+        output.addAll(hashGroups);
+      }
+    }
+    return output;
+  }
 }
 
 /// Removes duplicate media from list of media
@@ -91,6 +130,49 @@ int removeDuplicates(final List<Media> media) {
   return count;
 }
 
+/// Async version of removeDuplicates for better performance
+///
+/// This version uses async hash calculation to avoid blocking the main thread
+/// and uses streaming hash calculation to avoid loading entire files into memory
+///
+/// Returns count of removed
+Future<int> removeDuplicatesAsync(final List<Media> media) async {
+  int count = 0;
+
+  // Group by albums first (to not compare hashes between albums)
+  final albumGroups = media.groupListsBy((final Media e) => e.files.keys.first);
+
+  // Process each album group
+  final allHashGroups = <List<Media>>[];
+  for (final albumGroup in albumGroups.values) {
+    final hashGroups = await albumGroup.groupIdenticalAsync();
+    allHashGroups.addAll(hashGroups.values);
+  }
+
+  for (final List<Media> group in allHashGroups) {
+    if (group.length <= 1) continue; // No duplicates in this group
+
+    // Sort by best date extraction, then file name length
+    group.sort(
+      (
+        final Media a,
+        final Media b,
+      ) => '${a.dateTakenAccuracy ?? 999}${p.basename(a.firstFile.path).length}'
+          .compareTo(
+            '${b.dateTakenAccuracy ?? 999}${p.basename(b.firstFile.path).length}',
+          ),
+    );
+
+    // Remove all except first (best) one
+    for (final Media e in group.sublist(1)) {
+      media.remove(e);
+      log('[Step 3/8] Skipping duplicate: ${e.firstFile.path}');
+      count++;
+    }
+  }
+  return count;
+}
+
 /// Gets the album name from a directory path
 ///
 /// [albumDir] Directory representing an album
@@ -120,6 +202,40 @@ void findAlbums(final List<Media> allMedia) {
     // set the first (best) one complete album list
     group.first.files = allFiles;
     // add our one, precious ✨perfect✨ one
+    allMedia.add(group.first);
+  }
+}
+
+/// Async version of findAlbums for better performance
+///
+/// This will analyze [allMedia], find which files are hash-same, and merge
+/// all of them into single [Media] object with all album names they had
+Future<void> findAlbumsAsync(final List<Media> allMedia) async {
+  final groupedMedia = await allMedia.groupIdenticalAsync();
+
+  for (final List<Media> group in groupedMedia.values) {
+    if (group.length <= 1) continue; // No duplicates to merge
+
+    // Collect all file references from all Media objects in the group
+    final Map<String?, File> allFiles = group.fold(
+      <String?, File>{},
+      (final Map<String?, File> allFiles, final Media e) =>
+          allFiles..addAll(e.files),
+    );
+
+    // Sort by best date extraction accuracy
+    group.sort(
+      (final Media a, final Media b) =>
+          (a.dateTakenAccuracy ?? 999).compareTo(b.dateTakenAccuracy ?? 999),
+    );
+
+    // Remove original entries from main list
+    allMedia.removeWhere(group.contains);
+
+    // Update the best one with all file references
+    group.first.files = allFiles;
+
+    // Add the merged Media object back
     allMedia.add(group.first);
   }
 }

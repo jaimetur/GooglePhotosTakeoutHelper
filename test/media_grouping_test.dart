@@ -46,6 +46,7 @@ library;
 
 // ignore_for_file: avoid_redundant_argument_values
 
+import 'package:crypto/crypto.dart';
 import 'package:gpth/extras.dart';
 import 'package:gpth/grouping.dart';
 import 'package:gpth/media.dart';
@@ -456,6 +457,147 @@ void main() {
           (final group) => group.length == 1,
         );
         expect(uniqueGroup.length, 1);
+      });
+    });
+
+    group('Race Condition Safety - Async Operations', () {
+      /// Tests that concurrent access to Media properties doesn't cause race conditions
+      test(
+        'handles concurrent access to size and hash properties safely',
+        () async {
+          final file = fixture.createFile(
+            'race_test.jpg',
+            List.generate(1000, (final i) => i % 256),
+          );
+          final media = Media({null: file});
+
+          // Start multiple concurrent operations for size
+          final sizeFutures = List.generate(10, (_) => media.getSize());
+          final sizes = await Future.wait(sizeFutures);
+
+          // All size results should be identical
+          expect(sizes.every((final size) => size == sizes.first), isTrue);
+          expect(sizes.first, 1000); // Should match the file size
+
+          // Start multiple concurrent operations for hash
+          final hashFutures = List.generate(10, (_) => media.getHash());
+          final hashes = await Future.wait(hashFutures);
+
+          // All hash results should be identical
+          expect(
+            hashes.every(
+              (final hash) => hash.toString() == hashes.first.toString(),
+            ),
+            isTrue,
+          );
+
+          // Verify caching works - should get same values on subsequent calls
+          expect(await media.getSize(), sizes.first);
+          expect((await media.getHash()).toString(), hashes.first.toString());
+        },
+      );
+
+      /// Tests that mixed concurrent operations (size and hash) don't interfere
+      test('handles mixed concurrent size and hash operations', () async {
+        final file = fixture.createFile(
+          'mixed_race_test.jpg',
+          List.generate(500, (final i) => i % 256),
+        );
+        final media = Media({null: file});
+
+        // Mix size and hash operations
+        final futures = <Future>[];
+        for (int i = 0; i < 20; i++) {
+          if (i % 2 == 0) {
+            futures.add(media.getSize());
+          } else {
+            futures.add(media.getHash());
+          }
+        }
+
+        final results = await Future.wait(futures);
+
+        // Extract sizes and hashes
+        final sizes = <int>[];
+        final hashes = <String>[];
+
+        for (int i = 0; i < results.length; i++) {
+          if (i % 2 == 0) {
+            sizes.add(results[i] as int);
+          } else {
+            hashes.add((results[i] as Digest).toString());
+          }
+        }
+
+        // All sizes should be identical
+        expect(sizes.every((final size) => size == sizes.first), isTrue);
+        expect(sizes.first, 500);
+
+        // All hashes should be identical
+        expect(hashes.every((final hash) => hash == hashes.first), isTrue);
+      });
+
+      /// Tests race condition safety in grouping operations
+      test('handles concurrent grouping operations safely', () async {
+        final files = List.generate(
+          5,
+          (final i) =>
+              fixture.createFile('concurrent_$i.jpg', [i, i + 1, i + 2]),
+        );
+        final mediaList = files.map((final f) => Media({null: f})).toList();
+
+        // Start multiple concurrent grouping operations
+        final groupingFutures = List.generate(
+          5,
+          (_) => mediaList.groupIdenticalAsync(),
+        );
+        final results = await Future.wait(groupingFutures);
+
+        // All results should be equivalent
+        expect(
+          results.every(
+            (final result) => result.length == results.first.length,
+          ),
+          isTrue,
+        );
+
+        // Verify the grouping is consistent
+        for (int i = 1; i < results.length; i++) {
+          expect(results[i].keys.toSet(), results.first.keys.toSet());
+        }
+      });
+
+      /// Tests that synchronous and asynchronous hash methods produce identical results
+      test('sync and async hash methods produce identical results', () async {
+        final file1 = fixture.createFile(
+          'hash_comparison1.jpg',
+          List.generate(2048, (final i) => i % 256),
+        );
+        final file2 = fixture.createFile(
+          'hash_comparison2.jpg',
+          List.generate(2048, (final i) => i % 256),
+        );
+
+        final media1 = Media({null: file1});
+        final media2 = Media({null: file2});
+
+        // Get hash using synchronous method on first media
+        final syncHash = media1.hash;
+
+        // Get hash using asynchronous method on second media (same content)
+        final asyncHash = await media2.getHash();
+
+        // Both methods should produce identical results for identical content
+        expect(syncHash.toString(), asyncHash.toString());
+
+        // Verify both are properly cached
+        expect(media1.hash.toString(), syncHash.toString());
+        expect((await media2.getHash()).toString(), asyncHash.toString());
+
+        // Cross-verify: async method on first media should match
+        expect((await media1.getHash()).toString(), syncHash.toString());
+        // And sync method on second media should match
+        expect(media2.hash.toString(), asyncHash.toString());
       });
     });
   });

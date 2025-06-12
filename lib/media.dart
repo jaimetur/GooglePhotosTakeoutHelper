@@ -1,7 +1,22 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
+
 import 'utils.dart';
+
+/// Simple digest collector for streaming hash calculation
+class _DigestSink implements Sink<Digest> {
+  late Digest value;
+
+  @override
+  void add(final Digest data) {
+    value = data;
+  }
+
+  @override
+  void close() {}
+}
 
 //Order is important!
 ///This is the extraction method through which a Media got its dateTime.
@@ -43,11 +58,44 @@ class Media {
   /// ```
   Map<String?, File> files;
 
-  // cache
+  // Cache fields
   int? _size;
+  Digest? _hash;
+
+  // Futures for race condition protection
+  Future<int>? _sizeOperation;
+  Future<Digest>? _hashOperation;
 
   /// will be used for finding duplicates/albums
-  int get size => _size ??= firstFile.lengthSync();
+  Future<int> getSize() async {
+    // Return cached value if available
+    if (_size != null) return _size!;
+
+    // If operation is in progress, wait for it
+    if (_sizeOperation != null) return _sizeOperation!;
+
+    // Start new operation
+    return _sizeOperation = _doGetSize();
+  }
+
+  /// Internal method to perform the actual size calculation
+  Future<int> _doGetSize() async {
+    try {
+      final size = await firstFile.length();
+      _size = size;
+      return size;
+    } finally {
+      _sizeOperation = null; // Clear the operation when done
+    }
+  }
+
+  /// Synchronous size getter for backwards compatibility
+  /// WARNING: Use getSize() for new code to avoid blocking
+  int get size {
+    if (_size != null) return _size!;
+    // For backwards compatibility, fall back to sync operation
+    return _size ??= firstFile.lengthSync();
+  }
 
   /// DateTaken from any source
   DateTime? dateTaken;
@@ -58,15 +106,88 @@ class Media {
   /// The method/extractor that produced the DateTime ('json', 'exif', 'guess', 'jsonTryHard', 'none')
   DateTimeExtractionMethod? dateTimeExtractionMethod;
 
-  //cache
-  Digest? _hash;
+  /// Async hash calculation using streaming to avoid loading entire file into memory
+  /// Returns same value for files > [defaultMaxFileSize] to avoid memory issues
+  Future<Digest> getHash() async {
+    // Return cached value if available
+    if (_hash != null) return _hash!;
 
-  /// will be used for finding duplicates/albums
-  /// WARNING: Returns same value for files > [defaultMaxFileSize]
-  Digest get hash => _hash ??=
-      ((firstFile.lengthSync() > defaultMaxFileSize) && enforceMaxFileSize)
-      ? Digest(<int>[0])
-      : sha256.convert(firstFile.readAsBytesSync());
+    // If operation is in progress, wait for it
+    if (_hashOperation != null) return _hashOperation!;
+
+    // Start new operation
+    return _hashOperation = _doGetHash();
+  }
+
+  /// Internal method to perform the actual hash calculation
+  Future<Digest> _doGetHash() async {
+    try {
+      final fileSize = await getSize();
+      if (fileSize > defaultMaxFileSize && enforceMaxFileSize) {
+        _hash = Digest(<int>[0]);
+        return _hash!;
+      }
+
+      final hash = await _calculateHashStreaming();
+      _hash = hash;
+      return hash;
+    } finally {
+      _hashOperation = null; // Clear the operation when done
+    }
+  }
+
+  /// Synchronous hash getter for backwards compatibility
+  /// WARNING: Use getHash() for new code to avoid blocking
+  /// Uses streaming calculation to avoid loading entire file into memory
+  Digest get hash {
+    if (_hash != null) return _hash!;
+    // For backwards compatibility, fall back to sync operation
+    final fileSize = firstFile.lengthSync();
+    if (fileSize > defaultMaxFileSize && enforceMaxFileSize) {
+      return _hash = Digest(<int>[0]);
+    }
+    return _hash = _calculateHashStreamingSync();
+  }
+
+  /// Synchronous streaming hash calculation to avoid loading entire file into memory
+  Digest _calculateHashStreamingSync() {
+    final output = _DigestSink();
+    final input = sha256.startChunkedConversion(output);
+
+    try {
+      // Read file in chunks to avoid loading everything into memory
+      const chunkSize = 64 * 1024; // 64KB chunks
+      final file = firstFile.openSync();
+
+      try {
+        while (true) {
+          final chunk = file.readSync(chunkSize);
+          if (chunk.isEmpty) break;
+          input.add(chunk);
+        }
+      } finally {
+        file.closeSync();
+      }
+
+      input.close();
+      return output.value;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Calculate hash using streaming to avoid loading entire file into memory
+  Future<Digest> _calculateHashStreaming() async {
+    final output = _DigestSink();
+    final input = sha256.startChunkedConversion(output);
+    try {
+      await firstFile.openRead().forEach(input.add);
+      input.close();
+      return output.value;
+    } catch (e) {
+      rethrow;
+    }
+  }
 
   @override
   String toString() =>
