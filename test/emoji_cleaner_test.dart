@@ -165,6 +165,10 @@ void main() {
       await initExiftool();
     });
 
+    tearDownAll(() async {
+      await cleanupExiftool();
+    });
+
     setUp(() async {
       // Create a fresh test fixture for each test to ensure isolation
       fixture = TestFixture();

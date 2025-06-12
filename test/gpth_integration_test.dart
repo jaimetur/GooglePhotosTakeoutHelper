@@ -108,6 +108,10 @@ void main() {
       await initExiftool();
     });
 
+    tearDownAll(() async {
+      await cleanupExiftool();
+    });
+
     setUp(() async {
       fixture = TestFixture();
       await fixture.setUp();

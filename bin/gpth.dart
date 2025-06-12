@@ -75,12 +75,17 @@ Future<void> main(final List<String> arguments) async {
     await _initializeDependencies(config);
 
     // Execute the processing pipeline
-    final result = await _executeProcessing(config);
-
-    // Show final results
+    final result = await _executeProcessing(config); // Show final results
     _showResults(config, result);
+
+    // Cleanup ExifTool resources
+    await cleanupExiftool();
   } catch (e) {
     error('Fatal error: $e');
+
+    // Cleanup ExifTool resources even on error
+    await cleanupExiftool();
+
     exit(1);
   }
 }

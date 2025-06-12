@@ -39,6 +39,13 @@
   - Concurrent processing support with proper synchronization
   - Improved scalability for collections with thousands of files
 
+### Made the Exif tool process persistent
+- Exif read and writes are 10-50x faster
+
+#### Bug fixes
+
+- Fixed the json finder from image name. Completely rewrote it.
+
 ## 4.0.8-Xentraxx
 
 ### Interactive ZIP File Extraction Restored

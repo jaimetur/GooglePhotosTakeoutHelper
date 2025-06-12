@@ -104,9 +104,9 @@ void main() {
       testImageWithExif = fixture.createImageWithExif('test_with_exif.jpg');
       testImageNoExif = fixture.createImageWithoutExif('test_no_exif.jpg');
     });
-
     tearDown(() async {
       await fixture.tearDown();
+      await cleanupExiftool();
     });
 
     group('EXIF Reading Operations', () {
