@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import '../media.dart';
+import '../utils.dart';
 import 'models/media_collection_model.dart';
 import 'models/pipeline_step_model.dart';
 import 'models/processing_config_model.dart';
@@ -137,7 +138,9 @@ class ProcessingPipeline {
 
         if (config.verbose) {
           if (result.isSuccess) {
-            print('✅ ${step.name} completed in ${result.duration.inSeconds}s');
+            print(
+              '✅ ${step.name} completed in ${formatDuration(result.duration)}',
+            );
             if (result.message != null) {
               print('   ${result.message}');
             }
