@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:emoji_regex/emoji_regex.dart' as r;
 import 'package:path/path.dart' as p;
-import 'utils.dart';
+import '../../utils.dart';
 
 /// Encodes emoji characters in the album directory name to hex representation and renames the folder on disk if needed.
 ///
@@ -77,6 +77,17 @@ String decodeAndRestoreAlbumEmoji(final String encodedPath) {
     return parts.join(p.separator);
   }
   return encodedPath;
+}
+
+/// Decodes hex-encoded emoji characters in a string back to original emoji
+///
+/// This is useful for decoding album names that contain hex-encoded emoji
+/// instead of full paths. Used for album-info.json generation.
+///
+/// [text] String that may contain hex-encoded emoji sequences
+/// Returns the string with emoji restored
+String decodeEmojiInText(final String text) {
+  return _decodeEmojiComponent(text);
 }
 
 /// Internal helper function to decode hex-encoded emoji characters back to UTF-8.

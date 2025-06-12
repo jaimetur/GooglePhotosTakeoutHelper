@@ -1,3 +1,18 @@
+## 4.0.9-Xentraxx
+
+### Extension Fixing Flag Consolidation
+
+#### Breaking Changes
+- **Consolidated three separate extension fixing flags into a single unified option**
+  - **Before**: `--fix-extensions`, `--fix-extensions-non-jpeg`, `--fix-extensions-solo-mode` (separate boolean flags)
+  - **After**: `--fix-extensions=<mode>` with options: `none`, `standard`, `conservative`, `solo`
+
+#### New Extension Fixing Modes
+- **`--fix-extensions=none`**: Disable extension fixing entirely
+- **`--fix-extensions=standard`**: **Default** - Fix extensions but skip TIFF-based files (like RAW formats)
+- **`--fix-extensions=conservative`**: Fix extensions but skip both TIFF and JPEG files for maximum safety
+- **`--fix-extensions=solo`**: Fix extensions then exit immediately (standalone preprocessing mode)
+
 ## 4.0.8-Xentraxx
 
 ### Interactive ZIP File Extraction Restored

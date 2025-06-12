@@ -1,6 +1,31 @@
 import 'dart:io';
 
-import '../../date_extractors/date_extractor.dart';
+import '../services/date_extraction/date_extractor_service.dart';
+
+/// Enum representing different extension fixing modes
+enum ExtensionFixingMode {
+  /// No extension fixing
+  none('none'),
+
+  /// Fix extensions but skip TIFF-based files (default)
+  standard('standard'),
+
+  /// Fix extensions but skip both TIFF and JPEG files (conservative)
+  conservative('conservative'),
+
+  /// Fix extensions then exit immediately (solo mode)
+  solo('solo');
+
+  const ExtensionFixingMode(this.value);
+  final String value;
+
+  static ExtensionFixingMode fromString(final String value) =>
+      ExtensionFixingMode.values.firstWhere(
+        (final mode) => mode.value == value,
+        orElse: () =>
+            throw ArgumentError('Invalid extension fixing mode: $value'),
+      );
+}
 
 /// Domain model representing all configuration options for GPTH processing
 ///
@@ -16,9 +41,7 @@ class ProcessingConfig {
     this.writeExif = true,
     this.skipExtras = false,
     this.guessFromName = true,
-    this.fixExtensions = false,
-    this.fixExtensionsNonJpeg = false,
-    this.fixExtensionsSoloMode = false,
+    this.extensionFixing = ExtensionFixingMode.standard,
     this.transformPixelMp = false,
     this.updateCreationTime = false,
     this.limitFileSize = false,
@@ -31,7 +54,6 @@ class ProcessingConfig {
     required final String inputPath,
     required final String outputPath,
   }) => ProcessingConfigBuilder._(inputPath, outputPath);
-
   final String inputPath;
   final String outputPath;
   final AlbumBehavior albumBehavior;
@@ -40,9 +62,7 @@ class ProcessingConfig {
   final bool writeExif;
   final bool skipExtras;
   final bool guessFromName;
-  final bool fixExtensions;
-  final bool fixExtensionsNonJpeg;
-  final bool fixExtensionsSoloMode;
+  final ExtensionFixingMode extensionFixing;
   final bool transformPixelMp;
   final bool updateCreationTime;
   final bool limitFileSize;
@@ -56,16 +76,15 @@ class ProcessingConfig {
     }
     if (outputPath.isEmpty) {
       throw const ConfigurationException('Output path cannot be empty');
-    }
-    if (fixExtensionsSoloMode && !fixExtensions && !fixExtensionsNonJpeg) {
-      throw const ConfigurationException(
-        'Solo mode requires either fix-extensions or fix-extensions-non-jpeg to be enabled',
-      );
+    } // Solo mode validation - solo mode implies extension fixing is enabled
+    if (extensionFixing == ExtensionFixingMode.solo) {
+      // Solo mode is valid - it's a mode of extension fixing
     }
   }
 
   /// Returns whether the processing should continue after extension fixing
-  bool get shouldContinueAfterExtensionFix => !fixExtensionsSoloMode;
+  bool get shouldContinueAfterExtensionFix =>
+      extensionFixing != ExtensionFixingMode.solo;
 
   /// Returns the list of date extractors based on configuration
   List<DateTimeExtractor> get dateExtractors => [
@@ -74,7 +93,6 @@ class ProcessingConfig {
     if (guessFromName) guessExtractor,
     (final File f) => jsonDateTimeExtractor(f, tryhard: true),
   ];
-
   ProcessingConfig copyWith({
     final String? inputPath,
     final String? outputPath,
@@ -84,9 +102,7 @@ class ProcessingConfig {
     final bool? writeExif,
     final bool? skipExtras,
     final bool? guessFromName,
-    final bool? fixExtensions,
-    final bool? fixExtensionsNonJpeg,
-    final bool? fixExtensionsSoloMode,
+    final ExtensionFixingMode? extensionFixing,
     final bool? transformPixelMp,
     final bool? updateCreationTime,
     final bool? limitFileSize,
@@ -101,9 +117,7 @@ class ProcessingConfig {
     writeExif: writeExif ?? this.writeExif,
     skipExtras: skipExtras ?? this.skipExtras,
     guessFromName: guessFromName ?? this.guessFromName,
-    fixExtensions: fixExtensions ?? this.fixExtensions,
-    fixExtensionsNonJpeg: fixExtensionsNonJpeg ?? this.fixExtensionsNonJpeg,
-    fixExtensionsSoloMode: fixExtensionsSoloMode ?? this.fixExtensionsSoloMode,
+    extensionFixing: extensionFixing ?? this.extensionFixing,
     transformPixelMp: transformPixelMp ?? this.transformPixelMp,
     updateCreationTime: updateCreationTime ?? this.updateCreationTime,
     limitFileSize: limitFileSize ?? this.limitFileSize,
@@ -131,16 +145,13 @@ class ProcessingConfigBuilder {
 
   final String _inputPath;
   final String _outputPath;
-
   AlbumBehavior _albumBehavior = AlbumBehavior.shortcut;
   DateDivisionLevel _dateDivision = DateDivisionLevel.none;
   bool _copyMode = false;
   bool _writeExif = true;
   bool _skipExtras = false;
   bool _guessFromName = true;
-  bool _fixExtensions = false;
-  bool _fixExtensionsNonJpeg = false;
-  bool _fixExtensionsSoloMode = false;
+  ExtensionFixingMode _extensionFixing = ExtensionFixingMode.standard;
   bool _transformPixelMp = false;
   bool _updateCreationTime = false;
   bool _limitFileSize = false;
@@ -183,9 +194,20 @@ class ProcessingConfigBuilder {
     final bool nonJpeg = false,
     final bool soloMode = false,
   }) {
-    _fixExtensions = jpeg;
-    _fixExtensionsNonJpeg = nonJpeg;
-    _fixExtensionsSoloMode = soloMode;
+    if (soloMode) {
+      _extensionFixing = ExtensionFixingMode.solo;
+    } else if (nonJpeg) {
+      _extensionFixing = ExtensionFixingMode.conservative;
+    } else if (jpeg) {
+      _extensionFixing = ExtensionFixingMode.standard;
+    } else {
+      _extensionFixing = ExtensionFixingMode.none;
+    }
+  }
+
+  /// Set extension fixing mode directly
+  set extensionFixing(final ExtensionFixingMode mode) {
+    _extensionFixing = mode;
   }
 
   /// Enable Google Pixel motion photo transformation
@@ -224,9 +246,7 @@ class ProcessingConfigBuilder {
       writeExif: _writeExif,
       skipExtras: _skipExtras,
       guessFromName: _guessFromName,
-      fixExtensions: _fixExtensions,
-      fixExtensionsNonJpeg: _fixExtensionsNonJpeg,
-      fixExtensionsSoloMode: _fixExtensionsSoloMode,
+      extensionFixing: _extensionFixing,
       transformPixelMp: _transformPixelMp,
       updateCreationTime: _updateCreationTime,
       limitFileSize: _limitFileSize,

@@ -744,11 +744,8 @@ Future<bool> askIfLimitFileSize() async {
 
 /// Asks user whether to fix incorrect file extensions
 ///
-/// Returns a map with keys:
-/// - 'fix-extensions': boolean
-/// - 'fix-extensions-non-jpeg': boolean
-/// - 'fix-extensions-solo-mode': boolean
-Future<Map<String, bool>> askFixExtensions() async {
+/// Returns the selected ExtensionFixingMode
+Future<String> askFixExtensions() async {
   print(
     'Some files from Google Photos may have incorrect extensions due to '
     'compression or web downloads. For example, a file named "photo.jpeg" '
@@ -757,35 +754,27 @@ Future<Map<String, bool>> askFixExtensions() async {
   );
   print('');
   print('Do you want to fix incorrect file extensions?');
-  print('[1] (Default) - No, keep original extensions');
-  print('[2] - Yes, fix extensions (skip TIFF-based files like RAW)');
+  print('[1] - No, keep original extensions');
+  print('[2] (Default) - Yes, fix extensions (skip TIFF-based files like RAW)');
   print('[3] - Yes, fix extensions (skip TIFF and JPEG files)');
-  print('(Type 1-3 or press enter for default):');
+  print('[4] - Fix extensions then exit immediately (solo mode)');
+  print('(Type 1-4 or press enter for default):');
 
   final String answer = await askForInt();
   switch (answer) {
     case '1':
-    case '':
       print('Okay, will keep original extensions');
-      return {
-        'fix-extensions': false,
-        'fix-extensions-non-jpeg': false,
-        'fix-extensions-solo-mode': false,
-      };
+      return 'none';
     case '2':
+    case '':
       print('Okay, will fix incorrect extensions (except TIFF-based files)');
-      return {
-        'fix-extensions': true,
-        'fix-extensions-non-jpeg': false,
-        'fix-extensions-solo-mode': false,
-      };
+      return 'standard';
     case '3':
       print('Okay, will fix incorrect extensions (except TIFF and JPEG files)');
-      return {
-        'fix-extensions': false,
-        'fix-extensions-non-jpeg': true,
-        'fix-extensions-solo-mode': false,
-      };
+      return 'conservative';
+    case '4':
+      print('Okay, will fix extensions then exit immediately');
+      return 'solo';
     default:
       error('Invalid answer - try again');
       return askFixExtensions();

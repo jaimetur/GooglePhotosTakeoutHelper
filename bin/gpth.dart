@@ -169,14 +169,17 @@ ArgParser _createArgumentParser() => ArgParser()
     defaultsTo: true,
   )
   ..addFlag('copy', help: 'Copy files instead of moving them')
-  ..addFlag('fix-extensions', help: 'Fix incorrect file extensions')
-  ..addFlag(
-    'fix-extensions-non-jpeg',
-    help: 'Fix incorrect non-JPEG file extensions',
-  )
-  ..addFlag(
-    'fix-extensions-solo-mode',
-    help: 'Fix extensions then exit immediately',
+  ..addOption(
+    'fix-extensions',
+    help: 'Fix incorrect file extensions',
+    allowed: ['none', 'standard', 'conservative', 'solo'],
+    allowedHelp: {
+      'none': 'No extension fixing',
+      'standard': 'Fix extensions (skip TIFF-based files like RAW) - Default',
+      'conservative': 'Fix extensions (skip TIFF and JPEG files)',
+      'solo': 'Fix extensions then exit immediately',
+    },
+    defaultsTo: 'standard',
   )
   ..addFlag('transform-pixel-mp', help: 'Transform Pixel .MP/.MV to .mp4')
   ..addFlag(
@@ -272,22 +275,24 @@ Future<ProcessingConfig> _buildConfigFromArgs(final ArgResults res) async {
   // Set album behavior
   final albumBehavior = AlbumBehavior.fromString(res['albums']);
   configBuilder.albumBehavior = albumBehavior;
-
   // Set date division
   final divisionLevel = DateDivisionLevel.fromInt(
     int.parse(res['divide-to-dates']),
   );
   configBuilder.dateDivision = divisionLevel;
-
-  // Set extension fixing options
-  configBuilder.setExtensionFixing(
-    jpeg: res['fix-extensions'],
-    nonJpeg: res['fix-extensions-non-jpeg'],
-    soloMode: res['fix-extensions-solo-mode'],
-  );
+  // Set extension fixing mode
+  ExtensionFixingMode extensionFixingMode;
   if (interactive.indeed) {
+    // Ask user for extension fixing preference in interactive mode
+    final extensionFixingChoice = await interactive.askFixExtensions();
+    extensionFixingMode = ExtensionFixingMode.fromString(extensionFixingChoice);
     configBuilder.interactiveMode = true;
+  } else {
+    // Use command line argument or default
+    final fixExtensionsArg = res['fix-extensions'] ?? 'standard';
+    extensionFixingMode = ExtensionFixingMode.fromString(fixExtensionsArg);
   }
+  configBuilder.extensionFixing = extensionFixingMode;
 
   return configBuilder.build();
 }

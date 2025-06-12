@@ -43,6 +43,7 @@ import 'dart:io';
 import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
 
+import 'domain/services/emoji_cleaner_service.dart';
 import 'interactive.dart' as interactive;
 import 'media.dart';
 import 'utils.dart';
@@ -61,21 +62,6 @@ File findNotExistingName(final File initialFile) {
     counter++;
   }
   return file;
-}
-
-/// Decodes hex-encoded emoji characters in album names back to original emoji
-///
-/// This ensures that album names in albums-info.json contain readable emoji
-/// instead of hex-encoded representations like "_0x1f600_"
-///
-/// [albumName] Album name that may contain hex-encoded emoji
-/// Returns the album name with emoji restored
-String _decodeAlbumNameEmoji(final String albumName) {
-  final RegExp emojiPattern = RegExp(r'_0x([0-9a-fA-F]+)_');
-  return albumName.replaceAllMapped(emojiPattern, (final Match match) {
-    final int codePoint = int.parse(match.group(1)!, radix: 16);
-    return String.fromCharCode(codePoint);
-  });
 }
 
 /// Creates a symbolic link (Unix) or shortcut (Windows) to target file
@@ -386,9 +372,7 @@ Stream<int> moveFiles(
           "[Step 7/8]: Can't set modification time on $result: $e. This happens on Windows sometimes. Can be ignored.",
           level: 'warning',
         ); //If error code 0, no need to notify user. Only log.
-      }
-
-      // Yield progress for each file processed.
+      } // Yield progress for each file processed.
       yield ++i;
 
       // In 'json' mode, record album membership for this file.
@@ -396,7 +380,7 @@ Stream<int> moveFiles(
         infoJson[p.basename(result.path)] = m.files.keys.nonNulls.toList();
         // Decode hex-encoded emoji album names back to original emoji for JSON
         final decodedAlbumNames = m.files.keys.nonNulls
-            .map(_decodeAlbumNameEmoji)
+            .map(decodeEmojiInText)
             .toList();
         infoJson[p.basename(result.path)] = decodedAlbumNames;
         // done with this media - next!

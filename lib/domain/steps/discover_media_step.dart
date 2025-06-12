@@ -151,13 +151,6 @@ class DiscoverMediaStep extends ProcessingStep {
 
       final totalFiles = yearFolderFiles + albumFolderFiles;
 
-      if (context.config.verbose) {
-        print('Media discovery completed');
-        print('Year folder files: $yearFolderFiles');
-        print('Album folder files: $albumFolderFiles');
-        print('Total files discovered: $totalFiles');
-      }
-
       stopwatch.stop();
       return StepResult.success(
         stepName: name,

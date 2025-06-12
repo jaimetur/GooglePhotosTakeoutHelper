@@ -60,7 +60,7 @@
 library;
 
 import 'dart:io';
-import 'package:gpth/date_extractors/date_extractor.dart';
+import 'package:gpth/domain/services/date_extraction/date_extractor_service.dart';
 import 'package:test/test.dart';
 import './test_setup.dart';
 

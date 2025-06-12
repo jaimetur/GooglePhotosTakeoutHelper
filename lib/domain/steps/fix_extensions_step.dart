@@ -1,4 +1,5 @@
 import '../../utils.dart';
+import '../models/processing_config.dart';
 import '../models/processing_step.dart';
 
 /// Step 1: Fix incorrect file extensions
@@ -31,9 +32,10 @@ import '../models/processing_step.dart';
 /// - Maintains metadata file associations automatically
 ///
 /// ## Configuration Options
-/// - `fixExtensions`: Standard mode, skips TIFF-based files only
-/// - `fixExtensionsNonJpeg`: Conservative mode, also skips actual JPEG files
-/// - `fixExtensionsSoloMode`: Runs extension fixing only, then exits
+/// - `ExtensionFixingMode.none`: No extension fixing
+/// - `ExtensionFixingMode.standard`: Standard mode, skips TIFF-based files only
+/// - `ExtensionFixingMode.conservative`: Conservative mode, also skips actual JPEG files
+/// - `ExtensionFixingMode.solo`: Runs extension fixing only, then exits
 ///
 /// ## Error Handling
 /// - Gracefully handles filesystem permission errors
@@ -48,8 +50,7 @@ class FixExtensionsStep extends ProcessingStep {
     final stopwatch = Stopwatch()..start();
 
     try {
-      if (!context.config.fixExtensions &&
-          !context.config.fixExtensionsNonJpeg) {
+      if (context.config.extensionFixing == ExtensionFixingMode.none) {
         if (context.config.verbose) {
           print('\n[Step 1/8] Skipping extension fixing.');
         }
@@ -65,10 +66,9 @@ class FixExtensionsStep extends ProcessingStep {
       if (context.config.verbose) {
         print('\n[Step 1/8] Fixing file extensions...');
       }
-
       final fixedCount = await fixIncorrectExtensions(
         context.inputDirectory,
-        context.config.fixExtensionsNonJpeg,
+        context.config.extensionFixing == ExtensionFixingMode.conservative,
       );
 
       if (context.config.verbose) {
@@ -102,5 +102,5 @@ class FixExtensionsStep extends ProcessingStep {
 
   @override
   bool shouldSkip(final ProcessingContext context) =>
-      !context.config.fixExtensions && !context.config.fixExtensionsNonJpeg;
+      context.config.extensionFixing == ExtensionFixingMode.none;
 }

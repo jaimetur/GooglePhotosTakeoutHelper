@@ -4,7 +4,7 @@ import 'package:coordinate_converter/coordinate_converter.dart';
 import 'package:image/image.dart';
 import 'package:intl/intl.dart';
 import 'package:mime/mime.dart';
-import 'date_extractors/exif_extractor.dart';
+import 'domain/services/date_extraction/exif_date_extractor.dart';
 import 'exiftoolInterface.dart';
 import 'utils.dart';
 

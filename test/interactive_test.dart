@@ -418,59 +418,30 @@ void main() {
         expect(files.length, 4);
       });
     });
-
     group('Extension Fixing Options', () {
       /// Should handle extension fixing configuration.
       test('handles extension fixing configuration', () async {
         // Test that the askFixExtensions function would return proper configuration
         // In a real scenario, this would test user input validation
 
-        // Valid extension fixing options
-        final validConfigs = [
-          {
-            'fix-extensions': false,
-            'fix-extensions-non-jpeg': false,
-            'fix-extensions-solo-mode': false,
-          },
-          {
-            'fix-extensions': true,
-            'fix-extensions-non-jpeg': false,
-            'fix-extensions-solo-mode': false,
-          },
-          {
-            'fix-extensions': false,
-            'fix-extensions-non-jpeg': true,
-            'fix-extensions-solo-mode': false,
-          },
-          {
-            'fix-extensions': true,
-            'fix-extensions-non-jpeg': false,
-            'fix-extensions-solo-mode': true,
-          },
-        ];
+        // Valid extension fixing mode strings
+        final validModes = ['none', 'standard', 'conservative', 'solo'];
 
-        for (final config in validConfigs) {
-          // Validate that each configuration has the expected keys
-          expect(config.containsKey('fix-extensions'), isTrue);
-          expect(config.containsKey('fix-extensions-non-jpeg'), isTrue);
-          expect(config.containsKey('fix-extensions-solo-mode'), isTrue);
-
-          // Validate that values are booleans
-          for (final value in config.values) {
-            expect(value, isA<bool>());
-          }
+        for (final mode in validModes) {
+          // Validate that each mode is a valid string
+          expect(mode, isA<String>());
+          expect(validModes.contains(mode), isTrue);
         }
       });
 
       /// Should handle solo mode configuration.
       test('handles solo mode configuration', () {
-        const Map<String, bool> soloConfig = {
-          'fix-extensions': true,
-          'fix-extensions-non-jpeg': false,
-          'fix-extensions-solo-mode': true,
-        }; // Solo mode should work with fix-extensions
-        expect(soloConfig['fix-extensions-solo-mode'], isTrue);
-        expect(soloConfig['fix-extensions'], isTrue);
+        const String soloMode = 'solo';
+        expect(soloMode, equals('solo'));
+
+        // Test that solo mode is a valid extension fixing mode
+        const validModes = ['none', 'standard', 'conservative', 'solo'];
+        expect(validModes.contains(soloMode), isTrue);
       });
     });
 

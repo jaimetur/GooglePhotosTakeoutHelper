@@ -86,8 +86,8 @@ library;
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:gpth/date_extractors/date_extractor.dart';
-import 'package:gpth/emojicleaner.dart';
+import 'package:gpth/domain/services/date_extraction/date_extractor_service.dart';
+import 'package:gpth/domain/services/emoji_cleaner_service.dart';
 import 'package:gpth/exiftoolInterface.dart';
 import 'package:gpth/extras.dart';
 import 'package:gpth/grouping.dart';

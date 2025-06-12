@@ -33,7 +33,7 @@ library;
 import 'dart:io';
 import 'package:emoji_regex/emoji_regex.dart' as r;
 import 'package:exif_reader/exif_reader.dart';
-import 'package:gpth/emojicleaner.dart';
+import 'package:gpth/domain/services/emoji_cleaner_service.dart';
 import 'package:gpth/exiftoolInterface.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';

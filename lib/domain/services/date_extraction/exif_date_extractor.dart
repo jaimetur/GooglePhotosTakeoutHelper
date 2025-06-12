@@ -4,8 +4,8 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'package:exif_reader/exif_reader.dart';
 import 'package:mime/mime.dart';
-import '../exiftoolInterface.dart';
-import '../utils.dart';
+import '../../../exiftoolInterface.dart';
+import '../../../utils.dart';
 
 /// DateTime from exif data *potentially* hidden within a [file]
 ///

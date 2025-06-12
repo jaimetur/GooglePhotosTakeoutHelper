@@ -9,7 +9,7 @@ import 'package:path/path.dart' as p;
 import 'package:proper_filesize/proper_filesize.dart';
 import 'package:unorm_dart/unorm_dart.dart' as unorm;
 import 'package:win32/win32.dart';
-import 'date_extractors/date_extractor.dart';
+import 'domain/services/date_extraction/date_extractor_service.dart';
 import 'extras.dart';
 import 'interactive.dart' as interactive;
 import 'media.dart';

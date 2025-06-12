@@ -219,25 +219,58 @@ gpth --input "/path/to/takeout" --output "/path/to/organized" --albums "shortcut
 | `--update-creation-time` | Sync creation time with modified time (Windows only) |
 | `--limit-filesize` | Skip files larger than 64MB (for low-RAM systems) |
 
-### Invalid extensions
+### Extension Fixing Modes
 
-Google Photos has an option of 'data saving' which will most likely compress images into JPEGs, but will leave the
-filename as it was in the original upload.
-Some web-downloaded images also may have an incorrect extension (ex. a file with the filename extension `.jpeg` may actually be a `.heif` when looking at the mime type).
+Google Photos has an option of 'data saving' which will compress images to JPEG format but retain the original filename extension. Additionally, some web-downloaded images may have incorrect extensions (e.g., a file named `.jpeg` may actually be `.heif` internally).
 
-GPTH natively writes EXIF into anything that has a `.jpeg` file signature (header), other file types are processed by
-exiftool, and it will most likely fail on files with invalid file type extension.
+GPTH natively writes EXIF data to files with JPEG signatures, while other formats require ExifTool. Files with mismatched extensions can cause ExifTool to fail, so GPTH provides several extension fixing strategies:
 
-NOTE: Some RAW formats are actually TIFF file format (and they contain TIFF header) such cases are not deemed invalid.
+| Mode | Description | Technical Details | When to Use |
+|------|-------------|-------------------|-------------|
+| `--fix-extensions=none` | **Disable extension fixing entirely** | Files keep their original extensions regardless of content type. EXIF writing may fail for mismatched files. | When you're certain all extensions are correct, or when you want to preserve original filenames at all costs. |
+| `--fix-extensions=standard` | **Default: Fix extensions but skip TIFF-based files** | Renames files where extension doesn't match MIME type, but avoids TIFF-based formats (like RAW files from cameras) which are often misidentified by MIME detection. | **Recommended for most users**. Balances safety with effectiveness. Good for typical Google Photos exports. |
+| `--fix-extensions=conservative` | **Skip both TIFF-based and JPEG files** | Most cautious approach - only fixes clearly incorrect extensions while avoiding both TIFF formats AND actual JPEG files to prevent any potential issues. | When you have valuable photos and want maximum safety, or when you've had issues with previous modes. |
+| `--fix-extensions=solo` | **Fix extensions then exit immediately** | Performs extension fixing as a standalone operation without running the full GPTH processing pipeline. Useful for preprocessing files before the main operation. | When you want to fix extensions first, then run GPTH again, or when integrating with other tools. |
 
-Because of all that, GPTH by default will skip writing EXIF into any files that have a mismatch of the filename extension and the mime type (based on
-its header), except if that file has JPEG or TIFF signature. There are several options to fix extensions:
+#### Why These Modes Exist
+
+**The TIFF Problem**: Many RAW camera formats (CR2, NEF, ARW, etc.) are based on the TIFF specification internally. Standard MIME type detection often identifies these as `image/tiff`, which would cause the tool to rename `photo.CR2` to `photo.CR2.tiff`, potentially breaking camera software compatibility.
+
+**The JPEG Complexity**: While JPEG files are generally safe to rename, the `conservative` mode provides an extra safety net for users who prefer minimal changes to their photo collections.
+
+**ExifTool Dependencies**: When extensions don't match content, ExifTool operations fail. The extension fixing resolves this by ensuring filenames accurately reflect file content, enabling proper metadata writing.
+
+**NOTE**: Some RAW formats are actually TIFF-based internally and contain TIFF headers - these cases are intentionally not considered "invalid" by the tool.
+
+#### Practical Examples
+
+**Scenario 1: Google Photos Data Saver**
+- Original file: `vacation_sunset.heic` (HEIC format from iPhone)
+- Google Photos compresses it to JPEG but keeps name: `vacation_sunset.heic`
+- File header shows: JPEG, Extension suggests: HEIC
+- `standard` mode renames to: `vacation_sunset.heic.jpg`
+
+**Scenario 2: Camera RAW File**
+- Camera file: `DSC_0001.NEF` (Nikon RAW)
+- MIME detection might identify as: TIFF (since NEF is TIFF-based)
+- `standard` mode: **Skips** (protects RAW files)
+- `conservative` mode: **Skips** (protects RAW files)
+- `none` mode: **No change** (leaves as-is)
+
+**Scenario 3: Web Download**
+- Downloaded as: `image.png`
+- Actually contains: JPEG data
+- `standard` mode renames to: `image.png.jpg`
+- `conservative` mode: **Skips** (avoids touching JPEG content)
+
+You can configure extension fixing behavior with:
 
 | Argument                     | Description                                                   |
 |------------------------------|---------------------------------------------------------------|
-| `--fix-extensions`           | Renames files where the extension doesn't match the mime type, but skips TIFF-based files (like RAW formats)    |
-| `--fix-extensions-non-jpeg`  | Like above, but also skips actual JPEG files to be more conservative |
-| `--fix-extensions-solo-mode` | Performs extension fixing and then exits, useful for preprocessing files before running the main processing (standalone mode)|
+| `--fix-extensions=none`      | Disable extension fixing entirely |
+| `--fix-extensions=standard`  | **Default**: Fix extensions but skip TIFF-based files (like RAW formats) to avoid potential issues |
+| `--fix-extensions=conservative` | Fix extensions but skip both TIFF-based and JPEG files for maximum safety |
+| `--fix-extensions=solo`      | Fix extensions then exit immediately (standalone mode for preprocessing files) |
 
 ### Other Options
 
