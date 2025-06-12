@@ -146,7 +146,9 @@ class RemoveDuplicatesStep extends ProcessingStep {
 
     try {
       if (context.config.verbose) {
-        print('\n[Step 3/8] Finding and removing duplicates...');
+        print(
+          '\n[Step 3/8] Finding and removing duplicates... (This might take some time!)',
+        );
       }
 
       final int removedCount = context.mediaCollection.removeDuplicates();

@@ -1,3 +1,5 @@
+import 'package:console_bars/console_bars.dart';
+
 import '../models/processing_step.dart';
 
 /// Step 4: Extract dates from media files
@@ -104,7 +106,7 @@ import '../models/processing_step.dart';
 ///
 /// ### Outputs Used By Later Steps
 /// - **Chronological Organization**: Date information enables year/month folder creation
-/// - **EXIF Writing**: Extracted dates can be written back to EXIF data
+/// - **EXIF Data Source**: Extracted dates provide input for EXIF writing step
 /// - **Duplicate Resolution**: Date accuracy helps choose best duplicate to keep
 /// - **Album Processing**: Temporal information aids in album organization
 ///
@@ -124,14 +126,25 @@ class ExtractDatesStep extends ProcessingStep {
       if (context.config.verbose) {
         print('\n[Step 4/8] Extracting metadata (this may take a while)...');
       }
-
       final extractors = context.config.dateExtractors;
+
+      // Initialize progress bar if verbose mode is enabled
+      FillingBar? progressBar;
+      if (context.config.verbose) {
+        progressBar = FillingBar(
+          desc: 'Processing media files',
+          total: context.mediaCollection.length,
+          width: 50,
+        );
+      }
+
       final extractionStats = await context.mediaCollection.extractDates(
         extractors,
         onProgress: context.config.verbose
             ? (final int current, final int total) {
-                if (current % 100 == 0 || current == total) {
-                  print('Processed $current/$total media files');
+                progressBar?.update(current);
+                if (current == total) {
+                  print(''); // Add a newline after progress bar completion
                 }
               }
             : null,
