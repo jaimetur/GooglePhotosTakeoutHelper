@@ -1,12 +1,13 @@
 // ignore_for_file: unintended_html_in_doc_comment
 
 import 'dart:io';
+
 import 'package:args/args.dart';
-import 'package:gpth/domain/models/input_output_paths.dart';
-import 'package:gpth/domain/models/processing_config.dart';
-import 'package:gpth/domain/models/processing_result.dart';
-import 'package:gpth/domain/processing_pipeline.dart';
-import 'package:gpth/domain/services/takeout_path_resolver.dart';
+import 'package:gpth/domain/main_pipeline.dart';
+import 'package:gpth/domain/models/io_paths_model.dart';
+import 'package:gpth/domain/models/processing_config_model.dart';
+import 'package:gpth/domain/models/processing_result_model.dart';
+import 'package:gpth/domain/services/takeout_path_resolver_service.dart';
 import 'package:gpth/exiftoolInterface.dart';
 import 'package:gpth/interactive.dart' as interactive;
 import 'package:gpth/utils.dart';

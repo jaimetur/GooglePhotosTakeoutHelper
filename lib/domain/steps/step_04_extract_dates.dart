@@ -1,6 +1,6 @@
 import 'package:console_bars/console_bars.dart';
 
-import '../models/processing_step.dart';
+import '../models/pipeline_step_model.dart';
 
 /// Step 4: Extract dates from media files
 ///

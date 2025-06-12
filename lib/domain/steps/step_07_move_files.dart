@@ -1,5 +1,5 @@
 import '../../moving.dart';
-import '../models/processing_step.dart';
+import '../models/pipeline_step_model.dart';
 
 /// Step 7: Move files to output directory
 ///

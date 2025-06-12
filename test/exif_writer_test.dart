@@ -52,7 +52,7 @@ library;
 
 import 'package:coordinate_converter/coordinate_converter.dart';
 import 'package:exif_reader/exif_reader.dart';
-import 'package:gpth/exif_writer.dart';
+import 'package:gpth/domain/services/exif_writer_service.dart';
 import 'package:gpth/exiftoolInterface.dart';
 import 'package:intl/intl.dart';
 import 'package:test/test.dart';

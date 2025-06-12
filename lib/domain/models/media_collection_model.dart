@@ -1,9 +1,9 @@
-import '../../exif_writer.dart';
 import '../../extras.dart' as extras;
 import '../../grouping.dart' as grouping;
 import '../../media.dart';
 import '../../utils.dart';
 import '../services/date_extraction/date_extractor_service.dart';
+import '../services/exif_writer_service.dart';
 
 /// Domain model representing a collection of media files with business operations
 ///

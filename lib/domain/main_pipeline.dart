@@ -1,18 +1,18 @@
 import 'dart:io';
 
 import '../media.dart';
-import 'models/media_collection.dart';
-import 'models/processing_config.dart';
-import 'models/processing_result.dart';
-import 'models/processing_step.dart';
-import 'steps/discover_media_step.dart';
-import 'steps/extract_dates_step.dart';
-import 'steps/find_albums_step.dart';
-import 'steps/fix_extensions_step.dart';
-import 'steps/move_files_step.dart';
-import 'steps/remove_duplicates_step.dart';
-import 'steps/update_creation_time_step.dart';
-import 'steps/write_exif_step.dart';
+import 'models/media_collection_model.dart';
+import 'models/pipeline_step_model.dart';
+import 'models/processing_config_model.dart';
+import 'models/processing_result_model.dart';
+import 'steps/step_01_discover_media.dart';
+import 'steps/step_02_fix_extensions.dart';
+import 'steps/step_03_remove_duplicates.dart';
+import 'steps/step_04_extract_dates.dart';
+import 'steps/step_05_write_exif.dart';
+import 'steps/step_06_find_albums.dart';
+import 'steps/step_07_move_files.dart';
+import 'steps/step_08_update_creation_time.dart';
 
 /// Simple Processing Pipeline for Google Photos Takeout Helper
 ///

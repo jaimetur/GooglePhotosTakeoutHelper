@@ -1,6 +1,6 @@
 import '../../utils.dart';
-import '../models/processing_config.dart';
-import '../models/processing_step.dart';
+import '../models/pipeline_step_model.dart';
+import '../models/processing_config_model.dart';
 
 /// Step 1: Fix incorrect file extensions
 ///

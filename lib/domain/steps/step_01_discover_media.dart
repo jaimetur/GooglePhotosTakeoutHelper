@@ -3,7 +3,7 @@ import 'package:path/path.dart' as p;
 import '../../folder_classify.dart';
 import '../../media.dart';
 import '../../utils.dart';
-import '../models/processing_step.dart';
+import '../models/pipeline_step_model.dart';
 
 /// Step 2: Discover and classify media files
 ///

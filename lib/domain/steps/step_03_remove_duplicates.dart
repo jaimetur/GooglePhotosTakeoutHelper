@@ -1,4 +1,4 @@
-import '../models/processing_step.dart';
+import '../models/pipeline_step_model.dart';
 
 /// Step 3: Remove duplicate media files
 ///

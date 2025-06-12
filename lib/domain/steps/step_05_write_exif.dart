@@ -1,4 +1,4 @@
-import '../models/processing_step.dart';
+import '../models/pipeline_step_model.dart';
 
 /// Step 5: Write EXIF data to media files
 ///

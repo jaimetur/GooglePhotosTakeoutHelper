@@ -203,7 +203,7 @@ Future<DateTime?> _nativeExif_readerExtractor(final File file) async {
     return null;
   } else {
     log(
-      'Successfully extracted DateTime from EXIF through native library for ${file.path}',
+      'Successfully extracted DateTime $parsedDateTime from EXIF through native library for ${file.path}',
     );
     return parsedDateTime;
   }
