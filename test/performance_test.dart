@@ -35,8 +35,12 @@ void main() {
       final groups = await mediaList.groupIdenticalAsyncParallel();
 
       // Should have one group with 2 identical files and one with 1 unique file
-      final duplicateGroups = groups.values.where((group) => group.length > 1);
-      final uniqueGroups = groups.values.where((group) => group.length == 1);
+      final duplicateGroups = groups.values.where(
+        (final group) => group.length > 1,
+      );
+      final uniqueGroups = groups.values.where(
+        (final group) => group.length == 1,
+      );
 
       expect(duplicateGroups.length, 1);
       expect(duplicateGroups.first.length, 2);
