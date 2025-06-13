@@ -62,19 +62,31 @@
 library;
 
 import 'dart:io';
-import 'package:gpth/moving.dart';
-import 'package:gpth/utils.dart';
+import 'package:gpth/domain/services/file_system_service.dart';
+import 'package:gpth/domain/services/logging_service.dart';
+import 'package:gpth/domain/services/utility_service.dart';
+import 'package:gpth/infrastructure/platform_service.dart';
+import 'package:gpth/infrastructure/windows_shortcut_service.dart';
+import 'package:gpth/shared/extensions/media_extensions.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import './test_setup.dart';
 
 void main() {
-  group('Utils', () {
+  group('Refactored Service Tests', () {
     late TestFixture fixture;
+    late FileSystemService fileSystemService;
+    late UtilityService utilityService;
+    late PlatformService platformService;
+    late LoggingService loggingService;
 
     setUp(() async {
       fixture = TestFixture();
       await fixture.setUp();
+      fileSystemService = const FileSystemService();
+      utilityService = const UtilityService();
+      platformService = const PlatformService();
+      loggingService = const LoggingService();
     });
 
     tearDown(() async {
@@ -112,20 +124,20 @@ void main() {
       /// Tests file system operations including intelligent filename generation
       /// to prevent conflicts, safe file operations, and cross-platform
       /// path handling with proper collision resolution.
-      test('findNotExistingName generates unique filename', () {
+      test('findUniqueFileName generates unique filename', () {
         final existingFile = fixture.createFile('test.jpg', [1, 2, 3]);
 
-        final uniqueFile = findNotExistingName(existingFile);
+        final uniqueFile = fileSystemService.findUniqueFileName(existingFile);
 
         expect(uniqueFile.path, endsWith('test(1).jpg'));
         expect(uniqueFile.existsSync(), isFalse);
       });
 
       /// Should return original if file does not exist.
-      test('findNotExistingName returns original if file does not exist', () {
+      test('findUniqueFileName returns original if file does not exist', () {
         final nonExistentFile = File('${fixture.basePath}/nonexistent.jpg');
 
-        final result = findNotExistingName(nonExistentFile);
+        final result = fileSystemService.findUniqueFileName(nonExistentFile);
 
         expect(result.path, nonExistentFile.path);
       });
@@ -133,8 +145,8 @@ void main() {
 
     group('Disk Operations', () {
       /// Should return non-null value for disk free space.
-      test('getDiskFree returns non-null value', () async {
-        final freeSpace = await getDiskFree('.');
+      test('getDiskFreeSpace returns non-null value', () async {
+        final freeSpace = await platformService.getDiskFreeSpace('.');
 
         expect(freeSpace, isNotNull);
         expect(freeSpace!, greaterThan(0));
@@ -143,20 +155,23 @@ void main() {
 
     group('File Size Formatting', () {
       /// Should format bytes correctly to human-readable string.
-      test('filesize formats bytes correctly', () {
-        expect(filesize(1024), contains('KB'));
-        expect(filesize(1024 * 1024), contains('MB'));
-        expect(filesize(1024 * 1024 * 1024), contains('GB'));
+      test('formatFileSize formats bytes correctly', () {
+        expect(utilityService.formatFileSize(1024), contains('KB'));
+        expect(utilityService.formatFileSize(1024 * 1024), contains('MB'));
+        expect(
+          utilityService.formatFileSize(1024 * 1024 * 1024),
+          contains('GB'),
+        );
       });
     });
 
     group('Logging', () {
       /// Should handle different log levels without throwing.
-      test('log function handles different levels', () {
-        // Test that log function doesn't throw
-        expect(() => log('test info'), returnsNormally);
-        expect(() => log('test warning', level: 'warning'), returnsNormally);
-        expect(() => log('test error', level: 'error'), returnsNormally);
+      test('LoggingService handles different levels', () {
+        // Test that logging service doesn't throw
+        expect(() => loggingService.info('test info'), returnsNormally);
+        expect(() => loggingService.warning('test warning'), returnsNormally);
+        expect(() => loggingService.error('test error'), returnsNormally);
       });
     });
 
@@ -165,7 +180,7 @@ void main() {
       test('validateDirectory succeeds for existing directory', () async {
         final dir = fixture.createDirectory('test_dir');
 
-        final result = await validateDirectory(dir);
+        final result = await utilityService.validateDirectory(dir);
 
         expect(result, isTrue);
       });
@@ -176,7 +191,7 @@ void main() {
         () async {
           final dir = Directory('${fixture.basePath}/nonexistent');
 
-          final result = await validateDirectory(dir);
+          final result = await utilityService.validateDirectory(dir);
 
           expect(result, isFalse);
         },
@@ -186,17 +201,21 @@ void main() {
     group('Platform-specific Operations', () {
       /// Should handle Windows shortcuts (Windows only test).
       test(
-        'createShortcutWin handles Windows shortcuts',
+        'WindowsShortcutService handles Windows shortcuts',
         () async {
           if (Platform.isWindows) {
             final targetFile = fixture.createFile('target.txt', [1, 2, 3]);
             final shortcutPath = '${fixture.basePath}/shortcut.lnk';
+            const windowsShortcutService = WindowsShortcutService();
 
             // Ensure target file exists before creating shortcut
             expect(targetFile.existsSync(), isTrue);
 
             // Should not throw and should complete successfully
-            await createShortcutWin(shortcutPath, targetFile.path);
+            await windowsShortcutService.createShortcut(
+              shortcutPath,
+              targetFile.path,
+            );
 
             // Verify shortcut was created
             expect(File(shortcutPath).existsSync(), isTrue);
@@ -204,15 +223,6 @@ void main() {
         },
         skip: !Platform.isWindows ? 'Windows only test' : null,
       );
-    });
-
-    group('Pixel Motion Photos', () {
-      /// Placeholder for changeMPExtensions logic.
-      test('changeMPExtensions renames MP/MV files', () async {
-        // This would require Media objects and is more of an integration test
-        // For now, we'll test the core logic in integration tests
-        expect(true, isTrue); // Placeholder
-      });
     });
   });
 }

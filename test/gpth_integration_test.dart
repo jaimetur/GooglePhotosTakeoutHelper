@@ -313,16 +313,16 @@ void main() {
 
         // 2. Read EXIF from image in hex folder
         final DateTime? exifDate = await exifDateTimeExtractor(hexImg);
-        expect(exifDate, DateTime.parse('2022-12-16 16:06:47'));
-
-        // 3. Write EXIF using ExifTool
+        expect(
+          exifDate,
+          DateTime.parse('2022-12-16 16:06:47'),
+        ); // 3. Write EXIF using ExifTool
         if (exiftool != null) {
           final Map<String, String> tags = {'Artist': 'TestArtist'};
-          final result = await exiftool!.writeExifBatch(hexImg, tags);
-          expect(result, isTrue);
+          await exiftool!.writeExifData(hexImg, tags);
 
           // Verify tag was written
-          final readTags = await exiftool!.readExifBatch(hexImg, ['Artist']);
+          final readTags = await exiftool!.readExifData(hexImg);
           expect(readTags['Artist'], 'TestArtist');
         }
 

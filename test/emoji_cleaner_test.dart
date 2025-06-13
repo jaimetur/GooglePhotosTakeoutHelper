@@ -402,14 +402,18 @@ void main() {
 
         // 2. Read EXIF from image in hex folder
         final tags = await readExifFromBytes(await hexImg.readAsBytes());
-        expect(tags['EXIF DateTimeOriginal']?.printable, '2022:12:16 16:06:47');
-
-        // 3. Write using exiftool to hex_encoded folder
+        expect(
+          tags['EXIF DateTimeOriginal']?.printable,
+          '2022:12:16 16:06:47',
+        ); // 3. Write using exiftool to hex_encoded folder
         if (exiftool != null) {
           final Map<String, String> map = {};
           map['Artist'] = 'TestArtist';
-          final result = await exiftool!.writeExifBatch(hexImg, map);
-          expect(result, isTrue);
+          await exiftool!.writeExifData(hexImg, map);
+
+          // Verify the data was written
+          final updatedTags = await exiftool!.readExifData(hexImg);
+          expect(updatedTags['Artist'], 'TestArtist');
         }
 
         // 4. Create shortcut/symlink to hex folder

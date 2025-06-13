@@ -1,8 +1,8 @@
 import 'dart:io';
 
-import '../media.dart';
 import '../utils.dart';
 import 'models/media_collection_model.dart';
+import 'models/media_entity.dart';
 import 'models/pipeline_step_model.dart';
 import 'models/processing_config_model.dart';
 import 'models/processing_result_model.dart';

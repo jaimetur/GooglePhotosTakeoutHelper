@@ -20,6 +20,10 @@ import 'package:archive/archive_io.dart';
 import 'package:file_picker_desktop/file_picker_desktop.dart';
 import 'package:path/path.dart' as p;
 
+import 'domain/services/global_config_service.dart';
+import 'presentation/interactive_presenter.dart';
+
+// Legacy imports
 import 'utils.dart';
 
 const Map<String, String> albumOptions = <String, String>{
@@ -49,6 +53,9 @@ const Map<String, String> albumOptions = <String, String>{
 /// Whether we are, indeed, running interactive (or not)
 bool indeed = false;
 
+// Global presenter instance
+final InteractivePresenter _presenter = InteractivePresenter();
+
 /// Pauses execution for specified number of seconds
 ///
 /// [seconds] Number of seconds to sleep (can be fractional)
@@ -57,53 +64,22 @@ Future<void> sleep(final num seconds) =>
 
 /// Displays a prompt and waits for user to press enter
 void pressEnterToContinue() {
-  print('[press enter to continue]');
-  stdin.readLineSync();
+  _presenter.showPressEnterPrompt();
 }
 
 /// Reads user input and normalizes it (removes brackets, lowercase, trim)
 ///
 /// Returns the normalized input string
-Future<String> askForInt() async => stdin
-    .readLineSync()!
-    .replaceAll('[', '')
-    .replaceAll(']', '')
-    .toLowerCase()
-    .trim();
+Future<String> askForInt() async => _presenter.readUserInput();
 
 /// Displays greeting message and introduction to the tool
 Future<void> greet() async {
-  print('GooglePhotosTakeoutHelper v$version');
-  await sleep(1);
-  print(
-    'Hi there! This tool will help you to get all of your photos from '
-    'Google Takeout to one nice tidy folder\n',
-  );
-  await sleep(3);
-  print(
-    '(If any part confuses you, read the guide on:\n'
-    'https://github.com/Xentraxx/GooglePhotosTakeoutHelper)',
-  );
-  await sleep(3);
+  await _presenter.showGreeting();
 }
 
-/// does not quit explicitly - do it yourself
+/// Does not quit explicitly - do it yourself
 Future<void> nothingFoundMessage() async {
-  print('...oh :(');
-  print('...');
-  print("8 I couldn't find any D: reasons for this may be:");
-  if (indeed) {
-    print(
-      "  - you've already ran gpth and it moved all photos to output -\n"
-      '    delete the input folder and re-extract the zip',
-    );
-  }
-  print(
-    "  - your Takeout doesn't have any \"year folders\" -\n"
-    '    visit https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper\n'
-    '    again and request new, correct Takeout',
-  );
-  print('After fixing this, go ahead and try again :)');
+  await _presenter.showNothingFoundMessage();
 }
 
 /// Prompts user to select input directory using file picker dialog
@@ -679,7 +655,7 @@ class SecurityException implements Exception {
 }
 
 Future<bool> askIfWriteExif() async {
-  if (exifToolInstalled) {
+  if (GlobalConfigService.instance.exifToolInstalled) {
     print(
       'This mode will write Exif data (dates/times/coordinates) back to your files. '
       'To achieve the best results, download Exiftool and place it next to this executable or in your \$PATH.'

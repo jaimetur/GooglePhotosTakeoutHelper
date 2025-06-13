@@ -8,6 +8,7 @@ import 'package:mime/mime.dart';
 
 import '../../exiftoolInterface.dart';
 import '../../utils.dart';
+import '../services/global_config_service.dart';
 import 'date_extraction/exif_date_extractor.dart';
 
 Future<bool> writeDateTimeToExif(
@@ -20,13 +21,12 @@ Future<bool> writeDateTimeToExif(
     headerBytes: headerBytes,
   );
   final String? mimeTypeFromExtension = lookupMimeType(file.path);
-
   //Check if the file already has a dateTime in its EXIF data. If function returns a DateTime, there is no need to write it again. Skip.
   if (await exifDateTimeExtractor(file) != null) {
     return false;
   }
 
-  if (exifToolInstalled) {
+  if (GlobalConfigService.instance.exifToolInstalled) {
     //Even if exifTool is installed, try to use native way for speed first and if it works keep going. If not, use exiftool.
     if (mimeTypeFromHeader == 'image/jpeg' &&
         await _noExifToolDateTimeWriter(file, dateTime, mimeTypeFromHeader)) {
@@ -42,26 +42,15 @@ Future<bool> writeDateTimeToExif(
       );
       return false;
     }
-
     final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
     final String dt = exifFormat.format(dateTime);
-    final success = await exiftool!.writeExifBatch(file, {
+    await exiftool!.writeExifData(file, {
       'DateTimeOriginal': '"$dt"',
       'DateTimeDigitized': '"$dt"',
       'DateTime': '"$dt"',
     });
-    if (success) {
-      log(
-        '[Step 5/8] New DateTime $dt written to EXIF (exiftool): ${file.path}',
-      );
-      return true;
-    } else {
-      log(
-        '[Step 5/8] DateTime $dt could not be written to EXIF: ${file.path}',
-        level: 'error',
-      );
-      return false;
-    }
+    log('[Step 5/8] New DateTime $dt written to EXIF (exiftool): ${file.path}');
+    return true;
   } else {
     //When exiftool is not installed
     return _noExifToolDateTimeWriter(file, dateTime, mimeTypeFromHeader);
@@ -78,7 +67,7 @@ Future<bool> writeGpsToExif(
     headerBytes: headerBytes,
   );
 
-  if (exifToolInstalled) {
+  if (GlobalConfigService.instance.exifToolInstalled) {
     final String? mimeTypeFromExtension = lookupMimeType(file.path);
     //Even if exifTool is installed, try to use native way for speed first and if it works keep going. If not, use exiftool.
     if (mimeTypeFromHeader == 'image/jpeg' &&
@@ -94,36 +83,25 @@ Future<bool> writeGpsToExif(
         forcePrint: true,
       );
       return false;
-    }
-
-    //Check if the file already has EXIF data and if yes, skip.
-    final Map coordinatesMap = await exiftool!.readExifBatch(file, [
-      'GPSLatitude',
-      'GPSLongitude',
-    ]);
-    final bool filehasExifCoordinates = coordinatesMap.values.isNotEmpty;
+    } //Check if the file already has EXIF data and if yes, skip.
+    final Map<String, dynamic> coordinatesMap = await exiftool!.readExifData(
+      file,
+    );
+    final bool filehasExifCoordinates =
+        coordinatesMap['GPSLatitude'] != null &&
+        coordinatesMap['GPSLongitude'] != null;
     if (!filehasExifCoordinates) {
       log(
         '[Step 5/8] Found coordinates ${coordinates.toString()} in json, but missing in EXIF for file: ${file.path}',
       );
-
-      final success = await exiftool!.writeExifBatch(file, {
+      await exiftool!.writeExifData(file, {
         'GPSLatitude': coordinates.toDD().latitude.toString(),
         'GPSLongitude': coordinates.toDD().longitude.toString(),
         'GPSLatitudeRef': coordinates.latDirection.abbreviation.toString(),
         'GPSLongitudeRef': coordinates.longDirection.abbreviation.toString(),
       });
-      if (success) {
-        log('[Step 5/8] New coordinates written to EXIF: ${file.path}');
-        return true;
-      } else {
-        log(
-          '[Step 5/8] Coordinates ${coordinates.toString()} could not be written to EXIF: ${file.path}',
-          level: 'error',
-          forcePrint: true,
-        );
-        return false;
-      }
+      log('[Step 5/8] New coordinates written to EXIF: ${file.path}');
+      return true;
     }
     //Found coords in json but already present in exif. Skip.
     return false;
@@ -186,7 +164,7 @@ Future<bool> _noExifToolDateTimeWriter(
       }
     }
   }
-  if (!exifToolInstalled) {
+  if (!GlobalConfigService.instance.exifToolInstalled) {
     log(
       '[Step 5/8] Found DateTime in json, but missing in EXIF. Writing to $mimeTypeFromHeader is not supported without exiftool.',
       level: 'warning',
@@ -247,8 +225,8 @@ Future<bool> _noExifGPSWriter(
       }
     }
   }
-  if (!exifToolInstalled) {
-    if (isVerbose) {
+  if (!GlobalConfigService.instance.exifToolInstalled) {
+    if (GlobalConfigService.instance.isVerbose) {
       log(
         '[Step 5/8] Found Coordinates in json, but missing in EXIF. Writing to $mimeTypeFromHeader is not supported without exiftool.',
         level: 'warning',

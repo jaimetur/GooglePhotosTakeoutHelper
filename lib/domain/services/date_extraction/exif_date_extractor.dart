@@ -6,13 +6,15 @@ import 'package:exif_reader/exif_reader.dart';
 import 'package:mime/mime.dart';
 import '../../../exiftoolInterface.dart';
 import '../../../utils.dart';
+import '../global_config_service.dart';
 
 /// DateTime from exif data *potentially* hidden within a [file]
 ///
 /// You can try this with *any* file, it either works or not 🤷
 Future<DateTime?> exifDateTimeExtractor(final File file) async {
   //If file is >maxFileSize - return null. https://github.com/brendan-duncan/image/issues/457#issue-1549020643
-  if (await file.length() > defaultMaxFileSize && enforceMaxFileSize) {
+  if (await file.length() > defaultMaxFileSize &&
+      GlobalConfigService.instance.enforceMaxFileSize) {
     log(
       'The file is larger than the maximum supported file size of ${defaultMaxFileSize.toString()} bytes. File: ${file.path}',
       level: 'error',
@@ -69,9 +71,8 @@ Future<DateTime?> exifDateTimeExtractor(final File file) async {
     }
   }
   //At this point either we didn't do anything because the mimeType is unknown (null) or not supported by the native method.
-  //Anyway, there is nothing else to do than to try it with exiftool now. exiftool is the last resort *sing* in any case due to performance.
-  if ((mimeType == null || !supportedNativeMimeTypes.contains(mimeType)) &&
-      exifToolInstalled) {
+  //Anyway, there is nothing else to do than to try it with exiftool now. exiftool is the last resort *sing* in any case due to performance.  if ((mimeType == null || !supportedNativeMimeTypes.contains(mimeType)) &&
+  if (GlobalConfigService.instance.exifToolInstalled) {
     result = await _exifToolExtractor(file);
     if (result != null) {
       return result; //We did get a DateTime from Exiftool and return it. It's being logged in _exifToolExtractor(). We are happy.
@@ -84,7 +85,7 @@ Future<DateTime?> exifDateTimeExtractor(final File file) async {
       '${file.path} has a mimeType of $mimeType. However, could not read it with exif_reader. This means, the file is probably corrupt',
       level: 'warning',
     );
-  } else if (exifToolInstalled) {
+  } else if (GlobalConfigService.instance.exifToolInstalled) {
     log(
       "$mimeType is a weird mime type! Please create an issue if you get this error message, as we currently can't handle it.",
       level: 'error',
@@ -108,32 +109,28 @@ Future<DateTime?> exifDateTimeExtractor(final File file) async {
 /// Returns parsed DateTime or null if extraction fails
 Future<DateTime?> _exifToolExtractor(final File file) async {
   try {
-    final tags = await exiftool!.readExifBatch(file, [
-      'DateTimeOriginal',
-      'MediaCreateDate',
-      'CreationDate',
-      'TrackCreateDate',
-      'CreateDate',
-      'DateTimeDigitized',
-      'GPSDateStamp',
-      'DateTime',
-    ]);
-    //The order is in order of reliability and important
-    String? datetime =
-        tags['DateTimeOriginal'] ?? //EXIF
-        tags['MediaCreateDate'] ?? //QuickTime/XMP
-        tags['CreationDate'] ?? //XMP
-        tags['TrackCreateDate']; //?? //QuickTime
-    //tags['CreateDate'] ?? // can be overwritten by editing software
-    //tags['DateTimeDigitized'] ?? //may reflect scanning or import time
-    //tags['DateTime']; //generic and editable
-    if (datetime == null) {
+    final tags = await exiftool!.readExifData(
+      file,
+    ); //The order is in order of reliability and important
+    final dynamic datetimeValue =
+        tags['DateTimeOriginal'] ??
+        tags['MediaCreateDate'] ??
+        tags['CreationDate'] ??
+        tags['TrackCreateDate'] ??
+        tags['CreateDate'] ??
+        tags['DateTimeDigitized'] ??
+        tags['GPSDateStamp'] ??
+        tags['DateTime'];
+
+    if (datetimeValue == null) {
       log(
         "Exiftool was not able to extract an acceptable DateTime for ${file.path}.\n\tThose Tags are accepted: 'DateTimeOriginal', 'MediaCreateDate', 'CreationDate','TrackCreateDate','. The file has those Tags: ${tags.toString()}",
         level: 'warning',
       );
       return null;
     }
+
+    String datetime = datetimeValue.toString();
     // Normalize separators and parse
     datetime = datetime
         .replaceAll('-', ':')

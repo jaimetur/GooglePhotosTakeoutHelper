@@ -3,51 +3,6 @@
 /// Comprehensive tests for EXIF metadata writing functionality that enables
 /// enriching media files with location, time, and other metadata information
 /// extracted from Google Photos Takeout JSON files.
-///
-/// ## Core Functionality Tested
-///
-/// ### GPS Coordinate Writing
-/// - Writing GPS coordinates to JPEG files using ExifTool
-/// - Coordinate format conversion from decimal degrees to DMS (Degrees, Minutes, Seconds)
-/// - Proper handling of latitude/longitude directions (North/South, East/West)
-/// - Validation of written GPS data through read-back verification
-/// - Support for various coordinate precision levels and edge cases
-///
-/// ### DateTime Metadata Management
-/// - Writing creation timestamps to EXIF DateTimeOriginal fields
-/// - Handling timezone information and UTC conversion
-/// - Support for various date formats from Google Photos metadata
-/// - Preservation of original timestamp accuracy during write operations
-/// - Fallback strategies for incomplete or malformed date information
-///
-/// ### EXIF Tag Integration
-/// - Integration with ExifTool for reliable metadata writing
-/// - Batch processing capabilities for multiple files
-/// - Error handling for corrupted or unsupported file formats
-/// - Preservation of existing EXIF data while adding new metadata
-/// - Cross-platform compatibility for different operating systems
-///
-/// ## Technical Implementation
-///
-/// The test suite validates EXIF writing using the ExifTool external binary,
-/// which provides robust support for reading and writing metadata across
-/// hundreds of file formats. Tests ensure:
-///
-/// - Coordinate precision is maintained during DMS conversion
-/// - GPS reference directions are correctly set based on coordinate signs
-/// - DateTime formats comply with EXIF specification requirements
-/// - Written metadata can be successfully read back and validated
-/// - Error conditions are properly handled and reported
-///
-/// ## Test Structure
-///
-/// Tests use controlled image files without existing EXIF data to ensure
-/// clean testing conditions. The suite covers:
-/// - Basic GPS coordinate writing with various precision levels
-/// - DateTime writing with different timezone scenarios
-/// - Error handling for invalid coordinates or malformed dates
-/// - Integration testing with real Google Photos JSON metadata
-/// - Performance validation for batch processing operations
 library;
 
 import 'package:coordinate_converter/coordinate_converter.dart';
@@ -62,7 +17,6 @@ import './test_setup.dart';
 void main() {
   group('EXIF Writer', () {
     late TestFixture fixture;
-
     setUpAll(() async {
       await initExiftool();
     });
@@ -99,11 +53,9 @@ void main() {
 
         final result = await writeGpsToExif(coordinates, testImage);
 
-        expect(result, isTrue);
-
-        // Verify coordinates were written
+        expect(result, isTrue); // Verify coordinates were written
         if (exiftool != null) {
-          final tags = await exiftool!.readExif(testImage);
+          final tags = await exiftool!.readExifData(testImage);
           expect(tags['GPSLatitude'], isNotNull);
           expect(tags['GPSLongitude'], isNotNull);
           expect(tags['GPSLatitudeRef'], 'N');

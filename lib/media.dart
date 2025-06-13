@@ -3,7 +3,11 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 
-import 'utils.dart';
+import 'domain/models/media_entity.dart' as domain;
+import 'domain/services/global_config_service.dart';
+// Clean architecture imports
+import 'domain/services/media_hash_service.dart';
+import 'shared/constants.dart' as constants;
 
 /// Simple digest collector for streaming hash calculation
 class _DigestSink implements Sink<Digest> {
@@ -18,11 +22,8 @@ class _DigestSink implements Sink<Digest> {
   void close() {}
 }
 
-//Order is important!
-///This is the extraction method through which a Media got its dateTime.
-enum DateTimeExtractionMethod { json, exif, guess, jsonTryHard, none }
-
 /// Abstract of a *media* - a photo or video
+///
 /// Main thing is the [file] - this should not change
 ///
 /// [size] and [hash] getter are here because we can easily cache
@@ -36,7 +37,10 @@ class Media {
     this.dateTaken,
     this.dateTakenAccuracy,
     this.dateTimeExtractionMethod,
-  });
+  }) : _hashService = const MediaHashService();
+
+  // Clean architecture services
+  final MediaHashService _hashService;
 
   /// First file with media, used in early stage when albums are not merged
   ///
@@ -104,10 +108,10 @@ class Media {
   int? dateTakenAccuracy;
 
   /// The method/extractor that produced the DateTime ('json', 'exif', 'guess', 'jsonTryHard', 'none')
-  DateTimeExtractionMethod? dateTimeExtractionMethod;
+  domain.DateTimeExtractionMethod? dateTimeExtractionMethod;
 
   /// Async hash calculation using streaming to avoid loading entire file into memory
-  /// Returns same value for files > [defaultMaxFileSize] to avoid memory issues
+  /// Returns same value for files > [constants.defaultMaxFileSize] to avoid memory issues
   Future<Digest> getHash() async {
     // Return cached value if available
     if (_hash != null) return _hash!;
@@ -123,14 +127,30 @@ class Media {
   Future<Digest> _doGetHash() async {
     try {
       final fileSize = await getSize();
-      if (fileSize > defaultMaxFileSize && enforceMaxFileSize) {
+      if (fileSize > constants.defaultMaxFileSize &&
+          GlobalConfigService.instance.enforceMaxFileSize) {
         _hash = Digest(<int>[0]);
         return _hash!;
       }
 
-      final hash = await _calculateHashStreaming();
-      _hash = hash;
-      return hash;
+      // Use the new clean architecture service for hash calculation
+      // This provides better error handling and consistency
+      try {
+        final hashString = await _hashService.calculateFileHash(firstFile);
+        // Convert string hash back to Digest for backwards compatibility
+        final bytes = <int>[];
+        for (int i = 0; i < hashString.length; i += 2) {
+          final hex = hashString.substring(i, i + 2);
+          bytes.add(int.parse(hex, radix: 16));
+        }
+        _hash = Digest(bytes);
+        return _hash!;
+      } catch (e) {
+        // Fallback to legacy method if service fails
+        final hash = await _calculateHashStreaming();
+        _hash = hash;
+        return hash;
+      }
     } finally {
       _hashOperation = null; // Clear the operation when done
     }
@@ -143,7 +163,8 @@ class Media {
     if (_hash != null) return _hash!;
     // For backwards compatibility, fall back to sync operation
     final fileSize = firstFile.lengthSync();
-    if (fileSize > defaultMaxFileSize && enforceMaxFileSize) {
+    if (fileSize > constants.defaultMaxFileSize &&
+        GlobalConfigService.instance.enforceMaxFileSize) {
       return _hash = Digest(<int>[0]);
     }
     return _hash = _calculateHashStreamingSync();

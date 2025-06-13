@@ -1,0 +1,154 @@
+import 'dart:io';
+import 'package:mime/mime.dart';
+import 'package:path/path.dart' as p;
+
+/// Service for file system operations and file type detection
+///
+/// Extracted from utils.dart to provide a clean, testable interface
+/// for file system operations commonly used throughout the application.
+class FileSystemService {
+  /// Creates a new instance of FileSystemService
+  const FileSystemService();
+
+  /// Support raw formats (dng, cr2) and Pixel motion photos (mp, mv)
+  static const List<String> _moreExtensions = <String>[
+    '.mp',
+    '.mv',
+    '.dng',
+    '.cr2',
+  ];
+
+  /// Checks if a file is a photo or video based on MIME type and extension
+  ///
+  /// [file] File to check
+  /// Returns true if the file is a photo or video
+  bool isPhotoOrVideo(final File file) {
+    final String mime = lookupMimeType(file.path) ?? '';
+    final String fileExtension = p.extension(file.path).toLowerCase();
+
+    return mime.startsWith('image/') ||
+        mime.startsWith('video/') ||
+        // https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/issues/223
+        // https://github.com/dart-lang/mime/issues/102
+        // 🙃🙃
+        mime == 'model/vnd.mts' ||
+        _moreExtensions.contains(fileExtension);
+  }
+
+  /// Filters a list of files to only include photos and videos
+  ///
+  /// [files] List of files to filter
+  /// Returns filtered list containing only photo and video files
+  List<File> filterPhotoVideoFiles(final List<File> files) =>
+      files.where(isPhotoOrVideo).toList();
+
+  /// Creates a unique file name by appending (1), (2), etc. until non-existing
+  ///
+  /// [initialFile] The desired file path
+  /// Returns a File object with a unique path that doesn't exist
+  File findUniqueFileName(final File initialFile) {
+    if (!initialFile.existsSync()) {
+      return initialFile;
+    }
+
+    final String dir = initialFile.parent.path;
+    final String nameWithoutExt = p.basenameWithoutExtension(initialFile.path);
+    final String extension = p.extension(initialFile.path);
+
+    int counter = 1;
+    File candidate;
+    do {
+      final String newName = '$nameWithoutExt($counter)$extension';
+      candidate = File(p.join(dir, newName));
+      counter++;
+    } while (candidate.existsSync());
+
+    return candidate;
+  }
+
+  /// Safely copies a file to a new location
+  ///
+  /// [source] Source file to copy
+  /// [destination] Destination file path
+  /// [overwrite] Whether to overwrite if destination exists
+  /// Returns the destination file
+  /// Throws [FileSystemException] if operation fails
+  Future<File> copyFile(
+    final File source,
+    final File destination, {
+    final bool overwrite = false,
+  }) async {
+    if (!source.existsSync()) {
+      throw FileSystemException('Source file does not exist', source.path);
+    }
+
+    if (destination.existsSync() && !overwrite) {
+      throw FileSystemException(
+        'Destination file already exists',
+        destination.path,
+      );
+    }
+
+    // Ensure destination directory exists
+    await destination.parent.create(recursive: true);
+
+    return source.copy(destination.path);
+  }
+
+  /// Safely moves a file to a new location
+  ///
+  /// [source] Source file to move
+  /// [destination] Destination file path
+  /// [overwrite] Whether to overwrite if destination exists
+  /// Returns the destination file
+  /// Throws [FileSystemException] if operation fails
+  Future<File> moveFile(
+    final File source,
+    final File destination, {
+    final bool overwrite = false,
+  }) async {
+    if (!source.existsSync()) {
+      throw FileSystemException('Source file does not exist', source.path);
+    }
+
+    if (destination.existsSync() && !overwrite) {
+      throw FileSystemException(
+        'Destination file already exists',
+        destination.path,
+      );
+    }
+
+    // Ensure destination directory exists
+    await destination.parent.create(recursive: true);
+
+    return source.rename(destination.path);
+  }
+
+  /// Gets the size of a file in bytes
+  ///
+  /// [file] File to get size of
+  /// Returns file size in bytes
+  /// Throws [FileSystemException] if file doesn't exist
+  Future<int> getFileSize(final File file) async {
+    if (!await file.exists()) {
+      throw FileSystemException('File does not exist', file.path);
+    }
+    final stat = await file.stat();
+    return stat.size;
+  }
+
+  /// Checks if a directory is empty
+  ///
+  /// [directory] Directory to check
+  /// Returns true if directory is empty or doesn't exist
+  Future<bool> isDirectoryEmpty(final Directory directory) async {
+    if (!await directory.exists()) {
+      return true;
+    }
+
+    await for (final _ in directory.list()) {
+      return false; // Found at least one entity
+    }
+    return true;
+  }
+}

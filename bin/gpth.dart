@@ -7,6 +7,7 @@ import 'package:gpth/domain/main_pipeline.dart';
 import 'package:gpth/domain/models/io_paths_model.dart';
 import 'package:gpth/domain/models/processing_config_model.dart';
 import 'package:gpth/domain/models/processing_result_model.dart';
+import 'package:gpth/domain/services/global_config_service.dart';
 import 'package:gpth/domain/services/takeout_path_resolver_service.dart';
 import 'package:gpth/exiftoolInterface.dart';
 import 'package:gpth/interactive.dart' as interactive;
@@ -470,15 +471,14 @@ Future<void> _initializeDependencies(final ProcessingConfig config) async {
     isDebugMode = true;
     return true;
   }(), 'Debug mode assertion');
-
   if (config.verbose || isDebugMode) {
-    isVerbose = true;
+    GlobalConfigService.instance.isVerbose = true;
     log('Verbose mode active!');
   }
 
   // Set global file size enforcement
   if (config.limitFileSize) {
-    enforceMaxFileSize = true;
+    GlobalConfigService.instance.enforceMaxFileSize = true;
   }
 
   // Initialize ExifTool

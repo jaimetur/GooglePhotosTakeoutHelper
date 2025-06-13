@@ -1,4 +1,4 @@
-import '../../media.dart';
+import 'media_entity.dart';
 
 /// Domain model representing the results and statistics of a complete GPTH processing run
 ///

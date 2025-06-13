@@ -1,9 +1,11 @@
+import 'dart:io';
+
 import '../../extras.dart' as extras;
 import '../../grouping.dart' as grouping;
 import '../../media.dart';
-import '../../utils.dart';
 import '../services/date_extraction/date_extractor_service.dart';
 import '../services/exif_writer_service.dart';
+import 'media_entity.dart';
 
 /// Domain model representing a collection of media files with business operations
 ///
@@ -139,7 +141,56 @@ class MediaCollection {
 
   /// Transform Pixel Motion Photo extensions
   Future<void> transformPixelExtensions(final String newExtension) async {
-    await changeMPExtensions(_media, newExtension);
+    await _changeMPExtensions(_media, newExtension);
+  }
+
+  /// Changes .MP and .MV file extensions to the specified new extension
+  ///
+  /// This function renames Pixel Motion Photo files (.MP/.MV) to a more
+  /// compatible extension like .mp4 for better cross-platform support.
+  Future<void> _changeMPExtensions(
+    final List<Media> mediaList,
+    final String newExtension,
+  ) async {
+    for (final media in mediaList) {
+      // Check if this media has .MP or .MV files
+      final filesToRename = <String?, File>{};
+
+      for (final entry in media.files.entries) {
+        final file = entry.value;
+        final extension = file.path.split('.').last.toLowerCase();
+
+        // Check if this is a Pixel Motion Photo file
+        if (extension == 'mp' || extension == 'mv') {
+          filesToRename[entry.key] = file;
+        }
+      }
+
+      // Rename the files
+      for (final entry in filesToRename.entries) {
+        final albumName = entry.key;
+        final oldFile = entry.value;
+
+        // Create new file path with the desired extension
+        final pathWithoutExtension = oldFile.path.substring(
+          0,
+          oldFile.path.lastIndexOf('.'),
+        );
+        final newPath = '$pathWithoutExtension.$newExtension';
+        final newFile = File(newPath);
+
+        try {
+          // Rename the file
+          await oldFile.rename(newPath);
+
+          // Update the media object
+          media.files[albumName] = newFile;
+        } catch (e) {
+          // Log the error but continue processing other files
+          print('Warning: Failed to rename ${oldFile.path} to $newPath: $e');
+        }
+      }
+    }
   }
 
   /// Get statistics about the media collection

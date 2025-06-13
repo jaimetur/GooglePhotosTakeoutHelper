@@ -1,5 +1,4 @@
 import 'dart:io';
-import '../../utils.dart';
 import '../models/pipeline_step_model.dart';
 
 /// Step 8: Update creation times (Windows only)
@@ -184,11 +183,9 @@ class UpdateCreationTimeStep extends ProcessingStep {
           data: {'updatedCount': 0, 'skipped': true},
           message: 'Creation time update skipped - output directory not found',
         );
-      }
-
-      // 2. For each file, set creation time = last modified time
-      // 3. Use Windows APIs/PowerShell for the operation (via updateCreationTimeRecursively)
-      updatedCount = await updateCreationTimeRecursively(outputDir);
+      } // 2. For each file, set creation time = last modified time
+      // 3. Use Windows APIs/PowerShell for the operation
+      updatedCount = await _updateCreationTimeRecursively(outputDir);
 
       if (context.config.verbose) {
         print('Creation time update completed. Updated $updatedCount files.');
@@ -215,4 +212,29 @@ class UpdateCreationTimeStep extends ProcessingStep {
   @override
   bool shouldSkip(final ProcessingContext context) =>
       !Platform.isWindows || !context.config.updateCreationTime;
+
+  /// Updates creation times recursively for all files in the directory
+  ///
+  /// Returns the number of files processed
+  Future<int> _updateCreationTimeRecursively(final Directory directory) async {
+    int count = 0;
+    await for (final entity in directory.list(recursive: true)) {
+      if (entity is File) {
+        try {
+          // On Windows, we can use PowerShell to update creation time
+          final result = await Process.run('powershell', [
+            '-Command',
+            '(Get-Item "${entity.path}").CreationTime = (Get-Item "${entity.path}").LastWriteTime',
+          ]);
+          if (result.exitCode == 0) {
+            count++;
+          }
+        } catch (e) {
+          // Continue with other files if one fails
+          print('Failed to update creation time for ${entity.path}: $e');
+        }
+      }
+    }
+    return count;
+  }
 }

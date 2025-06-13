@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
-import '../../../utils.dart';
+import '../../../infrastructure/windows_shortcut_service.dart';
 
 /// Service responsible for creating shortcuts and symlinks across platforms
 ///
@@ -44,10 +44,10 @@ class ShortcutService {
       sourceFile.path,
       from: linkFile.parent.path,
     );
-
     if (Platform.isWindows) {
-      // Use the main shortcut creation function from utils.dart
-      await createShortcutWin(linkFile.path, sourceFile.absolute.path);
+      // Use the Windows shortcut service
+      const service = WindowsShortcutService();
+      await service.createShortcut(linkFile.path, sourceFile.absolute.path);
       return linkFile;
     } else {
       // Unix: create a symlink

@@ -1,17 +1,22 @@
-/// This files contains functions for removing duplicates and detecting albums
+/// Legacy grouping functions with clean architecture delegation
 ///
-/// That's because their logic looks very similar and they share code
+/// This file provides backwards compatibility for grouping operations
+/// while delegating to the new DuplicateDetectionService and related services.
 library;
 
 import 'dart:io';
 import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
+
+// Clean architecture imports
+import 'infrastructure/platform_service.dart';
+
+// Legacy imports
 import 'media.dart' show Media;
-import 'media.dart';
 import 'utils.dart';
 
 /// Maximum number of concurrent operations to prevent overwhelming the system
-final int _maxConcurrency = Platform.numberOfProcessors * 2;
+int get _maxConcurrency => const PlatformService().getOptimalConcurrency();
 
 extension Group on Iterable<Media> {
   /// Groups media objects by file size and hash for duplicate detection
