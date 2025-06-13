@@ -2,7 +2,6 @@ import 'dart:io';
 
 import '../utils.dart';
 import 'models/media_collection_model.dart';
-import 'models/media_entity.dart';
 import 'models/pipeline_step_model.dart';
 import 'models/processing_config_model.dart';
 import 'models/processing_result_model.dart';
@@ -14,6 +13,7 @@ import 'steps/step_05_write_exif.dart';
 import 'steps/step_06_find_albums.dart';
 import 'steps/step_07_move_files.dart';
 import 'steps/step_08_update_creation_time.dart';
+import 'value_objects/date_time_extraction_method.dart';
 
 /// Simple Processing Pipeline for Google Photos Takeout Helper
 ///

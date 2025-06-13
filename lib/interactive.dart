@@ -25,30 +25,7 @@ import 'presentation/interactive_presenter.dart';
 
 // Legacy imports
 import 'utils.dart';
-
-const Map<String, String> albumOptions = <String, String>{
-  'shortcut':
-      '[Recommended] Album folders with shortcuts/symlinks to \n'
-      'original photos. \nRecommended as it will take the least space, but \n'
-      'may not be portable when moving across systems/computes/phones etc\n',
-  'duplicate-copy':
-      'Album folders with photos copied into them. \n'
-      'This will work across all systems, but may take wayyy more space!!\n',
-  'json':
-      'Put ALL photos (including Archive and Trash) in one folder and \n'
-      'make a .json file with info about albums. \n'
-      "Use if you're a programmer, or just want to get everything, \n"
-      'ignoring lack of year-folders etc.\n',
-  'nothing':
-      'Just ignore them and put year-photos into one folder. \n'
-      'WARNING: This ignores Archive/Trash !!!\n',
-  'reverse-shortcut':
-      'Album folders with ORIGINAL photos. "ALL_PHOTOS" folder \n'
-      'with shortcuts/symlinks to albums. If a photo is not in an album, \n'
-      'the original is saved. CAUTION: If a photo is in multiple albums, it will \n'
-      'be duplicated in the other albums, and the shortcuts/symlinks in \n'
-      '"ALL_PHOTOS" will point only to one album.\n',
-};
+export 'presentation/interactive_presenter.dart' show InteractivePresenter;
 
 /// Whether we are, indeed, running interactive (or not)
 bool indeed = false;
@@ -87,9 +64,7 @@ Future<void> nothingFoundMessage() async {
 /// Returns the selected Directory
 /// Throws if dialog fails or user cancels
 Future<Directory> getInputDir() async {
-  print('Select the directory where you unzipped all your takeout zips');
-  print('(Make sure they are merged => there is only one "Takeout" folder!)');
-  await sleep(1);
+  await _presenter.promptForInputDirectory();
   pressEnterToContinue();
   final String? dir = await getDirectoryPath(
     dialogTitle: 'Select unzipped folder:',
@@ -99,8 +74,7 @@ Future<Directory> getInputDir() async {
     error('Duh, something went wrong with selecting - try again!');
     return getOutput();
   }
-  print('Cool!');
-  await sleep(1);
+  await _presenter.showInputDirectoryConfirmation();
   return Directory(dir);
 }
 
@@ -119,11 +93,7 @@ Future<Directory> getInputDir() async {
 /// print('Selected ${zips.length} ZIP files');
 /// ```
 Future<List<File>> getZips() async {
-  print(
-    'First, select all .zips from Google Takeout '
-    '(use Ctrl to select multiple)',
-  );
-  await sleep(2);
+  await _presenter.promptForZipFiles();
   pressEnterToContinue();
   final FilePickerResult? files = await pickFiles(
     dialogTitle: 'Select all Takeout zips:',
@@ -141,12 +111,7 @@ Future<List<File>> getZips() async {
     quit(6969);
   }
   if (files.count == 1) {
-    print(
-      "You selected only one zip - if that's only one you have, it's cool, "
-      'but if you have multiple, Ctrl-C to exit gpth, and select them '
-      '*all* again (with Ctrl)',
-    );
-    await sleep(5);
+    await _presenter.showSingleZipWarning();
     pressEnterToContinue();
   }
   if (!files.files.every(
@@ -154,18 +119,19 @@ Future<List<File>> getZips() async {
         File(e.path!).statSync().type == FileSystemEntityType.file &&
         RegExp(r'\.(zip|tgz)$').hasMatch(e.path!),
   )) {
-    print(
-      'Files: [${files.files.map((final PlatformFile e) => p.basename(e.path!)).join(', ')}]',
+    _presenter.showFileList(
+      files.files.map((final PlatformFile e) => p.basename(e.path!)).toList(),
     );
     error('Not all files you selected are zips :/ please do this again');
     quit(6969);
   }
   // potentially shows user they selected too little ?
-  print(
-    'Cool! Selected ${files.count} zips => '
-    '${filesize(files.files.map((final PlatformFile e) => File(e.path!).statSync().size).reduce((final int a, final int b) => a + b))}',
+  final totalSize = filesize(
+    files.files
+        .map((final PlatformFile e) => File(e.path!).statSync().size)
+        .reduce((final int a, final int b) => a + b),
   );
-  await sleep(1);
+  await _presenter.showZipSelectionSuccess(files.count, totalSize);
   return files.files.map((final PlatformFile e) => File(e.path!)).toList();
 }
 
@@ -174,11 +140,7 @@ Future<List<File>> getZips() async {
 /// Returns the selected Directory
 /// Recursively asks again if dialog fails
 Future<Directory> getOutput() async {
-  print(
-    'Now, select output folder - all photos will be moved there\n'
-    '(note: GPTH will *move* your photos - no extra space will be taken ;)',
-  );
-  await sleep(1);
+  await _presenter.promptForOutputDirectory();
   pressEnterToContinue();
   final String? dir = await getDirectoryPath(
     dialogTitle: 'Select output folder:',
@@ -188,8 +150,7 @@ Future<Directory> getOutput() async {
     error('Duh, something went wrong with selecting - try again!');
     return getOutput();
   }
-  print('Cool!');
-  await sleep(1);
+  await _presenter.showOutputDirectoryConfirmation();
   return Directory(dir);
 }
 
@@ -201,29 +162,23 @@ Future<Directory> getOutput() async {
 /// - 2: Year/month folders
 /// - 3: Year/month/day folders
 Future<num> askDivideDates() async {
-  print(
-    'Do you want your photos in one big chronological folder, '
-    'or divided to folders by year/month?',
-  );
-  print('[1] (default) - one big folder');
-  print('[2] - year folders');
-  print('[3] - year/month folders');
-  print('[3] - year/month/day folders');
-  print('(Type a number or press enter for default):');
+  await _presenter.promptForDateDivision();
   final String answer = await askForInt();
   switch (answer) {
     case '1':
     case '':
-      print('Selected one big folder');
+      await _presenter.showDateDivisionChoice('Selected one big folder');
       return 0;
     case '2':
-      print('Will divide by year');
+      await _presenter.showDateDivisionChoice('Will divide by year');
       return 1;
     case '3':
-      print('Will divide by year and month');
+      await _presenter.showDateDivisionChoice('Will divide by year and month');
       return 2;
     case '4':
-      print('Will divide by year, month, and day');
+      await _presenter.showDateDivisionChoice(
+        'Will divide by year, month, and day',
+      );
       return 3;
     default:
       error('Invalid answer - try again');
@@ -257,42 +212,42 @@ Future<num> askDivideDates() async {
 ///   from year folders. Album-only files are skipped unless they have null keys assigned.
 ///   Simplest option for users who don't care about album organization.
 Future<String> askAlbums() async {
-  print('What should be done with albums?');
+  await _presenter.promptForAlbumBehavior();
   int i = 0;
-  for (final MapEntry<String, String> entry in albumOptions.entries) {
-    print('[${i++}] ${entry.key}: ${entry.value}');
+  for (final MapEntry<String, String> entry
+      in InteractivePresenter.albumOptions.entries) {
+    _presenter.showAlbumOption(i++, entry.key, entry.value);
   }
   final int? answer = int.tryParse(await askForInt());
-  if (answer == null || answer < 0 || answer >= albumOptions.length) {
+  if (answer == null ||
+      answer < 0 ||
+      answer >= InteractivePresenter.albumOptions.length) {
     error('Invalid answer - try again');
     return askAlbums();
   }
-  final String choice = albumOptions.keys.elementAt(answer);
-  print('Okay, doing: $choice');
+  final String choice = InteractivePresenter.albumOptions.keys.elementAt(
+    answer,
+  );
+  await _presenter.showAlbumChoice(choice);
   return choice;
 }
 
 // this is used in cli mode as well
 Future<bool> askForCleanOutput() async {
-  print('Output folder IS NOT EMPTY! What to do? Type either:');
-  print('[1] - delete *all* files inside output folder and continue');
-  print('[2] - continue as usual - put output files alongside existing');
-  print('[3] - exit program to examine situation yourself');
+  await _presenter.promptForOutputCleanup();
   final String answer = stdin
       .readLineSync()!
       .replaceAll('[', '')
       .replaceAll(']', '')
       .toLowerCase()
       .trim();
+  await _presenter.showOutputCleanupResponse(answer);
   switch (answer) {
     case '1':
-      print('Okay, deleting all files inside output folder...');
       return true;
     case '2':
-      print('Okay, continuing as usual...');
       return false;
     case '3':
-      print('Okay, exiting...');
       quit(0);
     default:
       error('Invalid answer - try again');
@@ -304,22 +259,14 @@ Future<bool> askForCleanOutput() async {
 ///
 /// Returns true if .MP/.MV files should be renamed to .mp4
 Future<bool> askTransformPixelMP() async {
-  print(
-    'Pixel Motion Pictures are saved with the .MP or .MV '
-    'extensions. Do you want to change them to .mp4 '
-    'for better compatibility?',
-  );
-  print('[1] (default) - no, keep original extension');
-  print('[2] - yes, change extension to .mp4');
-  print('(Type 1 or 2 or press enter for default):');
+  await _presenter.promptForPixelMpTransform();
   final String answer = await askForInt();
+  await _presenter.showPixelMpTransformResponse(answer);
   switch (answer) {
     case '1':
     case '':
-      print('Okay, will keep original extension');
       return false;
     case '2':
-      print('Okay, will change to mp4!');
       return true;
     default:
       error('Invalid answer - try again');
@@ -331,24 +278,14 @@ Future<bool> askTransformPixelMP() async {
 ///
 /// Returns true if creation times should be synced with modified times
 Future<bool> askChangeCreationTime() async {
-  print(
-    'This program fixes file "modified times". '
-    'Due to language limitations, creation times remain unchanged. '
-    'Would you like to run a separate script at the end to sync '
-    'creation times with modified times?'
-    '\nNote: ONLY ON WINDOWS',
-  );
-  print('[1] (Default) - No, don\'t update creation time');
-  print('[2] - Yes, update creation time to match modified time');
-  print('(Type 1 or 2, or press enter for default):');
+  await _presenter.promptForCreationTimeUpdate();
   final String answer = await askForInt();
+  await _presenter.showCreationTimeUpdateResponse(answer);
   switch (answer) {
     case '1':
     case '':
-      print('Okay, will not change creation time');
       return false;
     case '2':
-      print('Okay, will update creation time at the end of the prorgam!');
       return true;
     default:
       error('Invalid answer - try again');

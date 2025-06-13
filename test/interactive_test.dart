@@ -37,6 +37,7 @@ library;
 
 import 'dart:io';
 import 'package:gpth/interactive.dart' as interactive;
+import 'package:gpth/presentation/interactive_presenter.dart';
 import 'package:test/test.dart';
 import './test_setup.dart';
 
@@ -61,21 +62,24 @@ void main() {
       /// determine how the tool processes album relationships and file
       /// organization during the takeout processing.
       test('provides valid album behavior options', () {
-        expect(interactive.albumOptions, isA<Map<String, String>>());
-        expect(interactive.albumOptions.isNotEmpty, isTrue);
+        expect(InteractivePresenter.albumOptions, isA<Map<String, String>>());
+        expect(InteractivePresenter.albumOptions.isNotEmpty, isTrue);
 
         // Verify all expected album processing strategies are available
-        expect(interactive.albumOptions.keys, contains('shortcut'));
-        expect(interactive.albumOptions.keys, contains('duplicate-copy'));
-        expect(interactive.albumOptions.keys, contains('json'));
-        expect(interactive.albumOptions.keys, contains('nothing'));
+        expect(InteractivePresenter.albumOptions.keys, contains('shortcut'));
+        expect(
+          InteractivePresenter.albumOptions.keys,
+          contains('duplicate-copy'),
+        );
+        expect(InteractivePresenter.albumOptions.keys, contains('json'));
+        expect(InteractivePresenter.albumOptions.keys, contains('nothing'));
       });
 
       /// Ensures that each album option has a meaningful description
       /// that helps users understand the behavior and consequences
       /// of each processing strategy.
       test('album options have comprehensive descriptions', () {
-        for (final entry in interactive.albumOptions.entries) {
+        for (final entry in InteractivePresenter.albumOptions.entries) {
           expect(
             entry.value,
             isNotEmpty,
@@ -93,7 +97,7 @@ void main() {
       /// for display in user interfaces, with appropriate capitalization
       /// and punctuation for professional presentation.
       test('album options are properly formatted for user display', () {
-        for (final entry in interactive.albumOptions.entries) {
+        for (final entry in InteractivePresenter.albumOptions.entries) {
           // Key should be lowercase and may contain hyphens
           expect(
             entry.key,
@@ -132,21 +136,24 @@ void main() {
 
       /// Should validate album behavior options.
       test('validates album behavior options', () {
-        final validOptions = interactive.albumOptions.keys.toList();
+        final validOptions = InteractivePresenter.albumOptions.keys.toList();
 
         for (final option in validOptions) {
           expect(
-            interactive.albumOptions.containsKey(option),
+            InteractivePresenter.albumOptions.containsKey(option),
             isTrue,
             reason: 'Valid option $option not found in albumOptions',
           );
         }
 
         // Test invalid options
-        expect(interactive.albumOptions.containsKey('invalid'), isFalse);
-        expect(interactive.albumOptions.containsKey(''), isFalse);
         expect(
-          interactive.albumOptions.containsKey('SHORTCUT'),
+          InteractivePresenter.albumOptions.containsKey('invalid'),
+          isFalse,
+        );
+        expect(InteractivePresenter.albumOptions.containsKey(''), isFalse);
+        expect(
+          InteractivePresenter.albumOptions.containsKey('SHORTCUT'),
           isFalse,
         ); // Case sensitive
       });
@@ -262,13 +269,13 @@ void main() {
       test('handles permission errors gracefully', () {
         // This would test how interactive functions handle permission denied errors
         // In a real scenario, we'd mock file system operations
-        expect(() => interactive.albumOptions, returnsNormally);
+        expect(() => InteractivePresenter.albumOptions, returnsNormally);
       });
 
       /// Should handle invalid input gracefully.
       test('handles invalid input gracefully', () {
         // Test that invalid inputs don't crash the interactive functions
-        expect(interactive.albumOptions.containsKey(null), isFalse);
+        expect(InteractivePresenter.albumOptions.containsKey(null), isFalse);
       });
 
       /// Should handle interruption signals.
@@ -325,7 +332,7 @@ void main() {
 
         for (final option in requiredOptions) {
           expect(
-            interactive.albumOptions.keys,
+            InteractivePresenter.albumOptions.keys,
             contains(option),
             reason: 'Missing required album option: $option',
           );
@@ -334,7 +341,7 @@ void main() {
 
       /// Should ensure album option descriptions are informative.
       test('album option descriptions are informative', () {
-        for (final entry in interactive.albumOptions.entries) {
+        for (final entry in InteractivePresenter.albumOptions.entries) {
           final description = entry.value.toLowerCase();
 
           // Each description should give some hint about what the option does
@@ -349,14 +356,14 @@ void main() {
       /// Should ensure a default album option exists.
       test('default album option exists', () {
         // There should be a reasonable default option
-        expect(interactive.albumOptions.keys, contains('shortcut'));
+        expect(InteractivePresenter.albumOptions.keys, contains('shortcut'));
       });
     });
 
     group('User Experience', () {
       /// Should ensure option keys are user-friendly.
       test('option keys are user-friendly', () {
-        for (final key in interactive.albumOptions.keys) {
+        for (final key in InteractivePresenter.albumOptions.keys) {
           // Keys should be readable and not too cryptic
           expect(
             key.length,
@@ -498,8 +505,11 @@ void main() {
         // but we can test the public interface indirectly
 
         // Create a mock scenario to verify the module loads correctly
-        expect(interactive.albumOptions, isNotEmpty);
-        expect(interactive.albumOptions.containsKey('shortcut'), isTrue);
+        expect(InteractivePresenter.albumOptions, isNotEmpty);
+        expect(
+          InteractivePresenter.albumOptions.containsKey('shortcut'),
+          isTrue,
+        );
       });
     });
   });

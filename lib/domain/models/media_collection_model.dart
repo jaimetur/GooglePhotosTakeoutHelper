@@ -3,6 +3,7 @@ import 'dart:io';
 import '../../extras.dart' as extras;
 import '../../grouping.dart' as grouping;
 import '../../media.dart';
+import '../adapters/media_collection_adapter.dart';
 import '../services/date_extraction/date_extractor_service.dart';
 import '../services/exif_writer_service.dart';
 import '../value_objects/date_time_extraction_method.dart';
@@ -11,51 +12,57 @@ import '../value_objects/date_time_extraction_method.dart';
 ///
 /// This replaces the global mutable `List<Media>` media with a proper domain object
 /// that encapsulates media-related operations and maintains consistency.
+///
+/// Now uses MediaEntityCollection internally via adapter for modern immutable operations.
 class MediaCollection {
   MediaCollection([final List<Media>? initialMedia])
-    : _media = initialMedia ?? [];
+    : _adapter = MediaCollectionAdapter() {
+    if (initialMedia != null) {
+      _adapter.addAll(initialMedia);
+    }
+  }
 
-  final List<Media> _media;
+  final MediaCollectionAdapter _adapter;
 
   /// Read-only access to the media list
-  List<Media> get media => List.unmodifiable(_media);
+  List<Media> get media => _adapter.media;
 
   /// Number of media items in the collection
-  int get length => _media.length;
+  int get length => _adapter.length;
 
   /// Whether the collection is empty
-  bool get isEmpty => _media.isEmpty;
-  bool get isNotEmpty => _media.isNotEmpty;
+  bool get isEmpty => _adapter.isEmpty;
+  bool get isNotEmpty => _adapter.isNotEmpty;
 
   /// Add a single media item to the collection
   void add(final Media media) {
-    _media.add(media);
+    _adapter.add(media);
   }
 
   /// Add multiple media items to the collection
   void addAll(final Iterable<Media> mediaItems) {
-    _media.addAll(mediaItems);
+    _adapter.addAll(mediaItems);
   }
 
   /// Remove duplicates from the collection and return the count removed
-  int removeDuplicates() => grouping.removeDuplicates(_media);
+  int removeDuplicates() => grouping.removeDuplicates(_adapter.media);
 
   /// Ultra-fast async version of removeDuplicates for massive performance gains
   /// Uses parallel processing to dramatically improve performance on large collections
   Future<int> removeDuplicatesAsyncOptimized() =>
-      grouping.removeDuplicatesAsyncOptimized(_media);
+      grouping.removeDuplicatesAsyncOptimized(_adapter.media);
 
   /// Remove "extra" files (edited versions) and return the count removed
-  int removeExtras() => extras.removeExtras(_media);
+  int removeExtras() => extras.removeExtras(_adapter.media);
 
   /// Find and merge album relationships
   void findAlbums() {
-    grouping.findAlbums(_media);
+    grouping.findAlbums(_adapter.media);
   }
 
   /// Async version of findAlbums for better performance
   /// Uses streaming hash calculation to avoid loading entire files into memory
-  Future<void> findAlbumsAsync() => grouping.findAlbumsAsync(_media);
+  Future<void> findAlbumsAsync() => grouping.findAlbumsAsync(_adapter.media);
 
   /// Extract dates from all media using the provided extractors
   Future<Map<DateTimeExtractionMethod, int>> extractDates(
@@ -63,14 +70,15 @@ class MediaCollection {
     final ProgressCallback? onProgress,
   }) async {
     final extractionStats = <DateTimeExtractionMethod, int>{};
+    final mediaList = _adapter.media; // Get current list
 
-    for (int i = 0; i < _media.length; i++) {
+    for (int i = 0; i < mediaList.length; i++) {
       int extractorIndex = 0;
       DateTimeExtractionMethod? extractionMethod;
       for (final extractor in extractors) {
-        final date = await extractor(_media[i].firstFile);
+        final date = await extractor(mediaList[i].firstFile);
         if (date != null) {
-          _media[i] = _media[i].withDate(
+          _adapter[i] = mediaList[i].withDate(
             dateTaken: date,
             dateTakenAccuracy: extractorIndex,
           );
@@ -80,13 +88,13 @@ class MediaCollection {
         extractorIndex++;
       }
 
-      if (_media[i].dateTaken == null) {
+      if (mediaList[i].dateTaken == null) {
         extractionMethod = DateTimeExtractionMethod.none;
-        _media[i] = _media[i].withDate(
+        _adapter[i] = mediaList[i].withDate(
           dateTimeExtractionMethod: DateTimeExtractionMethod.none,
         );
       } else {
-        _media[i] = _media[i].withDate(
+        _adapter[i] = mediaList[i].withDate(
           dateTimeExtractionMethod: extractionMethod,
         );
       }
@@ -94,7 +102,7 @@ class MediaCollection {
       extractionStats[extractionMethod!] =
           (extractionStats[extractionMethod] ?? 0) + 1;
 
-      onProgress?.call(i + 1, _media.length);
+      onProgress?.call(i + 1, mediaList.length);
     }
 
     return extractionStats;
@@ -106,9 +114,10 @@ class MediaCollection {
   }) async {
     int coordinatesWritten = 0;
     int dateTimesWritten = 0;
+    final mediaList = _adapter.media; // Get current list
 
-    for (int i = 0; i < _media.length; i++) {
-      final currentFile = _media[i].firstFile;
+    for (int i = 0; i < mediaList.length; i++) {
+      final currentFile = mediaList[i].firstFile;
 
       // Write coordinates if available
       final coords = await jsonCoordinatesExtractor(currentFile);
@@ -119,14 +128,16 @@ class MediaCollection {
       }
 
       // Write datetime if not already from EXIF and has a date
-      if (_media[i].dateTimeExtractionMethod != DateTimeExtractionMethod.exif &&
-          _media[i].dateTimeExtractionMethod != DateTimeExtractionMethod.none) {
-        if (await writeDateTimeToExif(_media[i].dateTaken!, currentFile)) {
+      if (mediaList[i].dateTimeExtractionMethod !=
+              DateTimeExtractionMethod.exif &&
+          mediaList[i].dateTimeExtractionMethod !=
+              DateTimeExtractionMethod.none) {
+        if (await writeDateTimeToExif(mediaList[i].dateTaken!, currentFile)) {
           dateTimesWritten++;
         }
       }
 
-      onProgress?.call(i + 1, _media.length);
+      onProgress?.call(i + 1, mediaList.length);
     }
 
     return ExifWriteResult(
@@ -137,7 +148,8 @@ class MediaCollection {
 
   /// Ensure all media have a null key for ALL_PHOTOS processing
   void ensureAllPhotosKeys() {
-    for (final media in _media) {
+    final mediaList = _adapter.media;
+    for (final media in mediaList) {
       if (media.files[null] == null) {
         media.files[null] = media.files.values.first;
       }
@@ -146,7 +158,7 @@ class MediaCollection {
 
   /// Transform Pixel Motion Photo extensions
   Future<void> transformPixelExtensions(final String newExtension) async {
-    await _changeMPExtensions(_media, newExtension);
+    await _changeMPExtensions(_adapter.media, newExtension);
   }
 
   /// Changes .MP and .MV file extensions to the specified new extension
@@ -203,8 +215,9 @@ class MediaCollection {
     final albumCounts = <String, int>{};
     final accuracyDistribution = <int, int>{};
     final extractionMethodDistribution = <DateTimeExtractionMethod, int>{};
+    final mediaList = _adapter.media;
 
-    for (final media in _media) {
+    for (final media in mediaList) {
       // Count albums
       for (final albumName in media.files.keys) {
         if (albumName != null) {
@@ -225,7 +238,7 @@ class MediaCollection {
     }
 
     return MediaCollectionStats(
-      totalCount: _media.length,
+      totalCount: mediaList.length,
       albumCounts: albumCounts,
       accuracyDistribution: accuracyDistribution,
       extractionMethodDistribution: extractionMethodDistribution,

@@ -1,4 +1,4 @@
-import 'media_entity.dart';
+import '../value_objects/date_time_extraction_method.dart';
 
 /// Domain model representing the results and statistics of a complete GPTH processing run
 ///

@@ -11,6 +11,7 @@ import 'package:gpth/domain/services/global_config_service.dart';
 import 'package:gpth/domain/services/takeout_path_resolver_service.dart';
 import 'package:gpth/exiftoolInterface.dart';
 import 'package:gpth/interactive.dart' as interactive;
+import 'package:gpth/presentation/interactive_presenter.dart';
 import 'package:gpth/utils.dart';
 import 'package:path/path.dart' as p;
 
@@ -161,8 +162,8 @@ ArgParser _createArgumentParser() => ArgParser()
   ..addOption(
     'albums',
     help: 'What to do about albums?',
-    allowed: interactive.albumOptions.keys,
-    allowedHelp: interactive.albumOptions,
+    allowed: InteractivePresenter.albumOptions.keys,
+    allowedHelp: InteractivePresenter.albumOptions,
     defaultsTo: 'shortcut',
   )
   ..addOption(

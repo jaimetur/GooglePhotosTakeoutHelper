@@ -20,6 +20,15 @@ class InteractivePresenter with LoggerMixin {
   /// Whether to validate user input (disable for testing)
   final bool enableInputValidation;
 
+  /// Helper method for sleep delays (can be disabled for testing)
+  Future<void> _sleep(final num seconds) async {
+    if (enableSleep) {
+      await Future<void>.delayed(
+        Duration(milliseconds: (seconds * 1000).toInt()),
+      );
+    }
+  }
+
   /// Album options with descriptions for user selection
   static const Map<String, String> albumOptions = <String, String>{
     'shortcut':
@@ -153,95 +162,171 @@ class InteractivePresenter with LoggerMixin {
     return directory;
   }
 
-  /// Shows progress update to user
-  void showProgress(final String message) {
-    logInfo(message, forcePrint: true);
+  /// Prompts user to select input directory
+  Future<void> promptForInputDirectory() async {
+    print('Select the directory where you unzipped all your takeout zips');
+    print('(Make sure they are merged => there is only one "Takeout" folder!)');
+    if (enableSleep) await _sleep(1);
   }
 
-  /// Shows error message to user
-  void showError(final String message) {
-    logError(message);
+  /// Shows confirmation message for input directory selection
+  Future<void> showInputDirectoryConfirmation() async {
+    print('Cool!');
+    if (enableSleep) await _sleep(1);
   }
 
-  /// Shows warning message to user
-  void showWarning(final String message) {
-    logWarning(message, forcePrint: true);
+  /// Prompts user to select ZIP files
+  Future<void> promptForZipFiles() async {
+    print(
+      'First, select all .zips from Google Takeout '
+      '(use Ctrl to select multiple)',
+    );
+    if (enableSleep) await _sleep(2);
   }
 
-  /// Shows success message to user
-  void showSuccess(final String message) {
-    logInfo(message, forcePrint: true);
+  /// Shows warning for single ZIP file selection
+  Future<void> showSingleZipWarning() async {
+    print(
+      "You selected only one zip - if that's only one you have, it's cool, "
+      'but if you have multiple, Ctrl-C to exit gpth, and select them '
+      '*all* again (with Ctrl)',
+    );
+    if (enableSleep) await _sleep(5);
   }
 
-  /// Prompts user for yes/no confirmation
-  Future<bool> confirmAction(final String prompt) async {
-    print('$prompt (y/n):');
-
-    while (true) {
-      final input = await readUserInput();
-
-      if (input == 'y' || input == 'yes') {
-        return true;
-      } else if (input == 'n' || input == 'no') {
-        return false;
-      }
-
-      print('Please enter y (yes) or n (no):');
-    }
+  /// Shows success message for ZIP selection with file count and size
+  Future<void> showZipSelectionSuccess(
+    final int count,
+    final String totalSize,
+  ) async {
+    print('Cool! Selected $count zips => $totalSize');
+    if (enableSleep) await _sleep(1);
   }
 
-  /// Internal sleep method that respects the enableSleep setting
-  Future<void> _sleep(final num seconds) async {
-    if (enableSleep) {
-      await Future<void>.delayed(
-        Duration(milliseconds: (seconds * 1000).toInt()),
-      );
-    }
+  /// Shows file list for debugging
+  void showFileList(final List<String> fileNames) {
+    print('Files: [${fileNames.join(', ')}]');
   }
 
-  /// Shows completion message with statistics
-  Future<void> showCompletion({
-    required final int processedFiles,
-    required final Duration elapsed,
-    required final String outputPath,
-  }) async {
-    print('\n🎉 Processing completed successfully!');
-    await _sleep(1);
-    print('📊 Statistics:');
-    print('   • Files processed: $processedFiles');
-    print('   • Time elapsed: ${_formatDuration(elapsed)}');
-    print('   • Output location: $outputPath');
-    await _sleep(2);
-    print('\n✨ Your photos are now organized and ready to use!');
+  /// Prompts user to select output directory
+  Future<void> promptForOutputDirectory() async {
+    print(
+      'Now, select output folder - all photos will be moved there\n'
+      '(note: GPTH will *move* your photos - no extra space will be taken ;)',
+    );
     await _sleep(1);
   }
 
-  /// Formats duration for display
-  String _formatDuration(final Duration duration) {
-    if (duration.inSeconds < 60) {
-      return '${duration.inSeconds}s';
-    } else {
-      final minutes = duration.inMinutes;
-      final seconds = duration.inSeconds % 60;
-      return '${minutes}m ${seconds}s';
+  /// Shows confirmation message for output directory selection
+  Future<void> showOutputDirectoryConfirmation() async {
+    print('Cool!');
+    await _sleep(1);
+  }
+
+  /// Prompts user to select date organization method
+  Future<void> promptForDateDivision() async {
+    print('How to organize output folder?');
+    print('[1] (default) - one big folder');
+    print('[2] - year folders');
+    print('[3] - year/month folders');
+    print('[3] - year/month/day folders');
+    print('(Type a number or press enter for default):');
+  }
+
+  /// Shows selected date division option
+  Future<void> showDateDivisionChoice(final String choice) async {
+    print(choice);
+  }
+
+  /// Prompts user for album handling behavior
+  Future<void> promptForAlbumBehavior() async {
+    print('What should be done with albums?');
+  }
+
+  /// Shows album option with index and description
+  void showAlbumOption(
+    final int index,
+    final String key,
+    final String description,
+  ) {
+    print('[$index] $key: $description');
+  }
+
+  /// Shows selected album choice
+  Future<void> showAlbumChoice(final String choice) async {
+    print('Okay, doing: $choice');
+  }
+
+  /// Prompts user for output folder cleanup decision
+  Future<void> promptForOutputCleanup() async {
+    print('Output folder IS NOT EMPTY! What to do? Type either:');
+    print('[1] - delete *all* files inside output folder and continue');
+    print('[2] - continue as usual - put output files alongside existing');
+    print('[3] - exit program to examine situation yourself');
+  }
+
+  /// Shows response to output cleanup choice
+  Future<void> showOutputCleanupResponse(final String choice) async {
+    switch (choice) {
+      case '1':
+        print('Okay, deleting all files inside output folder...');
+        break;
+      case '2':
+        print('Okay, continuing as usual...');
+        break;
+      case '3':
+        print('Okay, exiting...');
+        break;
     }
   }
 
-  /// Shows disk space warning
-  Future<void> showDiskSpaceWarning({
-    required final int requiredSpaceMB,
-    required final int? availableSpaceMB,
-  }) async {
-    showWarning('⚠️  Disk Space Warning');
-    print('Required space: ${requiredSpaceMB}MB');
-    if (availableSpaceMB != null) {
-      print('Available space: ${availableSpaceMB}MB');
-      if (availableSpaceMB < requiredSpaceMB) {
-        print('❌ Insufficient disk space!');
-        await _sleep(2);
-        throw Exception('Insufficient disk space for operation');
-      }
+  /// Prompts user about Pixel Motion Photo transformation
+  Future<void> promptForPixelMpTransform() async {
+    print(
+      'Pixel Motion Pictures are saved with the .MP or .MV '
+      'extensions. Do you want to change them to .mp4 '
+      'for better compatibility?',
+    );
+    print('[1] (default) - no, keep original extension');
+    print('[2] - yes, change extension to .mp4');
+    print('(Type 1 or 2 or press enter for default):');
+  }
+
+  /// Shows response to Pixel MP transformation choice
+  Future<void> showPixelMpTransformResponse(final String choice) async {
+    switch (choice) {
+      case '1':
+      case '':
+        print('Okay, will keep original extension');
+        break;
+      case '2':
+        print('Okay, will change to mp4!');
+        break;
     }
-    await _sleep(1);
+  }
+
+  /// Prompts user about creation time update
+  Future<void> promptForCreationTimeUpdate() async {
+    print(
+      'Set the files creation time to match the modified time?\n'
+      'This will only work on Windows. On other platforms, \n'
+      'this option is ignored.',
+    );
+    print('[1] (Default) - No, don\'t update creation time');
+    print('[2] - Yes, update creation time to match modified time');
+    print('(Type 1 or 2, or press enter for default):');
+  }
+
+  /// Shows response to creation time update choice
+  Future<void> showCreationTimeUpdateResponse(final String choice) async {
+    switch (choice) {
+      case '1':
+      case '':
+        print('Okay, will not change creation time');
+        break;
+      case '2':
+        print('Okay, will update creation time at the end of the prorgam!');
+        break;
+    }
   }
 }
