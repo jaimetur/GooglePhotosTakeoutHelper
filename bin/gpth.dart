@@ -433,7 +433,7 @@ Future<InputOutputPaths> _getInputOutputPaths(final ArgResults res) async {
   }
   // Resolve input path to Google Photos directory using the domain service
   try {
-    inputPath = TakeoutPathResolver.resolveGooglePhotosPath(inputPath);
+    inputPath = TakeoutPathResolverService.resolveGooglePhotosPath(inputPath);
   } catch (e) {
     error('Path resolution failed: $e');
     exit(12);

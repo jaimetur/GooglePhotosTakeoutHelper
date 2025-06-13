@@ -34,7 +34,7 @@ import 'package:path/path.dart' as p;
 /// - Gracefully handles missing directories and permissions issues
 /// - Provides clear feedback about what structure was expected vs found
 /// - Suggests corrective actions for common path resolution problems
-class TakeoutPathResolver {
+class TakeoutPathResolverService {
   /// **RESOLVE GOOGLE PHOTOS DIRECTORY**
   ///
   /// Resolves the input path to point to the actual Google Photos directory

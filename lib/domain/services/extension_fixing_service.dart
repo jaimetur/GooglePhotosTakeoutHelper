@@ -146,14 +146,17 @@ class ExtensionFixingService with LoggerMixin {
   /// Finds the JSON metadata file associated with a media file
   Future<File?> _findJsonFile(final File file) async {
     // Try quick lookup first
-    File? jsonFile = await JsonFileMatcher.findJsonForFile(
+    File? jsonFile = await JsonFileMatcherService.findJsonForFile(
       file,
       tryhard: false,
     );
 
     if (jsonFile == null) {
       // Try harder lookup if quick one failed
-      jsonFile = await JsonFileMatcher.findJsonForFile(file, tryhard: true);
+      jsonFile = await JsonFileMatcherService.findJsonForFile(
+        file,
+        tryhard: true,
+      );
 
       if (jsonFile == null) {
         logWarning('Unable to find matching JSON for file: ${file.path}');

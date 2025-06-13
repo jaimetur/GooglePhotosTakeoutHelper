@@ -30,7 +30,7 @@ Future<DateTime?> jsonDateTimeExtractor(
 
 /// Attempts to find the corresponding JSON file for a media file
 ///
-/// Delegates to JsonFileMatcher service for the actual matching logic.
+/// Delegates to JsonFileMatcherService service for the actual matching logic.
 /// This function maintains backward compatibility with existing code.
 ///
 /// [file] Media file to find JSON for
@@ -39,7 +39,7 @@ Future<DateTime?> jsonDateTimeExtractor(
 Future<File?> jsonForFile(
   final File file, {
   required final bool tryhard,
-}) async => JsonFileMatcher.findJsonForFile(file, tryhard: tryhard);
+}) async => JsonFileMatcherService.findJsonForFile(file, tryhard: tryhard);
 
 /// This is to get coordinates from the json file. Expects media file and finds json.
 Future<DMSCoordinates?> jsonCoordinatesExtractor(

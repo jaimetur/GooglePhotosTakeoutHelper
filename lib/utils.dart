@@ -204,8 +204,8 @@ String? extensionFromMime(final String mimeType) {
 
 /// Finds JSON metadata file for a given media file
 ///
-/// Delegates to JsonFileMatcher service from domain layer
+/// Delegates to JsonFileMatcherService service from domain layer
 Future<File?> jsonForFile(
   final File file, {
   required final bool tryhard,
-}) async => JsonFileMatcher.findJsonForFile(file, tryhard: tryhard);
+}) async => JsonFileMatcherService.findJsonForFile(file, tryhard: tryhard);

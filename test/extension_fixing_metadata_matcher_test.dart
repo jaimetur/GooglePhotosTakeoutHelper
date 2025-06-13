@@ -154,7 +154,7 @@ void main() {
     group('Strategy Order Validation Tests', () {
       test('verifies strategy order is from most to least likely', () async {
         // Test that basic strategies are ordered correctly
-        final basicStrategies = JsonFileMatcher.getAllStrategies(
+        final basicStrategies = JsonFileMatcherService.getAllStrategies(
           includeAggressive: false,
         );
         expect(basicStrategies.length, equals(6));
@@ -171,7 +171,7 @@ void main() {
       test(
         'verifies aggressive strategies are appropriately ordered',
         () async {
-          final allStrategies = JsonFileMatcher.getAllStrategies(
+          final allStrategies = JsonFileMatcherService.getAllStrategies(
             includeAggressive: true,
           );
           expect(allStrategies.length, equals(10)); // 6 basic + 4 aggressive

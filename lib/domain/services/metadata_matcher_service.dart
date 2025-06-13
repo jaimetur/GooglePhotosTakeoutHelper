@@ -15,7 +15,7 @@ import '../../utils.dart';
 ///
 /// Strategies are ordered from least to most aggressive to minimize
 /// false matches while maximizing success rate.
-class JsonFileMatcher {
+class JsonFileMatcherService {
   /// Attempts to find the corresponding JSON file for a media file
   ///
   /// Tries multiple strategies to locate JSON files, including handling
