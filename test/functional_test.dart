@@ -261,12 +261,13 @@ void main() {
         'DEBUG: testMedia count after findAlbums: ${testMedia.length}',
       ); // Handle album-only photos (like the real application does)
       // If a media doesn't have a null key, establish one from an album
-      for (final Media m in testMedia) {
+      for (int i = 0; i < testMedia.length; i++) {
+        final Media m = testMedia[i];
         final File? fileWithNullKey = m.files[null];
         if (fileWithNullKey == null) {
           final Map<String?, File> updatedFiles = Map.from(m.files);
           updatedFiles[null] = m.files.values.first;
-          m.adapter.files = updatedFiles;
+          testMedia[i] = m.withFiles(updatedFiles);
         }
       }
     }

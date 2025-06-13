@@ -67,12 +67,13 @@ class MediaCollection {
     for (int i = 0; i < _media.length; i++) {
       int extractorIndex = 0;
       DateTimeExtractionMethod? extractionMethod;
-
       for (final extractor in extractors) {
         final date = await extractor(_media[i].firstFile);
         if (date != null) {
-          _media[i].dateTaken = date;
-          _media[i].dateTakenAccuracy = extractorIndex;
+          _media[i] = _media[i].withDate(
+            dateTaken: date,
+            dateTakenAccuracy: extractorIndex,
+          );
           extractionMethod = DateTimeExtractionMethod.values[extractorIndex];
           break;
         }
@@ -81,9 +82,13 @@ class MediaCollection {
 
       if (_media[i].dateTaken == null) {
         extractionMethod = DateTimeExtractionMethod.none;
-        _media[i].dateTimeExtractionMethod = DateTimeExtractionMethod.none;
+        _media[i] = _media[i].withDate(
+          dateTimeExtractionMethod: DateTimeExtractionMethod.none,
+        );
       } else {
-        _media[i].dateTimeExtractionMethod = extractionMethod;
+        _media[i] = _media[i].withDate(
+          dateTimeExtractionMethod: extractionMethod,
+        );
       }
 
       extractionStats[extractionMethod!] =

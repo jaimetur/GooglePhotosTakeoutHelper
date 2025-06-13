@@ -7,7 +7,6 @@ import '../domain/entities/media_entity.dart';
 import '../domain/models/media_entity.dart' as domain;
 import '../domain/services/global_config_service.dart';
 import '../domain/services/media_hash_service.dart';
-import '../domain/value_objects/date_accuracy.dart';
 import '../shared/constants.dart' as constants;
 
 /// Adapter that bridges the gap between old Media class and new MediaEntity
@@ -57,43 +56,19 @@ class LegacyMediaAdapter {
   File get firstFile => _entity.primaryFile;
 
   /// Legacy property: mutable files map
-  /// WARNING: Mutations create new entity instances
+  /// Note: Returns unmodifiable view. Use withFiles() for modifications.
   Map<String?, File> get files => Map.unmodifiable(_entity.files.files);
-
-  /// Legacy setter: files map
-  set files(final Map<String?, File> newFiles) {
-    _entity = MediaEntity.fromMap(
-      files: newFiles,
-      dateTaken: _entity.dateTaken,
-      dateTakenAccuracy: _entity.dateTakenAccuracy,
-      dateTimeExtractionMethod: _entity.dateTimeExtractionMethod,
-    );
-    // Clear caches
-    _size = null;
-    _hash = null;
-  }
 
   /// Legacy property: date taken
   DateTime? get dateTaken => _entity.dateTaken;
-  set dateTaken(final DateTime? value) {
-    _entity = _entity.withDate(dateTaken: value);
-  }
 
   /// Legacy property: date accuracy
   int? get dateTakenAccuracy =>
       _entity.dateAccuracy == null ? null : _entity.dateTakenAccuracy;
-  set dateTakenAccuracy(final int? value) {
-    _entity = _entity.withDate(
-      dateAccuracy: DateAccuracy.fromNullableInt(value),
-    );
-  }
 
   /// Legacy property: extraction method
   domain.DateTimeExtractionMethod? get dateTimeExtractionMethod =>
       _entity.dateTimeExtractionMethod;
-  set dateTimeExtractionMethod(final domain.DateTimeExtractionMethod? value) {
-    _entity = _entity.withDate(dateTimeExtractionMethod: value);
-  }
 
   /// Async size calculation with caching
   Future<int> getSize() async {

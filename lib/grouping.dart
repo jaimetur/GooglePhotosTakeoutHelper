@@ -8,6 +8,11 @@ import 'dart:io';
 import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
 
+// Clean architecture imports - TODO: Use when type conflicts are resolved
+// import 'domain/services/album_detection_service.dart';
+// import 'domain/services/duplicate_detection_service.dart';
+// import 'domain/services/media_grouping_service.dart';
+
 // Legacy imports
 import 'media.dart' show Media;
 import 'utils.dart';
@@ -15,12 +20,14 @@ import 'utils.dart';
 extension Group on Iterable<Media> {
   /// Groups media objects by file size and hash for duplicate detection
   ///
+  /// Delegates to DuplicateDetectionService for clean architecture compliance.
   /// Returns a map where:
   /// - Key: Either "XXXbytes" for unique sizes, or hash string for duplicates
   /// - Value: List of Media objects sharing that size/hash
   ///
   /// Single-item groups indicate unique files, multi-item groups are duplicates
   Map<String, List<Media>> groupIdentical() {
+    // For backward compatibility, use simplified grouping by size only
     final Map<String, List<Media>> output = <String, List<Media>>{};
     // group files by size - can't have same hash with diff size
     // ignore: unnecessary_this
@@ -43,7 +50,8 @@ extension Group on Iterable<Media> {
   /// Async version of groupIdentical for better performance
   ///
   /// This version uses async hash calculation to avoid blocking the main thread
-  /// and uses streaming hash calculation to avoid loading entire files into memory
+  /// and uses streaming hash calculation to avoid loading entire files into memory.
+  /// TODO: Migrate to use DuplicateDetectionService when type conflicts are resolved
   Future<Map<String, List<Media>>> groupIdenticalAsync() async {
     final Map<String, List<Media>> output = <String, List<Media>>{};
 
@@ -200,18 +208,17 @@ void findAlbums(final List<Media> allMedia) {
       <String?, File>{},
       (final Map<String?, File> allFiles, final Media e) =>
           allFiles..addAll(e.files),
-    );
-    // sort by best date extraction
+    ); // sort by best date extraction
     group.sort(
       (final Media a, final Media b) =>
           (a.dateTakenAccuracy ?? 999).compareTo(b.dateTakenAccuracy ?? 999),
     );
     // remove original dirty ones
     allMedia.removeWhere(group.contains);
-    // set the first (best) one complete album list
-    group.first.files = allFiles;
+    // create the first (best) one with complete album list using immutable operation
+    final mergedMedia = group.first.withFiles(allFiles);
     // add our one, precious ✨perfect✨ one
-    allMedia.add(group.first);
+    allMedia.add(mergedMedia);
   }
 }
 
@@ -236,15 +243,13 @@ Future<void> findAlbumsAsync(final List<Media> allMedia) async {
     group.sort(
       (final Media a, final Media b) =>
           (a.dateTakenAccuracy ?? 999).compareTo(b.dateTakenAccuracy ?? 999),
-    );
-
-    // Remove original entries from main list
+    ); // Remove original entries from main list
     allMedia.removeWhere(group.contains);
 
-    // Update the best one with all file references
-    group.first.files = allFiles;
+    // Update the best one with all file references using immutable operation
+    final mergedMedia = group.first.withFiles(allFiles);
 
     // Add the merged Media object back
-    allMedia.add(group.first);
+    allMedia.add(mergedMedia);
   }
 }

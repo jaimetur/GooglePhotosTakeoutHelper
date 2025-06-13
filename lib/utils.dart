@@ -10,8 +10,10 @@ import 'package:proper_filesize/proper_filesize.dart';
 // Clean architecture imports
 import 'domain/services/extension_fixing_service.dart';
 import 'domain/services/global_config_service.dart';
+import 'domain/services/logging_service.dart';
 import 'domain/services/metadata_matcher_service.dart';
 import 'domain/services/mime_type_service.dart';
+import 'domain/services/processing_metrics_service.dart';
 import 'infrastructure/disk_space_service.dart';
 
 // Legacy imports
@@ -101,26 +103,10 @@ String filesize(final int bytes) => FileSize.fromBytes(bytes).toString(
 
 /// Calculates total number of output files based on album behavior
 ///
-/// [media] List of media objects
-/// [albumOption] Album handling option ('shortcut', 'duplicate-copy', etc.)
-/// Returns expected number of output files
+/// Delegates to ProcessingMetricsService for clean architecture compliance
 int outputFileCount(final List<Media> media, final String albumOption) {
-  if (<String>[
-    'shortcut',
-    'duplicate-copy',
-    'reverse-shortcut',
-  ].contains(albumOption)) {
-    return media.fold(
-      0,
-      (final int prev, final Media e) => prev + e.files.length,
-    );
-  } else if (albumOption == 'json') {
-    return media.length;
-  } else if (albumOption == 'nothing') {
-    return media.where((final Media e) => e.files.containsKey(null)).length;
-  } else {
-    throw ArgumentError.value(albumOption, 'albumOption');
-  }
+  const service = ProcessingMetricsService();
+  return service.calculateOutputFileCount(media, albumOption);
 }
 
 extension Z on String {
@@ -134,32 +120,16 @@ extension Z on String {
 
 /// Custom logging function with color-coded output levels
 ///
-/// [message] The message to log
-/// [level] Log level: 'info' (green), 'warning' (yellow), 'error' (red)
-/// [forcePrint] If true, prints even when verbose mode is disabled
+/// Delegates to LoggingService for clean architecture compliance
 void log(
   final String message, {
   final String level = 'info',
   final bool forcePrint = false,
 }) {
-  if (GlobalConfigService.instance.isVerbose || forcePrint == true) {
-    final String color;
-    switch (level.toLowerCase()) {
-      case 'error':
-        color = '\x1B[31m'; // Red for errors
-        break;
-      case 'warning':
-        color = '\x1B[33m'; // Yellow for warnings
-        break;
-      case 'info':
-      default:
-        color = '\x1B[32m'; // Green for info
-        break;
-    }
-    print(
-      '\r$color[${level.toUpperCase()}] $message\x1B[0m',
-    ); // Reset color after the message
-  }
+  final service = LoggingService(
+    isVerbose: GlobalConfigService.instance.isVerbose,
+  );
+  service.log(message, level: level, forcePrint: forcePrint);
 }
 
 /// Validates directory exists and is accessible
