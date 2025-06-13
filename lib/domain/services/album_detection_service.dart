@@ -1,3 +1,5 @@
+import 'package:crypto/crypto.dart';
+
 import '../entities/media_entity.dart';
 import '../services/logging_service.dart';
 
@@ -52,17 +54,20 @@ class AlbumDetectionService with LoggerMixin {
     return mergedResults;
   }
 
-  /// Groups media entities by their content (using a simple hash for now)
+  /// Groups media entities by their content (using content hash)
   Future<Map<String, List<MediaEntity>>> _groupIdenticalMedia(
     final List<MediaEntity> mediaList,
   ) async {
     final groups = <String, List<MediaEntity>>{};
 
     for (final entity in mediaList) {
-      // For now, use file size + first few bytes as a simple content identifier
-      // In a full implementation, this would use proper content hashing
+      // Use actual content hash for proper duplicate detection
       final size = await entity.primaryFile.length();
-      final contentKey = '${size}_${entity.primaryFile.path.hashCode}';
+      final content = await entity.primaryFile.readAsBytes();
+
+      // Use MD5 hash for consistent content-based grouping
+      final digest = md5.convert(content);
+      final contentKey = '${size}_$digest';
 
       groups.putIfAbsent(contentKey, () => []).add(entity);
     }

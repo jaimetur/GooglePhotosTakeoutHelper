@@ -130,9 +130,8 @@ class FindAlbumsStep extends ProcessingStep {
 
     try {
       print('\n[Step 6/8] Finding albums (this may take a while)...');
-
       final initialCount = context.mediaCollection.length;
-      await context.mediaCollection.findAlbumsAsync();
+      await context.mediaCollection.findAlbums();
       final finalCount = context.mediaCollection.length;
       final mergedCount = initialCount - finalCount;
 

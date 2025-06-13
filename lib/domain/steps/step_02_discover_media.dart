@@ -1,8 +1,8 @@
 import 'dart:io';
 import 'package:path/path.dart' as p;
 import '../../folder_classify.dart';
-import '../../media.dart';
 import '../../utils.dart';
+import '../entities/media_entity.dart';
 import '../models/pipeline_step_model.dart';
 
 /// Step 2: Discover and classify media files
@@ -182,10 +182,11 @@ class DiscoverMediaStep extends ProcessingStep {
       if (context.config.verbose) {
         print('Scanning year folder: ${p.basename(yearDir.path)}');
       }
-
       await for (final mediaFile
           in yearDir.list(recursive: true).wherePhotoVideo()) {
-        context.mediaCollection.add(Media({null: mediaFile}));
+        context.mediaCollection.add(
+          MediaEntity.fromMap(files: {null: mediaFile}),
+        );
         yearFolderFiles++;
       }
     }
@@ -196,10 +197,11 @@ class DiscoverMediaStep extends ProcessingStep {
       if (context.config.verbose) {
         print('Scanning album folder: $albumName');
       }
-
       await for (final mediaFile
           in albumDir.list(recursive: true).wherePhotoVideo()) {
-        context.mediaCollection.add(Media({albumName: mediaFile}));
+        context.mediaCollection.add(
+          MediaEntity.fromMap(files: {albumName: mediaFile}),
+        );
         albumFolderFiles++;
       }
     }

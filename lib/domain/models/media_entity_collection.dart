@@ -1,4 +1,6 @@
 import '../entities/media_entity.dart';
+import '../services/album_detection_service.dart';
+import '../services/duplicate_detection_service.dart';
 import '../services/exif_writer_service.dart';
 import '../value_objects/date_time_extraction_method.dart';
 
@@ -124,6 +126,81 @@ class MediaEntityCollection {
       'coordinatesWritten': coordinatesWritten,
       'dateTimesWritten': dateTimesWritten,
     };
+  }
+
+  /// Remove duplicate media entities from the collection
+  ///
+  /// Uses content-based duplicate detection to identify and remove duplicate files,
+  /// keeping the best version of each duplicate group.
+  Future<int> removeDuplicates({
+    final void Function(int current, int total)? onProgress,
+  }) async {
+    if (_media.isEmpty) return 0;
+
+    const duplicateService = DuplicateDetectionService();
+    int removedCount = 0;
+
+    // Group media by hash to find duplicates
+    final hashGroups = await duplicateService.groupIdentical(_media);
+
+    int processed = 0;
+    final totalGroups = hashGroups.length;
+
+    for (final group in hashGroups.values) {
+      if (group.length <= 1) {
+        processed++;
+        onProgress?.call(processed, totalGroups);
+        continue; // No duplicates in this group
+      } // Sort by best date extraction quality, then file name length
+      group.sort((final a, final b) {
+        // Prefer files with dates from better extraction methods
+        final aAccuracy = a.dateAccuracy?.value ?? 999;
+        final bAccuracy = b.dateAccuracy?.value ?? 999;
+        if (aAccuracy != bAccuracy) {
+          return aAccuracy.compareTo(bAccuracy);
+        }
+
+        // If equal accuracy, prefer shorter file names (typically original names)
+        final aNameLength = a.files.firstFile.path.length;
+        final bNameLength = b.files.firstFile.path.length;
+        return aNameLength.compareTo(bNameLength);
+      });
+
+      // Remove all duplicates except the first (best) one
+      final duplicatesToRemove = group.sublist(1);
+      for (final duplicate in duplicatesToRemove) {
+        _media.remove(duplicate);
+        removedCount++;
+      }
+
+      processed++;
+      onProgress?.call(processed, totalGroups);
+    }
+
+    return removedCount;
+  }
+
+  /// Find and merge album relationships in the collection
+  ///
+  /// This method detects media files that appear in multiple locations
+  /// (year folders and album folders) and merges them into single entities
+  /// with all file associations preserved.
+  Future<void> findAlbums({
+    final void Function(int processed, int total)? onProgress,
+  }) async {
+    final albumService = AlbumDetectionService();
+
+    // Create a copy of the media list to avoid concurrent modification
+    final mediaCopy = List<MediaEntity>.from(_media);
+
+    // Get the merged results
+    final mergedMedia = await albumService.detectAndMergeAlbums(mediaCopy);
+
+    // Replace the current media list with merged results
+    _media.clear();
+    _media.addAll(mergedMedia);
+
+    onProgress?.call(_media.length, _media.length);
   }
 
   /// Get processing statistics for the collection

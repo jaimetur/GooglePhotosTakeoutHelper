@@ -4,7 +4,8 @@
 /// calculating expected outputs and processing statistics.
 library;
 
-import '../../media.dart';
+import '../entities/media_entity.dart';
+import '../models/media_entity_collection.dart';
 
 /// Service for calculating processing metrics
 class ProcessingMetricsService {
@@ -13,25 +14,30 @@ class ProcessingMetricsService {
 
   /// Calculates total number of output files based on album behavior
   ///
-  /// [media] List of media objects
+  /// [collection] Collection of media entities
   /// [albumOption] Album handling option ('shortcut', 'duplicate-copy', etc.)
   /// Returns expected number of output files
   int calculateOutputFileCount(
-    final List<Media> media,
+    final MediaEntityCollection collection,
     final String albumOption,
   ) {
     switch (albumOption) {
       case 'shortcut':
       case 'duplicate-copy':
       case 'reverse-shortcut':
-        return media.fold(
+        return collection.media.fold(
           0,
-          (final int prev, final Media e) => prev + e.files.length,
+          (final int prev, final MediaEntity e) => prev + e.files.length,
         );
       case 'json':
-        return media.length;
+        return collection.media.length;
       case 'nothing':
-        return media.where((final Media e) => e.files.containsKey(null)).length;
+        return collection.media
+            .where(
+              (final MediaEntity e) =>
+                  e.files.files.values.any((final f) => f.path.isNotEmpty),
+            )
+            .length;
       default:
         throw ArgumentError.value(
           albumOption,
@@ -44,24 +50,28 @@ class ProcessingMetricsService {
   /// Calculates processing statistics
   ///
   /// Returns a map with various metrics about the media collection
-  Map<String, dynamic> calculateStatistics(final List<Media> media) {
+  Map<String, dynamic> calculateStatistics(
+    final MediaEntityCollection collection,
+  ) {
     final stats = <String, dynamic>{};
-
-    stats['totalMedia'] = media.length;
-    stats['mediaWithDates'] = media
+    stats['totalMedia'] = collection.media.length;
+    stats['mediaWithDates'] = collection.media
         .where((final m) => m.dateTaken != null)
         .length;
-    stats['mediaWithAlbums'] = media
-        .where((final m) => m.entity.hasAlbumAssociations)
+    stats['mediaWithAlbums'] = collection.media
+        .where((final m) => m.hasAlbumAssociations)
         .length;
-    stats['totalFiles'] = media.fold(
+    stats['totalFiles'] = collection.media.fold(
       0,
-      (final sum, final m) => sum + m.files.length,
+      (final int sum, final m) => sum + m.files.length,
     );
 
     // Calculate by album options
     for (final option in ['shortcut', 'duplicate-copy', 'json', 'nothing']) {
-      stats['outputCount_$option'] = calculateOutputFileCount(media, option);
+      stats['outputCount_$option'] = calculateOutputFileCount(
+        collection,
+        option,
+      );
     }
 
     return stats;

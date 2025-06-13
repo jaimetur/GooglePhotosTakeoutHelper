@@ -195,11 +195,10 @@ class WriteExifStep extends ProcessingStep {
               }
             : null,
       );
-
       if (context.config.verbose) {
         print('EXIF writing completed:');
-        print('  GPS coordinates written: ${result.coordinatesWritten}');
-        print('  DateTime written: ${result.dateTimesWritten}');
+        print('  GPS coordinates written: ${result['coordinatesWritten']}');
+        print('  DateTime written: ${result['dateTimesWritten']}');
       }
 
       stopwatch.stop();
@@ -207,12 +206,12 @@ class WriteExifStep extends ProcessingStep {
         stepName: name,
         duration: stopwatch.elapsed,
         data: {
-          'coordinatesWritten': result.coordinatesWritten,
-          'dateTimesWritten': result.dateTimesWritten,
+          'coordinatesWritten': result['coordinatesWritten'],
+          'dateTimesWritten': result['dateTimesWritten'],
           'skipped': false,
         },
         message:
-            'Wrote EXIF data to ${result.coordinatesWritten + result.dateTimesWritten} files',
+            'Wrote EXIF data to ${result['coordinatesWritten']! + result['dateTimesWritten']!} files',
       );
     } catch (e) {
       stopwatch.stop();

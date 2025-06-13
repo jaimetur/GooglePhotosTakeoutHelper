@@ -1,7 +1,8 @@
 import 'package:console_bars/console_bars.dart';
 
-import '../../moving.dart';
 import '../models/pipeline_step_model.dart';
+import '../services/moving/media_entity_moving_service.dart';
+import '../services/moving/moving_context_model.dart';
 
 /// Step 7: Move files to output directory
 ///
@@ -161,15 +162,21 @@ class MoveFilesStep extends ProcessingStep {
           total: context.mediaCollection.length,
           width: 50,
         );
-      }
+      } // Create modern moving context
+      final movingContext = MovingContext(
+        outputDirectory: context.outputDirectory,
+        copyMode: context.config.copyMode,
+        dateDivision: context.config.dateDivision,
+        albumBehavior: context.config.albumBehavior,
+      );
+
+      // Create the moving service
+      final movingService = MediaEntityMovingService();
 
       int processedCount = 0;
-      await for (final _ in moveFiles(
-        context.mediaCollection.media,
-        context.outputDirectory,
-        copy: context.config.copyMode,
-        divideToDates: context.config.dateDivision.value,
-        albumBehavior: context.config.albumBehavior.value,
+      await for (final _ in movingService.moveMediaEntities(
+        context.mediaCollection,
+        movingContext,
       )) {
         processedCount++;
         if (context.config.verbose) {

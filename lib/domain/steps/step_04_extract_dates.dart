@@ -1,5 +1,6 @@
 import 'package:console_bars/console_bars.dart';
 
+import '../entities/media_entity.dart';
 import '../models/pipeline_step_model.dart';
 
 /// Step 4: Extract dates from media files
@@ -136,9 +137,13 @@ class ExtractDatesStep extends ProcessingStep {
           width: 50,
         );
       }
-
       final extractionStats = await context.mediaCollection.extractDates(
-        extractors,
+        extractors
+            .map(
+              (final extractor) =>
+                  (final MediaEntity entity) => extractor(entity.primaryFile),
+            )
+            .toList(),
         onProgress: context.config.verbose
             ? (final int current, final int total) {
                 progressBar?.update(current);

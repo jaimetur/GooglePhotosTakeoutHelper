@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'media_collection_model.dart';
+import 'media_entity_collection.dart';
 import 'processing_config_model.dart';
 
 /// Abstract base class for all GPTH processing steps
@@ -90,7 +90,7 @@ class ProcessingContext {
   }) : stepResults = stepResults ?? {};
 
   final ProcessingConfig config;
-  final MediaCollection mediaCollection;
+  final MediaEntityCollection mediaCollection;
   final Directory inputDirectory;
   final Directory outputDirectory;
   final Map<String, dynamic> stepResults;

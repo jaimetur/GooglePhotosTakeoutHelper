@@ -1,7 +1,8 @@
 import 'package:path/path.dart' as p;
 import 'package:unorm_dart/unorm_dart.dart' as unorm;
 
-import 'media.dart';
+import 'domain/entities/media_entity.dart';
+import 'domain/models/media_entity_collection.dart';
 
 const List<String> extraFormats = <String>[
   // EN/US - thanks @DalenW
@@ -36,26 +37,38 @@ const List<String> extraFormats = <String>[
 /// like "-edited", "-bearbeitet", "-modifié", etc. Uses Unicode normalization
 /// to handle accented characters correctly on macOS.
 ///
-/// [media] List of Media objects to filter
-/// Returns count of removed items
-int removeExtras(final List<Media> media) {
-  final List<Media> copy = media.toList();
-  int count = 0;
-  for (final Media m in copy) {
+/// [collection] MediaEntityCollection to filter
+/// Returns new collection with extras removed and count of removed items
+({MediaEntityCollection collection, int removedCount}) removeExtras(
+  final MediaEntityCollection collection,
+) {
+  final List<MediaEntity> filteredEntities = [];
+  int removedCount = 0;
+
+  for (final MediaEntity entity in collection.media) {
     final String name = p
-        .withoutExtension(p.basename(m.firstFile.path))
+        .withoutExtension(p.basename(entity.files.firstFile.path))
         .toLowerCase();
+
+    bool isExtra = false;
     for (final String extra in extraFormats) {
       // MacOS uses NFD that doesn't work with our accents 🙃🙃
       // https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/pull/247
       if (unorm.nfc(name).endsWith(extra)) {
-        media.remove(m);
-        count++;
+        isExtra = true;
+        removedCount++;
         break;
       }
     }
+
+    if (!isExtra) {
+      filteredEntities.add(entity);
+    }
   }
-  return count;
+  return (
+    collection: MediaEntityCollection(filteredEntities),
+    removedCount: removedCount,
+  );
 }
 
 /// Checks if a filename matches "extra" format patterns (edited versions)

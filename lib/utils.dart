@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import 'package:proper_filesize/proper_filesize.dart';
 
 // Clean architecture imports
+import 'domain/models/media_entity_collection.dart';
 import 'domain/services/extension_fixing_service.dart';
 import 'domain/services/global_config_service.dart';
 import 'domain/services/logging_service.dart';
@@ -18,7 +19,6 @@ import 'infrastructure/disk_space_service.dart';
 
 // Legacy imports
 import 'interactive.dart' as interactive;
-import 'media.dart';
 
 // remember to bump this
 const String version = '4.0.8-Xentraxx';
@@ -104,9 +104,12 @@ String filesize(final int bytes) => FileSize.fromBytes(bytes).toString(
 /// Calculates total number of output files based on album behavior
 ///
 /// Delegates to ProcessingMetricsService for clean architecture compliance
-int outputFileCount(final List<Media> media, final String albumOption) {
+int outputFileCount(
+  final MediaEntityCollection collection,
+  final String albumOption,
+) {
   const service = ProcessingMetricsService();
-  return service.calculateOutputFileCount(media, albumOption);
+  return service.calculateOutputFileCount(collection, albumOption);
 }
 
 extension Z on String {
