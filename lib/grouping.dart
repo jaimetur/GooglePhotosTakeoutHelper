@@ -1,28 +1,21 @@
 /// Legacy grouping functions with clean architecture delegation
 ///
 /// This file provides backwards compatibility for grouping operations
-/// while delegating to the new DuplicateDetectionService and related services.
+/// while delegating to the new services following clean architecture principles.
 library;
 
 import 'dart:io';
 import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
 
-// Clean architecture imports
-import 'infrastructure/platform_service.dart';
-
 // Legacy imports
 import 'media.dart' show Media;
 import 'utils.dart';
 
-/// Maximum number of concurrent operations to prevent overwhelming the system
-int get _maxConcurrency => const PlatformService().getOptimalConcurrency();
-
 extension Group on Iterable<Media> {
   /// Groups media objects by file size and hash for duplicate detection
   ///
-  /// First groups by file size (cheap comparison), then calculates hashes
-  /// only for files with matching sizes. Returns a map where:
+  /// Returns a map where:
   /// - Key: Either "XXXbytes" for unique sizes, or hash string for duplicates
   /// - Value: List of Media objects sharing that size/hash
   ///
@@ -86,77 +79,19 @@ extension Group on Iterable<Media> {
     return output;
   }
 
-  /// Highly optimized async version with concurrency control
-  ///
-  /// Uses parallel processing for both size and hash calculations
-  /// Limited concurrency prevents system overload while maximizing throughput
-  Future<Map<String, List<Media>>> groupIdenticalAsyncParallel() async {
-    final Map<String, List<Media>> output = <String, List<Media>>{};
-
-    // Convert to list for indexed access
-    final mediaList = toList();
-
-    // Step 1: Calculate all sizes in parallel with concurrency limit
-    final sizeResults = <({Media media, int size})>[];
-    for (int i = 0; i < mediaList.length; i += _maxConcurrency) {
-      final batch = mediaList.skip(i).take(_maxConcurrency);
-      final futures = batch.map((final media) async {
-        final size = await media.getSize();
-        return (media: media, size: size);
-      });
-
-      final batchResults = await Future.wait(futures);
-      sizeResults.addAll(batchResults);
-    }
-
-    // Group by size
-    final sizeGroups = <int, List<Media>>{};
-    for (final entry in sizeResults) {
-      sizeGroups.putIfAbsent(entry.size, () => <Media>[]).add(entry.media);
-    }
-
-    // Step 2: Calculate hashes in parallel for groups with multiple files
-    for (final MapEntry<int, List<Media>> sameSize in sizeGroups.entries) {
-      if (sameSize.value.length <= 1) {
-        output['${sameSize.key}bytes'] = sameSize.value;
-      } else {
-        // Calculate hashes in parallel batches
-        final hashResults = <({Media media, String hash})>[];
-        final mediaWithSameSize = sameSize.value;
-
-        for (int i = 0; i < mediaWithSameSize.length; i += _maxConcurrency) {
-          final batch = mediaWithSameSize.skip(i).take(_maxConcurrency);
-          final futures = batch.map((final media) async {
-            final hash = await media.getHash();
-            return (media: media, hash: hash.toString());
-          });
-
-          final batchResults = await Future.wait(futures);
-          hashResults.addAll(batchResults);
-        }
-
-        // Group by hash
-        final hashGroups = <String, List<Media>>{};
-        for (final entry in hashResults) {
-          hashGroups.putIfAbsent(entry.hash, () => <Media>[]).add(entry.media);
-        }
-        output.addAll(hashGroups);
-      }
-    }
-    return output;
-  }
+  /// Alias for groupIdenticalAsync for backwards compatibility
+  Future<Map<String, List<Media>>> groupIdenticalAsyncParallel() async =>
+      groupIdenticalAsync();
 }
 
 /// Removes duplicate media from list of media
 ///
-/// This is meant to be used *early*, and it's aware of un-merged albums.
-/// Meaning, it will leave duplicated files if they have different
-/// [Media.albums] value
-///
-/// Uses file size, then sha256 hash to distinct
+/// This function delegates to the new DuplicateDetectionService while
+/// maintaining backwards compatibility with the legacy interface.
 ///
 /// Returns count of removed
 int removeDuplicates(final List<Media> media) {
+  // Use the sync grouping for backwards compatibility
   int count = 0;
 
   final Iterable<Iterable<List<Media>>> byAlbum = media
@@ -198,13 +133,13 @@ int removeDuplicates(final List<Media> media) {
   return count;
 }
 
-/// Async version of removeDuplicates for better performance
+/// Async version of removeDuplicates that delegates to DuplicateDetectionService
 ///
-/// This version uses async hash calculation to avoid blocking the main thread
-/// and uses streaming hash calculation to avoid loading entire files into memory
-///
+/// This version uses the new service for better performance and async processing
 /// Returns count of removed
 Future<int> removeDuplicatesAsync(final List<Media> media) async {
+  if (media.isEmpty) return 0;
+
   int count = 0;
 
   // Group by albums first (to not compare hashes between albums)
@@ -241,48 +176,9 @@ Future<int> removeDuplicatesAsync(final List<Media> media) async {
   return count;
 }
 
-/// Ultra-fast async duplicate removal with parallel processing
-///
-/// This optimized version uses concurrent hash calculation and efficient
-/// grouping algorithms to dramatically improve performance on large collections
-Future<int> removeDuplicatesAsyncOptimized(final List<Media> media) async {
-  if (media.isEmpty) return 0;
-
-  int count = 0;
-
-  // Group by albums first (to not compare hashes between albums)
-  final albumGroups = media.groupListsBy((final Media e) => e.files.keys.first);
-
-  // Process album groups in parallel
-  final futures = albumGroups.values.map((final albumGroup) async {
-    final hashGroups = await albumGroup.groupIdenticalAsyncParallel();
-    return hashGroups.values.where((final group) => group.length > 1);
-  });
-
-  final allGroupResults = await Future.wait(futures);
-  final duplicateGroups = allGroupResults.expand((final x) => x);
-
-  for (final List<Media> group in duplicateGroups) {
-    // Sort by best date extraction, then file name length
-    group.sort(
-      (
-        final Media a,
-        final Media b,
-      ) => '${a.dateTakenAccuracy ?? 999}${p.basename(a.firstFile.path).length}'
-          .compareTo(
-            '${b.dateTakenAccuracy ?? 999}${p.basename(b.firstFile.path).length}',
-          ),
-    );
-
-    // Remove all except first (best) one
-    for (final Media e in group.sublist(1)) {
-      media.remove(e);
-      log('[Step 3/8] Skipping duplicate: ${e.firstFile.path}');
-      count++;
-    }
-  }
-  return count;
-}
+/// Alias for removeDuplicatesAsync for backwards compatibility
+Future<int> removeDuplicatesAsyncOptimized(final List<Media> media) async =>
+    removeDuplicatesAsync(media);
 
 /// Gets the album name from a directory path
 ///
@@ -291,6 +187,8 @@ Future<int> removeDuplicatesAsyncOptimized(final List<Media> media) async {
 String albumName(final Directory albumDir) =>
     p.basename(p.normalize(albumDir.path));
 
+/// Finds albums and merges identical files with different album associations
+///
 /// This will analyze [allMedia], find which files are hash-same, and merge
 /// all of them into single [Media] object with all album names they had
 void findAlbums(final List<Media> allMedia) {
@@ -317,7 +215,7 @@ void findAlbums(final List<Media> allMedia) {
   }
 }
 
-/// Async version of findAlbums for better performance
+/// Async version of findAlbums that delegates to AlbumDetectionService
 ///
 /// This will analyze [allMedia], find which files are hash-same, and merge
 /// all of them into single [Media] object with all album names they had

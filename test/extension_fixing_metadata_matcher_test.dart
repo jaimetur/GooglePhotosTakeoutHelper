@@ -157,8 +157,7 @@ void main() {
         final basicStrategies = JsonFileMatcher.getAllStrategies(
           includeAggressive: false,
         );
-
-        expect(basicStrategies.length, equals(5));
+        expect(basicStrategies.length, equals(6));
         expect(basicStrategies[0].name, equals('No modification'));
         expect(basicStrategies[1].name, equals('Filename shortening'));
         expect(basicStrategies[2].name, equals('Bracket number swapping'));
@@ -167,6 +166,7 @@ void main() {
           basicStrategies[4].name,
           equals('Remove complete extra formats'),
         );
+        expect(basicStrategies[5].name, equals('MP file JSON matching'));
       });
       test(
         'verifies aggressive strategies are appropriately ordered',
@@ -174,15 +174,14 @@ void main() {
           final allStrategies = JsonFileMatcher.getAllStrategies(
             includeAggressive: true,
           );
-
-          expect(allStrategies.length, equals(9)); // 5 basic + 4 aggressive
-          expect(allStrategies[5].name, equals('Cross-extension matching'));
-          expect(allStrategies[6].name, equals('Remove partial extra formats'));
+          expect(allStrategies.length, equals(10)); // 6 basic + 4 aggressive
+          expect(allStrategies[6].name, equals('Cross-extension matching'));
+          expect(allStrategies[7].name, equals('Remove partial extra formats'));
           expect(
-            allStrategies[7].name,
+            allStrategies[8].name,
             equals('Extension restoration after partial removal'),
           );
-          expect(allStrategies[8].name, equals('Edge case pattern removal'));
+          expect(allStrategies[9].name, equals('Edge case pattern removal'));
         },
       );
 

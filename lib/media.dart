@@ -3,224 +3,79 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 
+import 'adapters/legacy_media_adapter.dart';
+import 'domain/entities/media_entity.dart';
 import 'domain/models/media_entity.dart' as domain;
-import 'domain/services/global_config_service.dart';
-// Clean architecture imports
-import 'domain/services/media_hash_service.dart';
-import 'shared/constants.dart' as constants;
-
-/// Simple digest collector for streaming hash calculation
-class _DigestSink implements Sink<Digest> {
-  late Digest value;
-
-  @override
-  void add(final Digest data) {
-    value = data;
-  }
-
-  @override
-  void close() {}
-}
 
 /// Abstract of a *media* - a photo or video
 ///
-/// Main thing is the [file] - this should not change
+/// This class now delegates to the immutable MediaEntity through an adapter
+/// to maintain backward compatibility while transitioning to clean architecture.
 ///
-/// [size] and [hash] getter are here because we can easily cache
+/// The [files] map maintains album associations where null represents year-based
+/// organization and strings represent album names.
 ///
-/// [dateTakenAccuracy] is a number used to compare with other [Media]. When
-/// you find a duplicate, use one that has lower [dateTakenAccuracy] number.
-/// this and [dateTaken] should either both be null or both filled
+/// [dateTakenAccuracy] is used for comparison - lower values indicate better accuracy.
+/// When merging duplicates, the media with lower accuracy value is preferred.
 class Media {
+  /// Creates a new Media instance
   Media(
-    this.files, {
-    this.dateTaken,
-    this.dateTakenAccuracy,
-    this.dateTimeExtractionMethod,
-  }) : _hashService = const MediaHashService();
+    final Map<String?, File> files, {
+    final DateTime? dateTaken,
+    final int? dateTakenAccuracy,
+    final domain.DateTimeExtractionMethod? dateTimeExtractionMethod,
+  }) : _adapter = LegacyMediaAdapter.fromLegacy(
+         files,
+         dateTaken: dateTaken,
+         dateTakenAccuracy: dateTakenAccuracy,
+         dateTimeExtractionMethod: dateTimeExtractionMethod,
+       );
 
-  // Clean architecture services
-  final MediaHashService _hashService;
+  /// Creates from an immutable MediaEntity
+  Media.fromEntity(final MediaEntity entity)
+    : _adapter = LegacyMediaAdapter(entity);
+
+  final LegacyMediaAdapter _adapter;
+
+  /// Gets the immutable entity for services that need it
+  MediaEntity get entity => _adapter.entity;
+
+  /// Gets the adapter for clean architecture services
+  LegacyMediaAdapter get adapter => _adapter;
 
   /// First file with media, used in early stage when albums are not merged
-  ///
-  /// BE AWARE OF HOW YOU USE IT
-  File get firstFile => files.values.first;
+  File get firstFile => _adapter.firstFile;
 
   /// Map between albums and files of same given media
-  ///
-  /// This is heavily mutated - at first, media from year folders have this
-  /// with single null key, and those from albums have one name.
-  /// Then, they are merged into one by algos etc.
-  ///
-  /// At the end of the script, this will have *all* locations of given media,
-  /// so that we can safely:
-  /// ```dart
-  /// // photo.runtimeType == Media;
-  /// photo.files[null].move('output/one-big/');  // null is for year folders
-  /// photo.files[<album_name>].move('output/albums/<album_name>/');
-  /// ```
-  Map<String?, File> files;
-
-  // Cache fields
-  int? _size;
-  Digest? _hash;
-
-  // Futures for race condition protection
-  Future<int>? _sizeOperation;
-  Future<Digest>? _hashOperation;
-
-  /// will be used for finding duplicates/albums
-  Future<int> getSize() async {
-    // Return cached value if available
-    if (_size != null) return _size!;
-
-    // If operation is in progress, wait for it
-    if (_sizeOperation != null) return _sizeOperation!;
-
-    // Start new operation
-    return _sizeOperation = _doGetSize();
-  }
-
-  /// Internal method to perform the actual size calculation
-  Future<int> _doGetSize() async {
-    try {
-      final size = await firstFile.length();
-      _size = size;
-      return size;
-    } finally {
-      _sizeOperation = null; // Clear the operation when done
-    }
-  }
-
-  /// Synchronous size getter for backwards compatibility
-  /// WARNING: Use getSize() for new code to avoid blocking
-  int get size {
-    if (_size != null) return _size!;
-    // For backwards compatibility, fall back to sync operation
-    return _size ??= firstFile.lengthSync();
-  }
+  Map<String?, File> get files => _adapter.files;
+  set files(final Map<String?, File> value) => _adapter.files = value;
 
   /// DateTaken from any source
-  DateTime? dateTaken;
+  DateTime? get dateTaken => _adapter.dateTaken;
+  set dateTaken(final DateTime? value) => _adapter.dateTaken = value;
 
-  /// higher the worse
-  int? dateTakenAccuracy;
+  /// Higher number means worse accuracy
+  int? get dateTakenAccuracy => _adapter.dateTakenAccuracy;
+  set dateTakenAccuracy(final int? value) => _adapter.dateTakenAccuracy = value;
 
-  /// The method/extractor that produced the DateTime ('json', 'exif', 'guess', 'jsonTryHard', 'none')
-  domain.DateTimeExtractionMethod? dateTimeExtractionMethod;
+  /// The method/extractor that produced the DateTime
+  domain.DateTimeExtractionMethod? get dateTimeExtractionMethod =>
+      _adapter.dateTimeExtractionMethod;
+  set dateTimeExtractionMethod(final domain.DateTimeExtractionMethod? value) =>
+      _adapter.dateTimeExtractionMethod = value;
 
-  /// Async hash calculation using streaming to avoid loading entire file into memory
-  /// Returns same value for files > [constants.defaultMaxFileSize] to avoid memory issues
-  Future<Digest> getHash() async {
-    // Return cached value if available
-    if (_hash != null) return _hash!;
+  /// Async size calculation - preferred method
+  Future<int> getSize() => _adapter.getSize();
 
-    // If operation is in progress, wait for it
-    if (_hashOperation != null) return _hashOperation!;
+  /// Synchronous size getter for backward compatibility
+  int get size => _adapter.size;
 
-    // Start new operation
-    return _hashOperation = _doGetHash();
-  }
+  /// Async hash calculation - preferred method
+  Future<Digest> getHash() => _adapter.getHash();
 
-  /// Internal method to perform the actual hash calculation
-  Future<Digest> _doGetHash() async {
-    try {
-      final fileSize = await getSize();
-      if (fileSize > constants.defaultMaxFileSize &&
-          GlobalConfigService.instance.enforceMaxFileSize) {
-        _hash = Digest(<int>[0]);
-        return _hash!;
-      }
-
-      // Use the new clean architecture service for hash calculation
-      // This provides better error handling and consistency
-      try {
-        final hashString = await _hashService.calculateFileHash(firstFile);
-        // Convert string hash back to Digest for backwards compatibility
-        final bytes = <int>[];
-        for (int i = 0; i < hashString.length; i += 2) {
-          final hex = hashString.substring(i, i + 2);
-          bytes.add(int.parse(hex, radix: 16));
-        }
-        _hash = Digest(bytes);
-        return _hash!;
-      } catch (e) {
-        // Fallback to legacy method if service fails
-        final hash = await _calculateHashStreaming();
-        _hash = hash;
-        return hash;
-      }
-    } finally {
-      _hashOperation = null; // Clear the operation when done
-    }
-  }
-
-  /// Synchronous hash getter for backwards compatibility
-  /// WARNING: Use getHash() for new code to avoid blocking
-  /// Uses streaming calculation to avoid loading entire file into memory
-  Digest get hash {
-    if (_hash != null) return _hash!;
-    // For backwards compatibility, fall back to sync operation
-    final fileSize = firstFile.lengthSync();
-    if (fileSize > constants.defaultMaxFileSize &&
-        GlobalConfigService.instance.enforceMaxFileSize) {
-      return _hash = Digest(<int>[0]);
-    }
-    return _hash = _calculateHashStreamingSync();
-  }
-
-  /// Synchronous streaming hash calculation to avoid loading entire file into memory
-  /// Optimized with larger chunks for better performance
-  Digest _calculateHashStreamingSync() {
-    final output = _DigestSink();
-    final input = sha256.startChunkedConversion(output);
-
-    try {
-      // Use larger chunks for better I/O performance
-      const chunkSize = 1024 * 1024; // 1MB chunks
-      final file = firstFile.openSync();
-
-      try {
-        while (true) {
-          final chunk = file.readSync(chunkSize);
-          if (chunk.isEmpty) break;
-          input.add(chunk);
-        }
-      } finally {
-        file.closeSync();
-      }
-
-      input.close();
-      return output.value;
-    } catch (e) {
-      input.close();
-      rethrow;
-    }
-  }
-
-  /// Calculate hash using streaming to avoid loading entire file into memory
-  /// Optimized with larger chunks and better buffer management
-  Future<Digest> _calculateHashStreaming() async {
-    final output = _DigestSink();
-    final input = sha256.startChunkedConversion(output);
-    try {
-      // Use openRead with forEach for better performance and cleaner code
-      await firstFile.openRead().forEach(input.add);
-
-      input.close();
-      return output.value;
-    } catch (e) {
-      input.close();
-      rethrow;
-    }
-  }
+  /// Synchronous hash getter for backward compatibility
+  Digest get hash => _adapter.hash;
 
   @override
-  String toString() =>
-      'Media('
-      '$firstFile, '
-      'dateTaken: $dateTaken'
-      '${files.keys.length > 1 ? ', albums: ${files.keys}' : ''}'
-      ')';
+  String toString() => _adapter.toString();
 }

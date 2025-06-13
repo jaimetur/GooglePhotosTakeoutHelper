@@ -257,14 +257,16 @@ void main() {
         'DEBUG: testMedia count after removeDuplicates: ${testMedia.length}',
       );
       findAlbums(testMedia);
-      print('DEBUG: testMedia count after findAlbums: ${testMedia.length}');
-
-      // Handle album-only photos (like the real application does)
+      print(
+        'DEBUG: testMedia count after findAlbums: ${testMedia.length}',
+      ); // Handle album-only photos (like the real application does)
       // If a media doesn't have a null key, establish one from an album
       for (final Media m in testMedia) {
         final File? fileWithNullKey = m.files[null];
         if (fileWithNullKey == null) {
-          m.files[null] = m.files.values.first;
+          final Map<String?, File> updatedFiles = Map.from(m.files);
+          updatedFiles[null] = m.files.values.first;
+          m.adapter.files = updatedFiles;
         }
       }
     }
