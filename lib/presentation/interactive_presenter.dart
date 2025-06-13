@@ -1,6 +1,7 @@
 import 'dart:io';
 import '../domain/services/logging_service.dart';
 import '../shared/constants.dart';
+import '../utils.dart' as utils;
 
 /// Service for handling interactive user interface and console interactions
 ///
@@ -328,5 +329,196 @@ class InteractivePresenter with LoggerMixin {
         print('Okay, will update creation time at the end of the prorgam!');
         break;
     }
+  }
+
+  /// Prompts user about EXIF writing with ExifTool availability check
+  Future<void> promptForExifWriting(final bool exifToolInstalled) async {
+    if (exifToolInstalled) {
+      print(
+        'This mode will write Exif data (dates/times/coordinates) back to your files. '
+        'To achieve the best results, download Exiftool and place it next to this executable or in your \$PATH.'
+        'If you haven\'t done so yet, close this program and come back. '
+        'creation times with modified times?'
+        '\nNote: ONLY ON WINDOWS',
+      );
+    } else {
+      print(
+        'This mode will write Exif data (dates/times/coordinates) back to your files. '
+        'We detected that ExifTool is NOT available! '
+        'To achieve the best results, we strongly recomend to download Exiftool and place it next to this executable or in your \$PATH.'
+        'You can download ExifTool here: https://exiftool.org '
+        'Note that this mode will alter your original files, regardless of the "copy" mode.'
+        'Do you want to continue with writing exif data enabled?',
+      );
+    }
+    print('[1] (Default) - Yes, write exif');
+    print('[2] - No, don\'t write to exif');
+    print('(Type 1 or 2, or press enter for default):');
+  }
+
+  /// Shows response to EXIF writing choice
+  Future<void> showExifWritingResponse(final String choice) async {
+    switch (choice) {
+      case '1':
+      case '':
+        print('Okay, will write to exif');
+        break;
+      case '2':
+        print('Okay, will not touch the exif of your files!');
+        break;
+    }
+  }
+
+  /// Prompts user about file size limitations
+  Future<void> promptForFileSizeLimit() async {
+    print(
+      'By default we will process all your files.'
+      'However, if you have large video files and run this script on a low ram system (e.g. a NAS or your vacuum cleaning robot), you might want to '
+      'limit the maximum file size to 64 MB not run out of memory. '
+      'We recommend to only activate this if you run into problems.',
+    );
+    print('[1] (Default) - Don\'t limit me! Process everything!');
+    print('[2] - I operate a Toaster. Limit supported media size to 64 MB');
+    print('(Type 1 or 2, or press enter for default):');
+  }
+
+  /// Shows response to file size limit choice
+  Future<void> showFileSizeLimitResponse(final String choice) async {
+    switch (choice) {
+      case '1':
+      case '':
+        print('Alrighty! Will process everything!');
+        break;
+      case '2':
+        print('Okay! Limiting files to a size of 64 MB');
+        break;
+    }
+  }
+
+  /// Prompts user about extension fixing options
+  Future<void> promptForExtensionFixing() async {
+    print(
+      'Some files from Google Photos may have incorrect extensions due to '
+      'compression or web downloads. For example, a file named "photo.jpeg" '
+      'might actually be a HEIF file internally. This can cause issues when '
+      'writing EXIF data.',
+    );
+    print('');
+    print('Do you want to fix incorrect file extensions?');
+    print('[1] - No, keep original extensions');
+    print(
+      '[2] (Default) - Yes, fix extensions (skip TIFF-based files like RAW)',
+    );
+    print('[3] - Yes, fix extensions (skip TIFF and JPEG files)');
+    print('[4] - Fix extensions then exit immediately (solo mode)');
+    print('(Type 1-4 or press enter for default):');
+  }
+
+  /// Shows response to extension fixing choice
+  Future<void> showExtensionFixingResponse(final String choice) async {
+    switch (choice) {
+      case '1':
+        print('Okay, will keep original extensions');
+        break;
+      case '2':
+      case '':
+        print('Okay, will fix incorrect extensions (except TIFF-based files)');
+        break;
+      case '3':
+        print(
+          'Okay, will fix incorrect extensions (except TIFF and JPEG files)',
+        );
+        break;
+      case '4':
+        print('Okay, will fix extensions then exit immediately');
+        break;
+    }
+  }
+
+  /// Prompts user about data source selection (ZIP files vs extracted folder)
+  Future<void> promptForDataSource() async {
+    print('How would you like to provide your Google Photos Takeout data?');
+    print('');
+    print('[1] (Recommended) - Select ZIP files from Google Takeout');
+    print('    GPTH will automatically extract and process them');
+    print('    ✓ Convenient and automated');
+    print('    ✓ Validates file integrity');
+    print('    ✓ Handles multiple ZIP files seamlessly');
+    print('');
+    print('[2] - Use already extracted folder');
+    print('    You have manually extracted ZIP files to a folder');
+    print('    ✓ Faster if files are already extracted');
+    print('    ✓ Uses less temporary disk space');
+    print('    ⚠️  Requires manual extraction and merging of ZIP files');
+    print('');
+    print('(Type 1 or 2, or press enter for recommended option):');
+  }
+
+  /// Shows response to data source choice
+  Future<void> showDataSourceResponse(final String choice) async {
+    switch (choice) {
+      case '1':
+      case '':
+        print(
+          '✓ Great! You\'ll select ZIP files and GPTH will handle extraction',
+        );
+        break;
+      case '2':
+        print('✓ Okay! You\'ll select the directory with extracted files');
+        break;
+    }
+  }
+
+  /// Shows disk space notice with warning levels
+  Future<void> showDiskSpaceNotice({
+    required final int requiredSpace,
+    required final String dirPath,
+    final int? freeSpace,
+  }) async {
+    if (freeSpace == null) {
+      print(
+        'Note: everything will take ~${utils.filesize(requiredSpace)} of disk space - '
+        'make sure you have that available on $dirPath - otherwise, '
+        'Ctrl-C to exit, and make some free space!\n'
+        'Or: unzip manually, remove the zips and use gpth with cmd options',
+      );
+    } else if (freeSpace < requiredSpace) {
+      print(
+        '!!! WARNING !!!\n'
+        'Whole process requires ${utils.filesize(requiredSpace)} of space, but you '
+        'only have ${utils.filesize(freeSpace)} available on $dirPath - \n'
+        'Go make some free space!\n'
+        '(Or: unzip manually, remove the zips, and use gpth with cmd options)',
+      );
+    } else {
+      print(
+        '(Note: everything will take ~${utils.filesize(requiredSpace)} of disk space - '
+        'you have ${utils.filesize(freeSpace)} free so should be fine :)',
+      );
+    }
+    await _sleep(3);
+  }
+
+  /// Shows unzip starting message
+  Future<void> showUnzipStartMessage() async {
+    print(
+      'GPTH will now unzip all selected files, process them, and organize everything in the output folder :)',
+    );
+    await _sleep(1);
+  }
+
+  /// Shows progress for individual ZIP file extraction
+  void showUnzipProgress(final String fileName) {
+    print('Unzipping $fileName...');
+  }
+
+  /// Shows success message for individual ZIP file extraction
+  void showUnzipSuccess(final String fileName) {
+    print('✓ Successfully extracted $fileName');
+  }
+
+  /// Shows completion message for all ZIP files
+  void showUnzipComplete() {
+    print('✓ All ZIP files extracted successfully!');
   }
 }

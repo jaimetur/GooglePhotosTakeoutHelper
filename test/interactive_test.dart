@@ -36,6 +36,8 @@ library;
 // Tests for interactive module: album options, input validation, and user experience.
 
 import 'dart:io';
+import 'package:gpth/domain/services/zip_extraction_service.dart'
+    show SecurityException;
 import 'package:gpth/interactive.dart' as interactive;
 import 'package:gpth/presentation/interactive_presenter.dart';
 import 'package:test/test.dart';
@@ -485,7 +487,7 @@ void main() {
 
       /// Tests SecurityException class exists and works
       test('SecurityException class is properly defined', () {
-        const exception = interactive.SecurityException('Test message');
+        const exception = SecurityException('Test message');
         expect(exception.message, equals('Test message'));
         expect(exception.toString(), contains('SecurityException'));
         expect(exception.toString(), contains('Test message'));
