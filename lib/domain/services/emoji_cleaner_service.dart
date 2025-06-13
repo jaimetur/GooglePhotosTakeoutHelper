@@ -2,6 +2,9 @@ import 'dart:io';
 import 'package:emoji_regex/emoji_regex.dart' as r;
 import 'package:path/path.dart' as p;
 import '../../utils.dart';
+import 'logging_service.dart';
+
+const LoggingService _logger = LoggingService();
 
 /// Encodes emoji characters in the album directory name to hex representation and renames the folder on disk if needed.
 ///
@@ -16,7 +19,7 @@ Directory encodeAndRenameAlbumIfEmoji(final Directory albumDir) {
     return albumDir;
   }
 
-  log('Found an emoji in ${albumDir.path}. Encoding it to hex.');
+  _logger.info('Found an emoji in \\${albumDir.path}. Encoding it to hex.');
   final String parentPath = albumDir.parent.path;
   final StringBuffer cleanName = StringBuffer();
 
@@ -70,7 +73,7 @@ String decodeAndRestoreAlbumEmoji(final String encodedPath) {
 
   // Only decode if hex-encoded emoji is present in the last segment
   if (RegExp(r'_0x[0-9a-fA-F]+_').hasMatch(parts.last)) {
-    log(
+    _logger.info(
       'Found a hex encoded emoji in $encodedPath. Decoding it back to emoji.',
     );
     parts[parts.length - 1] = _decodeEmojiComponent(parts.last);

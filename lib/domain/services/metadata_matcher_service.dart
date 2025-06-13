@@ -15,7 +15,7 @@ import '../../utils.dart';
 ///
 /// Strategies are ordered from least to most aggressive to minimize
 /// false matches while maximizing success rate.
-class JsonFileMatcherService {
+class JsonFileMatcherService with LoggerMixin {
   /// Attempts to find the corresponding JSON file for a media file
   ///
   /// Tries multiple strategies to locate JSON files, including handling
@@ -391,7 +391,7 @@ String _removeExtraPartialWithExtensionRestore(final String filename) {
   final String cleanedFilename = extras.removePartialExtraFormats(filename);
 
   if (cleanedFilename != filename) {
-    log(
+    JsonFileMatcherService().logInfo(
       '$filename was renamed to $cleanedFilename by the removePartialExtraFormats function.',
     );
 
@@ -402,7 +402,7 @@ String _removeExtraPartialWithExtensionRestore(final String filename) {
     );
 
     if (restoredFilename != cleanedFilename) {
-      log(
+      JsonFileMatcherService().logInfo(
         'Extension restored from ${p.extension(cleanedFilename)} to ${p.extension(restoredFilename)} for file: $restoredFilename',
       );
       return restoredFilename;
@@ -421,7 +421,7 @@ String _removeExtraPartialWithExtensionRestore(final String filename) {
 String _removeExtraEdgeCase(final String filename) {
   final String? result = extras.removeEdgeCaseExtraFormats(filename);
   if (result != null) {
-    log(
+    JsonFileMatcherService().logInfo(
       'Truncated suffix detected and removed by edge case handling: $filename -> $result',
     );
     return result;

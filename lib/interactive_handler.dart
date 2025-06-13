@@ -1,4 +1,4 @@
-/// Interactive mode interface for Google Photos Takeout Helper
+/// Interactive mode handler for Google Photos Takeout Helper
 ///
 /// Provides simplified function interface for interactive user sessions.
 /// All UI logic is delegated to services in the domain and presentation layers.

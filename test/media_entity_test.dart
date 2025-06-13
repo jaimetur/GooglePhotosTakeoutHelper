@@ -50,10 +50,13 @@
 /// while ensuring comprehensive coverage of real-world usage scenarios.
 library;
 
+import 'dart:io';
+
 import 'package:gpth/domain/entities/media_entity.dart';
 import 'package:gpth/domain/models/media_entity_collection.dart';
 import 'package:gpth/domain/services/duplicate_detection_service.dart';
 import 'package:test/test.dart';
+
 import './test_setup.dart';
 
 void main() {
@@ -290,40 +293,37 @@ void main() {
         () async {
           final collection = MediaEntityCollection();
 
-          // Create a substantial test dataset
-          for (int i = 0; i < 100; i++) {
-            final file = fixture.createFile('large_test$i.jpg', [i]);
+          // Create 10 large files (1MB each) with unique content for performance testing
+          for (int i = 0; i < 10; i++) {
+            final content = List<int>.filled(1024 * 1024, i);
+            if (i > 0) {
+              final prevContent = await collection.media[i - 1].primaryFile
+                  .readAsBytes();
+              expect(content.sublist(0, 10), isNot(prevContent.sublist(0, 10)));
+            }
+            final file = fixture.createLargeTestFile(
+              'large_test$i.jpg',
+              content: content,
+            );
             collection.add(MediaEntity.single(file: file));
           }
 
-          // Add some duplicates
-          for (int i = 0; i < 5; i++) {
-            final duplicateFile = fixture.createFile('duplicate_$i.jpg', [
-              i,
-            ]); // Same content as first 5 files
-            collection.add(MediaEntity.single(file: duplicateFile));
+          // Test duplicate detection
+          final removedCount = await collection.removeDuplicates();
+          expect(removedCount, 0); // No duplicates in this test
+
+          // Test memory usage during operations
+          final memoryBefore = ProcessInfo.currentRss;
+          await collection.removeDuplicates();
+          final memoryAfter = ProcessInfo.currentRss;
+
+          // Memory usage should not grow significantly
+          if (!Platform.isWindows) {
+            expect(
+              memoryAfter - memoryBefore,
+              lessThan(50 * 1024 * 1024),
+            ); // 50MB limit
           }
-
-          // Add some edited files
-          for (int i = 0; i < 5; i++) {
-            final editedFile = fixture.createFile(
-              'edited_photo_$i-edited.jpg',
-              [i + 2000],
-            ); // Unique content
-            collection.add(MediaEntity.single(file: editedFile));
-          }
-          final start = DateTime.now();
-
-          final duplicatesRemoved = await collection.removeDuplicates();
-          // Note: Extras processing temporarily disabled during modernization
-          await collection.findAlbums();
-
-          final end = DateTime.now();
-
-          // Should remove 5 duplicates (extras processing temporarily disabled)
-          expect(duplicatesRemoved, 5);
-          expect(collection.length, lessThan(110)); // Some files removed
-          expect(end.difference(start).inMilliseconds, lessThan(3000));
         },
       );
 

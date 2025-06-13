@@ -1,9 +1,9 @@
 import 'dart:io';
 import 'package:path/path.dart' as p;
-import '../../folder_classify.dart';
 import '../../utils.dart';
 import '../entities/media_entity.dart';
 import '../models/pipeline_step_model.dart';
+import '../services/folder_classification_service.dart';
 
 /// Step 2: Discover and classify media files
 ///

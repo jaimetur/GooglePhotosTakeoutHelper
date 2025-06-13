@@ -6,12 +6,28 @@
 library;
 
 import 'dart:io';
+
 import 'package:gpth/domain/services/date_extraction/date_extractor_service.dart';
 import 'package:gpth/domain/services/global_config_service.dart';
+import 'package:gpth/domain/services/service_container.dart';
+import 'package:gpth/infrastructure/exiftool_service.dart';
 import 'package:test/test.dart';
+
 import './test_setup.dart';
 
 void main() {
+  late ExifToolService exifTool;
+
+  setUpAll(() async {
+    exifTool = (await ExifToolService.find())!;
+    await exifTool.startPersistentProcess();
+    ServiceContainer.instance.exifTool = exifTool;
+  });
+
+  tearDownAll(() async {
+    await exifTool.dispose();
+  });
+
   group('Date Extractors', () {
     late TestFixture fixture;
     late GlobalConfigService globalConfig;
@@ -55,10 +71,9 @@ void main() {
       test('extracts date from EXIF data', () async {
         final imgFile = fixture.createImageWithExif('test.jpg');
 
-        final result = await exifDateTimeExtractor(
-          imgFile,
-          globalConfig: globalConfig,
-        );
+        final result = await ExifDateExtractor(
+          ServiceContainer.instance.exifTool!,
+        ).exifDateTimeExtractor(imgFile, globalConfig: globalConfig);
 
         expect(result, DateTime.parse('2022-12-16 16:06:47'));
       });
@@ -66,10 +81,9 @@ void main() {
       test('returns null for image without EXIF data', () async {
         final imgFile = fixture.createImageWithoutExif('test.jpg');
 
-        final result = await exifDateTimeExtractor(
-          imgFile,
-          globalConfig: globalConfig,
-        );
+        final result = await ExifDateExtractor(
+          ServiceContainer.instance.exifTool!,
+        ).exifDateTimeExtractor(imgFile, globalConfig: globalConfig);
 
         expect(result, isNull);
       });
@@ -77,10 +91,9 @@ void main() {
       test('returns null for non-image files', () async {
         final txtFile = fixture.createFile('test.txt', [1, 2, 3]);
 
-        final result = await exifDateTimeExtractor(
-          txtFile,
-          globalConfig: globalConfig,
-        );
+        final result = await ExifDateExtractor(
+          ServiceContainer.instance.exifTool!,
+        ).exifDateTimeExtractor(txtFile, globalConfig: globalConfig);
 
         expect(result, isNull);
       });

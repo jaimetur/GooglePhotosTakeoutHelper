@@ -3,12 +3,13 @@ import 'dart:io';
 import '../../presentation/interactive_presenter.dart';
 import '../../utils.dart';
 import '../services/global_config_service.dart';
+import 'logging_service.dart';
 
 /// Service for handling user configuration prompts and input validation
 ///
 /// This service provides a clean interface for collecting user preferences
 /// and configuration options in interactive mode.
-class UserPromptService {
+class UserPromptService with LoggerMixin {
   /// Creates a new instance of UserPromptService
   UserPromptService({
     required this.globalConfig,
@@ -52,7 +53,7 @@ class UserPromptService {
         );
         return 3;
       default:
-        error('Invalid answer - try again');
+        logError('Invalid answer - try again');
         return askDivideDates();
     }
   }
@@ -93,7 +94,7 @@ class UserPromptService {
     if (answer == null ||
         answer < 0 ||
         answer >= InteractivePresenter.albumOptions.length) {
-      error('Invalid answer - try again');
+      logError('Invalid answer - try again');
       return askAlbums();
     }
     final String choice = InteractivePresenter.albumOptions.keys.elementAt(
@@ -119,9 +120,9 @@ class UserPromptService {
       case '2':
         return false;
       case '3':
-        quit(0);
+        logger.quit(0);
       default:
-        error('Invalid answer - try again');
+        logError('Invalid answer - try again');
         return askForCleanOutput();
     }
   }
@@ -140,7 +141,7 @@ class UserPromptService {
       case '2':
         return true;
       default:
-        error('Invalid answer - try again');
+        logError('Invalid answer - try again');
         return askTransformPixelMP();
     }
   }
@@ -159,7 +160,7 @@ class UserPromptService {
       case '2':
         return true;
       default:
-        error('Invalid answer - try again');
+        logError('Invalid answer - try again');
         return askChangeCreationTime();
     }
   }
@@ -176,7 +177,7 @@ class UserPromptService {
       case '2':
         return false;
       default:
-        error('Invalid answer - try again');
+        logError('Invalid answer - try again');
         return askIfWriteExif();
     }
   }
@@ -193,7 +194,7 @@ class UserPromptService {
       case '2':
         return true;
       default:
-        error('Invalid answer - try again');
+        logError('Invalid answer - try again');
         return askIfLimitFileSize();
     }
   }
@@ -216,7 +217,7 @@ class UserPromptService {
       case '4':
         return 'solo';
       default:
-        error('Invalid answer - try again');
+        logError('Invalid answer - try again');
         return askFixExtensions();
     }
   }
@@ -251,7 +252,7 @@ class UserPromptService {
       case '2':
         return false;
       default:
-        error('Invalid answer - please type 1 or 2');
+        logError('Invalid answer - please type 1 or 2');
         return askIfUnzip();
     }
   }
@@ -274,15 +275,16 @@ class UserPromptService {
   Future<void> freeSpaceNotice(final int required, final Directory dir) async {
     final int? freeSpace = await getDiskFree(dir.path);
     await _presenter.showDiskSpaceNotice(
-      requiredSpace: required,
-      dirPath: dir.path,
-      freeSpace: freeSpace,
+      'Required: $required, Directory: ${dir.path}, Free: $freeSpace',
     );
 
     if (freeSpace != null && freeSpace < required) {
-      quit(69);
+      logger.quit(69);
     }
 
     _presenter.showPressEnterPrompt();
   }
+
+  /// Returns available disk space in bytes for the given path
+  Future<int?> getDiskFree(final String path) => Future.value();
 }

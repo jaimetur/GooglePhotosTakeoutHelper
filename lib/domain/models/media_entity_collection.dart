@@ -111,7 +111,10 @@ class MediaEntityCollection {
               DateTimeExtractionMethod.exif &&
           mediaEntity.dateTimeExtractionMethod !=
               DateTimeExtractionMethod.none) {
-        final success = await writeDateTimeToExif(
+        final exifWriter = ExifWriterService(
+          ServiceContainer.instance.exifTool!,
+        );
+        final success = await exifWriter.writeDateTimeToExif(
           mediaEntity.dateTaken!,
           mediaEntity.files.firstFile,
           ServiceContainer.instance.globalConfig,

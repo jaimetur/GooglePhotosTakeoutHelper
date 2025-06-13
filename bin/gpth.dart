@@ -7,9 +7,8 @@ import 'package:gpth/domain/main_pipeline.dart';
 import 'package:gpth/domain/models/io_paths_model.dart';
 import 'package:gpth/domain/models/processing_config_model.dart';
 import 'package:gpth/domain/models/processing_result_model.dart';
-import 'package:gpth/domain/services/service_container.dart';
 import 'package:gpth/domain/services/takeout_path_resolver_service.dart';
-import 'package:gpth/interactive.dart' as interactive;
+import 'package:gpth/interactive_handler.dart' as interactive;
 import 'package:gpth/presentation/interactive_presenter.dart';
 import 'package:gpth/utils.dart';
 import 'package:path/path.dart' as p;
@@ -82,14 +81,13 @@ Future<void> main(final List<String> arguments) async {
     // Cleanup services
     await ServiceContainer.instance.dispose();
   } catch (e) {
-    error('Fatal error: $e');
-
-    // Cleanup services even on error
-    await ServiceContainer.instance.dispose();
-
-    exit(1);
+    _logger.error('Fatal error: $e');
+    _logger.quit();
   }
 }
+
+/// Global logger instance
+const _logger = LoggingService();
 
 /// **ARGUMENT PARSING & CONFIGURATION BUILDING**
 ///
@@ -126,7 +124,7 @@ Future<ProcessingConfig?> _parseArguments(final List<String> arguments) async {
     // Convert ArgResults to configuration
     return await _buildConfigFromArgs(res);
   } on FormatException catch (e) {
-    error('$e');
+    _logger.error('$e');
     exit(2);
   }
 }
@@ -424,18 +422,18 @@ Future<InputOutputPaths> _getInputOutputPaths(final ArgResults res) async {
 
   // Validate required paths
   if (inputPath == null) {
-    error('No --input folder specified :/');
+    _logger.error('No --input folder specified :/');
     exit(10);
   }
   if (outputPath == null) {
-    error('No --output folder specified :/');
+    _logger.error('No --output folder specified :/');
     exit(10);
   }
   // Resolve input path to Google Photos directory using the domain service
   try {
     inputPath = TakeoutPathResolverService.resolveGooglePhotosPath(inputPath);
   } catch (e) {
-    error('Path resolution failed: $e');
+    _logger.error('Path resolution failed: $e');
     exit(12);
   }
 
@@ -476,7 +474,7 @@ Future<void> _initializeDependencies(final ProcessingConfig config) async {
   }(), 'Debug mode assertion');
   if (config.verbose || isDebugMode) {
     ServiceContainer.instance.globalConfig.isVerbose = true;
-    log('Verbose mode active!');
+    _logger.info('Verbose mode active!');
   }
 
   // Set global file size enforcement
@@ -487,10 +485,10 @@ Future<void> _initializeDependencies(final ProcessingConfig config) async {
   // Update ExifTool status
   if (ServiceContainer.instance.exifTool != null) {
     ServiceContainer.instance.globalConfig.exifToolInstalled = true;
-    print('[INFO] Exiftool found! Continuing with EXIF support...');
+    _logger.info('Exiftool found! Continuing with EXIF support...');
   } else {
     ServiceContainer.instance.globalConfig.exifToolInstalled = false;
-    print('[INFO] Exiftool not found! Continuing without EXIF support...');
+    _logger.info('Exiftool not found! Continuing without EXIF support...');
   }
 
   sleep(const Duration(seconds: 3));
@@ -539,7 +537,7 @@ Future<ProcessingResult> _executeProcessing(
 
   // Validate directories
   if (!await inputDir.exists()) {
-    error('Input folder does not exist :/');
+    _logger.error('Input folder does not exist :/');
     exit(11);
   }
 

@@ -2,24 +2,51 @@ library;
 
 import 'dart:io';
 
-import 'package:gpth/exiftoolInterface.dart';
-import 'package:gpth/utils.dart';
+import 'package:gpth/domain/services/extension_fixing_service.dart';
+import 'package:gpth/infrastructure/exiftool_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import './test_setup.dart';
 
 void main() {
+  late ExifToolService? exiftool;
+  late ExtensionFixingService extensionFixingService;
+
+  setUpAll(() async {
+    extensionFixingService = ExtensionFixingService();
+    exiftool = await ExifToolService.find();
+    if (exiftool != null) {
+      await exiftool!.startPersistentProcess();
+    }
+  });
+
+  tearDownAll(() async {
+    if (exiftool != null) {
+      await exiftool!.dispose();
+    }
+  });
+
+  group('Invalid Extensions Tests', () {
+    test('ExifTool service can detect file types', () async {
+      if (exiftool == null) {
+        fail('ExifTool not found');
+      }
+
+      // Create a test file with EXIF data
+      final testFile = File('test/test_files/test_image.jpg');
+      if (!await testFile.exists()) {
+        return;
+      }
+
+      final exifData = await exiftool!.readExifData(testFile);
+      expect(exifData, isNotEmpty);
+      expect(exifData['MIMEType'], isNotNull);
+    });
+  });
+
   group('Invalid extensions', () {
     late TestFixture fixture;
-
-    setUpAll(() async {
-      await initExiftool();
-    });
-
-    tearDownAll(() async {
-      await cleanupExiftool();
-    });
 
     setUp(() async {
       fixture = TestFixture();
@@ -29,6 +56,7 @@ void main() {
     tearDown(() async {
       await fixture.tearDown();
     });
+
     test('fix invalid .jpg extension', () async {
       // Create PNG file with incorrect .jpg extension
       final pngHeader = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
@@ -57,7 +85,9 @@ void main() {
       expect(await albumFile1.exists(), isTrue);
       expect(await albumJsonFile.exists(), isTrue);
 
-      final fixedCount = await fixIncorrectExtensions(albumDir, null);
+      final fixedCount = await extensionFixingService.fixIncorrectExtensions(
+        albumDir,
+      );
 
       final fixedFile = File('${albumDir.path}/actual-png.jpg.png');
       final fixedJsonFile = File('${albumDir.path}/actual-png.jpg.png.json');
@@ -75,7 +105,10 @@ void main() {
       final albumFile1 = File('${albumDir.path}/${p.basename(imgFile1.path)}');
       imgFile1.renameSync(albumFile1.path);
 
-      await fixIncorrectExtensions(albumDir, true); // non-jpeg mode
+      await extensionFixingService.fixIncorrectExtensions(
+        albumDir,
+        skipJpegFiles: true,
+      );
 
       final fixedFile = File(
         '${albumDir.path}/${p.basename(imgFile1.path)}.jpg',
@@ -103,7 +136,7 @@ void main() {
       final albumFile1 = File('${albumDir.path}/${p.basename(imgFile1.path)}');
       imgFile1.renameSync(albumFile1.path);
 
-      await fixIncorrectExtensions(albumDir, false);
+      await extensionFixingService.fixIncorrectExtensions(albumDir);
 
       final fixedFile = File(
         '${albumDir.path}/${p.basename(imgFile1.path)}.tiff',

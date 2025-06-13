@@ -90,10 +90,11 @@ class ProcessingConfig {
   /// Returns the list of date extractors based on configuration
   List<DateTimeExtractor> get dateExtractors => [
     jsonDateTimeExtractor,
-    (final File f) => exifDateTimeExtractor(
-      f,
-      globalConfig: ServiceContainer.instance.globalConfig,
-    ),
+    (final File f) => ExifDateExtractor(ServiceContainer.instance.exifTool!)
+        .exifDateTimeExtractor(
+          f,
+          globalConfig: ServiceContainer.instance.globalConfig,
+        ),
     if (guessFromName) guessExtractor,
     (final File f) => jsonDateTimeExtractor(f, tryhard: true),
   ];

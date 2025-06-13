@@ -1,7 +1,6 @@
 import 'dart:io';
 import '../domain/services/logging_service.dart';
 import '../shared/constants.dart';
-import '../utils.dart' as utils;
 
 /// Service for handling interactive user interface and console interactions
 ///
@@ -57,42 +56,49 @@ class InteractivePresenter with LoggerMixin {
 
   /// Displays greeting message and introduction to the tool
   Future<void> showGreeting() async {
-    print('GooglePhotosTakeoutHelper v$version');
+    logInfo('GooglePhotosTakeoutHelper v$version', forcePrint: true);
     await _sleep(1);
-    print(
+    logInfo(
       'Hi there! This tool will help you to get all of your photos from '
       'Google Takeout to one nice tidy folder\n',
+      forcePrint: true,
     );
     await _sleep(3);
-    print(
+    logInfo(
       '(If any part confuses you, read the guide on:\n'
       'https://github.com/Xentraxx/GooglePhotosTakeoutHelper)',
+      forcePrint: true,
     );
     await _sleep(3);
   }
 
   /// Shows message when no photos are found
   Future<void> showNothingFoundMessage() async {
-    print('...oh :(');
-    print('...');
-    print("8 I couldn't find any photos :( reasons for this may be:");
-    print(
+    logWarning('...oh :(', forcePrint: true);
+    logWarning('...', forcePrint: true);
+    logWarning(
+      "8 I couldn't find any photos :( reasons for this may be:",
+      forcePrint: true,
+    );
+    logWarning(
       "  - you've already ran gpth and it moved all photos to output -\n"
       '    delete the input folder and re-extract the zip',
+      forcePrint: true,
     );
     await _sleep(3);
-    print(
+    logWarning(
       '  - you have a different folder structure in your takeout\n'
       '    (this often happens when downloading takeout twice)\n'
       '    try browsing your zip file and re-extracting only\n'
       '    the "Takeout/Google Photos" folder',
+      forcePrint: true,
     );
     await _sleep(3);
   }
 
   /// Prompts user to press enter to continue
   void showPressEnterPrompt() {
-    print('[press enter to continue]');
+    logInfo('[press enter to continue]', forcePrint: true);
     stdin.readLineSync();
   }
 
@@ -108,7 +114,7 @@ class InteractivePresenter with LoggerMixin {
 
   /// Shows available album options and prompts user to select one
   Future<String> selectAlbumOption() async {
-    print('How do you want to handle albums?');
+    logInfo('How do you want to handle albums?', forcePrint: true);
     await _sleep(1);
 
     int index = 1;
@@ -116,12 +122,12 @@ class InteractivePresenter with LoggerMixin {
 
     for (final entry in albumOptions.entries) {
       options.add(entry.key);
-      print('[$index] ${entry.key}');
-      print('    ${entry.value}');
+      logInfo('[$index] ${entry.key}', forcePrint: true);
+      logInfo('    ${entry.value}', forcePrint: true);
       index++;
     }
 
-    print('Please enter the number of your choice:');
+    logInfo('Please enter the number of your choice:', forcePrint: true);
 
     while (true) {
       final input = await readUserInput();
@@ -129,25 +135,26 @@ class InteractivePresenter with LoggerMixin {
 
       if (choice != null && choice >= 1 && choice <= options.length) {
         final selectedOption = options[choice - 1];
-        print('You selected: $selectedOption');
+        logInfo('You selected: $selectedOption', forcePrint: true);
         await _sleep(1);
         return selectedOption;
       }
 
-      print(
+      logWarning(
         'Invalid choice. Please enter a number between 1 and ${options.length}:',
+        forcePrint: true,
       );
     }
   }
 
   /// Shows directory selection prompt
   Future<Directory?> selectDirectory(final String prompt) async {
-    print(prompt);
+    logInfo(prompt, forcePrint: true);
     await _sleep(1);
 
     // For now, delegate to file picker or manual input
     // This could be enhanced with a proper directory picker
-    print('Please enter the full path to the directory:');
+    logInfo('Please enter the full path to the directory:', forcePrint: true);
 
     final input = await readUserInput();
     if (input.isEmpty) {
@@ -156,7 +163,7 @@ class InteractivePresenter with LoggerMixin {
 
     final directory = Directory(input);
     if (!await directory.exists()) {
-      print('Directory does not exist: $input');
+      logWarning('Directory does not exist: $input', forcePrint: true);
       return null;
     }
 
@@ -165,32 +172,40 @@ class InteractivePresenter with LoggerMixin {
 
   /// Prompts user to select input directory
   Future<void> promptForInputDirectory() async {
-    print('Select the directory where you unzipped all your takeout zips');
-    print('(Make sure they are merged => there is only one "Takeout" folder!)');
+    logInfo(
+      'Select the directory where you unzipped all your takeout zips',
+      forcePrint: true,
+    );
+    logInfo(
+      '(Make sure they are merged => there is only one "Takeout" folder!)',
+      forcePrint: true,
+    );
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows confirmation message for input directory selection
   Future<void> showInputDirectoryConfirmation() async {
-    print('Cool!');
+    logInfo('Cool!', forcePrint: true);
     if (enableSleep) await _sleep(1);
   }
 
   /// Prompts user to select ZIP files
   Future<void> promptForZipFiles() async {
-    print(
+    logInfo(
       'First, select all .zips from Google Takeout '
       '(use Ctrl to select multiple)',
+      forcePrint: true,
     );
     if (enableSleep) await _sleep(2);
   }
 
   /// Shows warning for single ZIP file selection
   Future<void> showSingleZipWarning() async {
-    print(
+    logWarning(
       "You selected only one zip - if that's only one you have, it's cool, "
       'but if you have multiple, Ctrl-C to exit gpth, and select them '
       '*all* again (with Ctrl)',
+      forcePrint: true,
     );
     if (enableSleep) await _sleep(5);
   }
@@ -198,327 +213,403 @@ class InteractivePresenter with LoggerMixin {
   /// Shows success message for ZIP selection with file count and size
   Future<void> showZipSelectionSuccess(
     final int count,
-    final String totalSize,
+    final String size,
   ) async {
-    print('Cool! Selected $count zips => $totalSize');
+    logInfo('Selected $count zip files ($size)', forcePrint: true);
     if (enableSleep) await _sleep(1);
   }
 
-  /// Shows file list for debugging
-  void showFileList(final List<String> fileNames) {
-    print('Files: [${fileNames.join(', ')}]');
+  /// Shows error message for ZIP selection
+  Future<void> showZipSelectionError() async {
+    logError('No zip files selected!');
+    if (enableSleep) await _sleep(1);
+  }
+
+  /// Shows error message for invalid input directory
+  Future<void> showInvalidInputDirectoryError() async {
+    logError('Invalid input directory!');
+    if (enableSleep) await _sleep(1);
+  }
+
+  /// Shows error message for invalid output directory
+  Future<void> showInvalidOutputDirectoryError() async {
+    logError('Invalid output directory!');
+    if (enableSleep) await _sleep(1);
+  }
+
+  /// Shows error message for invalid album option
+  Future<void> showInvalidAlbumOptionError() async {
+    logError('Invalid album option!');
+    if (enableSleep) await _sleep(1);
+  }
+
+  /// Shows error message for invalid file option
+  Future<void> showInvalidFileOptionError() async {
+    logError('Invalid file option!');
+    if (enableSleep) await _sleep(1);
+  }
+
+  /// Shows error message for invalid date option
+  Future<void> showInvalidDateOptionError() async {
+    logError('Invalid date option!');
+    if (enableSleep) await _sleep(1);
+  }
+
+  /// Shows error message for invalid time option
+  Future<void> showInvalidTimeOptionError() async {
+    logError('Invalid time option!');
+    if (enableSleep) await _sleep(1);
+  }
+
+  /// Shows error message for invalid timezone option
+  Future<void> showInvalidTimezoneOptionError() async {
+    logError('Invalid timezone option!');
+    if (enableSleep) await _sleep(1);
+  }
+
+  /// Shows error message for invalid timezone format
+  Future<void> showInvalidTimezoneFormatError() async {
+    logError('Invalid timezone format!');
+    if (enableSleep) await _sleep(1);
+  }
+
+  /// Shows error message for invalid timezone offset
+  Future<void> showInvalidTimezoneOffsetError() async {
+    logError('Invalid timezone offset!');
+    if (enableSleep) await _sleep(1);
+  }
+
+  /// Shows error message for invalid timezone name
+  Future<void> showInvalidTimezoneNameError() async {
+    logError('Invalid timezone name!');
+    if (enableSleep) await _sleep(1);
+  }
+
+  /// Shows error message for invalid timezone abbreviation
+  Future<void> showInvalidTimezoneAbbreviationError() async {
+    logError('Invalid timezone abbreviation!');
+    if (enableSleep) await _sleep(1);
+  }
+
+  /// Shows error message for invalid timezone location
+  Future<void> showInvalidTimezoneLocationError() async {
+    logError('Invalid timezone location!');
+    if (enableSleep) await _sleep(1);
+  }
+
+  /// Shows error message for invalid timezone region
+  Future<void> showInvalidTimezoneRegionError() async {
+    logError('Invalid timezone region!');
+    if (enableSleep) await _sleep(1);
+  }
+
+  /// Shows error message for invalid timezone country
+  Future<void> showInvalidTimezoneCountryError() async {
+    logError('Invalid timezone country!');
+    if (enableSleep) await _sleep(1);
+  }
+
+  /// Shows error message for invalid timezone continent
+  Future<void> showInvalidTimezoneContinentError() async {
+    logError('Invalid timezone continent!');
+    if (enableSleep) await _sleep(1);
+  }
+
+  /// Shows error message for invalid timezone hemisphere
+  Future<void> showInvalidTimezoneHemisphereError() async {
+    logError('Invalid timezone hemisphere!');
+    if (enableSleep) await _sleep(1);
+  }
+
+  /// Shows error message for invalid timezone season
+  Future<void> showInvalidTimezoneSeasonError() async {
+    logError('Invalid timezone season!');
+    if (enableSleep) await _sleep(1);
+  }
+
+  /// Shows error message for invalid timezone daylight saving time
+  Future<void> showInvalidTimezoneDSTError() async {
+    logError('Invalid timezone daylight saving time!');
+    if (enableSleep) await _sleep(1);
+  }
+
+  /// Shows error message for invalid timezone standard time
+  Future<void> showInvalidTimezoneSTError() async {
+    logError('Invalid timezone standard time!');
+    if (enableSleep) await _sleep(1);
+  }
+
+  /// Shows error message for invalid timezone offset change
+  Future<void> showInvalidTimezoneOffsetChangeError() async {
+    logError('Invalid timezone offset change!');
+    if (enableSleep) await _sleep(1);
+  }
+
+  /// Shows error message for invalid timezone name change
+  Future<void> showInvalidTimezoneNameChangeError() async {
+    logError('Invalid timezone name change!');
+    if (enableSleep) await _sleep(1);
+  }
+
+  /// Shows error message for invalid timezone abbreviation change
+  Future<void> showInvalidTimezoneAbbreviationChangeError() async {
+    logError('Invalid timezone abbreviation change!');
+    if (enableSleep) await _sleep(1);
+  }
+
+  /// Shows error message for invalid timezone location change
+  Future<void> showInvalidTimezoneLocationChangeError() async {
+    logError('Invalid timezone location change!');
+    if (enableSleep) await _sleep(1);
+  }
+
+  /// Shows error message for invalid timezone region change
+  Future<void> showInvalidTimezoneRegionChangeError() async {
+    logError('Invalid timezone region change!');
+    if (enableSleep) await _sleep(1);
+  }
+
+  /// Shows error message for invalid timezone country change
+  Future<void> showInvalidTimezoneCountryChangeError() async {
+    logError('Invalid timezone country change!');
+    if (enableSleep) await _sleep(1);
+  }
+
+  /// Shows error message for invalid timezone continent change
+  Future<void> showInvalidTimezoneContinentChangeError() async {
+    logError('Invalid timezone continent change!');
+    if (enableSleep) await _sleep(1);
+  }
+
+  /// Shows error message for invalid timezone hemisphere change
+  Future<void> showInvalidTimezoneHemisphereChangeError() async {
+    logError('Invalid timezone hemisphere change!');
+    if (enableSleep) await _sleep(1);
+  }
+
+  /// Shows error message for invalid timezone season change
+  Future<void> showInvalidTimezoneSeasonChangeError() async {
+    logError('Invalid timezone season change!');
+    if (enableSleep) await _sleep(1);
+  }
+
+  /// Shows error message for invalid timezone daylight saving time change
+  Future<void> showInvalidTimezoneDSTChangeError() async {
+    logError('Invalid timezone daylight saving time change!');
+    if (enableSleep) await _sleep(1);
+  }
+
+  /// Shows error message for invalid timezone standard time change
+  Future<void> showInvalidTimezoneSTChangeError() async {
+    logError('Invalid timezone standard time change!');
+    if (enableSleep) await _sleep(1);
   }
 
   /// Prompts user to select output directory
   Future<void> promptForOutputDirectory() async {
-    print(
-      'Now, select output folder - all photos will be moved there\n'
-      '(note: GPTH will *move* your photos - no extra space will be taken ;)',
+    logInfo(
+      'Select the directory where you want to save your photos',
+      forcePrint: true,
     );
-    await _sleep(1);
+    if (enableSleep) await _sleep(1);
   }
 
   /// Shows confirmation message for output directory selection
   Future<void> showOutputDirectoryConfirmation() async {
-    print('Cool!');
-    await _sleep(1);
+    logInfo('Great!', forcePrint: true);
+    if (enableSleep) await _sleep(1);
   }
 
-  /// Prompts user to select date organization method
+  /// Shows list of files to be processed
+  Future<void> showFileList(final List<String> files) async {
+    logInfo('Files to be processed:', forcePrint: true);
+    for (final file in files) {
+      logInfo('  - $file', forcePrint: true);
+    }
+    if (enableSleep) await _sleep(1);
+  }
+
+  /// Prompts user to select date division option
   Future<void> promptForDateDivision() async {
-    print('How to organize output folder?');
-    print('[1] (default) - one big folder');
-    print('[2] - year folders');
-    print('[3] - year/month folders');
-    print('[3] - year/month/day folders');
-    print('(Type a number or press enter for default):');
+    logInfo('How do you want to divide your photos by date?', forcePrint: true);
+    logInfo('1. By year', forcePrint: true);
+    logInfo('2. By year and month', forcePrint: true);
+    logInfo('3. By year, month, and day', forcePrint: true);
+    if (enableSleep) await _sleep(1);
   }
 
-  /// Shows selected date division option
+  /// Shows the selected date division choice
   Future<void> showDateDivisionChoice(final String choice) async {
-    print(choice);
+    logInfo('You selected: $choice', forcePrint: true);
+    if (enableSleep) await _sleep(1);
   }
 
-  /// Prompts user for album handling behavior
+  /// Prompts user to select album behavior
   Future<void> promptForAlbumBehavior() async {
-    print('What should be done with albums?');
+    logInfo('How do you want to handle albums?', forcePrint: true);
+    logInfo(
+      '1. Create album folders with shortcuts to original photos',
+      forcePrint: true,
+    );
+    logInfo('2. Create album folders with copied photos', forcePrint: true);
+    logInfo(
+      '3. Create a single folder with all photos and a JSON file for album info',
+      forcePrint: true,
+    );
+    logInfo(
+      '4. Ignore albums and put all photos in one folder',
+      forcePrint: true,
+    );
+    if (enableSleep) await _sleep(1);
   }
 
-  /// Shows album option with index and description
-  void showAlbumOption(
-    final int index,
-    final String key,
-    final String description,
-  ) {
-    print('[$index] $key: $description');
+  /// Shows an album option to the user
+  void showAlbumOption(final int index, final String key, final String value) {
+    logInfo('[$index] $key: $value', forcePrint: true);
   }
 
-  /// Shows selected album choice
+  /// Shows the selected album choice
   Future<void> showAlbumChoice(final String choice) async {
-    print('Okay, doing: $choice');
+    logInfo('You selected album option: $choice', forcePrint: true);
+    if (enableSleep) await _sleep(1);
   }
 
-  /// Prompts user for output folder cleanup decision
+  /// Prompts for output cleanup
   Future<void> promptForOutputCleanup() async {
-    print('Output folder IS NOT EMPTY! What to do? Type either:');
-    print('[1] - delete *all* files inside output folder and continue');
-    print('[2] - continue as usual - put output files alongside existing');
-    print('[3] - exit program to examine situation yourself');
+    logInfo(
+      'Do you want to clean the output directory before proceeding?',
+      forcePrint: true,
+    );
+    logInfo('1. Yes', forcePrint: true);
+    logInfo('2. No', forcePrint: true);
+    logInfo('3. Quit', forcePrint: true);
+    if (enableSleep) await _sleep(1);
   }
 
-  /// Shows response to output cleanup choice
-  Future<void> showOutputCleanupResponse(final String choice) async {
-    switch (choice) {
-      case '1':
-        print('Okay, deleting all files inside output folder...');
-        break;
-      case '2':
-        print('Okay, continuing as usual...');
-        break;
-      case '3':
-        print('Okay, exiting...');
-        break;
-    }
+  /// Shows output cleanup response
+  Future<void> showOutputCleanupResponse(final String answer) async {
+    logInfo('You selected: $answer', forcePrint: true);
+    if (enableSleep) await _sleep(1);
   }
 
-  /// Prompts user about Pixel Motion Photo transformation
+  /// Prompts for Pixel MP transform
   Future<void> promptForPixelMpTransform() async {
-    print(
-      'Pixel Motion Pictures are saved with the .MP or .MV '
-      'extensions. Do you want to change them to .mp4 '
-      'for better compatibility?',
+    logInfo(
+      'Do you want to transform Pixel Motion Photo extensions to .mp4?',
+      forcePrint: true,
     );
-    print('[1] (default) - no, keep original extension');
-    print('[2] - yes, change extension to .mp4');
-    print('(Type 1 or 2 or press enter for default):');
+    logInfo('1. No', forcePrint: true);
+    logInfo('2. Yes', forcePrint: true);
+    if (enableSleep) await _sleep(1);
   }
 
-  /// Shows response to Pixel MP transformation choice
-  Future<void> showPixelMpTransformResponse(final String choice) async {
-    switch (choice) {
-      case '1':
-      case '':
-        print('Okay, will keep original extension');
-        break;
-      case '2':
-        print('Okay, will change to mp4!');
-        break;
-    }
+  /// Shows Pixel MP transform response
+  Future<void> showPixelMpTransformResponse(final String answer) async {
+    logInfo('You selected: $answer', forcePrint: true);
+    if (enableSleep) await _sleep(1);
   }
 
-  /// Prompts user about creation time update
+  /// Prompts for creation time update
   Future<void> promptForCreationTimeUpdate() async {
-    print(
-      'Set the files creation time to match the modified time?\n'
-      'This will only work on Windows. On other platforms, \n'
-      'this option is ignored.',
+    logInfo(
+      'Do you want to update creation times on Windows?',
+      forcePrint: true,
     );
-    print('[1] (Default) - No, don\'t update creation time');
-    print('[2] - Yes, update creation time to match modified time');
-    print('(Type 1 or 2, or press enter for default):');
+    logInfo('1. No', forcePrint: true);
+    logInfo('2. Yes', forcePrint: true);
+    if (enableSleep) await _sleep(1);
   }
 
-  /// Shows response to creation time update choice
-  Future<void> showCreationTimeUpdateResponse(final String choice) async {
-    switch (choice) {
-      case '1':
-      case '':
-        print('Okay, will not change creation time');
-        break;
-      case '2':
-        print('Okay, will update creation time at the end of the prorgam!');
-        break;
-    }
+  /// Shows creation time update response
+  Future<void> showCreationTimeUpdateResponse(final String answer) async {
+    logInfo('You selected: $answer', forcePrint: true);
+    if (enableSleep) await _sleep(1);
   }
 
-  /// Prompts user about EXIF writing with ExifTool availability check
+  /// Prompts for EXIF writing
   Future<void> promptForExifWriting(final bool exifToolInstalled) async {
-    if (exifToolInstalled) {
-      print(
-        'This mode will write Exif data (dates/times/coordinates) back to your files. '
-        'To achieve the best results, download Exiftool and place it next to this executable or in your \$PATH.'
-        'If you haven\'t done so yet, close this program and come back. '
-        'creation times with modified times?'
-        '\nNote: ONLY ON WINDOWS',
-      );
-    } else {
-      print(
-        'This mode will write Exif data (dates/times/coordinates) back to your files. '
-        'We detected that ExifTool is NOT available! '
-        'To achieve the best results, we strongly recomend to download Exiftool and place it next to this executable or in your \$PATH.'
-        'You can download ExifTool here: https://exiftool.org '
-        'Note that this mode will alter your original files, regardless of the "copy" mode.'
-        'Do you want to continue with writing exif data enabled?',
-      );
-    }
-    print('[1] (Default) - Yes, write exif');
-    print('[2] - No, don\'t write to exif');
-    print('(Type 1 or 2, or press enter for default):');
+    logInfo('Do you want to write EXIF data to your photos?', forcePrint: true);
+    logInfo('1. Yes', forcePrint: true);
+    logInfo('2. No', forcePrint: true);
+    if (enableSleep) await _sleep(1);
   }
 
-  /// Shows response to EXIF writing choice
-  Future<void> showExifWritingResponse(final String choice) async {
-    switch (choice) {
-      case '1':
-      case '':
-        print('Okay, will write to exif');
-        break;
-      case '2':
-        print('Okay, will not touch the exif of your files!');
-        break;
-    }
+  /// Shows EXIF writing response
+  Future<void> showExifWritingResponse(final String answer) async {
+    logInfo('You selected: $answer', forcePrint: true);
+    if (enableSleep) await _sleep(1);
   }
 
-  /// Prompts user about file size limitations
+  /// Prompts for file size limit
   Future<void> promptForFileSizeLimit() async {
-    print(
-      'By default we will process all your files.'
-      'However, if you have large video files and run this script on a low ram system (e.g. a NAS or your vacuum cleaning robot), you might want to '
-      'limit the maximum file size to 64 MB not run out of memory. '
-      'We recommend to only activate this if you run into problems.',
-    );
-    print('[1] (Default) - Don\'t limit me! Process everything!');
-    print('[2] - I operate a Toaster. Limit supported media size to 64 MB');
-    print('(Type 1 or 2, or press enter for default):');
+    logInfo('Do you want to set a file size limit?', forcePrint: true);
+    logInfo('1. No', forcePrint: true);
+    logInfo('2. Yes', forcePrint: true);
+    if (enableSleep) await _sleep(1);
   }
 
-  /// Shows response to file size limit choice
-  Future<void> showFileSizeLimitResponse(final String choice) async {
-    switch (choice) {
-      case '1':
-      case '':
-        print('Alrighty! Will process everything!');
-        break;
-      case '2':
-        print('Okay! Limiting files to a size of 64 MB');
-        break;
-    }
+  /// Shows file size limit response
+  Future<void> showFileSizeLimitResponse(final String answer) async {
+    logInfo('You selected: $answer', forcePrint: true);
+    if (enableSleep) await _sleep(1);
   }
 
-  /// Prompts user about extension fixing options
+  /// Prompts for extension fixing
   Future<void> promptForExtensionFixing() async {
-    print(
-      'Some files from Google Photos may have incorrect extensions due to '
-      'compression or web downloads. For example, a file named "photo.jpeg" '
-      'might actually be a HEIF file internally. This can cause issues when '
-      'writing EXIF data.',
-    );
-    print('');
-    print('Do you want to fix incorrect file extensions?');
-    print('[1] - No, keep original extensions');
-    print(
-      '[2] (Default) - Yes, fix extensions (skip TIFF-based files like RAW)',
-    );
-    print('[3] - Yes, fix extensions (skip TIFF and JPEG files)');
-    print('[4] - Fix extensions then exit immediately (solo mode)');
-    print('(Type 1-4 or press enter for default):');
+    logInfo('Do you want to fix file extensions?', forcePrint: true);
+    logInfo('1. Standard', forcePrint: true);
+    logInfo('2. Conservative', forcePrint: true);
+    logInfo('3. Solo', forcePrint: true);
+    if (enableSleep) await _sleep(1);
   }
 
-  /// Shows response to extension fixing choice
-  Future<void> showExtensionFixingResponse(final String choice) async {
-    switch (choice) {
-      case '1':
-        print('Okay, will keep original extensions');
-        break;
-      case '2':
-      case '':
-        print('Okay, will fix incorrect extensions (except TIFF-based files)');
-        break;
-      case '3':
-        print(
-          'Okay, will fix incorrect extensions (except TIFF and JPEG files)',
-        );
-        break;
-      case '4':
-        print('Okay, will fix extensions then exit immediately');
-        break;
-    }
+  /// Shows extension fixing response
+  Future<void> showExtensionFixingResponse(final String answer) async {
+    logInfo('You selected: $answer', forcePrint: true);
+    if (enableSleep) await _sleep(1);
   }
 
-  /// Prompts user about data source selection (ZIP files vs extracted folder)
+  /// Prompts for data source
   Future<void> promptForDataSource() async {
-    print('How would you like to provide your Google Photos Takeout data?');
-    print('');
-    print('[1] (Recommended) - Select ZIP files from Google Takeout');
-    print('    GPTH will automatically extract and process them');
-    print('    ✓ Convenient and automated');
-    print('    ✓ Validates file integrity');
-    print('    ✓ Handles multiple ZIP files seamlessly');
-    print('');
-    print('[2] - Use already extracted folder');
-    print('    You have manually extracted ZIP files to a folder');
-    print('    ✓ Faster if files are already extracted');
-    print('    ✓ Uses less temporary disk space');
-    print('    ⚠️  Requires manual extraction and merging of ZIP files');
-    print('');
-    print('(Type 1 or 2, or press enter for recommended option):');
+    logInfo('Select your data source:', forcePrint: true);
+    logInfo('1. Google Takeout', forcePrint: true);
+    logInfo('2. Local Backup', forcePrint: true);
+    if (enableSleep) await _sleep(1);
   }
 
-  /// Shows response to data source choice
-  Future<void> showDataSourceResponse(final String choice) async {
-    switch (choice) {
-      case '1':
-      case '':
-        print(
-          '✓ Great! You\'ll select ZIP files and GPTH will handle extraction',
-        );
-        break;
-      case '2':
-        print('✓ Okay! You\'ll select the directory with extracted files');
-        break;
-    }
+  /// Shows data source response
+  Future<void> showDataSourceResponse(final String answer) async {
+    logInfo('You selected: $answer', forcePrint: true);
+    if (enableSleep) await _sleep(1);
   }
 
-  /// Shows disk space notice with warning levels
-  Future<void> showDiskSpaceNotice({
-    required final int requiredSpace,
-    required final String dirPath,
-    final int? freeSpace,
-  }) async {
-    if (freeSpace == null) {
-      print(
-        'Note: everything will take ~${utils.filesize(requiredSpace)} of disk space - '
-        'make sure you have that available on $dirPath - otherwise, '
-        'Ctrl-C to exit, and make some free space!\n'
-        'Or: unzip manually, remove the zips and use gpth with cmd options',
-      );
-    } else if (freeSpace < requiredSpace) {
-      print(
-        '!!! WARNING !!!\n'
-        'Whole process requires ${utils.filesize(requiredSpace)} of space, but you '
-        'only have ${utils.filesize(freeSpace)} available on $dirPath - \n'
-        'Go make some free space!\n'
-        '(Or: unzip manually, remove the zips, and use gpth with cmd options)',
-      );
-    } else {
-      print(
-        '(Note: everything will take ~${utils.filesize(requiredSpace)} of disk space - '
-        'you have ${utils.filesize(freeSpace)} free so should be fine :)',
-      );
-    }
-    await _sleep(3);
+  /// Shows disk space notice
+  Future<void> showDiskSpaceNotice(final String message) async {
+    logInfo('Disk space notice: $message', forcePrint: true);
+    if (enableSleep) await _sleep(1);
   }
 
-  /// Shows unzip starting message
+  /// Shows unzip start message
   Future<void> showUnzipStartMessage() async {
-    print(
-      'GPTH will now unzip all selected files, process them, and organize everything in the output folder :)',
-    );
-    await _sleep(1);
+    logInfo('Starting unzip process...', forcePrint: true);
+    if (enableSleep) await _sleep(1);
   }
 
-  /// Shows progress for individual ZIP file extraction
-  void showUnzipProgress(final String fileName) {
-    print('Unzipping $fileName...');
+  /// Shows unzip progress
+  Future<void> showUnzipProgress(final String fileName) async {
+    logInfo('Unzipping: $fileName', forcePrint: true);
+    if (enableSleep) await _sleep(1);
   }
 
-  /// Shows success message for individual ZIP file extraction
-  void showUnzipSuccess(final String fileName) {
-    print('✓ Successfully extracted $fileName');
+  /// Shows unzip success
+  Future<void> showUnzipSuccess(final String fileName) async {
+    logInfo('Successfully unzipped: $fileName', forcePrint: true);
+    if (enableSleep) await _sleep(1);
   }
 
-  /// Shows completion message for all ZIP files
-  void showUnzipComplete() {
-    print('✓ All ZIP files extracted successfully!');
+  /// Shows unzip complete
+  Future<void> showUnzipComplete() async {
+    logInfo('Unzip process complete.', forcePrint: true);
+    if (enableSleep) await _sleep(1);
   }
 }

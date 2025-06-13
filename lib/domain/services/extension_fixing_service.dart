@@ -5,9 +5,6 @@ import 'package:path/path.dart' as p;
 
 import '../../extras.dart';
 import '../../utils.dart';
-import 'logging_service.dart';
-import 'metadata_matcher_service.dart';
-import 'mime_type_service.dart';
 
 /// Service for detecting and fixing incorrect file extensions
 ///

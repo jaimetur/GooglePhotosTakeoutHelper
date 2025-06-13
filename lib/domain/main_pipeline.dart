@@ -1,10 +1,10 @@
 import 'dart:io';
 
-import '../utils.dart';
 import 'models/media_entity_collection.dart';
 import 'models/pipeline_step_model.dart';
 import 'models/processing_config_model.dart';
 import 'models/processing_result_model.dart';
+import 'services/utility_service.dart';
 import 'steps/step_01_fix_extensions.dart';
 import 'steps/step_02_discover_media.dart';
 import 'steps/step_03_remove_duplicates.dart';
@@ -139,7 +139,7 @@ class ProcessingPipeline {
         if (config.verbose) {
           if (result.isSuccess) {
             print(
-              '✅ ${step.name} completed in ${formatDuration(result.duration)}',
+              '✅ ${step.name} completed in ${const UtilityService().formatDuration(result.duration)}',
             );
             if (result.message != null) {
               print('   ${result.message}');

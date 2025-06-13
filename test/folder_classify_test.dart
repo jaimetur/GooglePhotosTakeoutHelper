@@ -38,7 +38,7 @@ library;
 // Tests for folder classification: year folders, album folders, and edge cases.
 
 import 'dart:io';
-import 'package:gpth/folder_classify.dart';
+import 'package:gpth/domain/services/folder_classification_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import './test_setup.dart';

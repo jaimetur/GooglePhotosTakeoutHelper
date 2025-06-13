@@ -6,20 +6,29 @@
 library;
 
 import 'dart:io';
+
 import 'package:gpth/domain/services/date_extraction/date_extractor_service.dart';
 import 'package:gpth/domain/services/global_config_service.dart';
+import 'package:gpth/infrastructure/exiftool_service.dart';
 import 'package:test/test.dart';
+
 import './test_setup.dart';
 
 void main() {
   group('Date Extractors', () {
     late TestFixture fixture;
     late GlobalConfigService globalConfig;
+    late ExifToolService? exifToolService;
+    late ExifDateExtractor? extractor;
 
     setUp(() async {
       fixture = TestFixture();
       await fixture.setUp();
       globalConfig = GlobalConfigService();
+      exifToolService = await ExifToolService.find();
+      extractor = exifToolService != null
+          ? ExifDateExtractor(exifToolService!)
+          : null;
     });
 
     tearDown(() async {
@@ -55,34 +64,40 @@ void main() {
     group('EXIF Date Extractor', () {
       test('extracts date from EXIF data', () async {
         final imgFile = fixture.createImageWithExif('test.jpg');
-
-        final result = await exifDateTimeExtractor(
+        if (extractor == null) {
+          print('ExifTool not found, skipping test.');
+          return;
+        }
+        final result = await extractor!.exifDateTimeExtractor(
           imgFile,
           globalConfig: globalConfig,
         );
-
         expect(result, DateTime.parse('2022-12-16 16:06:47'));
       });
 
       test('returns null for image without EXIF data', () async {
         final imgFile = fixture.createImageWithoutExif('test.jpg');
-
-        final result = await exifDateTimeExtractor(
+        if (extractor == null) {
+          print('ExifTool not found, skipping test.');
+          return;
+        }
+        final result = await extractor!.exifDateTimeExtractor(
           imgFile,
           globalConfig: globalConfig,
         );
-
         expect(result, isNull);
       });
 
       test('returns null for non-image files', () async {
         final txtFile = fixture.createFile('test.txt', [1, 2, 3]);
-
-        final result = await exifDateTimeExtractor(
+        if (extractor == null) {
+          print('ExifTool not found, skipping test.');
+          return;
+        }
+        final result = await extractor!.exifDateTimeExtractor(
           txtFile,
           globalConfig: globalConfig,
         );
-
         expect(result, isNull);
       });
     });

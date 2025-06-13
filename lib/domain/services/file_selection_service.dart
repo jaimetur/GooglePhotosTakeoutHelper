@@ -5,6 +5,8 @@ import 'package:path/path.dart' as p;
 
 import '../../presentation/interactive_presenter.dart';
 import '../../utils.dart';
+import 'logging_service.dart';
+import 'utility_service.dart';
 
 /// Service for handling file and directory selection via UI dialogs
 ///
@@ -16,6 +18,8 @@ class FileSelectionService {
     : _presenter = presenter ?? InteractivePresenter();
 
   final InteractivePresenter _presenter;
+  final LoggingService _logger = const LoggingService();
+  final UtilityService _utility = const UtilityService();
 
   /// Prompts user to select input directory using file picker dialog
   ///
@@ -29,7 +33,7 @@ class FileSelectionService {
     );
     await _sleep(1);
     if (dir == null) {
-      error('Duh, something went wrong with selecting - try again!');
+      _logger.error('Duh, something went wrong with selecting - try again!');
       return selectOutputDirectory();
     }
     await _presenter.showInputDirectoryConfirmation();
@@ -48,7 +52,7 @@ class FileSelectionService {
     );
     await _sleep(1);
     if (dir == null) {
-      error('Duh, something went wrong with selecting - try again!');
+      _logger.error('Duh, something went wrong with selecting - try again!');
       return selectOutputDirectory();
     }
     await _presenter.showOutputDirectoryConfirmation();
@@ -81,26 +85,28 @@ class FileSelectionService {
     );
     await _sleep(1);
     if (files == null) {
-      error('Duh, something went wrong with selecting - try again!');
-      quit(69);
+      _logger.error('Duh, something went wrong with selecting - try again!');
+      _logger.quit(69);
     }
     if (files.count == 0) {
-      error('No files selected - try again :/');
-      quit(6969);
+      _logger.error('No files selected - try again :/');
+      _logger.quit(6969);
     }
     if (files.count == 1) {
       await _presenter.showSingleZipWarning();
       _presenter.showPressEnterPrompt();
     }
     if (!_validateZipFiles(files.files)) {
-      _presenter.showFileList(
+      await _presenter.showFileList(
         files.files.map((final PlatformFile e) => p.basename(e.path!)).toList(),
       );
-      error('Not all files you selected are zips :/ please do this again');
-      quit(6969);
+      _logger.error(
+        'Not all files you selected are zips :/ please do this again',
+      );
+      _logger.quit(6969);
     }
     // potentially shows user they selected too little ?
-    final totalSize = filesize(
+    final totalSize = _utility.formatFileSize(
       files.files
           .map((final PlatformFile e) => File(e.path!).statSync().size)
           .reduce((final int a, final int b) => a + b),
@@ -113,7 +119,7 @@ class FileSelectionService {
   bool _validateZipFiles(final List<PlatformFile> files) => files.every(
     (final PlatformFile e) =>
         File(e.path!).statSync().type == FileSystemEntityType.file &&
-        RegExp(r'\.(zip|tgz)$').hasMatch(e.path!),
+        RegExp(r'\.(zip|tgz)\$').hasMatch(e.path!),
   );
 
   /// Sleep helper for better UX

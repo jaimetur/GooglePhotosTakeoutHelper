@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 
 import '../../presentation/interactive_presenter.dart';
 import '../../utils.dart';
+import 'logging_service.dart';
 
 /// Service for handling ZIP file extraction with safety checks and error handling
 ///
@@ -16,6 +17,7 @@ class ZipExtractionService {
     : _presenter = presenter ?? InteractivePresenter();
 
   final InteractivePresenter _presenter;
+  final LoggingService _logger = const LoggingService();
 
   /// Unzips all zips to given folder (creates it if needed)
   ///
@@ -52,7 +54,7 @@ class ZipExtractionService {
     await _presenter.showUnzipStartMessage();
 
     for (final File zip in zips) {
-      _presenter.showUnzipProgress(p.basename(zip.path));
+      await _presenter.showUnzipProgress(p.basename(zip.path));
 
       try {
         // Validate ZIP file exists and is readable
@@ -68,7 +70,7 @@ class ZipExtractionService {
         // Extract with safety checks
         await _extractZipSafely(zip, dir);
 
-        _presenter.showUnzipSuccess(p.basename(zip.path));
+        await _presenter.showUnzipSuccess(p.basename(zip.path));
       } on ArchiveException catch (e) {
         _handleExtractionError(zip, e, isArchiveError: true);
       } on PathNotFoundException catch (e) {
@@ -80,7 +82,7 @@ class ZipExtractionService {
       }
     }
 
-    _presenter.showUnzipComplete();
+    await _presenter.showUnzipComplete();
   }
 
   /// Safely extracts a ZIP file with security and encoding checks
@@ -125,9 +127,8 @@ class ZipExtractionService {
           );
         } catch (e) {
           // Ignore timestamp setting errors - not critical
-          log(
+          _logger.warning(
             'Warning: Could not set modification time for ${outputFile.path}: $e',
-            level: 'warning',
           );
         }
       } else if (file.isDirectory) {
@@ -207,57 +208,67 @@ class ZipExtractionService {
   }) {
     final String zipName = p.basename(zip.path);
 
-    error('');
-    error('===============================================');
-    error('❌ ERROR: Failed to extract $zipName');
-    error('===============================================');
+    _logger.error('');
+    _logger.error('===============================================');
+    _logger.error('❌ ERROR: Failed to extract $zipName');
+    _logger.error('===============================================');
 
     if (isArchiveError) {
-      error('💥 ZIP Archive Error:');
-      error(
+      _logger.error('💥 ZIP Archive Error:');
+      _logger.error(
         'The ZIP file appears to be corrupted or uses an unsupported format.',
       );
-      error('');
-      error('🔧 Suggested Solutions:');
-      error('• Re-download the ZIP file from Google Takeout');
-      error('• Verify the file wasn\'t corrupted during download');
-      error('• Try extracting manually with your system\'s built-in extractor');
+      _logger.error('');
+      _logger.error('🔧 Suggested Solutions:');
+      _logger.error('• Re-download the ZIP file from Google Takeout');
+      _logger.error('• Verify the file wasn\'t corrupted during download');
+      _logger.error(
+        '• Try extracting manually with your system\'s built-in extractor',
+      );
     } else if (isPathError) {
-      error('📁 Path/File Error:');
-      error('There was an issue accessing files or creating directories.');
-      error('');
-      error('🔧 Suggested Solutions:');
-      error('• Ensure you have sufficient permissions in the target directory');
-      error(
+      _logger.error('📁 Path/File Error:');
+      _logger.error(
+        'There was an issue accessing files or creating directories.',
+      );
+      _logger.error('');
+      _logger.error('🔧 Suggested Solutions:');
+      _logger.error(
+        '• Ensure you have sufficient permissions in the target directory',
+      );
+      _logger.error(
         '• Check that the target path is not too long (Windows limitation)',
       );
-      error('• Verify sufficient disk space is available');
+      _logger.error('• Verify sufficient disk space is available');
     } else if (isFileSystemError) {
-      error('💾 File System Error:');
-      error('Unable to read the ZIP file or write extracted files.');
-      error('');
-      error('🔧 Suggested Solutions:');
-      error('• Check file permissions on the ZIP file');
-      error('• Ensure the ZIP file is not currently open in another program');
-      error('• Verify the target directory is writable');
+      _logger.error('💾 File System Error:');
+      _logger.error('Unable to read the ZIP file or write extracted files.');
+      _logger.error('');
+      _logger.error('🔧 Suggested Solutions:');
+      _logger.error('• Check file permissions on the ZIP file');
+      _logger.error(
+        '• Ensure the ZIP file is not currently open in another program',
+      );
+      _logger.error('• Verify the target directory is writable');
     } else {
-      error('⚠️  Unexpected Error:');
-      error('An unexpected error occurred during extraction.');
+      _logger.error('⚠️  Unexpected Error:');
+      _logger.error('An unexpected error occurred during extraction.');
     }
 
-    error('');
-    error('📋 Error Details: $errorObject');
-    error('');
-    error('🔄 Alternative Options:');
-    error('• Extract ZIP files manually using your system tools');
-    error('• Use GPTH with command-line options on pre-extracted files');
-    error(
+    _logger.error('');
+    _logger.error('📋 Error Details: $errorObject');
+    _logger.error('');
+    _logger.error('🔄 Alternative Options:');
+    _logger.error('• Extract ZIP files manually using your system tools');
+    _logger.error(
+      '• Use GPTH with command-line options on pre-extracted files',
+    );
+    _logger.error(
       '• See manual extraction guide: https://github.com/Xentraxx/GooglePhotosTakeoutHelper?tab=readme-ov-file#command-line-usage',
     );
-    error('');
-    error('===============================================');
+    _logger.error('');
+    _logger.error('===============================================');
 
-    quit(69);
+    _logger.quit(69);
   }
 }
 

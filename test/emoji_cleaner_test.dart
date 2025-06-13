@@ -31,10 +31,11 @@
 library;
 
 import 'dart:io';
+
 import 'package:emoji_regex/emoji_regex.dart' as r;
 import 'package:exif_reader/exif_reader.dart';
 import 'package:gpth/domain/services/emoji_cleaner_service.dart';
-import 'package:gpth/exiftoolInterface.dart';
+import 'package:gpth/infrastructure/exiftool_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
@@ -157,17 +158,23 @@ Directory decodeAndRenameAlbumIfHex(final Directory hexDir) {
 }
 
 void main() {
+  late ExifToolService? exiftool;
+
+  setUpAll(() async {
+    exiftool = await ExifToolService.find();
+    if (exiftool != null) {
+      await exiftool!.startPersistentProcess();
+    }
+  });
+
+  tearDownAll(() async {
+    if (exiftool != null) {
+      await exiftool!.dispose();
+    }
+  });
+
   group('Emoji Cleaner - Comprehensive Test Suite', () {
     late TestFixture fixture;
-
-    setUpAll(() async {
-      // Initialize ExifTool interface for tests that require EXIF operations
-      await initExiftool();
-    });
-
-    tearDownAll(() async {
-      await cleanupExiftool();
-    });
 
     setUp(() async {
       // Create a fresh test fixture for each test to ensure isolation

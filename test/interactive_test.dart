@@ -38,7 +38,7 @@ library;
 import 'dart:io';
 import 'package:gpth/domain/services/zip_extraction_service.dart'
     show SecurityException;
-import 'package:gpth/interactive.dart' as interactive;
+import 'package:gpth/interactive_handler.dart' as interactive;
 import 'package:gpth/presentation/interactive_presenter.dart';
 import 'package:test/test.dart';
 import './test_setup.dart';

@@ -1,6 +1,7 @@
 import '../../utils.dart';
 import '../models/pipeline_step_model.dart';
 import '../models/processing_config_model.dart';
+import '../services/extension_fixing_service.dart';
 
 /// Step 1: Fix incorrect file extensions
 ///
@@ -62,9 +63,11 @@ class FixExtensionsStep extends ProcessingStep {
 
       print('\n[Step 1/8] Fixing file extensions... (This might take a while)');
 
-      final fixedCount = await fixIncorrectExtensions(
+      final extensionFixingService = ExtensionFixingService();
+      final fixedCount = await extensionFixingService.fixIncorrectExtensions(
         context.inputDirectory,
-        context.config.extensionFixing == ExtensionFixingMode.conservative,
+        skipJpegFiles:
+            context.config.extensionFixing == ExtensionFixingMode.conservative,
       );
 
       // If in solo mode, processing should stop here

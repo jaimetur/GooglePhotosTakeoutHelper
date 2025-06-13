@@ -45,3 +45,24 @@ class ProcessingLimits {
   /// Buffer size for file I/O operations
   static const int ioBufferSize = 8 * 1024; // 8KB
 }
+
+/// Application exit codes
+class ExitCodes {
+  /// Normal exit
+  static const int success = 0;
+
+  /// General error
+  static const int error = 1;
+
+  /// Invalid arguments
+  static const int invalidArgs = 2;
+
+  /// File not found
+  static const int fileNotFound = 3;
+
+  /// Permission denied
+  static const int permissionDenied = 4;
+
+  /// ExifTool not found
+  static const int exifToolNotFound = 5;
+}

@@ -354,6 +354,24 @@ class TestFixture {
 
     return p.join(datasetPath, 'Takeout');
   }
+
+  /// Create a large test file for performance testing
+  File createLargeTestFile(
+    final String name, {
+    final int sizeInMB = 1,
+    final List<int>? content,
+  }) {
+    final file = File(p.join(basePath, name));
+    file.createSync(recursive: true);
+
+    // Use provided content or create a buffer of the specified size
+    final buffer = content ?? List<int>.filled(sizeInMB * 1024 * 1024, 0);
+
+    // Write the buffer to the file
+    file.writeAsBytesSync(buffer, flush: true);
+    _createdEntities.add(file);
+    return file;
+  }
 }
 
 /// Test data patterns for filename-based date extraction

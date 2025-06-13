@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
+import 'package:proper_filesize/proper_filesize.dart';
 
 /// Service for file system operations and file type detection
 ///
@@ -151,4 +152,48 @@ class FileSystemService {
     }
     return true;
   }
+
+  /// Validates directory exists and is accessible
+  ///
+  /// [dir] Directory to validate
+  /// [shouldExist] Whether the directory should exist (true) or not exist (false)
+  /// Returns true if validation passes
+  Future<bool> validateDirectory(
+    final Directory dir, {
+    final bool shouldExist = true,
+  }) async {
+    final exists = await dir.exists();
+    if (shouldExist && !exists) {
+      stderr.write('Directory does not exist: ${dir.path}\n');
+      return false;
+    }
+    if (!shouldExist && exists) {
+      stderr.write('Directory already exists: ${dir.path}\n');
+      return false;
+    }
+    return true;
+  }
+
+  /// Safely creates directory with error handling
+  ///
+  /// [dir] Directory to create
+  /// Returns true if creation was successful
+  Future<bool> safeCreateDirectory(final Directory dir) async {
+    try {
+      await dir.create(recursive: true);
+      return true;
+    } catch (e) {
+      stderr.write('Failed to create directory ${dir.path}: $e\n');
+      return false;
+    }
+  }
+
+  /// Formats byte count into human-readable file size string
+  ///
+  /// [bytes] Number of bytes to format
+  /// Returns formatted string like "1.5 MB"
+  String formatFileSize(final int bytes) => FileSize.fromBytes(bytes).toString(
+    unit: Unit.auto(size: bytes, baseType: BaseType.metric),
+    decimals: 2,
+  );
 }

@@ -58,8 +58,8 @@ class LoggingService {
   }
 
   /// Logs an error message
-  void error(final String message, {final bool forcePrint = true}) {
-    log(message, level: 'error', forcePrint: forcePrint);
+  void error(final String message) {
+    log(message, level: 'error');
   }
 
   /// Logs a debug message (only in verbose mode)
@@ -87,6 +87,34 @@ class LoggingService {
         isVerbose: isVerbose ?? this.isVerbose,
         enableColors: enableColors ?? this.enableColors,
       );
+
+  /// Prints error message to stderr with newline
+  void errorToStderr(final Object? object) => stderr.write('$object\n');
+
+  /// Exits the program with optional code, showing interactive message if needed
+  ///
+  /// [code] Exit code (default: 1)
+  Never quit([final int code = 1]) {
+    if (Platform.environment['INTERACTIVE'] == 'true') {
+      print(
+        '[gpth ${code != 0 ? 'quitted :(' : 'finished :)'} (code $code) - '
+        'press enter to close]',
+      );
+      stdin.readLineSync();
+    }
+    exit(code);
+  }
+
+  /// Formats a [Duration] as a string: "Xs" if < 1 min, otherwise "Xm Ys".
+  String formatDuration(final Duration duration) {
+    if (duration.inSeconds < 60) {
+      return '${duration.inSeconds}s';
+    } else {
+      final minutes = duration.inMinutes;
+      final seconds = duration.inSeconds % 60;
+      return '${minutes}m ${seconds}s';
+    }
+  }
 }
 
 /// Extension to add logging capabilities to any class
@@ -110,8 +138,8 @@ mixin LoggerMixin {
   }
 
   /// Logs an error message
-  void logError(final String message, {final bool forcePrint = true}) {
-    logger.error(message, forcePrint: forcePrint);
+  void logError(final String message) {
+    logger.error(message);
   }
 
   /// Logs a debug message

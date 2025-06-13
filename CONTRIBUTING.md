@@ -93,8 +93,7 @@ By participating in this project, you agree to abide by our [Code of Conduct](CO
 lib/
 ├── media.dart              # Core Media class and file handling
 ├── grouping.dart          # Duplicate detection and grouping logic
-├── interactive.dart       # User interaction and CLI interface
-├── folder_classify.dart   # Album and folder type detection
+├── interactive_handler.dart       # User interaction and CLI interface
 ├── moving.dart           # File organization and moving logic
 ├── extras.dart           # Edited file detection
 ├── exiftoolInterface.dart # ExifTool integration
