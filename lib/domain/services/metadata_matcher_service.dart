@@ -39,30 +39,11 @@ class JsonFileMatcher {
     for (final strategy in strategies) {
       final String processedName = strategy.transform(name);
 
-      // First try supplemental-metadata format
-      final File supplementalJsonFile = File(
-        p.join(dir.path, '$processedName.supplemental-metadata.json'),
-      );
-      if (await supplementalJsonFile.exists()) {
-        return supplementalJsonFile;
-      }
-
-      // Try numbered supplemental-metadata files for extension fixing scenarios
-      final File? numberedSupplementalFile = await _tryNumberedJsonFiles(
-        dir,
-        processedName,
-        name,
-        '.supplemental-metadata.json',
-      );
-      if (numberedSupplementalFile != null) {
-        return numberedSupplementalFile;
-      }
-
-      // Try truncated supplemental-metadata formats (for Google Photos 51-char limit)
+      // Try all possible truncations of supplemental-metadata.json
       final String fullSupplementalPath =
           '$processedName.supplemental-metadata.json';
       if (fullSupplementalPath.length > 51) {
-        // Calculate intelligent truncation based on available space
+        // Calculate all possible truncations based on available space
         final List<String> truncatedSuffixes =
             _generateTruncatedSupplementalSuffixes(
               processedName,
@@ -75,6 +56,25 @@ class JsonFileMatcher {
           );
           if (await truncatedFile.exists()) return truncatedFile;
         }
+      } else {
+        // If we have space for the full name, try that first
+        final File supplementalJsonFile = File(
+          p.join(dir.path, fullSupplementalPath),
+        );
+        if (await supplementalJsonFile.exists()) {
+          return supplementalJsonFile;
+        }
+      }
+
+      // Try numbered supplemental-metadata files for extension fixing scenarios
+      final File? numberedSupplementalFile = await _tryNumberedJsonFiles(
+        dir,
+        processedName,
+        name,
+        '.supplemental-metadata.json',
+      );
+      if (numberedSupplementalFile != null) {
+        return numberedSupplementalFile;
       }
 
       // Then try standard JSON format
@@ -185,11 +185,18 @@ class JsonFileMatcher {
       description: 'Removes known editing suffixes like "-edited"',
       transform: _removeExtraComplete,
     ),
+
+    // Strategy 6: Handle MP files by looking for their MP.jpg JSON files
+    const JsonMatchingStrategy(
+      name: 'MP file JSON matching',
+      description: 'Handles MP files by looking for their MP.jpg JSON files',
+      transform: _handleMPFiles,
+    ),
   ];
 
   /// Aggressive strategies (only with tryhard=true) - ordered from least to most aggressive
   static final List<JsonMatchingStrategy> _aggressiveStrategies = [
-    // Strategy 6: Cross-extension matching (moderate, handles shared JSON files)
+    // Strategy 7: Cross-extension matching (moderate, handles shared JSON files)
     const JsonMatchingStrategy(
       name: 'Cross-extension matching',
       description:
@@ -197,28 +204,28 @@ class JsonFileMatcher {
       transform: _crossExtensionMatching,
     ),
 
-    // Strategy 7: Remove partial extra formats (moderate to aggressive, truncation handling)
+    // Strategy 8: Remove partial extra formats (moderate to aggressive, truncation handling)
     const JsonMatchingStrategy(
       name: 'Remove partial extra formats',
       description: 'Removes truncated editing suffixes like "-ed"',
       transform: _removeExtraPartial,
     ),
 
-    // Strategy 8: Extension restoration after partial removal (aggressive, reconstruction)
+    // Strategy 9: Extension restoration after partial removal (aggressive, reconstruction)
     const JsonMatchingStrategy(
       name: 'Extension restoration after partial removal',
       description: 'Combines partial removal with extension restoration',
       transform: _removeExtraPartialWithExtensionRestore,
     ),
 
-    // Strategy 8: Edge case pattern removal (very aggressive, heuristic-based)
+    // Strategy 10: Edge case pattern removal (very aggressive, heuristic-based)
     const JsonMatchingStrategy(
       name: 'Edge case pattern removal',
       description: 'Heuristic-based removal of edge case patterns',
       transform: _removeExtraEdgeCase,
     ),
 
-    // Strategy 9: Remove digit patterns (most aggressive, broad pattern matching)
+    // Strategy 11: Remove digit patterns (most aggressive, broad pattern matching)
     //const JsonMatchingStrategy(
     //  name: 'Remove digit patterns',
     //  description: 'Removes digit patterns like "(1)" from filenames',
@@ -233,6 +240,28 @@ class JsonFileMatcher {
   }) => includeAggressive
       ? [..._basicStrategies, ..._aggressiveStrategies]
       : _basicStrategies;
+
+  /// Generates all possible truncations of supplemental-metadata.json
+  /// that would fit within the maxLength constraint
+  static List<String> _generateTruncatedSupplementalSuffixes(
+    final String baseName, {
+    required final int maxLength,
+  }) {
+    final List<String> suffixes = [];
+    const String fullSuffix = 'supplemental-metadata.json';
+    final int baseLength = baseName.length + 1; // +1 for the dot
+    final int maxSuffixLength = maxLength - baseLength;
+
+    // Try progressively shorter versions of the suffix
+    for (int i = fullSuffix.length; i > 0; i--) {
+      final String truncatedSuffix = '${fullSuffix.substring(0, i)}.json';
+      if (truncatedSuffix.length <= maxSuffixLength) {
+        suffixes.add(truncatedSuffix);
+      }
+    }
+
+    return suffixes;
+  }
 }
 
 /// Represents a single JSON file matching strategy
@@ -306,6 +335,8 @@ String _crossExtensionMatching(final String filename) {
     '.mov': ['.HEIC', '.HEIF'],
     '.jpg': ['.HEIC', '.HEIF'],
     '.jpeg': ['.HEIC', '.HEIF'],
+    '.mp': ['.HEIC', '.HEIF'],
+    '.mv': ['.HEIC', '.HEIF'],
   };
 
   // If current extension has cross-extension patterns, try the first alternative
@@ -403,63 +434,15 @@ String _removeExtraEdgeCase(final String filename) {
 String _removeDigit(final String filename) =>
     filename.replaceAll(RegExp(r'\(\d\)\.'), '.');
 
-/// Generates intelligently truncated supplemental metadata suffixes
+/// Handles MP files by looking for their MP.jpg JSON files
 ///
-/// This function calculates what the truncated supplemental metadata filename
-/// would look like based on Google Photos' 51-character truncation behavior.
-/// It tries multiple truncation strategies to handle different edge cases.
-List<String> _generateTruncatedSupplementalSuffixes(
-  final String processedName, {
-  required final int maxLength,
-}) {
-  final List<String> suffixes = [];
-  const String jsonExt = '.json';
-
-  // Calculate how much space we have for the suffix after the processed name
-  final int baseNameLength = processedName.length + 1; // +1 for the dot
-  final int availableSpace = maxLength - baseNameLength;
-
-  // If we can't even fit ".json", return empty list
-  if (availableSpace < jsonExt.length) {
-    return suffixes;
+/// For Pixel Motion Photos, the JSON file is often named after the MP.jpg version
+/// rather than the MP version. This function handles that case.
+String _handleMPFiles(final String filename) {
+  final String ext = p.extension(filename).toLowerCase();
+  if (ext == '.mp') {
+    final String nameWithoutExt = p.basenameWithoutExtension(filename);
+    return '$nameWithoutExt.MP.jpg';
   }
-
-  // Strategy 1: Truncate "supplemental-metadata" intelligently
-  const String supplementalPart = 'supplemental-metadata';
-  final int maxSupplementalLength = availableSpace - jsonExt.length;
-
-  if (maxSupplementalLength > 0) {
-    // Try progressively shorter truncations of "supplemental-metadata"
-    final List<String> candidateTruncations = [];
-
-    // Smart truncation points (preserve meaningful parts)
-    final List<int> smartTruncationPoints = [
-      supplementalPart.length, // Full: supplemental-metadata
-      'supplemental-meta'.length, // supplemental-meta
-      'supplemental-met'.length, // supplemental-met
-      'supplemental-m'.length, // supplemental-m
-      'supplemental'.length, // supplemental
-      'supplement'.length, // supplement
-      'supplem'.length, // supplem
-      'suppl'.length, // suppl
-      'supp'.length, // supp
-    ];
-
-    for (final int truncPoint in smartTruncationPoints) {
-      if (truncPoint <= maxSupplementalLength && truncPoint > 0) {
-        final String truncated = supplementalPart.substring(0, truncPoint);
-        candidateTruncations.add('$truncated$jsonExt');
-      }
-    }
-
-    // Add the candidates to our suffix list
-    suffixes.addAll(candidateTruncations);
-  }
-
-  // Strategy 2: Try just "json" if everything else fails
-  if (availableSpace >= jsonExt.length) {
-    suffixes.add(jsonExt.substring(1)); // Remove the leading dot
-  }
-
-  return suffixes;
+  return filename;
 }

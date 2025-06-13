@@ -58,8 +58,25 @@ Future<DateTime?> exifDateTimeExtractor(final File file) async {
     'image/tiff-fx',
     'image/x-portable-anymap',
   };
+
   DateTime?
   result; //this variable should be filled. That's the goal from here on.
+
+  // For video files, we should use exiftool directly
+  if (mimeType?.startsWith('video/') == true) {
+    if (GlobalConfigService.instance.exifToolInstalled) {
+      result = await _exifToolExtractor(file);
+      if (result != null) {
+        return result;
+      }
+    }
+    log(
+      'Reading exif from ${file.path} with mimeType $mimeType skipped. Reading from this kind of file is only supported with exiftool.',
+      level: 'warning',
+    );
+    return null;
+  }
+
   if (supportedNativeMimeTypes.contains(mimeType)) {
     result = await _nativeExif_readerExtractor(file);
     if (result != null) {
