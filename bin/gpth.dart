@@ -7,9 +7,8 @@ import 'package:gpth/domain/main_pipeline.dart';
 import 'package:gpth/domain/models/io_paths_model.dart';
 import 'package:gpth/domain/models/processing_config_model.dart';
 import 'package:gpth/domain/models/processing_result_model.dart';
-import 'package:gpth/domain/services/global_config_service.dart';
+import 'package:gpth/domain/services/service_container.dart';
 import 'package:gpth/domain/services/takeout_path_resolver_service.dart';
-import 'package:gpth/exiftoolInterface.dart';
 import 'package:gpth/interactive.dart' as interactive;
 import 'package:gpth/presentation/interactive_presenter.dart';
 import 'package:gpth/utils.dart';
@@ -80,13 +79,13 @@ Future<void> main(final List<String> arguments) async {
     final result = await _executeProcessing(config); // Show final results
     _showResults(config, result);
 
-    // Cleanup ExifTool resources
-    await cleanupExiftool();
+    // Cleanup services
+    await ServiceContainer.instance.dispose();
   } catch (e) {
     error('Fatal error: $e');
 
-    // Cleanup ExifTool resources even on error
-    await cleanupExiftool();
+    // Cleanup services even on error
+    await ServiceContainer.instance.dispose();
 
     exit(1);
   }
@@ -466,6 +465,9 @@ Future<InputOutputPaths> _getInputOutputPaths(final ArgResults res) async {
 ///
 /// @param config Processing configuration with user preferences
 Future<void> _initializeDependencies(final ProcessingConfig config) async {
+  // Initialize service container
+  await ServiceContainer.instance.initialize();
+
   // Set up global verbose mode
   bool isDebugMode = false;
   assert(() {
@@ -473,19 +475,21 @@ Future<void> _initializeDependencies(final ProcessingConfig config) async {
     return true;
   }(), 'Debug mode assertion');
   if (config.verbose || isDebugMode) {
-    GlobalConfigService.instance.isVerbose = true;
+    ServiceContainer.instance.globalConfig.isVerbose = true;
     log('Verbose mode active!');
   }
 
   // Set global file size enforcement
   if (config.limitFileSize) {
-    GlobalConfigService.instance.enforceMaxFileSize = true;
+    ServiceContainer.instance.globalConfig.enforceMaxFileSize = true;
   }
 
-  // Initialize ExifTool
-  if (await initExiftool()) {
+  // Update ExifTool status
+  if (ServiceContainer.instance.exifTool != null) {
+    ServiceContainer.instance.globalConfig.exifToolInstalled = true;
     print('[INFO] Exiftool found! Continuing with EXIF support...');
   } else {
+    ServiceContainer.instance.globalConfig.exifToolInstalled = false;
     print('[INFO] Exiftool not found! Continuing without EXIF support...');
   }
 

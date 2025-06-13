@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import '../services/date_extraction/date_extractor_service.dart';
+import '../services/service_container.dart';
 
 /// Enum representing different extension fixing modes
 enum ExtensionFixingMode {
@@ -89,7 +90,10 @@ class ProcessingConfig {
   /// Returns the list of date extractors based on configuration
   List<DateTimeExtractor> get dateExtractors => [
     jsonDateTimeExtractor,
-    exifDateTimeExtractor,
+    (final File f) => exifDateTimeExtractor(
+      f,
+      globalConfig: ServiceContainer.instance.globalConfig,
+    ),
     if (guessFromName) guessExtractor,
     (final File f) => jsonDateTimeExtractor(f, tryhard: true),
   ];

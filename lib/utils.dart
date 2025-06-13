@@ -10,13 +10,12 @@ import 'package:proper_filesize/proper_filesize.dart';
 // Clean architecture imports
 import 'domain/models/media_entity_collection.dart';
 import 'domain/services/extension_fixing_service.dart';
-import 'domain/services/global_config_service.dart';
 import 'domain/services/logging_service.dart';
 import 'domain/services/metadata_matcher_service.dart';
 import 'domain/services/mime_type_service.dart';
 import 'domain/services/processing_metrics_service.dart';
+import 'domain/services/service_container.dart';
 import 'infrastructure/disk_space_service.dart';
-
 // Legacy imports
 import 'interactive.dart' as interactive;
 
@@ -129,9 +128,16 @@ void log(
   final String level = 'info',
   final bool forcePrint = false,
 }) {
-  final service = LoggingService(
-    isVerbose: GlobalConfigService.instance.isVerbose,
-  );
+  // Handle test environment where ServiceContainer might not be initialized
+  bool isVerbose = false;
+  try {
+    isVerbose = ServiceContainer.instance.globalConfig.isVerbose;
+  } catch (e) {
+    // ServiceContainer not initialized, use default value
+    isVerbose = false;
+  }
+
+  final service = LoggingService(isVerbose: isVerbose);
   service.log(message, level: level, forcePrint: forcePrint);
 }
 

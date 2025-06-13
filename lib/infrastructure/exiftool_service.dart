@@ -4,7 +4,8 @@ import 'dart:io';
 
 /// Infrastructure service for ExifTool external process management
 class ExifToolService {
-  ExifToolService._(this.exiftoolPath);
+  /// Constructor for dependency injection
+  ExifToolService(this.exiftoolPath);
 
   final String exiftoolPath;
 
@@ -17,26 +18,7 @@ class ExifToolService {
   final int _commandIdCounter = 0;
   bool _isDisposed = false;
 
-  /// Global instance
-  static ExifToolService? _instance;
-
-  /// Factory method to find and initialize ExifTool service
-  static Future<ExifToolService?> initialize() async {
-    _instance = await ExifToolService.find();
-    if (_instance != null) {
-      await _instance!.startPersistentProcess();
-      return _instance;
-    }
-    return null;
-  }
-
-  /// Cleanup function to stop the persistent ExifTool process
-  static Future<void> cleanup() async {
-    await _instance?.dispose();
-    _instance = null;
-  }
-
-  /// Find ExifTool executable on the system
+  /// Factory method to find and create ExifTool service
   static Future<ExifToolService?> find() async {
     final isWindows = Platform.isWindows;
 
@@ -50,7 +32,7 @@ class ExifToolService {
       try {
         final result = await Process.run(name, ['-ver']);
         if (result.exitCode == 0) {
-          return ExifToolService._(name);
+          return ExifToolService(name);
         }
       } catch (e) {
         // Continue to next option
@@ -75,7 +57,7 @@ class ExifToolService {
         try {
           final result = await Process.run(path, ['-ver']);
           if (result.exitCode == 0) {
-            return ExifToolService._(path);
+            return ExifToolService(path);
           }
         } catch (e) {
           // Continue to next option

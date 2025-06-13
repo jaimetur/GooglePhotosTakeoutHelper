@@ -260,6 +260,51 @@ class TestFixture {
     return file;
   }
 
+  /// Create a JSON file with specified timestamp
+  File createJsonWithDate(final String name, final String timestamp) {
+    final file = File(p.join(basePath, name));
+    file.createSync(recursive: true);
+    file.writeAsStringSync(
+      jsonEncode({
+        'title': 'test.jpg',
+        'description': '',
+        'imageViews': '1',
+        'creationTime': {
+          'timestamp': '1702198242',
+          'formatted': '10.12.2023, 08:50:42 UTC',
+        },
+        'photoTakenTime': {
+          'timestamp': timestamp,
+          'formatted': '01.05.2023, 14:32:37 UTC',
+        },
+      }),
+      flush: true,
+    );
+    _createdEntities.add(file);
+    return file;
+  }
+
+  /// Create a JSON file without timestamp
+  File createJsonWithoutDate(final String name) {
+    final file = File(p.join(basePath, name));
+    file.createSync(recursive: true);
+    file.writeAsStringSync(
+      jsonEncode({
+        'title': 'test.jpg',
+        'description': '',
+        'imageViews': '1',
+        'creationTime': {
+          'timestamp': '1702198242',
+          'formatted': '10.12.2023, 08:50:42 UTC',
+        },
+        // Note: no photoTakenTime field
+      }),
+      flush: true,
+    );
+    _createdEntities.add(file);
+    return file;
+  }
+
   /// Create a test image file with EXIF data in a specific directory
   File createImageWithExifInDir(final String dirPath, final String name) {
     final dir = Directory(dirPath);

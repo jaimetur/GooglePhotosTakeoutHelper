@@ -7,6 +7,7 @@ library;
 
 import 'dart:io';
 
+import 'domain/services/service_container.dart';
 import 'infrastructure/exiftool_service.dart';
 
 // Re-export for convenience
@@ -22,14 +23,14 @@ ExifToolService? exiftool;
 ///
 /// Returns true if exiftool was found and initialized successfully
 Future<bool> initExiftool() async {
-  exiftool = await ExifToolService.initialize();
+  exiftool = ServiceContainer.instance.exifTool;
   return exiftool != null;
 }
 
 /// Cleanup function to stop the persistent ExifTool process
 /// Should be called when the application is shutting down
 Future<void> cleanupExiftool() async {
-  await ExifToolService.cleanup();
+  await ServiceContainer.instance.dispose();
   exiftool = null;
 }
 

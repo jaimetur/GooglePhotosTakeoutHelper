@@ -2,6 +2,7 @@ import '../entities/media_entity.dart';
 import '../services/album_detection_service.dart';
 import '../services/duplicate_detection_service.dart';
 import '../services/exif_writer_service.dart';
+import '../services/service_container.dart';
 import '../value_objects/date_time_extraction_method.dart';
 
 /// Modern domain model representing a collection of media entities
@@ -113,6 +114,7 @@ class MediaEntityCollection {
         final success = await writeDateTimeToExif(
           mediaEntity.dateTaken!,
           mediaEntity.files.firstFile,
+          ServiceContainer.instance.globalConfig,
         );
         if (success) {
           dateTimesWritten++;

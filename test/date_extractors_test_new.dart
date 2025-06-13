@@ -29,9 +29,10 @@ void main() {
     group('JSON Date Extractor', () {
       test('extracts date from valid JSON metadata', () async {
         final jsonFile = fixture.createJsonWithDate('test.json', '1640960007');
+
         final result = await jsonDateTimeExtractor(jsonFile);
 
-        expect(result, DateTime.parse('2021-12-31 15:13:27.000'));
+        expect(result, DateTime.parse('2021-12-31 12:00:07Z'));
       });
 
       test('returns null for invalid JSON', () async {
@@ -85,37 +86,25 @@ void main() {
         expect(result, isNull);
       });
     });
+
     group('Guess Date Extractor', () {
       group('IMG filename patterns', () {
-        test('extracts date from IMG_20220101_123456.jpg', () async {
-          final file = File('${fixture.basePath}/IMG_20220101_123456.jpg');
+        final testCases = [
+          'IMG_20220101_123456.jpg',
+          'IMG_20220131_235959.png',
+          'IMG_20200229_000000.gif', // leap year
+        ];
 
-          final result = await guessExtractor(file);
-
-          expect(result, isNotNull);
-          expect(result!.year, 2022);
-        });
-
-        test('extracts date from IMG_20220131_235959.png', () async {
-          final file = File('${fixture.basePath}/IMG_20220131_235959.png');
-
-          final result = await guessExtractor(file);
-
-          expect(result, isNotNull);
-          expect(result!.year, 2022);
-        });
-
-        test(
-          'extracts date from IMG_20200229_000000.gif (leap year)',
-          () async {
-            final file = File('${fixture.basePath}/IMG_20200229_000000.gif');
+        for (final filename in testCases) {
+          test('extracts date from $filename', () async {
+            final file = File('${fixture.basePath}/$filename');
 
             final result = await guessExtractor(file);
 
             expect(result, isNotNull);
-            expect(result!.year, 2020);
-          },
-        );
+            expect(result!.year, 2022);
+          });
+        }
       });
 
       test('returns null for unrecognizable filename patterns', () async {

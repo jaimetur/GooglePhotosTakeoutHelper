@@ -10,9 +10,12 @@ import '../services/global_config_service.dart';
 /// and configuration options in interactive mode.
 class UserPromptService {
   /// Creates a new instance of UserPromptService
-  UserPromptService({final InteractivePresenter? presenter})
-    : _presenter = presenter ?? InteractivePresenter();
+  UserPromptService({
+    required this.globalConfig,
+    final InteractivePresenter? presenter,
+  }) : _presenter = presenter ?? InteractivePresenter();
 
+  final GlobalConfigService globalConfig;
   final InteractivePresenter _presenter;
 
   /// Reads user input and normalizes it (removes brackets, lowercase, trim)
@@ -163,9 +166,7 @@ class UserPromptService {
 
   /// Asks user about EXIF writing configuration
   Future<bool> askIfWriteExif() async {
-    await _presenter.promptForExifWriting(
-      GlobalConfigService.instance.exifToolInstalled,
-    );
+    await _presenter.promptForExifWriting(globalConfig.exifToolInstalled);
     final String answer = await readUserInput();
     await _presenter.showExifWritingResponse(answer);
     switch (answer) {

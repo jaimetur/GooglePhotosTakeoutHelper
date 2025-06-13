@@ -5,18 +5,8 @@ import '../models/processing_config_model.dart';
 /// Replaces global variables with a proper service that can be injected
 /// and tested. Provides thread-safe access to configuration values.
 class GlobalConfigService {
-  GlobalConfigService._();
-
-  /// Factory constructor for dependency injection
-  GlobalConfigService.injectable();
-  static GlobalConfigService? _instance;
-
-  /// Singleton instance for backwards compatibility
-  /// TODO: Replace with proper dependency injection
-  static GlobalConfigService get instance {
-    _instance ??= GlobalConfigService._();
-    return _instance!;
-  }
+  /// Constructor for dependency injection
+  GlobalConfigService();
 
   /// Whether verbose logging is enabled
   bool isVerbose = false;

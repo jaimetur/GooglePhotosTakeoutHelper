@@ -15,14 +15,13 @@ void main() {
     late TestFixture fixture;
     late ExifToolService? exiftool;
     late File testImage;
-
     setUpAll(() async {
       // Initialize ExifTool service
-      exiftool = await ExifToolService.initialize();
+      exiftool = await ExifToolService.find();
     });
 
     tearDownAll(() async {
-      await ExifToolService.cleanup();
+      await exiftool?.dispose();
     });
     setUp(() async {
       fixture = TestFixture();

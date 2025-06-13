@@ -15,14 +15,13 @@ void main() {
     late TestFixture fixture;
     late ExiftoolInterface? exiftool;
     late File testImage;
-
     setUpAll(() async {
-      // Initialize ExifTool service first
-      await ExifToolService.initialize();
+      // Initialize ExifTool service first - now using the interface module level functions
+      await initExiftool();
     });
 
     tearDownAll(() async {
-      await ExifToolService.cleanup();
+      await cleanupExiftool();
     });
 
     setUp(() async {

@@ -8,28 +8,35 @@ import 'package:mime/mime.dart';
 
 import '../../exiftoolInterface.dart';
 import '../../utils.dart';
-import '../services/global_config_service.dart';
 import 'date_extraction/exif_date_extractor.dart';
+import 'global_config_service.dart';
 
 Future<bool> writeDateTimeToExif(
   final DateTime dateTime,
   final File file,
+  final GlobalConfigService globalConfig,
 ) async {
   final List<int> headerBytes = await File(file.path).openRead(0, 128).first;
   final String? mimeTypeFromHeader = lookupMimeType(
     file.path,
     headerBytes: headerBytes,
   );
-  final String? mimeTypeFromExtension = lookupMimeType(file.path);
-  //Check if the file already has a dateTime in its EXIF data. If function returns a DateTime, there is no need to write it again. Skip.
-  if (await exifDateTimeExtractor(file) != null) {
+  final String? mimeTypeFromExtension = lookupMimeType(
+    file.path,
+  ); //Check if the file already has a dateTime in its EXIF data. If function returns a DateTime, there is no need to write it again. Skip.
+  if (await exifDateTimeExtractor(file, globalConfig: globalConfig) != null) {
     return false;
   }
 
-  if (GlobalConfigService.instance.exifToolInstalled) {
+  if (globalConfig.exifToolInstalled) {
     //Even if exifTool is installed, try to use native way for speed first and if it works keep going. If not, use exiftool.
     if (mimeTypeFromHeader == 'image/jpeg' &&
-        await _noExifToolDateTimeWriter(file, dateTime, mimeTypeFromHeader)) {
+        await _noExifToolDateTimeWriter(
+          file,
+          dateTime,
+          mimeTypeFromHeader,
+          globalConfig,
+        )) {
       return true; //If native way was able to write exif data: exit. If not, try exifTool.
     }
     if (mimeTypeFromExtension != mimeTypeFromHeader &&
@@ -53,13 +60,19 @@ Future<bool> writeDateTimeToExif(
     return true;
   } else {
     //When exiftool is not installed
-    return _noExifToolDateTimeWriter(file, dateTime, mimeTypeFromHeader);
+    return _noExifToolDateTimeWriter(
+      file,
+      dateTime,
+      mimeTypeFromHeader,
+      globalConfig,
+    );
   }
 }
 
 Future<bool> writeGpsToExif(
   final DMSCoordinates coordinates,
   final File file,
+  final GlobalConfigService globalConfig,
 ) async {
   final List<int> headerBytes = await File(file.path).openRead(0, 128).first;
   final String? mimeTypeFromHeader = lookupMimeType(
@@ -67,11 +80,16 @@ Future<bool> writeGpsToExif(
     headerBytes: headerBytes,
   );
 
-  if (GlobalConfigService.instance.exifToolInstalled) {
+  if (globalConfig.exifToolInstalled) {
     final String? mimeTypeFromExtension = lookupMimeType(file.path);
     //Even if exifTool is installed, try to use native way for speed first and if it works keep going. If not, use exiftool.
     if (mimeTypeFromHeader == 'image/jpeg' &&
-        await _noExifGPSWriter(file, coordinates, mimeTypeFromHeader)) {
+        await _noExifGPSWriter(
+          file,
+          coordinates,
+          mimeTypeFromHeader,
+          globalConfig,
+        )) {
       return true;
     }
 
@@ -107,7 +125,12 @@ Future<bool> writeGpsToExif(
     return false;
   } else {
     //If exiftool is not installed
-    return _noExifGPSWriter(file, coordinates, mimeTypeFromHeader);
+    return _noExifGPSWriter(
+      file,
+      coordinates,
+      mimeTypeFromHeader,
+      globalConfig,
+    );
   }
 }
 
@@ -119,11 +142,13 @@ Future<bool> writeGpsToExif(
 /// [file] Image file to write to
 /// [dateTime] DateTime to write to EXIF fields
 /// [mimeTypeFromHeader] MIME type detected from file header
+/// [globalConfig] Global configuration service
 /// Returns true if write was successful
 Future<bool> _noExifToolDateTimeWriter(
   final File file,
   final DateTime dateTime,
   final String? mimeTypeFromHeader,
+  final GlobalConfigService globalConfig,
 ) async {
   final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
   final String? mimeTypeFromExtension = lookupMimeType(file.path);
@@ -164,7 +189,7 @@ Future<bool> _noExifToolDateTimeWriter(
       }
     }
   }
-  if (!GlobalConfigService.instance.exifToolInstalled) {
+  if (!globalConfig.exifToolInstalled) {
     log(
       '[Step 5/8] Found DateTime in json, but missing in EXIF. Writing to $mimeTypeFromHeader is not supported without exiftool.',
       level: 'warning',
@@ -182,11 +207,13 @@ Future<bool> _noExifToolDateTimeWriter(
 /// [file] Image file to write to
 /// [coordinates] GPS coordinates to write
 /// [mimeTypeFromHeader] MIME type detected from file header
+/// [globalConfig] Global configuration service
 /// Returns true if write was successful
 Future<bool> _noExifGPSWriter(
   final File file,
   final DMSCoordinates coordinates,
   final String? mimeTypeFromHeader,
+  final GlobalConfigService globalConfig,
 ) async {
   if (mimeTypeFromHeader == 'image/jpeg') {
     final String? mimeTypeFromExtension = lookupMimeType(file.path);
@@ -225,8 +252,8 @@ Future<bool> _noExifGPSWriter(
       }
     }
   }
-  if (!GlobalConfigService.instance.exifToolInstalled) {
-    if (GlobalConfigService.instance.isVerbose) {
+  if (!globalConfig.exifToolInstalled) {
+    if (globalConfig.isVerbose) {
       log(
         '[Step 5/8] Found Coordinates in json, but missing in EXIF. Writing to $mimeTypeFromHeader is not supported without exiftool.',
         level: 'warning',

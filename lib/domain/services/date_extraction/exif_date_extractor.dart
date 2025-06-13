@@ -11,10 +11,13 @@ import '../global_config_service.dart';
 /// DateTime from exif data *potentially* hidden within a [file]
 ///
 /// You can try this with *any* file, it either works or not 🤷
-Future<DateTime?> exifDateTimeExtractor(final File file) async {
+Future<DateTime?> exifDateTimeExtractor(
+  final File file, {
+  required final GlobalConfigService globalConfig,
+}) async {
   //If file is >maxFileSize - return null. https://github.com/brendan-duncan/image/issues/457#issue-1549020643
   if (await file.length() > defaultMaxFileSize &&
-      GlobalConfigService.instance.enforceMaxFileSize) {
+      globalConfig.enforceMaxFileSize) {
     log(
       'The file is larger than the maximum supported file size of ${defaultMaxFileSize.toString()} bytes. File: ${file.path}',
       level: 'error',
@@ -64,7 +67,7 @@ Future<DateTime?> exifDateTimeExtractor(final File file) async {
 
   // For video files, we should use exiftool directly
   if (mimeType?.startsWith('video/') == true) {
-    if (GlobalConfigService.instance.exifToolInstalled) {
+    if (globalConfig.exifToolInstalled) {
       result = await _exifToolExtractor(file);
       if (result != null) {
         return result;
@@ -89,7 +92,7 @@ Future<DateTime?> exifDateTimeExtractor(final File file) async {
   }
   //At this point either we didn't do anything because the mimeType is unknown (null) or not supported by the native method.
   //Anyway, there is nothing else to do than to try it with exiftool now. exiftool is the last resort *sing* in any case due to performance.  if ((mimeType == null || !supportedNativeMimeTypes.contains(mimeType)) &&
-  if (GlobalConfigService.instance.exifToolInstalled) {
+  if (globalConfig.exifToolInstalled) {
     result = await _exifToolExtractor(file);
     if (result != null) {
       return result; //We did get a DateTime from Exiftool and return it. It's being logged in _exifToolExtractor(). We are happy.
@@ -102,7 +105,7 @@ Future<DateTime?> exifDateTimeExtractor(final File file) async {
       '${file.path} has a mimeType of $mimeType. However, could not read it with exif_reader. This means, the file is probably corrupt',
       level: 'warning',
     );
-  } else if (GlobalConfigService.instance.exifToolInstalled) {
+  } else if (globalConfig.exifToolInstalled) {
     log(
       "$mimeType is a weird mime type! Please create an issue if you get this error message, as we currently can't handle it.",
       level: 'error',

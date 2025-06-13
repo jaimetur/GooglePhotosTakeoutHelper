@@ -6,7 +6,9 @@ library;
 
 import '../../presentation/interactive_presenter.dart';
 import '../services/file_selection_service.dart';
+import '../services/global_config_service.dart';
 import '../services/interactive_utility_service.dart';
+import '../services/service_container.dart';
 import '../services/user_prompt_service.dart';
 import '../services/zip_extraction_service.dart';
 
@@ -30,8 +32,23 @@ class InteractiveServiceFactory {
   InteractiveUtilityService? _utilityService;
 
   /// Gets or creates the UserPromptService instance
-  UserPromptService get promptService =>
-      _promptService ??= UserPromptService(presenter: _presenter);
+  UserPromptService get promptService {
+    if (_promptService != null) return _promptService!;
+
+    // Handle test environment where ServiceContainer might not be initialized
+    GlobalConfigService globalConfig;
+    try {
+      globalConfig = ServiceContainer.instance.globalConfig;
+    } catch (e) {
+      // ServiceContainer not initialized, create a default config for tests
+      globalConfig = GlobalConfigService();
+    }
+
+    return _promptService = UserPromptService(
+      globalConfig: globalConfig,
+      presenter: _presenter,
+    );
+  }
 
   /// Gets or creates the FileSelectionService instance
   FileSelectionService get fileSelectionService =>
