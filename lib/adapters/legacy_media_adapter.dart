@@ -4,9 +4,9 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 
 import '../domain/entities/media_entity.dart';
-import '../domain/models/media_entity.dart' as domain;
 import '../domain/services/global_config_service.dart';
 import '../domain/services/media_hash_service.dart';
+import '../domain/value_objects/date_time_extraction_method.dart';
 import '../shared/constants.dart' as constants;
 
 /// Adapter that bridges the gap between old Media class and new MediaEntity
@@ -23,7 +23,7 @@ class LegacyMediaAdapter {
     final Map<String?, File> files, {
     final DateTime? dateTaken,
     final int? dateTakenAccuracy,
-    final domain.DateTimeExtractionMethod? dateTimeExtractionMethod,
+    final DateTimeExtractionMethod? dateTimeExtractionMethod,
   }) : _entity = MediaEntity.fromMap(
          files: files,
          dateTaken: dateTaken,
@@ -67,7 +67,7 @@ class LegacyMediaAdapter {
       _entity.dateAccuracy == null ? null : _entity.dateTakenAccuracy;
 
   /// Legacy property: extraction method
-  domain.DateTimeExtractionMethod? get dateTimeExtractionMethod =>
+  DateTimeExtractionMethod? get dateTimeExtractionMethod =>
       _entity.dateTimeExtractionMethod;
 
   /// Async size calculation with caching

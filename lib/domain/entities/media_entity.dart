@@ -1,7 +1,7 @@
 import 'dart:io';
 
-import '../models/media_entity.dart' as domain;
 import '../value_objects/date_accuracy.dart';
+import '../value_objects/date_time_extraction_method.dart';
 import '../value_objects/media_files_collection.dart';
 
 /// Immutable domain entity representing a media file (photo or video)
@@ -23,7 +23,7 @@ class MediaEntity {
     required final File file,
     final DateTime? dateTaken,
     final DateAccuracy? dateAccuracy,
-    final domain.DateTimeExtractionMethod? dateTimeExtractionMethod,
+    final DateTimeExtractionMethod? dateTimeExtractionMethod,
   }) => MediaEntity(
     files: MediaFilesCollection.single(file),
     dateTaken: dateTaken,
@@ -36,7 +36,7 @@ class MediaEntity {
     required final Map<String?, File> files,
     final DateTime? dateTaken,
     final int? dateTakenAccuracy,
-    final domain.DateTimeExtractionMethod? dateTimeExtractionMethod,
+    final DateTimeExtractionMethod? dateTimeExtractionMethod,
   }) => MediaEntity(
     files: MediaFilesCollection.fromMap(files),
     dateTaken: dateTaken,
@@ -54,7 +54,7 @@ class MediaEntity {
   final DateAccuracy? dateAccuracy;
 
   /// Method used to extract the date/time
-  final domain.DateTimeExtractionMethod? dateTimeExtractionMethod;
+  final DateTimeExtractionMethod? dateTimeExtractionMethod;
 
   /// Gets the primary file for this media
   File get primaryFile => files.firstFile;
@@ -92,7 +92,7 @@ class MediaEntity {
   MediaEntity withDate({
     final DateTime? dateTaken,
     final DateAccuracy? dateAccuracy,
-    final domain.DateTimeExtractionMethod? dateTimeExtractionMethod,
+    final DateTimeExtractionMethod? dateTimeExtractionMethod,
   }) => MediaEntity(
     files: files,
     dateTaken: dateTaken ?? this.dateTaken,
@@ -112,12 +112,12 @@ class MediaEntity {
   /// Merges this media entity with another, taking the better date accuracy
   MediaEntity mergeWith(final MediaEntity other) {
     // Combine all files
-    final combinedFiles = files.withFiles(other.files.files);
-
-    // Choose better date information
+    final combinedFiles = files.withFiles(
+      other.files.files,
+    ); // Choose better date information
     final DateTime? bestDate;
     final DateAccuracy? bestAccuracy;
-    final domain.DateTimeExtractionMethod? bestMethod;
+    final DateTimeExtractionMethod? bestMethod;
 
     if (dateAccuracy == null && other.dateAccuracy == null) {
       // Neither has date info

@@ -1,5 +1,5 @@
 import 'dart:io';
-import '../models/media_entity.dart';
+import '../entities/media_entity.dart';
 import 'media_hash_service.dart';
 
 /// Service for detecting duplicate media files based on content hash and size
@@ -128,25 +128,31 @@ class DuplicateDetectionService {
   /// 2. Media with more album associations
   /// 3. Media with shorter file path (likely original location)
   MediaEntity _selectBestMedia(final List<MediaEntity> duplicates) {
-    if (duplicates.length == 1) return duplicates.first;
-
+    if (duplicates.length == 1) {
+      return duplicates.first;
+    }
     // Sort by quality criteria
     final sorted = duplicates.toList()
       ..sort((final a, final b) {
         // 1. Prefer media with more accurate date
-        if (a.hasDateInfo && b.hasDateInfo) {
+        final aHasDate = a.dateTaken != null && a.dateAccuracy != null;
+        final bHasDate = b.dateTaken != null && b.dateAccuracy != null;
+
+        if (aHasDate && bHasDate) {
           final dateComparison = a.dateTakenAccuracy!.compareTo(
             b.dateTakenAccuracy!,
           );
           if (dateComparison != 0) return dateComparison;
-        } else if (a.hasDateInfo && !b.hasDateInfo) {
+        } else if (aHasDate && !bHasDate) {
           return -1; // a is better
-        } else if (!a.hasDateInfo && b.hasDateInfo) {
+        } else if (!aHasDate && bHasDate) {
           return 1; // b is better
         }
 
         // 2. Prefer media with more album associations
-        final albumComparison = b.files.length.compareTo(a.files.length);
+        final albumComparison = b.files.files.length.compareTo(
+          a.files.files.length,
+        );
         if (albumComparison != 0) return albumComparison;
 
         // 3. Prefer media with shorter path (likely more original)

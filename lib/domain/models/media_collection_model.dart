@@ -5,7 +5,7 @@ import '../../grouping.dart' as grouping;
 import '../../media.dart';
 import '../services/date_extraction/date_extractor_service.dart';
 import '../services/exif_writer_service.dart';
-import 'media_entity.dart';
+import '../value_objects/date_time_extraction_method.dart';
 
 /// Domain model representing a collection of media files with business operations
 ///

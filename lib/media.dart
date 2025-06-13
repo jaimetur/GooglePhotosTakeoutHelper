@@ -5,8 +5,8 @@ import 'package:crypto/crypto.dart';
 
 import 'adapters/legacy_media_adapter.dart';
 import 'domain/entities/media_entity.dart';
-import 'domain/models/media_entity.dart' as domain;
 import 'domain/value_objects/date_accuracy.dart';
+import 'domain/value_objects/date_time_extraction_method.dart';
 
 /// Abstract of a *media* - a photo or video
 ///
@@ -24,7 +24,7 @@ class Media {
     final Map<String?, File> files, {
     final DateTime? dateTaken,
     final int? dateTakenAccuracy,
-    final domain.DateTimeExtractionMethod? dateTimeExtractionMethod,
+    final DateTimeExtractionMethod? dateTimeExtractionMethod,
   }) : _adapter = LegacyMediaAdapter.fromLegacy(
          files,
          dateTaken: dateTaken,
@@ -60,7 +60,7 @@ class Media {
   int? get dateTakenAccuracy => _adapter.dateTakenAccuracy;
 
   /// The method/extractor that produced the DateTime
-  domain.DateTimeExtractionMethod? get dateTimeExtractionMethod =>
+  DateTimeExtractionMethod? get dateTimeExtractionMethod =>
       _adapter.dateTimeExtractionMethod;
 
   /// Creates a new Media instance with additional file association
@@ -78,7 +78,7 @@ class Media {
   Media withDate({
     final DateTime? dateTaken,
     final int? dateTakenAccuracy,
-    final domain.DateTimeExtractionMethod? dateTimeExtractionMethod,
+    final DateTimeExtractionMethod? dateTimeExtractionMethod,
   }) => Media.fromEntity(
     _adapter.entity.withDate(
       dateTaken: dateTaken,
