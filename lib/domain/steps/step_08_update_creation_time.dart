@@ -95,12 +95,11 @@ class UpdateCreationTimeStep extends ProcessingStep {
 
     try {
       if (!Platform.isWindows || !context.config.updateCreationTime) {
-        if (context.config.verbose) {
-          final reason = !Platform.isWindows
-              ? 'not supported on this platform'
-              : 'disabled in configuration';
-          print('\n[Step 8/8] Skipping creation time update ($reason).');
-        }
+        final reason = !Platform.isWindows
+            ? 'not supported on this platform'
+            : 'disabled in configuration';
+        print('\n[Step 8/8] Skipping creation time update ($reason).');
+
         stopwatch.stop();
         return StepResult.success(
           stepName: name,
