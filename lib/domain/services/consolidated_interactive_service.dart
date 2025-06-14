@@ -432,14 +432,41 @@ class ConsolidatedInteractiveService with LoggerMixin {
         (final sum, final file) => sum + file.lengthSync(),
       );
 
-      logInfo(
+      print(
         'Selected ${files.length} ZIP files (total size: ${_utility.formatFileSize(totalSize)})',
-        forcePrint: true,
       );
 
       return files;
     } catch (e) {
       logError('Failed to select ZIP files: $e');
+      rethrow;
+    }
+  }
+
+  /// Prompts user to select extraction directory for ZIP files
+  Future<Directory> selectExtractionDirectory() async {
+    await _presenter.promptForExtractionDirectory();
+    _presenter.showPressEnterPrompt();
+
+    try {
+      final String? selectedPath = await _showDirectoryPicker(
+        'Select the folder to extract the ZIP files to',
+      );
+
+      if (selectedPath == null) {
+        throw Exception('No directory selected');
+      }
+
+      final directory = Directory(selectedPath);
+
+      // Create directory if it doesn't exist
+      if (!directory.existsSync()) {
+        await directory.create(recursive: true);
+      }
+
+      return directory;
+    } catch (e) {
+      logError('Failed to select extraction directory: $e');
       rethrow;
     }
   }
@@ -525,16 +552,16 @@ class ConsolidatedInteractiveService with LoggerMixin {
 
   /// Shows platform-specific directory picker dialog
   Future<String?> _showDirectoryPicker(final String title) async =>
-      getDirectoryPath(dialogTitle: 'Select unzipped folder:');
+      getDirectoryPath(dialogTitle: title);
 
   /// Shows platform-specific file picker dialog
   Future<FilePickerResult?> _showFilesPicker(
     final String title, {
     final List<String>? allowedExtensions,
   }) async => pickFiles(
-    dialogTitle: 'Select all Takeout zips:',
+    dialogTitle: title,
     type: FileType.custom,
-    allowedExtensions: <String>['zip', 'tgz'],
+    allowedExtensions: allowedExtensions,
     allowMultiple: true,
   );
 }

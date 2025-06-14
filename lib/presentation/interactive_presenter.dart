@@ -397,7 +397,9 @@ class InteractivePresenter with LoggerMixin {
 
   /// Prompts user to select output directory
   Future<void> promptForOutputDirectory() async {
-    print('Select the directory where you want to save your photos');
+    print(
+      'Select the output directory, where GPTH should move/copy your photos to.',
+    );
     if (enableSleep) await _sleep(1);
   }
 
@@ -418,10 +420,15 @@ class InteractivePresenter with LoggerMixin {
 
   /// Prompts user to select date division option
   Future<void> promptForDateDivision() async {
-    print('How do you want to divide your photos by date?');
-    print('1. By year');
-    print('2. By year and month');
-    print('3. By year, month, and day');
+    print(
+      'Do you want your photos in one big chronological folder, '
+      'or divided to folders by year/month?',
+    );
+    print('[0] (default) - one big folder');
+    print('[1] - year folders');
+    print('[2] - year/month folders');
+    print('[3] - year/month/day folders');
+    print('(Type a number or press enter for default):');
     if (enableSleep) await _sleep(1);
   }
 
@@ -433,13 +440,33 @@ class InteractivePresenter with LoggerMixin {
 
   /// Prompts user to select album behavior
   Future<void> promptForAlbumBehavior() async {
-    print('How do you want to handle albums?');
-    print('1. Create album folders with shortcuts to original photos');
-    print('2. Create album folders with copied photos');
+    print('What should be done with albums?');
     print(
-      '3. Create a single folder with all photos and a JSON file for album info',
+      '[1] shortcut: [Recommended] Album folders with shortcuts/symlinks to',
     );
-    print('4. Ignore albums and put all photos in one folder');
+    print(
+      '    original photos. Recommended as it will take the least space, but',
+    );
+    print(
+      '    may not be portable when moving across systems/computers/phones etc',
+    );
+    print('');
+    print('[2] duplicate-copy: Album folders with photos copied into them.');
+    print(
+      '    This will work across all systems, but may take wayyy more space!!',
+    );
+    print('');
+    print(
+      '[3] json: Put ALL photos (including Archive and Trash) in one folder and',
+    );
+    print('    make a .json file with info about albums.');
+    print('    Use if you\'re a programmer, or just want to get everything,');
+    print('    ignoring lack of year-folders etc.');
+    print('');
+    print('[4] nothing: Just ignore them and put year-photos into one folder.');
+    print('    WARNING: This ignores Archive/Trash !!!');
+    print('');
+    print('(Type a number or press enter for recommended option):');
     if (enableSleep) await _sleep(1);
   }
 
@@ -456,10 +483,11 @@ class InteractivePresenter with LoggerMixin {
 
   /// Prompts for output cleanup
   Future<void> promptForOutputCleanup() async {
-    print('Do you want to clean the output directory before proceeding?');
-    print('1. Yes');
-    print('2. No');
-    print('3. Quit');
+    print('Output folder IS NOT EMPTY! What to do? Type either:');
+    print('[1] - delete *all* files inside output folder and continue');
+    print('[2] - continue as usual - put output files alongside existing');
+    print('[3] - exit program to examine situation yourself');
+    print('(Type 1, 2, or 3):');
     if (enableSleep) await _sleep(1);
   }
 
@@ -471,9 +499,14 @@ class InteractivePresenter with LoggerMixin {
 
   /// Prompts for Pixel MP transform
   Future<void> promptForPixelMpTransform() async {
-    print('Do you want to transform Pixel Motion Photo extensions to .mp4?');
-    print('1. No');
-    print('2. Yes');
+    print(
+      'Pixel Motion Pictures are saved with the .MP or .MV '
+      'extensions. Do you want to change them to .mp4 '
+      'for better compatibility?',
+    );
+    print('[1] (default) - no, keep original extension');
+    print('[2] - yes, change extension to .mp4');
+    print('(Type 1 or 2, or press enter for default):');
     if (enableSleep) await _sleep(1);
   }
 
@@ -485,9 +518,16 @@ class InteractivePresenter with LoggerMixin {
 
   /// Prompts for creation time update
   Future<void> promptForCreationTimeUpdate() async {
-    print('Do you want to update creation times on Windows?');
-    print('1. No');
-    print('2. Yes');
+    print(
+      'This program fixes file "modified times". '
+      'Due to language limitations, creation times remain unchanged. '
+      'Would you like to run a separate script at the end to sync '
+      'creation times with modified times?'
+      '\nNote: ONLY ON WINDOWS',
+    );
+    print('[1] (Default) - No, don\'t update creation time');
+    print('[2] - Yes, update creation time to match modified time');
+    print('(Type 1 or 2, or press enter for default):');
     if (enableSleep) await _sleep(1);
   }
 
@@ -499,9 +539,26 @@ class InteractivePresenter with LoggerMixin {
 
   /// Prompts for EXIF writing
   Future<void> promptForExifWriting(final bool exifToolInstalled) async {
-    print('Do you want to write EXIF data to your photos?');
-    print('1. Yes');
-    print('2. No');
+    if (exifToolInstalled) {
+      print(
+        'This mode will write Exif data (dates/times/coordinates) back to your files. '
+        'Note that this mode will alter your original files, regardless of the "copy" mode.'
+        'Do you want to continue with writing exif data enabled?',
+      );
+    } else {
+      print(
+        'This mode will write Exif data (dates/times/coordinates) back to your files. '
+        'We detected that ExifTool is NOT available! '
+        'To achieve the best results, we strongly recommend to download Exiftool and place it next to this executable or in your \$PATH.'
+        'If you plan on using this mode, close the program, install exiftool and come back.'
+        'Please read the README.md to learn how to get Exiftool for your platform.'
+        'Note that this mode will alter your original files, regardless of the "copy" mode.'
+        'Do you want to continue with writing exif data enabled?',
+      );
+    }
+    print('[1] (Default) - Yes, write exif');
+    print('[2] - No, don\'t write to exif');
+    print('(Type 1 or 2, or press enter for default):');
     if (enableSleep) await _sleep(1);
   }
 
@@ -513,9 +570,15 @@ class InteractivePresenter with LoggerMixin {
 
   /// Prompts for file size limit
   Future<void> promptForFileSizeLimit() async {
-    print('Do you want to set a file size limit?');
-    print('1. No');
-    print('2. Yes');
+    print(
+      'By default we will process all your files.'
+      'However, if you have large video files and run this script on a low ram system (e.g. a NAS or your smart toaster), you might want to '
+      'limit the maximum file size to 64 MB not run out of memory.'
+      'We recommend to only activate this if you run into problems as this fork made significant improvements to memory management',
+    );
+    print('[1] (Default) - Don\'t limit me! Process everything!');
+    print('[2] - I operate a Toaster. Limit supported media size to 64 MB');
+    print('(Type 1 or 2, or press enter for default):');
     if (enableSleep) await _sleep(1);
   }
 
@@ -557,7 +620,6 @@ class InteractivePresenter with LoggerMixin {
     print('    ✓ Uses less temporary disk space');
     print('    ⚠️  Requires manual extraction and merging of ZIP files');
     print('');
-    await _sleep(1);
 
     print('(Type 1 or 2, or press enter for recommended option):');
     if (enableSleep) await _sleep(1);
@@ -596,6 +658,18 @@ class InteractivePresenter with LoggerMixin {
   /// Shows unzip complete
   Future<void> showUnzipComplete() async {
     print('Unzip process complete.');
+    if (enableSleep) await _sleep(1);
+  }
+
+  /// Prompts user to select extraction directory for ZIP files
+  Future<void> promptForExtractionDirectory() async {
+    print('Now select where you want to extract the ZIP files to.');
+    print(
+      'This directory will contain the extracted Google Photos data and serve as the input directory for GPTH.',
+    );
+    print(
+      '(You can delete this directory after processing if you want to save space)',
+    );
     if (enableSleep) await _sleep(1);
   }
 }

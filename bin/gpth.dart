@@ -355,14 +355,14 @@ Future<ProcessingConfig> _handleFixMode(final ArgResults res) async {
 /// **PATH RESOLUTION MODES:**
 /// 1. **CLI Mode**: Paths provided directly via --input and --output flags
 /// 2. **Interactive Mode**: User-guided selection with validation
-/// 3. **ZIP Processing**: Automatic extraction of Google Takeout ZIP files
+/// 3. **ZIP Processing**: User selects extraction location, then output location
 /// 4. **Pre-extracted**: Direct processing of already extracted folders
 ///
 /// **ZIP HANDLING:**
-/// - Space requirement calculation and validation
-/// - Automatic extraction to temporary directory
-/// - Cleanup of temporary files after processing
-/// - Progress reporting during extraction
+/// - Space requirement calculation and validation (double space needed since ZIPs remain)
+/// - User-controlled extraction to chosen directory
+/// - Transparent location for temporary files
+/// - Cleanup responsibility lies with user
 ///
 /// **VALIDATION:**
 /// - Input directory existence verification
@@ -389,10 +389,13 @@ Future<InputOutputPaths> _getInputOutputPaths(
     print('');
 
     late Directory inDir;
-
     if (shouldUnzip) {
       final zips = await ServiceContainer.instance.interactiveService
           .selectZipFiles();
+      print('');
+
+      final extractDir = await ServiceContainer.instance.interactiveService
+          .selectExtractionDirectory();
       print('');
 
       final out = await ServiceContainer.instance.interactiveService
@@ -402,19 +405,20 @@ Future<InputOutputPaths> _getInputOutputPaths(
       final cumZipsSize = zips
           .map((final e) => e.lengthSync())
           .reduce((final a, final b) => a + b);
-      final requiredSpace = (cumZipsSize * 2) + 256 * 1024 * 1024;
+      final requiredSpace =
+          (cumZipsSize * 2) +
+          256 * 1024 * 1024; // Double because original ZIPs remain
       await ServiceContainer.instance.interactiveService.freeSpaceNotice(
         requiredSpace,
-        out,
+        extractDir,
       );
       print('');
-      final unzipDir = Directory(p.join(out.path, '.gpth-unzipped'));
-      inDir = unzipDir;
+      inDir = extractDir;
       outputPath = out.path;
 
       await ServiceContainer.instance.interactiveService.extractAll(
         zips,
-        unzipDir,
+        extractDir,
       );
       print('');
     } else {
