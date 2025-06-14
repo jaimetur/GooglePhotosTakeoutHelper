@@ -2,8 +2,6 @@ import 'dart:io';
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
 
-import 'service_container.dart';
-
 /// Service for file system operations and file type detection
 ///
 /// Extracted from utils.dart to provide a clean, testable interface
@@ -53,15 +51,6 @@ class FileSystemService {
   /// Returns filtered list containing only photo and video files
   List<File> filterPhotoVideoFiles(final List<File> files) =>
       files.where(isPhotoOrVideo).toList();
-
-  /// Creates a unique file name by appending (1), (2), etc. until non-existing
-  ///
-  /// [initialFile] The desired file path
-  /// Returns a File object with a unique path that doesn't exist
-  ///
-  /// @deprecated Use ConsolidatedUtilityService.findUniqueFileName() instead
-  File findUniqueFileName(final File initialFile) =>
-      ServiceContainer.instance.utilityService.findUniqueFileName(initialFile);
 
   /// Safely copies a file to a new location
   ///
@@ -183,13 +172,4 @@ class FileSystemService {
       return false;
     }
   }
-
-  /// Formats byte count into human-readable file size string
-  ///
-  /// [bytes] Number of bytes to format
-  /// Returns formatted string like "1.5 MB"
-  ///
-  /// @deprecated Use ConsolidatedUtilityService.formatFileSize() instead
-  String formatFileSize(final int bytes) =>
-      ServiceContainer.instance.utilityService.formatFileSize(bytes);
 }

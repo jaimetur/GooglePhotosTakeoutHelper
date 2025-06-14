@@ -7,9 +7,7 @@ library;
 import 'dart:io';
 
 import 'package:gpth/domain/services/consolidated_utility_service.dart';
-import 'package:gpth/domain/services/file_system_service.dart';
 import 'package:gpth/domain/services/service_container.dart';
-import 'package:gpth/domain/services/utility_service.dart';
 import 'package:gpth/infrastructure/consolidated_disk_space_service.dart';
 import 'package:test/test.dart';
 
@@ -221,19 +219,17 @@ void main() {
         // by delegating to the consolidated services
 
         final tempDir = Directory.systemTemp.createTempSync('test_delegation_');
-
         try {
           final testFile = File('${tempDir.path}/test.txt');
           testFile.createSync();
 
-          // Test that FileSystemService delegates to consolidated service
-          const fileSystemService = FileSystemService();
-          final uniqueFile = fileSystemService.findUniqueFileName(testFile);
+          // Test consolidated utility service directly
+          const consolidatedUtility = ConsolidatedUtilityService();
+          final uniqueFile = consolidatedUtility.findUniqueFileName(testFile);
           expect(uniqueFile.path, contains('test(1).txt'));
 
-          // Test that UtilityService delegates to consolidated service
-          const utilityServiceOld = UtilityService();
-          final formatted = utilityServiceOld.formatFileSize(1024);
+          // Test file size formatting
+          final formatted = consolidatedUtility.formatFileSize(1024);
           expect(formatted, contains('KB'));
         } finally {
           tempDir.deleteSync(recursive: true);

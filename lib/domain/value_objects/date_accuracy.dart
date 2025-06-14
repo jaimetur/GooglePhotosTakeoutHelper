@@ -20,12 +20,6 @@ class DateAccuracy {
     };
   }
 
-  /// Creates a nullable DateAccuracy from an integer value
-  static DateAccuracy? fromNullableInt(final int? accuracyValue) {
-    if (accuracyValue == null) return null;
-    return DateAccuracy.fromInt(accuracyValue);
-  }
-
   /// Perfect accuracy - extracted from reliable metadata
   static const DateAccuracy perfect = DateAccuracy(1);
 

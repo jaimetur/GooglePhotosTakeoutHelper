@@ -63,7 +63,7 @@ library;
 
 import 'dart:io';
 
-import 'package:gpth/domain/services/file_system_service.dart';
+import 'package:gpth/domain/services/consolidated_utility_service.dart';
 import 'package:gpth/domain/services/logging_service.dart';
 import 'package:gpth/domain/services/service_container.dart';
 import 'package:gpth/domain/services/utility_service.dart';
@@ -78,17 +78,16 @@ import './test_setup.dart';
 void main() {
   group('Refactored Service Tests', () {
     late TestFixture fixture;
-    late FileSystemService fileSystemService;
     late UtilityService utilityService;
+    late ConsolidatedUtilityService consolidatedUtilityService;
     late PlatformService platformService;
     late LoggingService loggingService;
-
     setUp(() async {
       fixture = TestFixture();
       await fixture.setUp();
       await ServiceContainer.instance.initialize();
-      fileSystemService = const FileSystemService();
       utilityService = const UtilityService();
+      consolidatedUtilityService = const ConsolidatedUtilityService();
       platformService = const PlatformService();
       loggingService = const LoggingService();
     });
@@ -132,7 +131,9 @@ void main() {
       test('findUniqueFileName generates unique filename', () {
         final existingFile = fixture.createFile('test.jpg', [1, 2, 3]);
 
-        final uniqueFile = fileSystemService.findUniqueFileName(existingFile);
+        final uniqueFile = consolidatedUtilityService.findUniqueFileName(
+          existingFile,
+        );
 
         expect(uniqueFile.path, endsWith('test(1).jpg'));
         expect(uniqueFile.existsSync(), isFalse);
@@ -142,7 +143,9 @@ void main() {
       test('findUniqueFileName returns original if file does not exist', () {
         final nonExistentFile = File('${fixture.basePath}/nonexistent.jpg');
 
-        final result = fileSystemService.findUniqueFileName(nonExistentFile);
+        final result = consolidatedUtilityService.findUniqueFileName(
+          nonExistentFile,
+        );
 
         expect(result.path, nonExistentFile.path);
       });
@@ -161,10 +164,13 @@ void main() {
     group('File Size Formatting', () {
       /// Should format bytes correctly to human-readable string.
       test('formatFileSize formats bytes correctly', () {
-        expect(utilityService.formatFileSize(1024), contains('KB'));
-        expect(utilityService.formatFileSize(1024 * 1024), contains('MB'));
+        expect(consolidatedUtilityService.formatFileSize(1024), contains('KB'));
         expect(
-          utilityService.formatFileSize(1024 * 1024 * 1024),
+          consolidatedUtilityService.formatFileSize(1024 * 1024),
+          contains('MB'),
+        );
+        expect(
+          consolidatedUtilityService.formatFileSize(1024 * 1024 * 1024),
           contains('GB'),
         );
       });

@@ -40,7 +40,9 @@ class MediaEntity {
   }) => MediaEntity(
     files: MediaFilesCollection.fromMap(files),
     dateTaken: dateTaken,
-    dateAccuracy: DateAccuracy.fromNullableInt(dateTakenAccuracy),
+    dateAccuracy: dateTakenAccuracy != null
+        ? DateAccuracy.fromInt(dateTakenAccuracy)
+        : null,
     dateTimeExtractionMethod: dateTimeExtractionMethod,
   );
 

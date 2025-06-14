@@ -13,18 +13,6 @@ const int defaultBarWidth = 40;
 /// Default maximum file size for processing (64MB)
 const int defaultMaxFileSize = 64 * 1024 * 1024;
 
-/// Cached GUIDs for Windows shortcut operations (performance optimization)
-class WindowsGUIDs {
-  /// CLSID for Shell Link interface
-  static const String shellLink = '{00021401-0000-0000-C000-000000000046}';
-
-  /// IID for Shell Link interface
-  static const String iidShellLink = '{000214F9-0000-0000-C000-000000000046}';
-
-  /// IID for Persist File interface
-  static const String iidPersistFile = '{0000010b-0000-0000-C000-000000000046}';
-}
-
 /// File extensions for additional media formats not covered by MIME types
 class MediaExtensions {
   /// Raw camera formats and special video formats

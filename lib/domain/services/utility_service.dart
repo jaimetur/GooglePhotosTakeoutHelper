@@ -1,6 +1,5 @@
 import 'dart:io';
 import '../entities/media_entity.dart';
-import 'service_container.dart';
 
 /// Service for miscellaneous utility functions
 ///
@@ -15,15 +14,6 @@ class UtilityService {
 
   /// Prints error message to stderr with newline
   void printError(final Object? object) => stderr.write('$object\n');
-
-  /// Formats byte count into human-readable file size string
-  ///
-  /// [bytes] Number of bytes to format
-  /// Returns formatted string like "1.5 MB"
-  ///
-  /// @deprecated Use ConsolidatedUtilityService.formatFileSize() instead
-  String formatFileSize(final int bytes) =>
-      ServiceContainer.instance.utilityService.formatFileSize(bytes);
 
   /// Calculates total number of output files based on album behavior
   ///
