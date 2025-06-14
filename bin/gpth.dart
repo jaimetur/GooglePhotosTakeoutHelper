@@ -7,8 +7,8 @@ import 'package:gpth/domain/main_pipeline.dart';
 import 'package:gpth/domain/models/io_paths_model.dart';
 import 'package:gpth/domain/models/processing_config_model.dart';
 import 'package:gpth/domain/models/processing_result_model.dart';
+import 'package:gpth/domain/services/interactive_service_factory.dart';
 import 'package:gpth/domain/services/takeout_path_resolver_service.dart';
-import 'package:gpth/interactive_handler.dart' as interactive;
 import 'package:gpth/presentation/interactive_presenter.dart';
 import 'package:gpth/utils.dart';
 import 'package:path/path.dart' as p;
@@ -69,12 +69,20 @@ Future<void> main(final List<String> arguments) async {
   try {
     // Parse command line arguments
     final config = await _parseArguments(arguments);
-    if (config == null) return; // Help was shown or other early exit
+    if (config == null) {
+      return; // Help was shown or other early exit
+    }
+
+    // Initialize logger with correct verbosity
+    _logger = LoggingService(isVerbose: config.verbose);
+
+    // Initialize interactive services
+    _interactiveServices = InteractiveServiceFactory(
+      presenter: InteractivePresenter(),
+    );
 
     // Initialize dependencies
-    await _initializeDependencies(config);
-
-    // Execute the processing pipeline
+    await _initializeDependencies(config); // Execute the processing pipeline
     final result = await _executeProcessing(config); // Show final results
     _showResults(config, result);
 
@@ -87,7 +95,10 @@ Future<void> main(final List<String> arguments) async {
 }
 
 /// Global logger instance
-const _logger = LoggingService();
+late LoggingService _logger;
+
+/// Global interactive services factory for user interactions
+late InteractiveServiceFactory _interactiveServices;
 
 /// **ARGUMENT PARSING & CONFIGURATION BUILDING**
 ///
@@ -258,13 +269,11 @@ Future<ProcessingConfig> _buildConfigFromArgs(final ArgResults res) async {
   if (res['fix'] != null) {
     return _handleFixMode(res);
   }
-
   // Set up interactive mode if needed
-  interactive.indeed =
+  final isInteractiveMode =
       res['interactive'] || (res.arguments.isEmpty && stdin.hasTerminal);
-
   // Get input/output paths (interactive or from args)
-  final paths = await _getInputOutputPaths(res);
+  final paths = await _getInputOutputPaths(res, isInteractiveMode);
   // Build configuration using the builder pattern
   final configBuilder = ProcessingConfig.builder(
     inputPath: paths.inputPath,
@@ -286,12 +295,12 @@ Future<ProcessingConfig> _buildConfigFromArgs(final ArgResults res) async {
   final divisionLevel = DateDivisionLevel.fromInt(
     int.parse(res['divide-to-dates']),
   );
-  configBuilder.dateDivision = divisionLevel;
-  // Set extension fixing mode
+  configBuilder.dateDivision = divisionLevel; // Set extension fixing mode
   ExtensionFixingMode extensionFixingMode;
-  if (interactive.indeed) {
+  if (isInteractiveMode) {
     // Ask user for extension fixing preference in interactive mode
-    final extensionFixingChoice = await interactive.askFixExtensions();
+    final extensionFixingChoice = await _interactiveServices.promptService
+        .askFixExtensions();
     extensionFixingMode = ExtensionFixingMode.fromString(extensionFixingChoice);
     configBuilder.interactiveMode = true;
   } else {
@@ -365,43 +374,55 @@ Future<ProcessingConfig> _handleFixMode(final ArgResults res) async {
 /// @param res Parsed command line arguments
 /// @returns InputOutputPaths object with resolved and validated paths
 /// @throws ProcessExit for invalid or inaccessible paths
-Future<InputOutputPaths> _getInputOutputPaths(final ArgResults res) async {
+Future<InputOutputPaths> _getInputOutputPaths(
+  final ArgResults res,
+  final bool isInteractiveMode,
+) async {
   String? inputPath = res['input'];
   String? outputPath = res['output'];
-
-  if (interactive.indeed) {
+  if (isInteractiveMode) {
     // Interactive mode handles path collection
-    await interactive.greet();
+    await _interactiveServices.promptService.showGreeting();
     print('');
 
-    final bool shouldUnzip = await interactive.askIfUnzip();
+    final bool shouldUnzip = await _interactiveServices.promptService
+        .askIfUnzip();
     print('');
 
     late Directory inDir;
 
     if (shouldUnzip) {
-      final zips = await interactive.getZips();
+      final zips = await _interactiveServices.fileSelectionService
+          .selectZipFiles();
       print('');
 
-      final out = await interactive.getOutput();
+      final out = await _interactiveServices.fileSelectionService
+          .selectOutputDirectory();
       print('');
       // Calculate space requirements
       final cumZipsSize = zips
           .map((final e) => e.lengthSync())
           .reduce((final a, final b) => a + b);
       final requiredSpace = (cumZipsSize * 2) + 256 * 1024 * 1024;
-      await interactive.freeSpaceNotice(requiredSpace, out);
+      await _interactiveServices.promptService.freeSpaceNotice(
+        requiredSpace,
+        out,
+      );
       print('');
 
       final unzipDir = Directory(p.join(out.path, '.gpth-unzipped'));
       inDir = unzipDir;
       outputPath = out.path;
 
-      await interactive.unzip(zips, unzipDir);
+      await _interactiveServices.zipExtractionService.extractAll(
+        zips,
+        unzipDir,
+      );
       print('');
     } else {
       try {
-        inDir = await interactive.getInputDir();
+        inDir = await _interactiveServices.fileSelectionService
+            .selectInputDirectory();
       } catch (e) {
         print(
           'Interactive selecting input dir crashed... \n'
@@ -412,7 +433,8 @@ Future<InputOutputPaths> _getInputOutputPaths(final ArgResults res) async {
       }
       print('');
 
-      final out = await interactive.getOutput();
+      final out = await _interactiveServices.fileSelectionService
+          .selectOutputDirectory();
       outputPath = out.path;
       print('');
     }
@@ -540,11 +562,11 @@ Future<ProcessingResult> _executeProcessing(
     _logger.error('Input folder does not exist :/');
     exit(11);
   }
-
   // Handle output directory cleanup if needed
   if (await outputDir.exists() &&
       !await _isOutputDirectoryEmpty(outputDir, config)) {
-    if (await interactive.askForCleanOutput()) {
+    if (config.isInteractiveMode &&
+        await _interactiveServices.promptService.askForCleanOutput()) {
       await _cleanOutputDirectory(outputDir, config);
     }
   }

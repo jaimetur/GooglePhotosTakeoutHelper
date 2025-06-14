@@ -3,8 +3,8 @@ import 'dart:io';
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
 
-import '../../extras.dart';
 import '../../utils.dart';
+import 'extras_service.dart';
 
 /// Service for detecting and fixing incorrect file extensions
 ///
@@ -16,6 +16,7 @@ class ExtensionFixingService with LoggerMixin {
   ExtensionFixingService() : _mimeTypeService = const MimeTypeService();
 
   final MimeTypeService _mimeTypeService;
+  static const ExtrasService _extrasService = ExtrasService();
 
   /// Fixes incorrectly named files by renaming them to match their actual MIME type
   ///
@@ -110,10 +111,8 @@ class ExtensionFixingService with LoggerMixin {
         'Skipped fixing extension because target file already exists: $newFilePath',
       );
       return false;
-    }
-
-    // Skip extra files (edited versions)
-    if (isExtra(file.path)) {
+    } // Skip extra files (edited versions)
+    if (_extrasService.isExtra(file.path)) {
       return false;
     }
 

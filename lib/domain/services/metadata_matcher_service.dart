@@ -4,8 +4,9 @@ import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
 import 'package:unorm_dart/unorm_dart.dart' as unorm;
 
-import '../../extras.dart' as extras;
+import '../../shared/constants/extra_formats.dart';
 import '../../utils.dart';
+import 'extras_service.dart';
 
 /// Service for finding corresponding JSON metadata files for media files
 ///
@@ -16,6 +17,9 @@ import '../../utils.dart';
 /// Strategies are ordered from least to most aggressive to minimize
 /// false matches while maximizing success rate.
 class JsonFileMatcherService with LoggerMixin {
+  /// ExtrasService instance for handling extra format operations
+  static const ExtrasService _extrasService = ExtrasService();
+
   /// Attempts to find the corresponding JSON file for a media file
   ///
   /// Tries multiple strategies to locate JSON files, including handling
@@ -259,8 +263,73 @@ class JsonFileMatcherService with LoggerMixin {
         suffixes.add(truncatedSuffix);
       }
     }
-
     return suffixes;
+  }
+
+  /// Removes partial extra format suffixes for truncated cases
+  ///
+  /// Handles cases where filename truncation results in partial suffix matches.
+  /// Only removes partial matches of known extra formats from extraFormats list.
+  static String _removeExtraPartial(final String filename) =>
+      _extrasService.removePartialExtraFormats(filename);
+
+  /// Removes partial extra formats and restores truncated extensions
+  ///
+  /// Combines partial suffix removal with extension restoration for cases
+  /// where both the suffix and extension were truncated due to filename limits.
+  static String _removeExtraPartialWithExtensionRestore(final String filename) {
+    final String originalExt = p.extension(filename);
+    final String cleanedFilename = _extrasService.removePartialExtraFormats(
+      filename,
+    );
+
+    if (cleanedFilename != filename) {
+      JsonFileMatcherService().logInfo(
+        '$filename was renamed to $cleanedFilename by the removePartialExtraFormats function.',
+      );
+
+      // Try to restore truncated extension
+      final String restoredFilename = _extrasService.restoreFileExtension(
+        cleanedFilename,
+        originalExt,
+      );
+
+      if (restoredFilename != cleanedFilename) {
+        JsonFileMatcherService().logInfo(
+          'Extension restored from ${p.extension(cleanedFilename)} to ${p.extension(restoredFilename)} for file: $restoredFilename',
+        );
+        return restoredFilename;
+      }
+
+      return cleanedFilename;
+    }
+
+    return filename;
+  }
+
+  /// Uses heuristic-based pattern matching for missed truncated suffixes.
+  static String _removeExtraEdgeCase(final String filename) {
+    final String? result = _extrasService.removeEdgeCaseExtraFormats(filename);
+    if (result != null) {
+      JsonFileMatcherService().logInfo(
+        'Truncated suffix detected and removed by edge case handling: $filename -> $result',
+      );
+      return result;
+    }
+    return filename;
+  }
+
+  /// Handles MP files by looking for their MP.jpg JSON files
+  ///
+  /// For Pixel Motion Photos, the JSON file is often named after the MP.jpg version
+  /// rather than the MP version. This function handles that case.
+  static String _handleMPFiles(final String filename) {
+    final String ext = p.extension(filename).toLowerCase();
+    if (ext == '.mp') {
+      final String nameWithoutExt = p.basenameWithoutExtension(filename);
+      return '$nameWithoutExt.MP.jpg';
+    }
+    return filename;
   }
 }
 
@@ -360,7 +429,7 @@ String _removeExtraComplete(final String filename) {
   final String ext = p.extension(normalizedFilename);
   final String nameWithoutExt = p.basenameWithoutExtension(normalizedFilename);
 
-  for (final String extra in extras.extraFormats) {
+  for (final String extra in extraFormats) {
     // Check for exact suffix match with optional digit pattern
     final RegExp exactPattern = RegExp(
       RegExp.escape(extra) + r'(\(\d+\))?$',
@@ -373,76 +442,4 @@ String _removeExtraComplete(final String filename) {
     }
   }
   return normalizedFilename;
-}
-
-/// Removes partial extra format suffixes for truncated cases
-///
-/// Handles cases where filename truncation results in partial suffix matches.
-/// Only removes partial matches of known extra formats from extraFormats list.
-String _removeExtraPartial(final String filename) =>
-    extras.removePartialExtraFormats(filename);
-
-/// Removes partial extra formats and restores truncated extensions
-///
-/// Combines partial suffix removal with extension restoration for cases
-/// where both the suffix and extension were truncated due to filename limits.
-String _removeExtraPartialWithExtensionRestore(final String filename) {
-  final String originalExt = p.extension(filename);
-  final String cleanedFilename = extras.removePartialExtraFormats(filename);
-
-  if (cleanedFilename != filename) {
-    JsonFileMatcherService().logInfo(
-      '$filename was renamed to $cleanedFilename by the removePartialExtraFormats function.',
-    );
-
-    // Try to restore truncated extension
-    final String restoredFilename = extras.restoreFileExtension(
-      cleanedFilename,
-      originalExt,
-    );
-
-    if (restoredFilename != cleanedFilename) {
-      JsonFileMatcherService().logInfo(
-        'Extension restored from ${p.extension(cleanedFilename)} to ${p.extension(restoredFilename)} for file: $restoredFilename',
-      );
-      return restoredFilename;
-    }
-
-    return cleanedFilename;
-  }
-
-  return filename;
-}
-
-/// Removes edge case extra format patterns as last resort
-///
-/// Handles edge cases where other strategies might miss truncated patterns.
-/// Uses heuristic-based pattern matching for missed truncated suffixes.
-String _removeExtraEdgeCase(final String filename) {
-  final String? result = extras.removeEdgeCaseExtraFormats(filename);
-  if (result != null) {
-    JsonFileMatcherService().logInfo(
-      'Truncated suffix detected and removed by edge case handling: $filename -> $result',
-    );
-    return result;
-  }
-  return filename;
-}
-
-/// Removes digit patterns like "(1)" from filenames
-// ignore: unused_element
-String _removeDigit(final String filename) =>
-    filename.replaceAll(RegExp(r'\(\d\)\.'), '.');
-
-/// Handles MP files by looking for their MP.jpg JSON files
-///
-/// For Pixel Motion Photos, the JSON file is often named after the MP.jpg version
-/// rather than the MP version. This function handles that case.
-String _handleMPFiles(final String filename) {
-  final String ext = p.extension(filename).toLowerCase();
-  if (ext == '.mp') {
-    final String nameWithoutExt = p.basenameWithoutExtension(filename);
-    return '$nameWithoutExt.MP.jpg';
-  }
-  return filename;
 }

@@ -37,11 +37,11 @@ class InteractiveWorkflow {
   Future<String> askForInt() async => _services.promptService.readUserInput();
 
   /// Displays greeting message and introduction to the tool
-  Future<void> greet() async => _services.utilityService.showGreeting();
+  Future<void> greet() async => _services.promptService.showGreeting();
 
   /// Shows nothing found message (does not quit explicitly)
   Future<void> nothingFoundMessage() async =>
-      _services.utilityService.showNothingFoundMessage();
+      _services.promptService.showNothingFoundMessage();
 
   /// Prompts user to select input directory
   Future<Directory> getInputDir() async =>

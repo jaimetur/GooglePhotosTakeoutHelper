@@ -95,7 +95,6 @@ lib/
 ├── grouping.dart          # Duplicate detection and grouping logic
 ├── interactive_handler.dart       # User interaction and CLI interface
 ├── moving.dart           # File organization and moving logic
-├── extras.dart           # Edited file detection
 ├── exiftoolInterface.dart # ExifTool integration
 ├── utils.dart            # Utility functions
 └── date_extractors/      # Date extraction from various sources

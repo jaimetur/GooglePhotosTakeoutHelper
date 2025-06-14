@@ -13,6 +13,26 @@ class ExtrasService {
   /// Creates a new extras service
   const ExtrasService();
 
+  /// Checks if a filename matches "extra" format patterns (edited versions)
+  ///
+  /// Returns true if the filename (without extension) ends with any language-specific
+  /// "edited" suffix like "-edited", "-bearbeitet", "-modifié", etc.
+  /// Uses Unicode normalization to handle accented characters correctly on macOS.
+  ///
+  /// [filename] Filename to check (can include path and extension)
+  /// Returns true if the file appears to be an edited version
+  bool isExtra(final String filename) {
+    final String name = p.withoutExtension(p.basename(filename)).toLowerCase();
+    for (final String extra in extraFormats) {
+      // MacOS uses NFD that doesn't work with our accents 🙃🙃
+      // https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/pull/247
+      if (unorm.nfc(name).endsWith(extra)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /// Removes media files that match "extra" format patterns (edited versions)
   ///
   /// Filters out files with names ending in language-specific "edited" suffixes
@@ -67,11 +87,19 @@ class ExtrasService {
   // ignore: prefer_expression_function_bodies
   String removeExtraFormats(final String filename) {
     // Try each strategy in order of specificity
-    return removeCompleteExtraFormats(filename) ??
-        removePartialExtraFormats(filename) ??
-        removeCrossExtensionExtraFormats(filename) ??
-        removeEdgeCaseExtraFormats(filename) ??
-        filename;
+    final String? completeResult = removeCompleteExtraFormats(filename);
+    if (completeResult != null) return completeResult;
+
+    final String partialResult = removePartialExtraFormats(filename);
+    if (partialResult != filename) return partialResult;
+
+    final String? crossExtResult = removeCrossExtensionExtraFormats(filename);
+    if (crossExtResult != null) return crossExtResult;
+
+    final String? edgeCaseResult = removeEdgeCaseExtraFormats(filename);
+    if (edgeCaseResult != null) return edgeCaseResult;
+
+    return filename;
   }
 
   /// Strategy 1: Direct matching against complete extra format list
@@ -106,40 +134,35 @@ class ExtrasService {
 
   /// Strategy 2: Partial matching for truncated extra formats
   ///
-  /// Handles cases where filenames were truncated but still contain
-  /// recognizable parts of editing suffixes.
+  /// Handles cases where filename truncation (e.g., due to filesystem limits)
+  /// results in partial suffix matches. For example, "-ed" will be removed
+  /// if it matches the beginning of a known extra format like "-edited".
   ///
-  /// [filename] Original filename
-  /// Returns filename with partial extra formats removed, or null if no match
-  String? removePartialExtraFormats(final String filename) {
-    // MacOS uses NFD that doesn't work with our accents 🙃🙃
-    final String normalizedFilename = unorm.nfc(filename);
-    final String originalExt = p.extension(normalizedFilename);
+  /// This addresses issue #29 where truncated filenames prevent proper JSON
+  /// file matching for date extraction.
+  ///
+  /// [filename] Original filename that may contain partial suffixes
+  /// Returns filename with partial suffixes removed, or original if no removal needed
+  String removePartialExtraFormats(final String filename) {
+    final String ext = p.extension(filename);
+    final String nameWithoutExt = p.basenameWithoutExtension(filename);
 
-    final RegExpMatch? lastDashMatch = RegExp(
-      r'-[a-zA-ZÀ-ÖØ-öø-ÿ]*$',
-    ).firstMatch(p.basenameWithoutExtension(normalizedFilename));
-
-    if (lastDashMatch == null) return null;
-
-    final String beforeDash = p
-        .basenameWithoutExtension(normalizedFilename)
-        .substring(0, lastDashMatch.start);
-    final String afterDash = lastDashMatch.group(0)!;
-
-    // Check if this could be a truncated version of any extra format
     for (final String suffix in extraFormats) {
-      if (suffix.toLowerCase().startsWith(afterDash.toLowerCase()) &&
-          afterDash.length >= 3) {
-        // At least 3 chars to avoid false positives like "-ed"
-        final String dirname = p.dirname(normalizedFilename);
-        return dirname == '.'
-            ? '$beforeDash$originalExt'
-            : p.join(dirname, '$beforeDash$originalExt');
+      for (int i = 2; i <= suffix.length; i++) {
+        final String partialSuffix = suffix.substring(0, i);
+        final RegExp regExp = RegExp(
+          RegExp.escape(partialSuffix) + r'(?:\(\d+\))?$',
+          caseSensitive: false,
+        );
+
+        if (regExp.hasMatch(nameWithoutExt)) {
+          final String cleanedName = nameWithoutExt.replaceAll(regExp, '');
+          return cleanedName + ext;
+        }
       }
     }
 
-    return null;
+    return filename;
   }
 
   /// Strategy 3: Cross-extension pattern matching
@@ -225,5 +248,50 @@ class ExtrasService {
     }
 
     return null;
+  }
+
+  /// Restores file extensions that may have been truncated
+  ///
+  /// When filename truncation affects the extension, this function attempts
+  /// to restore common photo/video extensions based on partial matches.
+  /// Example: "truncated_name.jp" -> "truncated_name.jpg"
+  ///
+  /// [filename] Filename with potentially truncated extension
+  /// [originalExt] Original extension before processing (unused, kept for compatibility)
+  /// Returns filename with restored extension, or original filename if no restoration needed
+  String restoreFileExtension(final String filename, final String originalExt) {
+    final String currentExt = p.extension(filename);
+
+    // Only attempt restoration if the current extension looks truncated
+    if (currentExt.length > 4 || currentExt.length < 2) {
+      return filename;
+    }
+
+    // Common photo/video extensions that might get truncated
+    const List<String> commonExtensions = [
+      '.jpg',
+      '.jpeg',
+      '.png',
+      '.gif',
+      '.mp4',
+      '.mov',
+      '.avi',
+      '.heic',
+      '.tiff',
+      '.mp',
+    ];
+
+    for (final String ext in commonExtensions) {
+      if (ext.toLowerCase().startsWith(currentExt.toLowerCase()) &&
+          ext.length <= 4) {
+        // Reasonable extension length
+        final String nameWithoutExt = p.basenameWithoutExtension(filename);
+        final String dirname = p.dirname(filename);
+        return dirname == '.'
+            ? '$nameWithoutExt$ext'
+            : p.join(dirname, '$nameWithoutExt$ext');
+      }
+    }
+    return filename;
   }
 }

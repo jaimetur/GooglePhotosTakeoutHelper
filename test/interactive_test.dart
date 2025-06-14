@@ -36,21 +36,29 @@ library;
 // Tests for interactive module: album options, input validation, and user experience.
 
 import 'dart:io';
+
+import 'package:gpth/domain/services/interactive_service_factory.dart';
 import 'package:gpth/domain/services/zip_extraction_service.dart'
     show SecurityException;
-import 'package:gpth/interactive_handler.dart' as interactive;
 import 'package:gpth/presentation/interactive_presenter.dart';
 import 'package:test/test.dart';
+
 import './test_setup.dart';
 
 void main() {
   group('Interactive Module - User Interface and Input Handling', () {
     late TestFixture fixture;
+    late InteractiveServiceFactory interactiveServices;
 
     setUp(() async {
       // Set up a clean test environment for each test
       fixture = TestFixture();
       await fixture.setUp();
+
+      // Set up interactive services
+      interactiveServices = InteractiveServiceFactory(
+        presenter: InteractivePresenter(),
+      );
     });
 
     tearDown(() async {
@@ -118,9 +126,11 @@ void main() {
     });
 
     group('Interactive Mode Detection', () {
-      /// Should indicate interactive mode availability.
-      test('indeed property indicates interactive mode availability', () {
-        expect(interactive.indeed, isA<bool>());
+      /// Should indicate interactive services are available.
+      test('interactive services are properly initialized', () {
+        expect(interactiveServices, isNotNull);
+        expect(interactiveServices.promptService, isNotNull);
+        expect(interactiveServices.fileSelectionService, isNotNull);
       });
     });
 
@@ -280,11 +290,12 @@ void main() {
         expect(InteractivePresenter.albumOptions.containsKey(null), isFalse);
       });
 
-      /// Should handle interruption signals.
-      test('handles interruption signals', () {
-        // In a real interactive session, users might press Ctrl+C
-        // The interactive functions should handle this gracefully
-        expect(() => interactive.indeed, returnsNormally);
+      /// Should handle service access gracefully.
+      test('handles service access gracefully', () {
+        // The interactive services should be accessible without throwing
+        expect(() => interactiveServices.promptService, returnsNormally);
+        expect(() => interactiveServices.fileSelectionService, returnsNormally);
+        expect(() => interactiveServices.zipExtractionService, returnsNormally);
       });
     });
 
@@ -457,21 +468,24 @@ void main() {
     group('Unzipping Functionality - Basic Integration Tests', () {
       /// Tests that unzipping functions are properly exposed
       test('unzipping functions are available in interactive module', () {
-        // Test that the unzip function is accessible
-        expect(interactive.unzip, isNotNull);
+        // Test that the unzip function is accessible through services
+        expect(interactiveServices.zipExtractionService.extractAll, isNotNull);
       });
 
       /// Tests askIfUnzip function exists and has proper type
       test('askIfUnzip function is properly defined', () {
-        // Test that askIfUnzip function exists
-        expect(interactive.askIfUnzip, isNotNull);
+        // Test that askIfUnzip function exists in prompt service
+        expect(interactiveServices.promptService.askIfUnzip, isNotNull);
       });
 
       /// Tests that ZIP file validation works
       test('getZips validates file selection', () async {
         // This test verifies that getZips function exists and is properly typed
         // The actual interactive testing would require UI mocking which is complex
-        expect(interactive.getZips, isNotNull);
+        expect(
+          interactiveServices.fileSelectionService.selectZipFiles,
+          isNotNull,
+        );
       });
 
       /// Tests that free space notice function works
@@ -480,7 +494,10 @@ void main() {
 
         // Test that function doesn't throw with valid inputs
         expect(
-          () => interactive.freeSpaceNotice(1024 * 1024, testDir),
+          () => interactiveServices.promptService.freeSpaceNotice(
+            1024 * 1024,
+            testDir,
+          ),
           returnsNormally,
         );
       });
@@ -498,7 +515,11 @@ void main() {
         final testDir = fixture.createDirectory('unzip_test');
 
         // Test with empty ZIP list
-        expect(() => interactive.unzip([], testDir), returnsNormally);
+        expect(
+          () =>
+              interactiveServices.zipExtractionService.extractAll([], testDir),
+          returnsNormally,
+        );
       });
 
       /// Tests filename sanitization works in isolation
@@ -506,8 +527,7 @@ void main() {
         // We can't directly test the private _sanitizeFileName function,
         // but we can test the public interface indirectly
 
-        // Create a mock scenario to verify the module loads correctly
-        expect(InteractivePresenter.albumOptions, isNotEmpty);
+        // Create a mock scenario to verify the module loads correctly        expect(InteractivePresenter.albumOptions, isNotEmpty);
         expect(
           InteractivePresenter.albumOptions.containsKey('shortcut'),
           isTrue,

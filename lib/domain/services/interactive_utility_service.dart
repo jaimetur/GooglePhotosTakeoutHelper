@@ -42,20 +42,4 @@ class InteractiveUtilityService {
   void pressEnterToContinue() {
     _presenter.showPressEnterPrompt();
   }
-
-  /// Displays greeting message and introduction to the tool
-  ///
-  /// Shows the welcome message and initial information about the tool
-  /// to orient new users.
-  Future<void> showGreeting() async {
-    await _presenter.showGreeting();
-  }
-
-  /// Displays the "nothing found" message
-  ///
-  /// Shows appropriate messaging when no files are found to process.
-  /// Note: Does not quit explicitly - caller should handle program termination.
-  Future<void> showNothingFoundMessage() async {
-    await _presenter.showNothingFoundMessage();
-  }
 }
