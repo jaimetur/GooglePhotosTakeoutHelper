@@ -86,7 +86,7 @@ class ConsolidatedInteractiveService with LoggerMixin {
           );
           return 3;
         default:
-          logError('Invalid answer - try again');
+          await _presenter.showInvalidAnswerError();
           continue;
       }
     }
@@ -114,7 +114,7 @@ class ConsolidatedInteractiveService with LoggerMixin {
         await _presenter.showAlbumChoice(choice);
         return choice;
       }
-      logError('Invalid answer - try again');
+      await _presenter.showInvalidAnswerError();
     }
   }
 
@@ -274,7 +274,9 @@ class ConsolidatedInteractiveService with LoggerMixin {
         case '2':
           return false;
         default:
-          logError('Invalid answer - please type 1 or 2');
+          await _presenter.showInvalidAnswerError(
+            'Invalid answer - please type 1 or 2',
+          );
           continue;
       }
     }
@@ -415,8 +417,8 @@ class ConsolidatedInteractiveService with LoggerMixin {
         'Select Google Photos Takeout ZIP files',
         allowedExtensions: ['zip'],
       );
-
       if (filePickerResult == null || filePickerResult.files.isEmpty) {
+        await _presenter.showZipSelectionError();
         throw Exception('No ZIP files selected');
       }
 
@@ -432,14 +434,19 @@ class ConsolidatedInteractiveService with LoggerMixin {
         }
       }
 
-      // Show selected files summary
+      // Show appropriate user feedback based on file count
       final totalSize = files.fold<int>(
         0,
         (final sum, final file) => sum + file.lengthSync(),
       );
 
-      print(
-        'Selected ${files.length} ZIP files (total size: ${_utility.formatFileSize(totalSize)})',
+      if (files.length == 1) {
+        await _presenter.showSingleZipWarning();
+      }
+
+      await _presenter.showZipSelectionSuccess(
+        files.length,
+        _utility.formatFileSize(totalSize),
       );
 
       return files;

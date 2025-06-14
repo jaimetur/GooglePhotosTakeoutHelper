@@ -215,186 +215,6 @@ class InteractivePresenter with LoggerMixin {
     if (enableSleep) await _sleep(1);
   }
 
-  /// Shows error message for invalid input directory
-  Future<void> showInvalidInputDirectoryError() async {
-    logError('Invalid input directory!', forcePrint: true);
-    if (enableSleep) await _sleep(1);
-  }
-
-  /// Shows error message for invalid output directory
-  Future<void> showInvalidOutputDirectoryError() async {
-    logError('Invalid output directory!', forcePrint: true);
-    if (enableSleep) await _sleep(1);
-  }
-
-  /// Shows error message for invalid album option
-  Future<void> showInvalidAlbumOptionError() async {
-    logError('Invalid album option!', forcePrint: true);
-    if (enableSleep) await _sleep(1);
-  }
-
-  /// Shows error message for invalid file option
-  Future<void> showInvalidFileOptionError() async {
-    logError('Invalid file option!', forcePrint: true);
-    if (enableSleep) await _sleep(1);
-  }
-
-  /// Shows error message for invalid date option
-  Future<void> showInvalidDateOptionError() async {
-    logError('Invalid date option!', forcePrint: true);
-    if (enableSleep) await _sleep(1);
-  }
-
-  /// Shows error message for invalid time option
-  Future<void> showInvalidTimeOptionError() async {
-    logError('Invalid time option!', forcePrint: true);
-    if (enableSleep) await _sleep(1);
-  }
-
-  /// Shows error message for invalid timezone option
-  Future<void> showInvalidTimezoneOptionError() async {
-    logError('Invalid timezone option!', forcePrint: true);
-    if (enableSleep) await _sleep(1);
-  }
-
-  /// Shows error message for invalid timezone format
-  Future<void> showInvalidTimezoneFormatError() async {
-    logError('Invalid timezone format!', forcePrint: true);
-    if (enableSleep) await _sleep(1);
-  }
-
-  /// Shows error message for invalid timezone offset
-  Future<void> showInvalidTimezoneOffsetError() async {
-    logError('Invalid timezone offset!', forcePrint: true);
-    if (enableSleep) await _sleep(1);
-  }
-
-  /// Shows error message for invalid timezone name
-  Future<void> showInvalidTimezoneNameError() async {
-    logError('Invalid timezone name!', forcePrint: true);
-    if (enableSleep) await _sleep(1);
-  }
-
-  /// Shows error message for invalid timezone abbreviation
-  Future<void> showInvalidTimezoneAbbreviationError() async {
-    logError('Invalid timezone abbreviation!', forcePrint: true);
-    if (enableSleep) await _sleep(1);
-  }
-
-  /// Shows error message for invalid timezone location
-  Future<void> showInvalidTimezoneLocationError() async {
-    logError('Invalid timezone location!', forcePrint: true);
-    if (enableSleep) await _sleep(1);
-  }
-
-  /// Shows error message for invalid timezone region
-  Future<void> showInvalidTimezoneRegionError() async {
-    logError('Invalid timezone region!', forcePrint: true);
-    if (enableSleep) await _sleep(1);
-  }
-
-  /// Shows error message for invalid timezone country
-  Future<void> showInvalidTimezoneCountryError() async {
-    logError('Invalid timezone country!', forcePrint: true);
-    if (enableSleep) await _sleep(1);
-  }
-
-  /// Shows error message for invalid timezone continent
-  Future<void> showInvalidTimezoneContinentError() async {
-    logError('Invalid timezone continent!', forcePrint: true);
-    if (enableSleep) await _sleep(1);
-  }
-
-  /// Shows error message for invalid timezone hemisphere
-  Future<void> showInvalidTimezoneHemisphereError() async {
-    logError('Invalid timezone hemisphere!', forcePrint: true);
-    if (enableSleep) await _sleep(1);
-  }
-
-  /// Shows error message for invalid timezone season
-  Future<void> showInvalidTimezoneSeasonError() async {
-    logError('Invalid timezone season!', forcePrint: true);
-    if (enableSleep) await _sleep(1);
-  }
-
-  /// Shows error message for invalid timezone daylight saving time
-  Future<void> showInvalidTimezoneDSTError() async {
-    logError('Invalid timezone daylight saving time!', forcePrint: true);
-    if (enableSleep) await _sleep(1);
-  }
-
-  /// Shows error message for invalid timezone standard time
-  Future<void> showInvalidTimezoneSTError() async {
-    logError('Invalid timezone standard time!', forcePrint: true);
-    if (enableSleep) await _sleep(1);
-  }
-
-  /// Shows error message for invalid timezone offset change
-  Future<void> showInvalidTimezoneOffsetChangeError() async {
-    logError('Invalid timezone offset change!', forcePrint: true);
-    if (enableSleep) await _sleep(1);
-  }
-
-  /// Shows error message for invalid timezone name change
-  Future<void> showInvalidTimezoneNameChangeError() async {
-    logError('Invalid timezone name change!', forcePrint: true);
-    if (enableSleep) await _sleep(1);
-  }
-
-  /// Shows error message for invalid timezone abbreviation change
-  Future<void> showInvalidTimezoneAbbreviationChangeError() async {
-    logError('Invalid timezone abbreviation change!', forcePrint: true);
-    if (enableSleep) await _sleep(1);
-  }
-
-  /// Shows error message for invalid timezone location change
-  Future<void> showInvalidTimezoneLocationChangeError() async {
-    logError('Invalid timezone location change!', forcePrint: true);
-    if (enableSleep) await _sleep(1);
-  }
-
-  /// Shows error message for invalid timezone region change
-  Future<void> showInvalidTimezoneRegionChangeError() async {
-    logError('Invalid timezone region change!', forcePrint: true);
-    if (enableSleep) await _sleep(1);
-  }
-
-  /// Shows error message for invalid timezone country change
-  Future<void> showInvalidTimezoneCountryChangeError() async {
-    logError('Invalid timezone country change!', forcePrint: true);
-    if (enableSleep) await _sleep(1);
-  }
-
-  /// Shows error message for invalid timezone continent change
-  Future<void> showInvalidTimezoneContinentChangeError() async {
-    logError('Invalid timezone continent change!', forcePrint: true);
-    if (enableSleep) await _sleep(1);
-  }
-
-  /// Shows error message for invalid timezone hemisphere change
-  Future<void> showInvalidTimezoneHemisphereChangeError() async {
-    logError('Invalid timezone hemisphere change!', forcePrint: true);
-    if (enableSleep) await _sleep(1);
-  }
-
-  /// Shows error message for invalid timezone season change
-  Future<void> showInvalidTimezoneSeasonChangeError() async {
-    logError('Invalid timezone season change!', forcePrint: true);
-    if (enableSleep) await _sleep(1);
-  }
-
-  /// Shows error message for invalid timezone daylight saving time change
-  Future<void> showInvalidTimezoneDSTChangeError() async {
-    logError('Invalid timezone daylight saving time change!', forcePrint: true);
-    if (enableSleep) await _sleep(1);
-  }
-
-  /// Shows error message for invalid timezone standard time change
-  Future<void> showInvalidTimezoneSTChangeError() async {
-    logError('Invalid timezone standard time change!', forcePrint: true);
-    if (enableSleep) await _sleep(1);
-  }
-
   /// Prompts user to select output directory
   Future<void> promptForOutputDirectory() async {
     print(
@@ -678,6 +498,13 @@ class InteractivePresenter with LoggerMixin {
     print(
       '(You can delete this directory after processing if you want to save space)',
     );
+    if (enableSleep) await _sleep(1);
+  }
+
+  /// Shows error message for invalid user input
+  Future<void> showInvalidAnswerError([final String? customMessage]) async {
+    final message = customMessage ?? 'Invalid answer - try again';
+    logError(message, forcePrint: true);
     if (enableSleep) await _sleep(1);
   }
 }
