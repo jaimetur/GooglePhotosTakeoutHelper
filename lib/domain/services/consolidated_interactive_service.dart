@@ -67,6 +67,7 @@ class ConsolidatedInteractiveService with LoggerMixin {
       final input = await readUserInput();
       switch (input) {
         case '1':
+        case '':
           await _presenter.showDateDivisionChoice(
             'Will put all photos into one folder',
           );
@@ -152,6 +153,7 @@ class ConsolidatedInteractiveService with LoggerMixin {
           return true;
         case 'n':
         case 'no':
+        case '':
           await _presenter.showPixelMpTransformResponse(input);
           return false;
         default:
@@ -174,6 +176,7 @@ class ConsolidatedInteractiveService with LoggerMixin {
           return true;
         case 'n':
         case 'no':
+        case '':
           await _presenter.showCreationTimeUpdateResponse(input);
           return false;
         default:
@@ -192,6 +195,7 @@ class ConsolidatedInteractiveService with LoggerMixin {
       switch (input) {
         case 'y':
         case 'yes':
+        case '':
           await _presenter.showExifWritingResponse(input);
           return true;
         case 'n':
@@ -218,6 +222,7 @@ class ConsolidatedInteractiveService with LoggerMixin {
           return true;
         case 'n':
         case 'no':
+        case '':
           await _presenter.showFileSizeLimitResponse(input);
           return false;
         default:
@@ -235,17 +240,18 @@ class ConsolidatedInteractiveService with LoggerMixin {
       final input = await readUserInput();
       switch (input) {
         case '0':
-        case 'none':
-          return 'none';
-        case '1':
+        case '':
         case 'standard':
           return 'standard';
-        case '2':
+        case '1':
         case 'conservative':
           return 'conservative';
-        case '3':
+        case '2':
         case 'solo':
           return 'solo';
+        case '3':
+        case 'none':
+          return 'none';
         default:
           logError('Invalid answer - try again');
           continue;

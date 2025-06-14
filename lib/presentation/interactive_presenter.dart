@@ -590,10 +590,18 @@ class InteractivePresenter with LoggerMixin {
 
   /// Prompts for extension fixing
   Future<void> promptForExtensionFixing() async {
-    print('Do you want to fix file extensions?');
-    print('1. Standard');
-    print('2. Conservative');
-    print('3. Solo');
+    print(
+      'Google Photos sometimes saves files with incorrect extensions. '
+      'For example, a HEIC file might be saved as .jpg. '
+      'Do you want to fix these mismatched extensions?',
+    );
+    print('[1] (default) - Standard: Fix extensions but skip TIFF-based files');
+    print(
+      '[2] - Conservative: Fix extensions but skip both TIFF-based and JPEG files',
+    );
+    print('[3] - Solo: Fix extensions then exit immediately');
+    print('[4] - None: Don\'t fix extensions');
+    print('(Type a number or press enter for default):');
     if (enableSleep) await _sleep(1);
   }
 

@@ -271,26 +271,17 @@ void main() {
         expect(result, isTrue);
       });
     });
-
     group('Extension fixing prompt', () {
       test('should ask for extension fixing mode', () async {
-        mockPresenter.setInputs(['1']);
+        mockPresenter.setInputs(['0']);
 
         final result = await service.askFixExtensions();
 
         expect(result, equals('standard'));
       });
 
-      test('should handle none option', () async {
-        mockPresenter.setInputs(['0']);
-
-        final result = await service.askFixExtensions();
-
-        expect(result, equals('none'));
-      });
-
       test('should handle conservative option', () async {
-        mockPresenter.setInputs(['2']);
+        mockPresenter.setInputs(['1']);
 
         final result = await service.askFixExtensions();
 
@@ -298,11 +289,27 @@ void main() {
       });
 
       test('should handle solo option', () async {
-        mockPresenter.setInputs(['3']);
+        mockPresenter.setInputs(['2']);
 
         final result = await service.askFixExtensions();
 
         expect(result, equals('solo'));
+      });
+
+      test('should handle none option', () async {
+        mockPresenter.setInputs(['3']);
+
+        final result = await service.askFixExtensions();
+
+        expect(result, equals('none'));
+      });
+
+      test('should handle default (empty input)', () async {
+        mockPresenter.setInputs(['']);
+
+        final result = await service.askFixExtensions();
+
+        expect(result, equals('standard'));
       });
     });
 

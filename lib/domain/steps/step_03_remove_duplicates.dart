@@ -146,7 +146,7 @@ class RemoveDuplicatesStep extends ProcessingStep {
 
     try {
       print(
-        '\n[Step 3/8] Finding and removing duplicates... (This might take some time!)',
+        '\n[Step 3/8] Finding and removing duplicates... (This might take a while)',
       );
       final int removedCount = await context.mediaCollection.removeDuplicates();
 
