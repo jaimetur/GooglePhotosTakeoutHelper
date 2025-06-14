@@ -18,6 +18,11 @@ class PlatformService {
   Future<int?> getDiskFreeSpace([String? path]) async {
     path ??= Directory.current.path;
 
+    // Handle empty string as current directory
+    if (path.isEmpty) {
+      path = Directory.current.path;
+    }
+
     if (Platform.isLinux) {
       return _getDiskFreeLinux(path);
     } else if (Platform.isWindows) {

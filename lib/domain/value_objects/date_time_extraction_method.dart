@@ -54,7 +54,7 @@ extension DateTimeExtractionMethodExtensions on DateTimeExtractionMethod {
       case DateTimeExtractionMethod.jsonTryHard:
         return 'JSON tryhard';
       case DateTimeExtractionMethod.none:
-        return 'none';
+        return 'No extraction';
     }
   }
 }

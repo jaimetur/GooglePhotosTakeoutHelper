@@ -183,6 +183,14 @@ class TestFixture {
       flush: true,
     );
     _createdEntities.add(file);
+
+    // Ensure file is fully committed to disk before returning
+    if (Platform.isWindows) {
+      // On Windows, add a small delay to ensure file handle is released
+      // and file is visible to other processes
+      file.statSync(); // Force file system sync
+    }
+
     return file;
   }
 
@@ -206,6 +214,14 @@ class TestFixture {
     // Use writeAsBytesSync with flush: true to ensure data is written immediately
     file.writeAsBytesSync(content, flush: true);
     _createdEntities.add(file);
+
+    // Ensure file is fully committed to disk before returning
+    if (Platform.isWindows) {
+      // On Windows, add a small delay to ensure file handle is released
+      // and file is visible to other processes
+      file.statSync(); // Force file system sync
+    }
+
     return file;
   }
 
@@ -321,6 +337,14 @@ class TestFixture {
       flush: true,
     );
     _createdEntities.add(file);
+
+    // Ensure file is fully committed to disk before returning
+    if (Platform.isWindows) {
+      // On Windows, add a small delay to ensure file handle is released
+      // and file is visible to other processes
+      file.statSync(); // Force file system sync
+    }
+
     return file;
   }
 

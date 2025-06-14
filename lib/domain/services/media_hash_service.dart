@@ -2,31 +2,70 @@ import 'dart:async';
 import 'dart:io';
 import 'package:crypto/crypto.dart';
 
-/// Service for calculating media file hashes and sizes
+/// Optimized service for calculating media file hashes and sizes
 ///
-/// Extracted from the Media class to provide better separation of concerns
-/// and improved testability. Uses simple file-based hash calculation.
+/// Uses streaming for large files to reduce memory usage and provides
+/// improved concurrency control for better performance.
 class MediaHashService {
+  // 50MB
+
   /// Creates a new instance of MediaHashService
   const MediaHashService();
+  static const int _largeFileThreshold = 50 * 1024 * 1024;
 
-  /// Calculates the SHA256 hash of a file
+  /// Calculates the SHA256 hash of a file using streaming for large files
   ///
   /// [file] File to calculate hash for
   /// Returns the SHA256 hash as a string
   /// Throws [FileSystemException] if file doesn't exist or can't be read
   Future<String> calculateFileHash(final File file) async {
-    if (!await file.exists()) {
-      throw FileSystemException('File does not exist', file.path);
+    // Add retry logic for file system operations that might be delayed
+    const maxRetries = 3;
+    const baseDelay = Duration(milliseconds: 10);
+
+    for (int attempt = 0; attempt < maxRetries; attempt++) {
+      if (await file.exists()) {
+        try {
+          final fileSize = await file.length();
+
+          // For small files, use the original method for better performance
+          if (fileSize < _largeFileThreshold) {
+            final bytes = await file.readAsBytes();
+            return sha256.convert(bytes).toString();
+          }
+
+          // For large files, use streaming to avoid memory issues
+          final sink = _HashSink();
+          final input = sha256.startChunkedConversion(sink);
+
+          final stream = file.openRead();
+          // ignore: prefer_foreach
+          await for (final chunk in stream) {
+            input.add(chunk);
+          }
+          input.close();
+
+          return sink.digest.toString();
+        } catch (e) {
+          if (attempt == maxRetries - 1) {
+            throw FileSystemException(
+              'Failed to calculate hash: $e',
+              file.path,
+            );
+          }
+          // Wait before retrying
+          await Future.delayed(baseDelay * (attempt + 1));
+        }
+      } else {
+        if (attempt == maxRetries - 1) {
+          throw FileSystemException('File does not exist', file.path);
+        }
+        // Wait before checking again - file might be in process of being written
+        await Future.delayed(baseDelay * (attempt + 1));
+      }
     }
 
-    try {
-      final bytes = await file.readAsBytes();
-      final digest = sha256.convert(bytes);
-      return digest.toString();
-    } catch (e) {
-      throw FileSystemException('Failed to calculate hash: $e', file.path);
-    }
+    throw FileSystemException('File does not exist after retries', file.path);
   }
 
   /// Calculates the size of a file in bytes
@@ -35,21 +74,37 @@ class MediaHashService {
   /// Returns file size in bytes
   /// Throws [FileSystemException] if file doesn't exist
   Future<int> calculateFileSize(final File file) async {
-    if (!await file.exists()) {
-      throw FileSystemException('File does not exist', file.path);
+    // Add retry logic for file system operations that might be delayed
+    const maxRetries = 3;
+    const baseDelay = Duration(milliseconds: 10);
+
+    for (int attempt = 0; attempt < maxRetries; attempt++) {
+      if (await file.exists()) {
+        try {
+          final stat = await file.stat();
+          return stat.size;
+        } catch (e) {
+          if (attempt == maxRetries - 1) {
+            throw FileSystemException('Failed to get file size: $e', file.path);
+          }
+          // Wait before retrying
+          await Future.delayed(baseDelay * (attempt + 1));
+        }
+      } else {
+        if (attempt == maxRetries - 1) {
+          throw FileSystemException('File does not exist', file.path);
+        }
+        // Wait before checking again - file might be in process of being written
+        await Future.delayed(baseDelay * (attempt + 1));
+      }
     }
 
-    try {
-      final stat = await file.stat();
-      return stat.size;
-    } catch (e) {
-      throw FileSystemException('Failed to get file size: $e', file.path);
-    }
+    throw FileSystemException('File does not exist after retries', file.path);
   }
 
-  /// Calculates both hash and size for a file in a single operation
+  /// Calculates both hash and size for a file in a single streaming pass
   ///
-  /// More efficient than calling both methods separately.
+  /// More efficient than calling both methods separately as it reads the file only once.
   ///
   /// [file] File to analyze
   /// Returns a record with (hash, size)
@@ -61,24 +116,22 @@ class MediaHashService {
       throw FileSystemException('File does not exist', file.path);
     }
 
-    try {
-      final stat = await file.stat();
-      final size = stat.size;
+    final sink = _HashSink();
+    final input = sha256.startChunkedConversion(sink);
 
-      final bytes = await file.readAsBytes();
-      final digest = sha256.convert(bytes);
-      final hash = digest.toString();
+    int totalSize = 0;
+    final stream = file.openRead();
 
-      return (hash: hash, size: size);
-    } catch (e) {
-      throw FileSystemException(
-        'Failed to calculate hash and size: $e',
-        file.path,
-      );
+    await for (final chunk in stream) {
+      input.add(chunk);
+      totalSize += chunk.length;
     }
+    input.close();
+
+    return (hash: sink.digest.toString(), size: totalSize);
   }
 
-  /// Calculates hashes for multiple files in parallel
+  /// Calculates hashes for multiple files with optimized concurrency control
   ///
   /// [files] List of files to process
   /// [maxConcurrency] Maximum number of concurrent operations
@@ -87,27 +140,27 @@ class MediaHashService {
     final List<File> files, {
     final int? maxConcurrency,
   }) async {
-    final concurrency = maxConcurrency ?? Platform.numberOfProcessors;
+    final concurrency = maxConcurrency ?? (Platform.numberOfProcessors * 2);
     final results = <String, String>{};
+    final semaphore = _Semaphore(concurrency);
 
-    // Process files in batches to control concurrency
-    for (int i = 0; i < files.length; i += concurrency) {
-      final batch = files.skip(i).take(concurrency);
-      final futures = batch.map((final file) async {
-        try {
-          final hash = await calculateFileHash(file);
-          return MapEntry(file.path, hash);
-        } catch (e) {
-          print('Warning: Failed to calculate hash for ${file.path}: $e');
-          return null;
-        }
-      });
+    final futures = files.map((final file) async {
+      await semaphore.acquire();
+      try {
+        final hash = await calculateFileHash(file);
+        return MapEntry(file.path, hash);
+      } catch (e) {
+        print('Warning: Failed to calculate hash for ${file.path}: $e');
+        return null;
+      } finally {
+        semaphore.release();
+      }
+    });
 
-      final batchResults = await Future.wait(futures);
-      for (final result in batchResults) {
-        if (result != null) {
-          results[result.key] = result.value;
-        }
+    final completedResults = await Future.wait(futures);
+    for (final result in completedResults) {
+      if (result != null) {
+        results[result.key] = result.value;
       }
     }
 
@@ -133,5 +186,83 @@ class MediaHashService {
     final hash2 = await calculateFileHash(file2);
 
     return hash1 == hash2;
+  }
+
+  /// Batch calculate hash and size for multiple files efficiently
+  ///
+  /// [files] List of files to process
+  /// [maxConcurrency] Maximum number of concurrent operations
+  /// Returns list of results with success status
+  Future<List<({String path, String hash, int size, bool success})>>
+  calculateHashAndSizeBatch(
+    final List<File> files, {
+    final int? maxConcurrency,
+  }) async {
+    final concurrency = maxConcurrency ?? (Platform.numberOfProcessors * 2);
+    final semaphore = _Semaphore(concurrency);
+
+    final futures = files.map((final file) async {
+      await semaphore.acquire();
+      try {
+        final result = await calculateHashAndSize(file);
+        return (
+          path: file.path,
+          hash: result.hash,
+          size: result.size,
+          success: true,
+        );
+      } catch (e) {
+        print('Warning: Failed to process ${file.path}: $e');
+        return (path: file.path, hash: '', size: 0, success: false);
+      } finally {
+        semaphore.release();
+      }
+    });
+
+    return Future.wait(futures);
+  }
+}
+
+/// Thread-safe semaphore for controlling concurrency
+class _Semaphore {
+  _Semaphore(this.maxCount) : _currentCount = maxCount;
+
+  final int maxCount;
+  int _currentCount;
+  final List<Completer<void>> _waitQueue = [];
+
+  Future<void> acquire() async {
+    if (_currentCount > 0) {
+      _currentCount--;
+      return;
+    }
+
+    final completer = Completer<void>();
+    _waitQueue.add(completer);
+    return completer.future;
+  }
+
+  void release() {
+    if (_waitQueue.isNotEmpty) {
+      final completer = _waitQueue.removeAt(0);
+      completer.complete();
+    } else {
+      _currentCount++;
+    }
+  }
+}
+
+/// Simple sink to collect hash digest
+class _HashSink implements Sink<Digest> {
+  late Digest digest;
+
+  @override
+  void add(final Digest data) {
+    digest = data;
+  }
+
+  @override
+  void close() {
+    // No-op
   }
 }

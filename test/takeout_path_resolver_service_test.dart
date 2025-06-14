@@ -259,37 +259,19 @@ void main() {
           ),
         );
       });
-
       test('handles permission errors gracefully', () {
         // This test is platform-dependent and might not work on all systems
         // but it tests the error handling path
         final testDir = fixture.createDirectory('TestDir');
 
-        final result = TakeoutPathResolverService.resolveGooglePhotosPath(
-          testDir.path,
+        // Should throw an InvalidTakeoutStructureException since TestDir
+        // doesn't have the expected Google Photos structure
+        expect(
+          () =>
+              TakeoutPathResolverService.resolveGooglePhotosPath(testDir.path),
+          throwsA(isA<InvalidTakeoutStructureException>()),
         );
-
-        // Should either succeed with a valid path or throw an expected exception
-        expect(result, anyOf(isA<String>(), throwsA(isA<Exception>())));
       });
     });
   });
-}
-
-/// Custom exception for directory not found
-class DirectoryNotFoundException implements Exception {
-  const DirectoryNotFoundException(this.message);
-  final String message;
-
-  @override
-  String toString() => 'DirectoryNotFoundException: $message';
-}
-
-/// Custom exception for invalid takeout structure
-class InvalidTakeoutStructureException implements Exception {
-  const InvalidTakeoutStructureException(this.message);
-  final String message;
-
-  @override
-  String toString() => 'InvalidTakeoutStructureException: $message';
 }

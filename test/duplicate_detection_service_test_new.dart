@@ -407,6 +407,22 @@ class MockMediaHashService implements MediaHashService {
     final hash2 = await calculateFileHash(file2);
     return hash1 == hash2;
   }
+
+  @override
+  Future<List<({String path, String hash, int size, bool success})>>
+  calculateHashAndSizeBatch(final List<File> files, {final int? maxConcurrency}) async {
+    final results = <({String path, String hash, int size, bool success})>[];
+    for (final file in files) {
+      try {
+        final hash = await calculateFileHash(file);
+        final size = await calculateFileSize(file);
+        results.add((path: file.path, hash: hash, size: size, success: true));
+      } catch (e) {
+        results.add((path: file.path, hash: '', size: 0, success: false));
+      }
+    }
+    return results;
+  }
 }
 
 /// Helper function to create test MediaEntity
