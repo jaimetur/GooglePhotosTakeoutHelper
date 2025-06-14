@@ -12,7 +12,7 @@ import 'package:gpth/presentation/interactive_presenter.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
-import 'test_setup.dart';
+import '../setup/test_setup.dart';
 
 /// Mock presenter for testing without UI interactions
 class MockInteractivePresenter implements InteractivePresenter {

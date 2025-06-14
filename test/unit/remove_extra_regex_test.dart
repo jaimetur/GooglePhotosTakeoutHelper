@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:gpth/domain/services/date_extraction/json_date_extractor.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
-import 'test_setup.dart';
+import '../setup/test_setup.dart';
 
 void main() {
   group('jsonForFile() Integration Tests - Issue #29 Resolution', () {

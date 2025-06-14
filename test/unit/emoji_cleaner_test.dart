@@ -39,7 +39,7 @@ import 'package:gpth/infrastructure/exiftool_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
-import './test_setup.dart';
+import '../setup/test_setup.dart';
 
 /// Helper function to check if a string contains emoji characters.
 ///

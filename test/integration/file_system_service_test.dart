@@ -8,7 +8,7 @@ import 'dart:io';
 import 'package:gpth/domain/services/file_system_service.dart';
 import 'package:test/test.dart';
 
-import 'test_setup.dart';
+import '../setup/test_setup.dart';
 
 void main() {
   group('FileSystemService', () {

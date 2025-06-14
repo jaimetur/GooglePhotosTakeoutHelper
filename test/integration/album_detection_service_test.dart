@@ -9,7 +9,7 @@ import 'package:gpth/domain/entities/media_entity.dart';
 import 'package:gpth/domain/services/album_detection_service.dart';
 import 'package:test/test.dart';
 
-import 'test_setup.dart';
+import '../setup/test_setup.dart';
 
 void main() {
   group('AlbumDetectionService', () {

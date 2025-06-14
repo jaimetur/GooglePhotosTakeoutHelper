@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:gpth/domain/services/date_extraction/json_date_extractor.dart';
 import 'package:gpth/domain/services/metadata_matcher_service.dart';
 import 'package:test/test.dart';
-import 'test_setup.dart';
+import '../setup/test_setup.dart';
 
 void main() {
   group('Extension Fixing and Metadata Matcher Integration Tests - Issue #32', () {

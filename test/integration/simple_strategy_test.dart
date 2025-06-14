@@ -12,7 +12,7 @@ import 'package:gpth/domain/services/moving/strategies/nothing_moving_strategy.d
 import 'package:gpth/domain/services/service_container.dart';
 import 'package:test/test.dart';
 
-import 'test_setup.dart';
+import '../setup/test_setup.dart';
 
 void main() {
   group('Simple Strategy Test', () {

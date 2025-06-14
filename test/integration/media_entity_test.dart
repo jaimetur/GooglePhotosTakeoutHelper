@@ -57,7 +57,7 @@ import 'package:gpth/domain/models/media_entity_collection.dart';
 import 'package:gpth/domain/services/duplicate_detection_service.dart';
 import 'package:test/test.dart';
 
-import './test_setup.dart';
+import '../setup/test_setup.dart';
 
 void main() {
   group('MediaEntity and Collection - Modern Content Management System', () {

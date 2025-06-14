@@ -73,7 +73,7 @@ import 'package:gpth/shared/extensions/media_extensions.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
-import './test_setup.dart';
+import '../setup/test_setup.dart';
 
 void main() {
   group('Refactored Service Tests', () {

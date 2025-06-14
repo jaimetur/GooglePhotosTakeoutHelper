@@ -12,7 +12,7 @@ import 'package:gpth/domain/services/global_config_service.dart';
 import 'package:gpth/infrastructure/exiftool_service.dart';
 import 'package:test/test.dart';
 
-import 'test_setup.dart';
+import '../setup/test_setup.dart';
 
 /// Mock ExifTool service for testing
 class MockExifToolService implements ExifToolService {

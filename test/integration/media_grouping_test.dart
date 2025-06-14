@@ -14,7 +14,7 @@ import 'package:gpth/domain/value_objects/date_time_extraction_method.dart';
 import 'package:gpth/domain/value_objects/media_files_collection.dart';
 import 'package:test/test.dart';
 
-import 'test_setup.dart';
+import '../setup/test_setup.dart';
 
 void main() {
   group('Modern Media Entity and Collection Tests', () {

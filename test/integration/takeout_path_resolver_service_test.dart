@@ -7,7 +7,7 @@ import 'package:gpth/domain/services/takeout_path_resolver_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
-import 'test_setup.dart';
+import '../setup/test_setup.dart';
 
 void main() {
   group('TakeoutPathResolverService', () {

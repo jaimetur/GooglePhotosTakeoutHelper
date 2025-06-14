@@ -10,7 +10,7 @@ import 'package:gpth/domain/services/utility_service.dart';
 import 'package:gpth/domain/value_objects/media_files_collection.dart';
 import 'package:test/test.dart';
 
-import 'test_setup.dart';
+import '../setup/test_setup.dart';
 
 void main() {
   group('UtilityService', () {

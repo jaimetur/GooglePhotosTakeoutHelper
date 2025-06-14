@@ -12,7 +12,7 @@ import 'package:gpth/domain/services/media_hash_service.dart';
 import 'package:gpth/domain/value_objects/date_accuracy.dart';
 import 'package:test/test.dart';
 
-import 'test_setup.dart';
+import '../setup/test_setup.dart';
 
 void main() {
   group('DuplicateDetectionService', () {
@@ -410,7 +410,10 @@ class MockMediaHashService implements MediaHashService {
 
   @override
   Future<List<({String path, String hash, int size, bool success})>>
-  calculateHashAndSizeBatch(final List<File> files, {final int? maxConcurrency}) async {
+  calculateHashAndSizeBatch(
+    final List<File> files, {
+    final int? maxConcurrency,
+  }) async {
     final results = <({String path, String hash, int size, bool success})>[];
     for (final file in files) {
       try {

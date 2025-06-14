@@ -11,7 +11,7 @@ import 'package:gpth/domain/services/moving/moving_context_model.dart';
 import 'package:gpth/domain/services/service_container.dart';
 import 'package:test/test.dart';
 
-import 'test_setup.dart';
+import '../setup/test_setup.dart';
 
 void main() {
   group('MediaEntity Moving Integration Tests', () {
