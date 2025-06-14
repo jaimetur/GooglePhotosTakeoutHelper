@@ -51,9 +51,14 @@ Directory encodeAndRenameAlbumIfEmoji(final Directory albumDir) {
       cleanName.write(char);
     }
   }
-
   final String newPath = p.join(parentPath, cleanName.toString());
   if (albumDir.path != newPath) {
+    // Check if directory exists before attempting rename
+    if (!albumDir.existsSync()) {
+      _logger.warning('Directory does not exist: ${albumDir.path}');
+      return albumDir; // Return original directory if it doesn't exist
+    }
+
     try {
       albumDir.renameSync(newPath);
     } catch (e) {

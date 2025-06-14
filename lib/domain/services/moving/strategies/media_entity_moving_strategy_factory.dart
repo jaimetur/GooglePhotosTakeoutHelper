@@ -2,7 +2,12 @@ import '../../../models/processing_config_model.dart';
 import '../file_operation_service.dart';
 import '../path_generator_service.dart';
 import '../shortcut_service.dart';
+import 'duplicate_copy_moving_strategy.dart';
+import 'json_moving_strategy.dart';
 import 'media_entity_moving_strategy.dart';
+import 'nothing_moving_strategy.dart';
+import 'reverse_shortcut_moving_strategy.dart';
+import 'shortcut_moving_strategy.dart';
 
 /// Factory for creating MediaEntity moving strategies
 ///
@@ -24,9 +29,25 @@ class MediaEntityMovingStrategyFactory {
 
   /// Creates the appropriate strategy for the given album behavior
   MediaEntityMovingStrategy createStrategy(final AlbumBehavior albumBehavior) {
-    throw UnimplementedError(
-      'MediaEntity moving strategies not yet implemented. '
-      'This will be created as we continue the modernization.',
-    );
+    switch (albumBehavior) {
+      case AlbumBehavior.shortcut:
+        return ShortcutMovingStrategy(
+          _fileService,
+          _pathService,
+          _shortcutService,
+        );
+      case AlbumBehavior.duplicateCopy:
+        return DuplicateCopyMovingStrategy(_fileService, _pathService);
+      case AlbumBehavior.reverseShortcut:
+        return ReverseShortcutMovingStrategy(
+          _fileService,
+          _pathService,
+          _shortcutService,
+        );
+      case AlbumBehavior.json:
+        return JsonMovingStrategy(_fileService, _pathService);
+      case AlbumBehavior.nothing:
+        return NothingMovingStrategy(_fileService, _pathService);
+    }
   }
 }

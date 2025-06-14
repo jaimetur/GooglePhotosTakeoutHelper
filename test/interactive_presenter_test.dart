@@ -107,13 +107,14 @@ void main() {
       test('should have showNothingFoundMessage method', () {
         expect(() => presenter.showNothingFoundMessage(), returnsNormally);
       });
-
       test('should have showPressEnterPrompt method', () {
-        expect(() => presenter.showPressEnterPrompt(), returnsNormally);
+        // Test that the method exists without calling it (since it waits for input)
+        expect(presenter.showPressEnterPrompt, isA<Function>());
       });
 
       test('should have readUserInput method', () {
-        expect(() => presenter.readUserInput(), returnsNormally);
+        // Test that the method exists without calling it (since it waits for input)
+        expect(presenter.readUserInput, isA<Function>());
       });
     });
 
