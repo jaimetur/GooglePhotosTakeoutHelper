@@ -543,8 +543,23 @@ class InteractivePresenter with LoggerMixin {
   /// Prompts for data source
   Future<void> promptForDataSource() async {
     print('Select your data source:');
-    print('1. Google Takeout');
-    print('2. Local Backup');
+    await _sleep(1);
+
+    print('[1] (Recommended) - Select ZIP files from Google Takeout');
+    print('    GPTH will automatically extract and process them');
+    print('    ✓ Convenient and automated');
+    print('    ✓ Validates file integrity');
+    print('    ✓ Handles multiple ZIP files seamlessly');
+    print('');
+    print('[2] - Use already extracted folder');
+    print('    You have manually extracted ZIP files to a folder');
+    print('    ✓ Faster if files are already extracted');
+    print('    ✓ Uses less temporary disk space');
+    print('    ⚠️  Requires manual extraction and merging of ZIP files');
+    print('');
+    await _sleep(1);
+
+    print('(Type 1 or 2, or press enter for recommended option):');
     if (enableSleep) await _sleep(1);
   }
 

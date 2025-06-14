@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:file_picker_desktop/file_picker_desktop.dart';
+
 import '../../presentation/interactive_presenter.dart';
 import '../models/processing_config_model.dart';
 import '../services/global_config_service.dart';
@@ -403,16 +405,18 @@ class ConsolidatedInteractiveService with LoggerMixin {
     _presenter.showPressEnterPrompt();
 
     try {
-      final List<String>? selectedPaths = await _showFilesPicker(
+      final FilePickerResult? filePickerResult = await _showFilesPicker(
         'Select Google Photos Takeout ZIP files',
         allowedExtensions: ['zip'],
       );
 
-      if (selectedPaths == null || selectedPaths.isEmpty) {
+      if (filePickerResult == null || filePickerResult.files.isEmpty) {
         throw Exception('No ZIP files selected');
       }
 
-      final files = selectedPaths.map(File.new).toList();
+      final files = filePickerResult.files
+          .map((final PlatformFile e) => File(e.path!))
+          .toList();
 
       // Validate all files exist and are accessible
       for (final file in files) {
@@ -520,23 +524,19 @@ class ConsolidatedInteractiveService with LoggerMixin {
   // ============================================================================
 
   /// Shows platform-specific directory picker dialog
-  Future<String?> _showDirectoryPicker(final String title) async {
-    // This would integrate with file_picker_desktop or similar
-    // For now, return null to indicate manual implementation needed
-    logWarning('Directory picker not implemented - using manual input');
-    return null;
-  }
+  Future<String?> _showDirectoryPicker(final String title) async =>
+      getDirectoryPath(dialogTitle: 'Select unzipped folder:');
 
   /// Shows platform-specific file picker dialog
-  Future<List<String>?> _showFilesPicker(
+  Future<FilePickerResult?> _showFilesPicker(
     final String title, {
     final List<String>? allowedExtensions,
-  }) async {
-    // This would integrate with file_picker_desktop or similar
-    // For now, return null to indicate manual implementation needed
-    logWarning('File picker not implemented - using manual input');
-    return null;
-  }
+  }) async => pickFiles(
+    dialogTitle: 'Select all Takeout zips:',
+    type: FileType.custom,
+    allowedExtensions: <String>['zip', 'tgz'],
+    allowMultiple: true,
+  );
 }
 
 /// Extension methods for enum conversion
