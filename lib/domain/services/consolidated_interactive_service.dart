@@ -134,7 +134,7 @@ class ConsolidatedInteractiveService with LoggerMixin {
           await _presenter.showOutputCleanupResponse(input);
           return false;
         default:
-          logError('Invalid answer - try again');
+          await _presenter.showInvalidAnswerError();
           continue;
       }
     }
@@ -157,7 +157,7 @@ class ConsolidatedInteractiveService with LoggerMixin {
           await _presenter.showPixelMpTransformResponse(input);
           return false;
         default:
-          logError('Invalid answer - try again');
+          await _presenter.showInvalidAnswerError();
           continue;
       }
     }
@@ -180,7 +180,7 @@ class ConsolidatedInteractiveService with LoggerMixin {
           await _presenter.showCreationTimeUpdateResponse(input);
           return false;
         default:
-          logError('Invalid answer - try again');
+          await _presenter.showInvalidAnswerError();
           continue;
       }
     }
@@ -203,7 +203,7 @@ class ConsolidatedInteractiveService with LoggerMixin {
           await _presenter.showExifWritingResponse(input);
           return false;
         default:
-          logError('Invalid answer - try again');
+          await _presenter.showInvalidAnswerError();
           continue;
       }
     }
@@ -226,7 +226,7 @@ class ConsolidatedInteractiveService with LoggerMixin {
           await _presenter.showFileSizeLimitResponse(input);
           return false;
         default:
-          logError('Invalid answer - try again');
+          await _presenter.showInvalidAnswerError('Invalid answer - try again');
           continue;
       }
     }
@@ -253,7 +253,7 @@ class ConsolidatedInteractiveService with LoggerMixin {
         case 'none':
           return 'none';
         default:
-          logError('Invalid answer - try again');
+          await _presenter.showInvalidAnswerError();
           continue;
       }
     }
