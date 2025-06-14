@@ -6,6 +6,8 @@ import '../models/processing_config_model.dart';
 ///
 /// This service contains the business logic for configuring the processing
 /// pipeline based on user choices, without any UI concerns.
+///
+/// NOTE: File size formatting has been moved to ConsolidatedUtilityService.
 class InteractiveConfigurationService {
   /// Creates processing configuration from user choices
   ///
@@ -192,7 +194,12 @@ class DiskSpaceRequirement {
   /// Human-readable output space
   String get outputSpaceFormatted => _formatBytes(outputSpace);
 
+  /// Formats bytes using the consolidated utility service
+  ///
+  /// @deprecated This will be removed in favor of direct service access
   static String _formatBytes(final int bytes) {
+    // For now, use a simple implementation to avoid circular dependencies
+    // In the next phase, this entire class will be consolidated
     if (bytes < 1024) return '${bytes}B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)}KB';
     if (bytes < 1024 * 1024 * 1024) {

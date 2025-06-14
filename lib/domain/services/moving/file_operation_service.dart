@@ -1,27 +1,23 @@
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
+import '../service_container.dart';
 
 /// Service responsible for safe file operations with proper error handling
 ///
 /// This service abstracts file operations used in moving logic and provides
 /// consistent error handling, progress tracking, and cross-platform compatibility.
+///
+/// NOTE: Unique filename generation has been moved to ConsolidatedUtilityService.
 class FileOperationService {
   /// Creates a unique file name by appending (1), (2), etc. until non-existing
   ///
   /// [initialFile] The file to find a unique name for
   /// Returns a File object with a unique path that doesn't exist yet
-  File findUniqueFileName(final File initialFile) {
-    File file = initialFile;
-    int counter = 1;
-    while (file.existsSync()) {
-      final String baseName = p.withoutExtension(initialFile.path);
-      final String extension = p.extension(initialFile.path);
-      file = File('$baseName($counter)$extension');
-      counter++;
-    }
-    return file;
-  }
+  ///
+  /// @deprecated Use ConsolidatedUtilityService.findUniqueFileName() instead
+  File findUniqueFileName(final File initialFile) =>
+      ServiceContainer.instance.utilityService.findUniqueFileName(initialFile);
 
   /// Safely moves or copies a file to the target location
   ///

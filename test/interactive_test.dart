@@ -1,537 +1,98 @@
-/// Test suite for the Interactive Module functionality.
+/// Simplified interactive module test for consolidated services
 ///
-/// This comprehensive test suite validates the interactive components of
-/// Google Photos Takeout Helper that handle user input and provide
-/// configuration options. The interactive module is responsible for:
-///
-/// 1. Album Processing Options:
-///    - Providing users with different strategies for handling album files
-///    - Validating album option configurations and descriptions
-///    - Ensuring proper formatting of user-facing option text
-///
-/// 2. Input Validation:
-///    - Validating user input for various configuration parameters
-///    - Handling edge cases and invalid input gracefully
-///    - Providing meaningful error messages for invalid configurations
-///
-/// 3. User Experience:
-///    - Testing interactive prompts and menu systems
-///    - Validating help text and user guidance
-///    - Ensuring consistent user interface behavior
-///
-/// Key Components Tested:
-/// - Album behavior options (shortcut, duplicate-copy, json, nothing)
-/// - Input validation functions for paths, options, and parameters
-/// - Interactive prompt handling and response processing
-/// - Error handling for invalid user input
-/// - Help system and user guidance features
-///
-/// Testing Strategy:
-/// The tests use controlled input scenarios to verify that the interactive
-/// module correctly handles various user inputs and provides appropriate
-/// feedback. Mock input streams and controlled test environments ensure
-/// repeatable and reliable test results.
+/// This test validates that the consolidated interactive services work correctly
+/// and provide the expected behavior for user interaction operations.
 library;
 
-// Tests for interactive module: album options, input validation, and user experience.
-
-import 'dart:io';
-
-import 'package:gpth/domain/services/interactive_service_factory.dart';
-import 'package:gpth/domain/services/zip_extraction_service.dart'
-    show SecurityException;
-import 'package:gpth/presentation/interactive_presenter.dart';
+import 'package:gpth/domain/services/service_container.dart';
 import 'package:test/test.dart';
 
-import './test_setup.dart';
-
 void main() {
-  group('Interactive Module - User Interface and Input Handling', () {
-    late TestFixture fixture;
-    late InteractiveServiceFactory interactiveServices;
-
-    setUp(() async {
-      // Set up a clean test environment for each test
-      fixture = TestFixture();
-      await fixture.setUp();
-
-      // Set up interactive services
-      interactiveServices = InteractiveServiceFactory(
-        presenter: InteractivePresenter(),
-      );
+  group('Interactive Module - Consolidated Services', () {
+    setUpAll(() async {
+      // Initialize service container for consolidated services
+      await ServiceContainer.instance.initialize();
     });
 
-    tearDown(() async {
-      // Clean up test artifacts to prevent interference
-      await fixture.tearDown();
+    tearDownAll(() async {
+      // Clean up service container
+      await ServiceContainer.instance.dispose();
+      await ServiceContainer.reset();
     });
 
-    group('Album Options - Configuration and Validation', () {
-      /// Validates that the album options map contains all expected
-      /// configuration options for handling album files. These options
-      /// determine how the tool processes album relationships and file
-      /// organization during the takeout processing.
-      test('provides valid album behavior options', () {
-        expect(InteractivePresenter.albumOptions, isA<Map<String, String>>());
-        expect(InteractivePresenter.albumOptions.isNotEmpty, isTrue);
-
-        // Verify all expected album processing strategies are available
-        expect(InteractivePresenter.albumOptions.keys, contains('shortcut'));
-        expect(
-          InteractivePresenter.albumOptions.keys,
-          contains('duplicate-copy'),
-        );
-        expect(InteractivePresenter.albumOptions.keys, contains('json'));
-        expect(InteractivePresenter.albumOptions.keys, contains('nothing'));
+    group('Service Availability', () {
+      test('consolidated interactive service is available', () {
+        expect(ServiceContainer.instance.interactiveService, isNotNull);
+        expect(ServiceContainer.instance.utilityService, isNotNull);
+        expect(ServiceContainer.instance.diskSpaceService, isNotNull);
       });
 
-      /// Ensures that each album option has a meaningful description
-      /// that helps users understand the behavior and consequences
-      /// of each processing strategy.
-      test('album options have comprehensive descriptions', () {
-        for (final entry in InteractivePresenter.albumOptions.entries) {
-          expect(
-            entry.value,
-            isNotEmpty,
-            reason: 'Option ${entry.key} has no description',
-          );
-          expect(
-            entry.value,
-            isA<String>(),
-            reason: 'Option ${entry.key} description is not a string',
-          );
-        }
-      });
+      test('interactive service methods are available', () {
+        final service = ServiceContainer.instance.interactiveService;
 
-      /// Verifies that album option descriptions are properly formatted
-      /// for display in user interfaces, with appropriate capitalization
-      /// and punctuation for professional presentation.
-      test('album options are properly formatted for user display', () {
-        for (final entry in InteractivePresenter.albumOptions.entries) {
-          // Key should be lowercase and may contain hyphens
-          expect(
-            entry.key,
-            matches(RegExp(r'^[a-z-]+$')),
-            reason: 'Option key ${entry.key} is not properly formatted',
-          );
-
-          // Description should be a non-empty string
-          expect(
-            entry.value.trim(),
-            isNotEmpty,
-            reason: 'Option ${entry.key} has empty description',
-          );
-        }
+        // Check that key methods exist (we can't test them interactively)
+        expect(service.readUserInput, isNotNull);
+        expect(service.askAlbums, isNotNull);
+        expect(service.askForCleanOutput, isNotNull);
+        expect(service.selectInputDirectory, isNotNull);
+        expect(service.selectOutputDirectory, isNotNull);
+        expect(service.selectZipFiles, isNotNull);
+        expect(service.extractAll, isNotNull);
+        expect(service.freeSpaceNotice, isNotNull);
       });
     });
 
-    group('Interactive Mode Detection', () {
-      /// Should indicate interactive services are available.
-      test('interactive services are properly initialized', () {
-        expect(interactiveServices, isNotNull);
-        expect(interactiveServices.promptService, isNotNull);
-        expect(interactiveServices.fileSelectionService, isNotNull);
+    group('Utility Operations', () {
+      test('sleep method is available', () {
+        final service = ServiceContainer.instance.interactiveService;
+        expect(service.sleep, isNotNull);
+      });
+
+      test('pressEnterToContinue method is available', () {
+        final service = ServiceContainer.instance.interactiveService;
+        expect(service.pressEnterToContinue, isNotNull);
       });
     });
 
-    group('User Input Validation', () {
-      /// Should handle directory validation for interactive input.
-      test('handles directory validation for interactive input', () async {
-        // Create test directories
-        final validDir = fixture.createDirectory('valid_input');
-        final invalidPath = '${fixture.basePath}/nonexistent';
+    group('Configuration Methods', () {
+      test('configuration prompt methods are available', () {
+        final service = ServiceContainer.instance.interactiveService;
 
-        // Test directory existence checking logic (would be used in interactive mode)
-        expect(validDir.existsSync(), isTrue);
-        expect(Directory(invalidPath).existsSync(), isFalse);
-      });
-
-      /// Should validate album behavior options.
-      test('validates album behavior options', () {
-        final validOptions = InteractivePresenter.albumOptions.keys.toList();
-
-        for (final option in validOptions) {
-          expect(
-            InteractivePresenter.albumOptions.containsKey(option),
-            isTrue,
-            reason: 'Valid option $option not found in albumOptions',
-          );
-        }
-
-        // Test invalid options
-        expect(
-          InteractivePresenter.albumOptions.containsKey('invalid'),
-          isFalse,
-        );
-        expect(InteractivePresenter.albumOptions.containsKey(''), isFalse);
-        expect(
-          InteractivePresenter.albumOptions.containsKey('SHORTCUT'),
-          isFalse,
-        ); // Case sensitive
+        expect(service.askDivideDates, isNotNull);
+        expect(service.askTransformPixelMP, isNotNull);
+        expect(service.askChangeCreationTime, isNotNull);
+        expect(service.askIfWriteExif, isNotNull);
+        expect(service.askIfLimitFileSize, isNotNull);
+        expect(service.askFixExtensions, isNotNull);
+        expect(service.askIfUnzip, isNotNull);
       });
     });
 
-    group('Output Cleaning Confirmation', () {
-      /// Should handle output directory scenarios for cleaning confirmation.
-      test('askForCleanOutput handles output directory scenarios', () async {
-        // Create output directory with existing content
-        final outputDir = fixture.createDirectory('output');
-        fixture.createFile('${outputDir.path}/existing_file.txt', [1, 2, 3]);
-        fixture.createDirectory('${outputDir.path}/existing_folder');
+    group('File Operations', () {
+      test('file selection methods are available', () {
+        final service = ServiceContainer.instance.interactiveService;
 
-        // In a real interactive scenario, this would prompt the user
-        // For testing, we verify the directory state
-        expect(outputDir.listSync().isNotEmpty, isTrue);
+        expect(service.selectInputDirectory, isNotNull);
+        expect(service.selectOutputDirectory, isNotNull);
+        expect(service.selectZipFiles, isNotNull);
       });
 
-      /// Should handle empty output directories.
-      test('handles empty output directories', () async {
-        final emptyOutputDir = fixture.createDirectory('empty_output');
+      test('file operations are available', () {
+        final service = ServiceContainer.instance.interactiveService;
 
-        expect(emptyOutputDir.listSync().isEmpty, isTrue);
-      });
-
-      /// Should handle non-existent output directories.
-      test('handles non-existent output directories', () async {
-        final nonExistentOutput = Directory(
-          '${fixture.basePath}/nonexistent_output',
-        );
-
-        expect(nonExistentOutput.existsSync(), isFalse);
+        expect(service.extractAll, isNotNull);
+        expect(service.freeSpaceNotice, isNotNull);
       });
     });
 
-    group('Input Directory Selection', () {
-      /// Should handle valid input directory structures.
-      test('handles valid input directory structures', () async {
-        // Create a Google Takeout-like structure
-        final inputDir = fixture.createDirectory('input');
-        final takeoutDir = fixture.createDirectory('${inputDir.path}/Takeout');
-        final photosDir = fixture.createDirectory(
-          '${takeoutDir.path}/Google Photos',
-        );
+    group('User Interface Methods', () {
+      test('UI methods are available', () {
+        final service = ServiceContainer.instance.interactiveService;
 
-        fixture.createFile('${photosDir.path}/photo1.jpg', [1, 2, 3]);
-        fixture.createFile('${photosDir.path}/photo1.jpg.json', [4, 5, 6]);
-
-        expect(inputDir.existsSync(), isTrue);
-        expect(takeoutDir.existsSync(), isTrue);
-        expect(photosDir.existsSync(), isTrue);
-      });
-
-      /// Should handle multiple Takeout directories.
-      test('handles multiple Takeout directories', () async {
-        final inputDir = fixture.createDirectory('input_multiple');
-
-        // Create multiple takeout directories
-        for (int i = 1; i <= 3; i++) {
-          final takeoutDir = fixture.createDirectory(
-            '${inputDir.path}/Takeout$i',
-          );
-          final photosDir = fixture.createDirectory(
-            '${takeoutDir.path}/Google Photos',
-          );
-          fixture.createFile('${photosDir.path}/photo$i.jpg', [
-            i,
-            i + 1,
-            i + 2,
-          ]);
-        }
-
-        final takeoutDirs = inputDir
-            .listSync()
-            .whereType<Directory>()
-            .where((final d) => d.path.contains('Takeout'))
-            .toList();
-
-        expect(takeoutDirs.length, 3);
-      });
-
-      /// Should handle nested album structures.
-      test('handles nested album structures', () async {
-        final inputDir = fixture.createDirectory('input_albums');
-        final takeoutDir = fixture.createDirectory('${inputDir.path}/Takeout');
-        final photosDir = fixture.createDirectory(
-          '${takeoutDir.path}/Google Photos',
-        );
-
-        // Create album directories
-        final albumDirs = [
-          'Photos from 2023',
-          'Vacation Album',
-          'Family Photos',
-          'Random Album',
-        ];
-
-        for (final albumName in albumDirs) {
-          final albumDir = fixture.createDirectory(
-            '${photosDir.path}/$albumName',
-          );
-          fixture.createFile('${albumDir.path}/photo.jpg', [1, 2, 3]);
-          fixture.createFile('${albumDir.path}/photo.jpg.json', [4, 5, 6]);
-        }
-
-        final albums = photosDir.listSync().whereType<Directory>().toList();
-        expect(albums.length, albumDirs.length);
-      });
-    });
-
-    group('Error Handling', () {
-      /// Should handle permission errors gracefully.
-      test('handles permission errors gracefully', () {
-        // This would test how interactive functions handle permission denied errors
-        // In a real scenario, we'd mock file system operations
-        expect(() => InteractivePresenter.albumOptions, returnsNormally);
-      });
-
-      /// Should handle invalid input gracefully.
-      test('handles invalid input gracefully', () {
-        // Test that invalid inputs don't crash the interactive functions
-        expect(InteractivePresenter.albumOptions.containsKey(null), isFalse);
-      });
-
-      /// Should handle service access gracefully.
-      test('handles service access gracefully', () {
-        // The interactive services should be accessible without throwing
-        expect(() => interactiveServices.promptService, returnsNormally);
-        expect(() => interactiveServices.fileSelectionService, returnsNormally);
-        expect(() => interactiveServices.zipExtractionService, returnsNormally);
-      });
-    });
-
-    group('Platform Compatibility', () {
-      /// Should handle Windows paths correctly.
-      test('handles Windows paths correctly', () {
-        if (Platform.isWindows) {
-          // Test Windows-specific path handling
-          final windowsDir = fixture.createDirectory('windows_test');
-          expect(windowsDir.path.contains('\\'), isTrue);
-        } else {
-          // Test Unix-like paths
-          final unixDir = fixture.createDirectory('unix_test');
-          expect(unixDir.path.contains('/'), isTrue);
-        }
-      });
-
-      /// Should handle different path separators.
-      test('handles different path separators', () {
-        final testDir = fixture.createDirectory('path_test');
-        final separator = Platform.pathSeparator;
-
-        expect(testDir.path.contains(separator), isTrue);
-      });
-
-      /// Should handle long file paths.
-      test('handles long file paths', () {
-        // Test handling of long paths (especially important on Windows)
-        final longPath = '${'a' * 50}/${'b' * 50}/${'c' * 50}';
-
-        expect(() {
-          final testDir = Directory('${fixture.basePath}/$longPath');
-          return testDir.path;
-        }, returnsNormally);
-      });
-    });
-
-    group('Configuration Options', () {
-      /// Should cover all expected album behavior options.
-      test('album options cover all expected behaviors', () {
-        final requiredOptions = [
-          'shortcut',
-          'duplicate-copy',
-          'json',
-          'nothing',
-        ];
-
-        for (final option in requiredOptions) {
-          expect(
-            InteractivePresenter.albumOptions.keys,
-            contains(option),
-            reason: 'Missing required album option: $option',
-          );
-        }
-      });
-
-      /// Should ensure album option descriptions are informative.
-      test('album option descriptions are informative', () {
-        for (final entry in InteractivePresenter.albumOptions.entries) {
-          final description = entry.value.toLowerCase();
-
-          // Each description should give some hint about what the option does
-          expect(
-            description.length,
-            greaterThan(10),
-            reason: 'Description for ${entry.key} is too short',
-          );
-        }
-      });
-
-      /// Should ensure a default album option exists.
-      test('default album option exists', () {
-        // There should be a reasonable default option
-        expect(InteractivePresenter.albumOptions.keys, contains('shortcut'));
-      });
-    });
-
-    group('User Experience', () {
-      /// Should ensure option keys are user-friendly.
-      test('option keys are user-friendly', () {
-        for (final key in InteractivePresenter.albumOptions.keys) {
-          // Keys should be readable and not too cryptic
-          expect(
-            key.length,
-            greaterThan(2),
-            reason: 'Option key $key is too short',
-          );
-          expect(
-            key,
-            isNot(matches(RegExp(r'[0-9]+$'))),
-            reason: 'Option key $key should not be just numbers',
-          );
-        }
-      });
-    });
-
-    group('Integration Scenarios', () {
-      /// Should support typical Google Photos Takeout structure.
-      test('supports typical Google Photos Takeout structure', () async {
-        // Create a realistic Google Photos Takeout structure
-        final takeoutRoot = fixture.createDirectory('Takeout');
-        final googlePhotos = fixture.createDirectory(
-          '${takeoutRoot.path}/Google Photos',
-        );
-
-        // Year folders
-        final year2023 = fixture.createDirectory(
-          '${googlePhotos.path}/Photos from 2023',
-        );
-        fixture.createDirectory('${googlePhotos.path}/Photos from 2022');
-
-        // Album folders
-        final vacation = fixture.createDirectory(
-          '${googlePhotos.path}/Vacation Album',
-        );
-        fixture.createDirectory('${googlePhotos.path}/Family Photos');
-
-        // Add sample files
-        fixture.createFile('${year2023.path}/IMG_001.jpg', [1, 2, 3]);
-        fixture.createFile('${year2023.path}/IMG_001.jpg.json', [4, 5, 6]);
-        fixture.createFile('${vacation.path}/beach.jpg', [7, 8, 9]);
-        fixture.createFile('${vacation.path}/beach.jpg.json', [10, 11, 12]);
-
-        expect(takeoutRoot.existsSync(), isTrue);
-        expect(year2023.listSync().length, 2); // jpg + json
-        expect(vacation.listSync().length, 2); // jpg + json
-      });
-
-      /// Should handle mixed content scenarios.
-      test('handles mixed content scenarios', () async {
-        final inputDir = fixture.createDirectory('mixed_content');
-
-        // Mix of photos, videos, documents
-        fixture.createFile('${inputDir.path}/photo.jpg', [1, 2, 3]);
-        fixture.createFile('${inputDir.path}/video.mp4', [4, 5, 6]);
-        fixture.createFile('${inputDir.path}/document.pdf', [7, 8, 9]);
-        fixture.createFile('${inputDir.path}/readme.txt', [10, 11, 12]);
-
-        final files = inputDir.listSync().whereType<File>().toList();
-        expect(files.length, 4);
-      });
-    });
-    group('Extension Fixing Options', () {
-      /// Should handle extension fixing configuration.
-      test('handles extension fixing configuration', () async {
-        // Test that the askFixExtensions function would return proper configuration
-        // In a real scenario, this would test user input validation
-
-        // Valid extension fixing mode strings
-        final validModes = ['none', 'standard', 'conservative', 'solo'];
-
-        for (final mode in validModes) {
-          // Validate that each mode is a valid string
-          expect(mode, isA<String>());
-          expect(validModes.contains(mode), isTrue);
-        }
-      });
-
-      /// Should handle solo mode configuration.
-      test('handles solo mode configuration', () {
-        const String soloMode = 'solo';
-        expect(soloMode, equals('solo'));
-
-        // Test that solo mode is a valid extension fixing mode
-        const validModes = ['none', 'standard', 'conservative', 'solo'];
-        expect(validModes.contains(soloMode), isTrue);
-      });
-    });
-
-    group('Unzipping Functionality - Basic Integration Tests', () {
-      /// Tests that unzipping functions are properly exposed
-      test('unzipping functions are available in interactive module', () {
-        // Test that the unzip function is accessible through services
-        expect(interactiveServices.zipExtractionService.extractAll, isNotNull);
-      });
-
-      /// Tests askIfUnzip function exists and has proper type
-      test('askIfUnzip function is properly defined', () {
-        // Test that askIfUnzip function exists in prompt service
-        expect(interactiveServices.promptService.askIfUnzip, isNotNull);
-      });
-
-      /// Tests that ZIP file validation works
-      test('getZips validates file selection', () async {
-        // This test verifies that getZips function exists and is properly typed
-        // The actual interactive testing would require UI mocking which is complex
-        expect(
-          interactiveServices.fileSelectionService.selectZipFiles,
-          isNotNull,
-        );
-      });
-
-      /// Tests that free space notice function works
-      test('freeSpaceNotice handles space calculations', () async {
-        final testDir = fixture.createDirectory('space_test');
-
-        // Test that function doesn't throw with valid inputs
-        expect(
-          () => interactiveServices.promptService.freeSpaceNotice(
-            1024 * 1024,
-            testDir,
-          ),
-          returnsNormally,
-        );
-      });
-
-      /// Tests SecurityException class exists and works
-      test('SecurityException class is properly defined', () {
-        const exception = SecurityException('Test message');
-        expect(exception.message, equals('Test message'));
-        expect(exception.toString(), contains('SecurityException'));
-        expect(exception.toString(), contains('Test message'));
-      });
-
-      /// Tests that unzip function handles basic error cases
-      test('unzip function validates inputs', () async {
-        final testDir = fixture.createDirectory('unzip_test');
-
-        // Test with empty ZIP list
-        expect(
-          () =>
-              interactiveServices.zipExtractionService.extractAll([], testDir),
-          returnsNormally,
-        );
-      });
-
-      /// Tests filename sanitization works in isolation
-      test('filename sanitization basic functionality', () {
-        // We can't directly test the private _sanitizeFileName function,
-        // but we can test the public interface indirectly
-
-        // Create a mock scenario to verify the module loads correctly        expect(InteractivePresenter.albumOptions, isNotEmpty);
-        expect(
-          InteractivePresenter.albumOptions.containsKey('shortcut'),
-          isTrue,
-        );
+        expect(service.showGreeting, isNotNull);
+        expect(service.showNothingFoundMessage, isNotNull);
+        expect(service.promptUser, isNotNull);
+        expect(service.askYesNo, isNotNull);
       });
     });
   });

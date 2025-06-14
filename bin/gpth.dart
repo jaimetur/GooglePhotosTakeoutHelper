@@ -7,7 +7,6 @@ import 'package:gpth/domain/main_pipeline.dart';
 import 'package:gpth/domain/models/io_paths_model.dart';
 import 'package:gpth/domain/models/processing_config_model.dart';
 import 'package:gpth/domain/models/processing_result_model.dart';
-import 'package:gpth/domain/services/interactive_service_factory.dart';
 import 'package:gpth/domain/services/takeout_path_resolver_service.dart';
 import 'package:gpth/presentation/interactive_presenter.dart';
 import 'package:gpth/utils.dart';
@@ -71,17 +70,10 @@ Future<void> main(final List<String> arguments) async {
     final config = await _parseArguments(arguments);
     if (config == null) {
       return; // Help was shown or other early exit
-    }
-
-    // Initialize logger with correct verbosity
+    } // Initialize logger with correct verbosity
     _logger = LoggingService(isVerbose: config.verbose);
 
-    // Initialize interactive services
-    _interactiveServices = InteractiveServiceFactory(
-      presenter: InteractivePresenter(),
-    );
-
-    // Initialize dependencies
+    // Initialize service container and dependencies
     await _initializeDependencies(config); // Execute the processing pipeline
     final result = await _executeProcessing(config); // Show final results
     _showResults(config, result);
@@ -96,9 +88,6 @@ Future<void> main(final List<String> arguments) async {
 
 /// Global logger instance
 late LoggingService _logger;
-
-/// Global interactive services factory for user interactions
-late InteractiveServiceFactory _interactiveServices;
 
 /// **ARGUMENT PARSING & CONFIGURATION BUILDING**
 ///
@@ -299,7 +288,9 @@ Future<ProcessingConfig> _buildConfigFromArgs(final ArgResults res) async {
   ExtensionFixingMode extensionFixingMode;
   if (isInteractiveMode) {
     // Ask user for extension fixing preference in interactive mode
-    final extensionFixingChoice = await _interactiveServices.promptService
+    final extensionFixingChoice = await ServiceContainer
+        .instance
+        .interactiveService
         .askFixExtensions();
     extensionFixingMode = ExtensionFixingMode.fromString(extensionFixingChoice);
     configBuilder.interactiveMode = true;
@@ -382,21 +373,21 @@ Future<InputOutputPaths> _getInputOutputPaths(
   String? outputPath = res['output'];
   if (isInteractiveMode) {
     // Interactive mode handles path collection
-    await _interactiveServices.promptService.showGreeting();
+    await ServiceContainer.instance.interactiveService.showGreeting();
     print('');
 
-    final bool shouldUnzip = await _interactiveServices.promptService
+    final bool shouldUnzip = await ServiceContainer.instance.interactiveService
         .askIfUnzip();
     print('');
 
     late Directory inDir;
 
     if (shouldUnzip) {
-      final zips = await _interactiveServices.fileSelectionService
+      final zips = await ServiceContainer.instance.interactiveService
           .selectZipFiles();
       print('');
 
-      final out = await _interactiveServices.fileSelectionService
+      final out = await ServiceContainer.instance.interactiveService
           .selectOutputDirectory();
       print('');
       // Calculate space requirements
@@ -404,24 +395,23 @@ Future<InputOutputPaths> _getInputOutputPaths(
           .map((final e) => e.lengthSync())
           .reduce((final a, final b) => a + b);
       final requiredSpace = (cumZipsSize * 2) + 256 * 1024 * 1024;
-      await _interactiveServices.promptService.freeSpaceNotice(
+      await ServiceContainer.instance.interactiveService.freeSpaceNotice(
         requiredSpace,
         out,
       );
       print('');
-
       final unzipDir = Directory(p.join(out.path, '.gpth-unzipped'));
       inDir = unzipDir;
       outputPath = out.path;
 
-      await _interactiveServices.zipExtractionService.extractAll(
+      await ServiceContainer.instance.interactiveService.extractAll(
         zips,
         unzipDir,
       );
       print('');
     } else {
       try {
-        inDir = await _interactiveServices.fileSelectionService
+        inDir = await ServiceContainer.instance.interactiveService
             .selectInputDirectory();
       } catch (e) {
         print(
@@ -432,8 +422,7 @@ Future<InputOutputPaths> _getInputOutputPaths(
         exit(69);
       }
       print('');
-
-      final out = await _interactiveServices.fileSelectionService
+      final out = await ServiceContainer.instance.interactiveService
           .selectOutputDirectory();
       outputPath = out.path;
       print('');
@@ -566,7 +555,8 @@ Future<ProcessingResult> _executeProcessing(
   if (await outputDir.exists() &&
       !await _isOutputDirectoryEmpty(outputDir, config)) {
     if (config.isInteractiveMode &&
-        await _interactiveServices.promptService.askForCleanOutput()) {
+        await ServiceContainer.instance.interactiveService
+            .askForCleanOutput()) {
       await _cleanOutputDirectory(outputDir, config);
     }
   }

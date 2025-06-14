@@ -1,12 +1,17 @@
 import 'dart:io';
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
-import 'package:proper_filesize/proper_filesize.dart';
+
+import 'service_container.dart';
 
 /// Service for file system operations and file type detection
 ///
 /// Extracted from utils.dart to provide a clean, testable interface
 /// for file system operations commonly used throughout the application.
+///
+/// NOTE: File size formatting and unique filename generation have been
+/// moved to ConsolidatedUtilityService. This service now focuses on
+/// file type detection and basic file operations.
 class FileSystemService {
   /// Creates a new instance of FileSystemService
   const FileSystemService();
@@ -47,25 +52,10 @@ class FileSystemService {
   ///
   /// [initialFile] The desired file path
   /// Returns a File object with a unique path that doesn't exist
-  File findUniqueFileName(final File initialFile) {
-    if (!initialFile.existsSync()) {
-      return initialFile;
-    }
-
-    final String dir = initialFile.parent.path;
-    final String nameWithoutExt = p.basenameWithoutExtension(initialFile.path);
-    final String extension = p.extension(initialFile.path);
-
-    int counter = 1;
-    File candidate;
-    do {
-      final String newName = '$nameWithoutExt($counter)$extension';
-      candidate = File(p.join(dir, newName));
-      counter++;
-    } while (candidate.existsSync());
-
-    return candidate;
-  }
+  ///
+  /// @deprecated Use ConsolidatedUtilityService.findUniqueFileName() instead
+  File findUniqueFileName(final File initialFile) =>
+      ServiceContainer.instance.utilityService.findUniqueFileName(initialFile);
 
   /// Safely copies a file to a new location
   ///
@@ -192,8 +182,8 @@ class FileSystemService {
   ///
   /// [bytes] Number of bytes to format
   /// Returns formatted string like "1.5 MB"
-  String formatFileSize(final int bytes) => FileSize.fromBytes(bytes).toString(
-    unit: Unit.auto(size: bytes, baseType: BaseType.metric),
-    decimals: 2,
-  );
+  ///
+  /// @deprecated Use ConsolidatedUtilityService.formatFileSize() instead
+  String formatFileSize(final int bytes) =>
+      ServiceContainer.instance.utilityService.formatFileSize(bytes);
 }

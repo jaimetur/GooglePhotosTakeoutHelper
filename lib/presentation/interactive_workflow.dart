@@ -1,133 +1,88 @@
 /// Interactive workflow orchestrator for Google Photos Takeout Helper
 ///
 /// Provides high-level workflow orchestration for interactive user sessions.
-/// All UI logic is delegated to services in the domain and presentation layers.
+/// All functionality is now handled by ConsolidatedInteractiveService.
 library;
 
-import 'dart:async';
 import 'dart:io';
-
-import '../domain/services/interactive_service_factory.dart';
-import 'interactive_presenter.dart';
-
-// Legacy exports for compatibility
-export 'interactive_presenter.dart' show InteractivePresenter;
+import '../domain/services/consolidated_interactive_service.dart';
+import '../domain/services/service_container.dart';
 
 /// Interactive workflow controller
+///
+/// This class provides a clean interface to the consolidated interactive service.
+/// All actual implementation is delegated to ConsolidatedInteractiveService.
 class InteractiveWorkflow {
-  InteractiveWorkflow({final InteractivePresenter? presenter})
-    : _services = InteractiveServiceFactory(
-        presenter: presenter ?? InteractivePresenter(),
-      );
+  /// Creates a new InteractiveWorkflow instance
+  const InteractiveWorkflow();
 
-  final InteractiveServiceFactory _services;
+  /// Gets the consolidated interactive service instance
+  static ConsolidatedInteractiveService get _service =>
+      ServiceContainer.instance.interactiveService;
 
   /// Whether we are running in interactive mode
-  bool isActive = false;
+  static bool isActive = false;
 
   /// Pauses execution for specified number of seconds
-  Future<void> sleep(final num seconds) =>
-      _services.utilityService.sleep(seconds);
+  static Future<void> sleep(final num seconds) => _service.sleep(seconds);
 
   /// Displays a prompt and waits for user to press enter
-  void pressEnterToContinue() =>
-      _services.utilityService.pressEnterToContinue();
+  static void pressEnterToContinue() => _service.pressEnterToContinue();
 
   /// Reads user input and normalizes it
-  Future<String> askForInt() async => _services.promptService.readUserInput();
+  static Future<String> readUserInput() => _service.readUserInput();
 
   /// Displays greeting message and introduction to the tool
-  Future<void> greet() async => _services.promptService.showGreeting();
+  static Future<void> showGreeting() => _service.showGreeting();
 
-  /// Shows nothing found message (does not quit explicitly)
-  Future<void> nothingFoundMessage() async =>
-      _services.promptService.showNothingFoundMessage();
+  /// Shows nothing found message
+  static Future<void> showNothingFoundMessage() =>
+      _service.showNothingFoundMessage();
 
   /// Prompts user to select input directory
-  Future<Directory> getInputDir() async =>
-      _services.fileSelectionService.selectInputDirectory();
+  static Future<Directory> selectInputDirectory() =>
+      _service.selectInputDirectory();
 
-  /// Asks user for zip files with ui dialogs
-  Future<List<File>> getZips() async =>
-      _services.fileSelectionService.selectZipFiles();
+  /// Prompts user to select ZIP files for extraction
+  static Future<List<File>> selectZipFiles() => _service.selectZipFiles();
 
   /// Prompts user to select output directory
-  Future<Directory> getOutput() async =>
-      _services.fileSelectionService.selectOutputDirectory();
+  static Future<Directory> selectOutputDirectory() =>
+      _service.selectOutputDirectory();
 
   /// Ask for date division option
-  Future<num> askDivideToPhotos() async =>
-      _services.promptService.askDivideDates();
+  static Future<int> askDivideDates() => _service.askDivideDates();
 
   /// Ask for clean output confirmation
-  Future<bool> askForCleanOutput() async =>
-      _services.promptService.askForCleanOutput();
-
-  /// Ask for photo skipping option (legacy name mapping)
-  Future<bool> askForSkipExtra() async =>
-      _services.promptService.askForCleanOutput();
-
-  /// Ask for duplicate copying option (legacy name mapping)
-  Future<bool> askForDuplicateCopy() async =>
-      _services.promptService.askForCleanOutput();
+  static Future<bool> askForCleanOutput() => _service.askForCleanOutput();
 
   /// Ask for album mode/option
-  Future<String> askForAlbumMode() async => _services.promptService.askAlbums();
+  static Future<String> askAlbums() => _service.askAlbums();
 
   /// Ask if user wants to write exif data
-  Future<bool> askForWriteExif() async =>
-      _services.promptService.askIfWriteExif();
-
-  /// Ask if files should be copied instead of moved (legacy name mapping)
-  Future<bool> askForCopyMode() async =>
-      _services.promptService.askForCleanOutput();
+  static Future<bool> askIfWriteExif() => _service.askIfWriteExif();
 
   /// Ask for Pixel/MP file conversion option
-  Future<bool> askForPixelTransform() async =>
-      _services.promptService.askTransformPixelMP();
+  static Future<bool> askTransformPixelMP() => _service.askTransformPixelMP();
 
   /// Ask for creation time update option (Windows only)
-  Future<bool> askForCreationTimeUpdate() async =>
-      _services.promptService.askChangeCreationTime();
+  static Future<bool> askChangeCreationTime() =>
+      _service.askChangeCreationTime();
 
   /// Ask for file size limiting option
-  Future<bool> askForFileSizeLimit() async =>
-      _services.promptService.askIfLimitFileSize();
+  static Future<bool> askIfLimitFileSize() => _service.askIfLimitFileSize();
 
   /// Ask for extension fixing option
-  Future<String> askForExtensionFixing() async =>
-      _services.promptService.askFixExtensions();
+  static Future<String> askFixExtensions() => _service.askFixExtensions();
+
+  /// Ask if user wants to unzip files
+  static Future<bool> askIfUnzip() => _service.askIfUnzip();
+
+  /// Prompts for user input with a custom message
+  static Future<String> promptUser(final String message) =>
+      _service.promptUser(message);
+
+  /// Asks a yes/no question and returns boolean result
+  static Future<bool> askYesNo(final String question) =>
+      _service.askYesNo(question);
 }
-
-// Global instance for backward compatibility
-final InteractiveWorkflow _defaultWorkflow = InteractiveWorkflow();
-
-/// Legacy global functions for backward compatibility
-bool get indeed => _defaultWorkflow.isActive;
-set indeed(final bool value) => _defaultWorkflow.isActive = value;
-
-Future<void> sleep(final num seconds) => _defaultWorkflow.sleep(seconds);
-void pressEnterToContinue() => _defaultWorkflow.pressEnterToContinue();
-Future<String> askForInt() async => _defaultWorkflow.askForInt();
-Future<void> greet() async => _defaultWorkflow.greet();
-Future<void> nothingFoundMessage() async =>
-    _defaultWorkflow.nothingFoundMessage();
-Future<Directory> getInputDir() async => _defaultWorkflow.getInputDir();
-Future<List<File>> getZips() async => _defaultWorkflow.getZips();
-Future<Directory> getOutput() async => _defaultWorkflow.getOutput();
-Future<num> askDivideToPhotos() async => _defaultWorkflow.askDivideToPhotos();
-Future<bool> askForCleanOutput() async => _defaultWorkflow.askForCleanOutput();
-Future<bool> askForSkipExtra() async => _defaultWorkflow.askForSkipExtra();
-Future<bool> askForDuplicateCopy() async =>
-    _defaultWorkflow.askForDuplicateCopy();
-Future<String> askForAlbumMode() async => _defaultWorkflow.askForAlbumMode();
-Future<bool> askForWriteExif() async => _defaultWorkflow.askForWriteExif();
-Future<bool> askForCopyMode() async => _defaultWorkflow.askForCopyMode();
-Future<bool> askForPixelTransform() async =>
-    _defaultWorkflow.askForPixelTransform();
-Future<bool> askForCreationTimeUpdate() async =>
-    _defaultWorkflow.askForCreationTimeUpdate();
-Future<bool> askForFileSizeLimit() async =>
-    _defaultWorkflow.askForFileSizeLimit();
-Future<String> askForExtensionFixing() async =>
-    _defaultWorkflow.askForExtensionFixing();

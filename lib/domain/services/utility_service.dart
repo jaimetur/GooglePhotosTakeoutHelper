@@ -1,11 +1,14 @@
 import 'dart:io';
-import 'package:proper_filesize/proper_filesize.dart';
 import '../entities/media_entity.dart';
+import 'service_container.dart';
 
 /// Service for miscellaneous utility functions
 ///
 /// Contains helper functions that don't fit into other specific services
 /// but are used throughout the application.
+///
+/// NOTE: File size formatting has been moved to ConsolidatedUtilityService.
+/// This service now focuses on domain-specific calculations and operations.
 class UtilityService {
   /// Creates a new instance of UtilityService
   const UtilityService();
@@ -17,10 +20,10 @@ class UtilityService {
   ///
   /// [bytes] Number of bytes to format
   /// Returns formatted string like "1.5 MB"
-  String formatFileSize(final int bytes) => FileSize.fromBytes(bytes).toString(
-    unit: Unit.auto(size: bytes, baseType: BaseType.metric),
-    decimals: 2,
-  );
+  ///
+  /// @deprecated Use ConsolidatedUtilityService.formatFileSize() instead
+  String formatFileSize(final int bytes) =>
+      ServiceContainer.instance.utilityService.formatFileSize(bytes);
 
   /// Calculates total number of output files based on album behavior
   ///

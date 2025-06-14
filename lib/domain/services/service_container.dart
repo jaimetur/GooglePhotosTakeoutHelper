@@ -1,4 +1,7 @@
+import '../../infrastructure/consolidated_disk_space_service.dart';
 import '../../infrastructure/exiftool_service.dart';
+import 'consolidated_interactive_service.dart';
+import 'consolidated_utility_service.dart';
 import 'global_config_service.dart';
 
 /// Service container for dependency injection
@@ -9,6 +12,9 @@ class ServiceContainer {
   ServiceContainer._();
 
   late final GlobalConfigService globalConfig;
+  late final ConsolidatedUtilityService utilityService;
+  late final ConsolidatedDiskSpaceService diskSpaceService;
+  late final ConsolidatedInteractiveService interactiveService;
   ExifToolService? exifTool;
 
   static ServiceContainer? _instance;
@@ -21,8 +27,15 @@ class ServiceContainer {
 
   /// Initialize all services
   Future<void> initialize() async {
-    // Initialize global config service
+    // Initialize core services
     globalConfig = GlobalConfigService();
+    utilityService = const ConsolidatedUtilityService();
+    diskSpaceService = ConsolidatedDiskSpaceService();
+
+    // Initialize interactive service with dependencies
+    interactiveService = ConsolidatedInteractiveService(
+      globalConfig: globalConfig,
+    );
 
     // Try to find and initialize ExifTool
     exifTool = await ExifToolService.find();
