@@ -35,12 +35,13 @@ class ServiceContainer {
     // Initialize interactive service with dependencies
     interactiveService = ConsolidatedInteractiveService(
       globalConfig: globalConfig,
-    );
-
-    // Try to find and initialize ExifTool
+    ); // Try to find and initialize ExifTool
     exifTool = await ExifToolService.find();
     if (exifTool != null) {
       await exifTool!.startPersistentProcess();
+      globalConfig.exifToolInstalled = true;
+    } else {
+      globalConfig.exifToolInstalled = false;
     }
   }
 

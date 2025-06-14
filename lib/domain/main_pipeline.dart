@@ -136,19 +136,17 @@ class ProcessingPipeline {
           extractionMethodStats: extractionMethodStats,
         );
 
-        if (config.verbose) {
-          if (result.isSuccess) {
-            print(
-              '✅ ${step.name} completed in ${const UtilityService().formatDuration(result.duration)}',
-            );
-            if (result.message != null) {
-              print('   ${result.message}');
-            }
-          } else {
-            print('❌ ${step.name} failed: ${result.message}');
-            if (result.error != null) {
-              print('   Error: ${result.error}');
-            }
+        if (result.isSuccess) {
+          print(
+            '✅ ${step.name} completed in ${const UtilityService().formatDuration(result.duration)}',
+          );
+          if (result.message != null) {
+            print('   ${result.message}');
+          }
+        } else {
+          print('❌ ${step.name} failed: ${result.message}');
+          if (result.error != null) {
+            print('   Error: ${result.error}');
           }
         }
 

@@ -278,12 +278,8 @@ Future<ProcessingConfig> _buildConfigFromArgs(final ArgResults res) async {
   ); // Apply all configuration options
   if (res['verbose']) configBuilder.verboseOutput = true;
   if (res['copy']) configBuilder.copyMode = true;
-  if (!res['write-exif']) configBuilder.exifWriting = false;
   if (res['skip-extras']) configBuilder.skipExtras = true;
   if (!res['guess-from-name']) configBuilder.guessFromName = false;
-  if (res['transform-pixel-mp']) configBuilder.pixelTransformation = true;
-  if (res['update-creation-time']) configBuilder.creationTimeUpdate = true;
-  if (res['limit-filesize']) configBuilder.fileSizeLimit = true;
 
   // Set album behavior
   final albumBehavior = AlbumBehavior.fromString(res['albums']);
@@ -301,11 +297,46 @@ Future<ProcessingConfig> _buildConfigFromArgs(final ArgResults res) async {
         .interactiveService
         .askFixExtensions();
     extensionFixingMode = ExtensionFixingMode.fromString(extensionFixingChoice);
+
+    // Ask user for EXIF writing preference in interactive mode
+    print('');
+    final writeExif = await ServiceContainer.instance.interactiveService
+        .askIfWriteExif();
+    configBuilder.exifWriting = writeExif;
+
+    // Ask user for Pixel/MP file transformation in interactive mode
+    print('');
+    final transformPixelMP = await ServiceContainer.instance.interactiveService
+        .askTransformPixelMP();
+    configBuilder.pixelTransformation = transformPixelMP;
+
+    // Ask user for file size limiting in interactive mode
+    print('');
+    final limitFileSize = await ServiceContainer.instance.interactiveService
+        .askIfLimitFileSize();
+    configBuilder.fileSizeLimit = limitFileSize;
+
+    // Ask user for creation time update in interactive mode (Windows only)
+    if (Platform.isWindows) {
+      print('');
+      final updateCreationTime = await ServiceContainer
+          .instance
+          .interactiveService
+          .askChangeCreationTime();
+      configBuilder.creationTimeUpdate = updateCreationTime;
+    }
+
     configBuilder.interactiveMode = true;
   } else {
-    // Use command line argument or default
+    // Use command line arguments or defaults
     final fixExtensionsArg = res['fix-extensions'] ?? 'standard';
     extensionFixingMode = ExtensionFixingMode.fromString(fixExtensionsArg);
+
+    // Apply remaining configuration options from command line
+    if (!res['write-exif']) configBuilder.exifWriting = false;
+    if (res['transform-pixel-mp']) configBuilder.pixelTransformation = true;
+    if (res['update-creation-time']) configBuilder.creationTimeUpdate = true;
+    if (res['limit-filesize']) configBuilder.fileSizeLimit = true;
   }
   configBuilder.extensionFixing = extensionFixingMode;
 
@@ -496,19 +527,16 @@ Future<void> _configureDependencies(final ProcessingConfig config) async {
     ServiceContainer.instance.globalConfig.isVerbose = true;
     _logger.info('Verbose mode active!');
   }
-
   // Set global file size enforcement
   if (config.limitFileSize) {
     ServiceContainer.instance.globalConfig.enforceMaxFileSize = true;
   }
 
-  // Update ExifTool status
+  // Log ExifTool status (already set during ServiceContainer initialization)
   if (ServiceContainer.instance.exifTool != null) {
-    ServiceContainer.instance.globalConfig.exifToolInstalled = true;
-    _logger.info('Exiftool found! Continuing with EXIF support...');
+    print('Exiftool found! Continuing with EXIF support...');
   } else {
-    ServiceContainer.instance.globalConfig.exifToolInstalled = false;
-    _logger.info('Exiftool not found! Continuing without EXIF support...');
+    print('Exiftool not found! Continuing without EXIF support...');
   }
   sleep(const Duration(seconds: 3));
 }
