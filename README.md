@@ -22,7 +22,7 @@ When you export photos from Google Photos using [Google Takeout](https://takeout
 - ✅ **Organizes photos chronologically** with correct dates
 - ✅ **Restores album structure** with multiple handling options
 - ✅ **Fixes timestamps** from JSON metadata and EXIF data
-- ✅ **Writes GPS coordinates and timestamps** back to media files
+- ✅ **Writes GPS coordinates and timestamps** back to media files (requires ExifTool for non-JPEG formats)
 - ✅ **Removes duplicates** automatically
 - ✅ **Handles special formats** (HEIC, Motion Photos, etc.)
 - ✅ **Fixes mismatches of file name and mime type** if google photos renamed e.g. a .heic to .jpeg (but mime type remains heic) we can fix this mismatch
@@ -86,7 +86,7 @@ If this is an issue, choose manual extraction.
   ```
   - Or download from [exiftool.org](https://exiftool.org/) and place `exiftool` in PATH or same folder as `gpth`
 
-**Note**: If ExifTool is not found in PATH or the same directory as GPTH, the tool will fall back to basic EXIF reading with limited format support.
+**Note**: If ExifTool is not found in PATH or the same directory as GPTH, the tool will fall back to basic EXIF reading with limited format support. EXIF writing for non-JPEG formats requires ExifTool.
 
 ### 4. Download and Run GPTH
 
@@ -234,13 +234,13 @@ GPTH natively writes EXIF data to files with JPEG signatures, while other format
 
 #### Why These Modes Exist
 
-**The TIFF Problem**: Many RAW camera formats (CR2, NEF, ARW, etc.) are based on the TIFF specification internally. Standard MIME type detection often identifies these as `image/tiff`, which would cause the tool to rename `photo.CR2` to `photo.CR2.tiff`, potentially breaking camera software compatibility.
+**The TIFF Problem**: Many RAW camera formats (CR2, NEF, ARW, etc.) are based on the TIFF specification internally. Standard MIME type detection often identifies these as `image/tiff`, which could cause the tool to rename `photo.CR2` to `photo.CR2.tiff`, potentially breaking camera software compatibility.
 
 **The JPEG Complexity**: While JPEG files are generally safe to rename, the `conservative` mode provides an extra safety net for users who prefer minimal changes to their photo collections.
 
 **ExifTool Dependencies**: When extensions don't match content, ExifTool operations fail. The extension fixing resolves this by ensuring filenames accurately reflect file content, enabling proper metadata writing.
 
-**NOTE**: Some RAW formats are actually TIFF-based internally and contain TIFF headers - these cases are intentionally not considered "invalid" by the tool.
+**NOTE**: Some RAW formats are TIFF-based internally and contain TIFF headers - the extension fixing modes are designed to avoid incorrectly renaming these files.
 
 #### Practical Examples
 

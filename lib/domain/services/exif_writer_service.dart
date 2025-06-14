@@ -67,12 +67,16 @@ class ExifWriterService with LoggerMixin {
     }
   }
 
-  /// Writes DateTime to EXIF
+  /// Writes DateTime to EXIF metadata
+  ///
+  /// This method attempts to write DateTime information to a file's EXIF data.
+  /// For JPEG files, it first tries a native Dart approach, then falls back
+  /// to ExifTool if available. For other formats, ExifTool is required.
   ///
   /// [dateTime] DateTime to write
   /// [file] File to write to
   /// [globalConfig] Global configuration service
-  /// Returns true if successful
+  /// Returns true if successful, false if file already has DateTime or write failed
   Future<bool> writeDateTimeToExif(
     final DateTime dateTime,
     final File file,
@@ -83,18 +87,18 @@ class ExifWriterService with LoggerMixin {
       file.path,
       headerBytes: headerBytes,
     );
-    final String? mimeTypeFromExtension = lookupMimeType(file.path);
-
-    // Check if the file already has a dateTime in its EXIF data
+    final String? mimeTypeFromExtension = lookupMimeType(
+      file.path,
+    ); // Check if the file already has a DateTime in its EXIF data
     if (await ExifDateExtractor(
           _exifTool,
         ).exifDateTimeExtractor(file, globalConfig: globalConfig) !=
         null) {
+      // File already has DateTime, skip writing
       return false;
     }
-
     if (globalConfig.exifToolInstalled) {
-      // Try native way for JPEG files first
+      // Try native Dart implementation for JPEG files first (faster)
       if (mimeTypeFromHeader == 'image/jpeg' &&
           await _noExifToolDateTimeWriter(
             file,

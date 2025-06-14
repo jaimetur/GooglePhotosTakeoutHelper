@@ -9,9 +9,9 @@ import 'service_container.dart';
 /// Extracted from utils.dart to provide a clean, testable interface
 /// for file system operations commonly used throughout the application.
 ///
-/// NOTE: File size formatting and unique filename generation have been
-/// moved to ConsolidatedUtilityService. This service now focuses on
-/// file type detection and basic file operations.
+/// NOTE: File size formatting and unique filename generation are now
+/// available through ConsolidatedUtilityService (accessed via ServiceContainer).
+/// This service focuses on file type detection and basic file operations.
 class FileSystemService {
   /// Creates a new instance of FileSystemService
   const FileSystemService();
@@ -26,6 +26,10 @@ class FileSystemService {
 
   /// Checks if a file is a photo or video based on MIME type and extension
   ///
+  /// This method first checks MIME type using the dart:mime package, then
+  /// checks for additional extensions not supported by dart:mime including
+  /// RAW formats (.dng, .cr2) and Pixel motion photos (.mp, .mv).
+  ///
   /// [file] File to check
   /// Returns true if the file is a photo or video
   bool isPhotoOrVideo(final File file) {
@@ -33,10 +37,12 @@ class FileSystemService {
     final String fileExtension = p.extension(file.path).toLowerCase();
 
     return mime.startsWith('image/') ||
-        mime.startsWith('video/') ||
-        // https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/issues/223
-        // https://github.com/dart-lang/mime/issues/102
-        // 🙃🙃
+        mime.startsWith(
+          'video/',
+        ) || // Special handling for MTS files: dart-lang/mime package incorrectly
+        // identifies .mts video files as 'model/vnd.mts' instead of 'video/mp2t'
+        // See: https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/issues/223
+        // See: https://github.com/dart-lang/mime/issues/102
         mime == 'model/vnd.mts' ||
         _moreExtensions.contains(fileExtension);
   }

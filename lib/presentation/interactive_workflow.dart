@@ -1,7 +1,8 @@
 /// Interactive workflow orchestrator for Google Photos Takeout Helper
 ///
 /// Provides high-level workflow orchestration for interactive user sessions.
-/// All functionality is now handled by ConsolidatedInteractiveService.
+/// This class serves as a facade that delegates all functionality to the
+/// ConsolidatedInteractiveService through the ServiceContainer.
 library;
 
 import 'dart:io';
@@ -11,7 +12,8 @@ import '../domain/services/service_container.dart';
 /// Interactive workflow controller
 ///
 /// This class provides a clean interface to the consolidated interactive service.
-/// All actual implementation is delegated to ConsolidatedInteractiveService.
+/// All actual implementation is delegated to ConsolidatedInteractiveService,
+/// accessed through the ServiceContainer singleton.
 class InteractiveWorkflow {
   /// Creates a new InteractiveWorkflow instance
   const InteractiveWorkflow();

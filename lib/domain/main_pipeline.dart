@@ -15,17 +15,17 @@ import 'steps/step_07_move_files.dart';
 import 'steps/step_08_update_creation_time.dart';
 import 'value_objects/date_time_extraction_method.dart';
 
-/// Simple Processing Pipeline for Google Photos Takeout Helper
+/// Processing Pipeline for Google Photos Takeout Helper
 ///
-/// This pipeline executes the 8 processing steps in their fixed order:
-/// 1. Fix Extensions - Correct mismatched file extensions
-/// 2. Discover Media - Find and classify all media files
-/// 3. Remove Duplicates - Eliminate duplicate files
-/// 4. Extract Dates - Determine accurate timestamps
-/// 5. Write EXIF - Embed metadata into files
-/// 6. Find Albums - Merge album relationships
-/// 7. Move Files - Organize files to output structure
-/// 8. Update Creation Time - Sync timestamps (Windows only)
+/// This pipeline executes 8 processing steps in their fixed order:
+/// 1. Fix Extensions - Correct mismatched file extensions (configurable)
+/// 2. Discover Media - Find and classify all media files from input directory
+/// 3. Remove Duplicates - Eliminate duplicate files using content hashing
+/// 4. Extract Dates - Determine accurate timestamps from JSON, EXIF, and filenames
+/// 5. Write EXIF - Embed metadata into files (requires ExifTool for non-JPEG formats)
+/// 6. Find Albums - Detect and merge album relationships between duplicate files
+/// 7. Move Files - Organize files to output structure using selected album behavior
+/// 8. Update Creation Time - Sync file creation timestamps (Windows only, configurable)
 ///
 /// Each step checks configuration flags to determine if it should run.
 /// This eliminates the need for complex builder patterns while maintaining
@@ -115,8 +115,9 @@ class ProcessingPipeline {
       try {
         final result = await step.execute(context);
         stepResults.add(result);
-        stepTimings[step.name] =
-            result.duration; // Extract statistics from step results
+        stepTimings[step.name] = result.duration;
+
+        // Extract statistics from step results
         _extractStepStatistics(
           step,
           result,
@@ -174,8 +175,9 @@ class ProcessingPipeline {
         }
       }
     }
+    overallStopwatch.stop();
 
-    overallStopwatch.stop(); // Calculate final statistics
+    // Calculate final statistics
     final successfulSteps = stepResults
         .where((final StepResult r) => r.isSuccess)
         .length;

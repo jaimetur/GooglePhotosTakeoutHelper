@@ -4,8 +4,10 @@ import 'media_hash_service.dart';
 
 /// Service for detecting duplicate media files based on content hash and size
 ///
-/// Extracted from grouping.dart to provide clean, testable duplicate detection
-/// functionality following domain-driven design principles.
+/// This service provides efficient duplicate detection by first grouping files
+/// by size (fast comparison), then calculating content hashes only for files
+/// with matching sizes. Uses parallel processing with concurrency limits to
+/// balance performance with system resource usage.
 class DuplicateDetectionService {
   /// Creates a new instance of DuplicateDetectionService
   const DuplicateDetectionService({final MediaHashService? hashService})
@@ -18,9 +20,12 @@ class DuplicateDetectionService {
 
   /// Groups media entities by file size and hash for duplicate detection
   ///
-  /// First groups by file size (cheap comparison), then calculates hashes
-  /// only for files with matching sizes. Returns a map where:
-  /// - Key: Either "XXXbytes" for unique sizes, or hash string for duplicates
+  /// Uses a two-phase approach for efficiency:
+  /// 1. Group by file size (fast comparison using existing file metadata)
+  /// 2. For size-matching groups, calculate and compare content hashes
+  ///
+  /// Returns a map where:
+  /// - Key: Either "XXXbytes" for unique file sizes, or hash string for potential duplicates
   /// - Value: List of MediaEntity objects sharing that size/hash
   ///
   /// Single-item groups indicate unique files, multi-item groups are duplicates
@@ -88,12 +93,13 @@ class DuplicateDetectionService {
 
   /// Removes duplicate media from list of media entities
   ///
-  /// This is meant to be used early in processing, and it's aware of un-merged albums.
-  /// It will leave duplicated files if they have different album associations.
+  /// This method is designed for early-stage processing before album merging.
+  /// It preserves duplicated files that have different album associations,
+  /// ensuring no album relationships are lost during deduplication.
   ///
   /// [mediaList] List of media entities to deduplicate
-  /// [progressCallback] Optional callback for progress updates
-  /// Returns list with duplicates removed, keeping the best quality version
+  /// [progressCallback] Optional callback for progress updates (processed, total)
+  /// Returns list with duplicates removed, keeping the highest quality version
   Future<List<MediaEntity>> removeDuplicates(
     final List<MediaEntity> mediaList, {
     final void Function(int processed, int total)? progressCallback,

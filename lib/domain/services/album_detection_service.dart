@@ -54,14 +54,14 @@ class AlbumDetectionService with LoggerMixin {
     return mergedResults;
   }
 
-  /// Groups media entities by their content (using content hash)
+  /// Groups media entities by their content using file size and content hash
   Future<Map<String, List<MediaEntity>>> _groupIdenticalMedia(
     final List<MediaEntity> mediaList,
   ) async {
     final groups = <String, List<MediaEntity>>{};
 
     for (final entity in mediaList) {
-      // Use actual content hash for proper duplicate detection
+      // Use file size and MD5 content hash for reliable duplicate detection
       final size = await entity.primaryFile.length();
       final content = await entity.primaryFile.readAsBytes();
 
@@ -77,8 +77,12 @@ class AlbumDetectionService with LoggerMixin {
 
   /// Merges a group of identical media entities into a single entity
   ///
-  /// Combines all file associations and chooses the best metadata
-  /// based on date accuracy.
+  /// Combines all file associations and preserves the best metadata
+  /// from all entities in the group. The merging process:
+  /// 1. Starts with the first entity as the base
+  /// 2. Iteratively merges each additional entity
+  /// 3. Combines file associations from all entities
+  /// 4. Preserves all album relationships
   MediaEntity _mergeMediaGroup(final List<MediaEntity> group) {
     if (group.isEmpty) {
       throw ArgumentError('Cannot merge empty group');

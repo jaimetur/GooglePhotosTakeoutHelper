@@ -16,16 +16,16 @@ import 'package:path/path.dart' as p;
 ///
 /// **PROCESSING FLOW:**
 /// 1. Parse command line arguments → ProcessingConfig
-/// 2. Initialize dependencies (ExifTool, global state)
+/// 2. Initialize dependencies (ExifTool, ServiceContainer)
 /// 3. Execute ProcessingPipeline with 8 steps:
-///    - Fix Extensions: Correct mismatched file extensions
+///    - Fix Extensions: Correct mismatched file extensions (optional)
 ///    - Discover Media: Find and classify all media files
-///    - Remove Duplicates: Eliminate duplicate files
-///    - Extract Dates: Determine accurate timestamps
-///    - Write EXIF: Embed metadata into files
-///    - Find Albums: Merge album relationships
-///    - Move Files: Organize files to output structure
-///    - Update Creation Time: Sync timestamps (Windows only)
+///    - Remove Duplicates: Eliminate duplicate files using content hashing
+///    - Extract Dates: Determine accurate timestamps from multiple sources
+///    - Write EXIF: Embed metadata into files (when ExifTool available)
+///    - Find Albums: Detect and merge album relationships
+///    - Move Files: Organize files to output structure using selected album behavior
+///    - Update Creation Time: Sync file creation timestamps (Windows only, optional)
 /// 4. Display comprehensive results and statistics
 ///
 /// **DESIGN PATTERNS USED:**
@@ -76,14 +76,16 @@ Future<void> main(final List<String> arguments) async {
     final config = await _parseArguments(arguments);
     if (config == null) {
       return; // Help was shown or other early exit
-    }
-
-    // Update logger with correct verbosity
+    } // Update logger with correct verbosity
     _logger = LoggingService(isVerbose: config.verbose);
 
     // Configure dependencies with the parsed config
-    await _configureDependencies(config); // Execute the processing pipeline
-    final result = await _executeProcessing(config); // Show final results
+    await _configureDependencies(config);
+
+    // Execute the processing pipeline
+    final result = await _executeProcessing(config);
+
+    // Show final results
     _showResults(config, result);
 
     // Cleanup services
@@ -203,7 +205,7 @@ ArgParser _createArgumentParser() => ArgParser()
   )
   ..addFlag(
     'write-exif',
-    help: 'Write geodata and DateTime to EXIF',
+    help: 'Write geodata and DateTime to EXIF (requires ExifTool for non-JPEG)',
     defaultsTo: true,
   )
   ..addFlag(

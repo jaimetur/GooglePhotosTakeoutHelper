@@ -10,7 +10,10 @@ import 'extras_service.dart';
 ///
 /// This service analyzes file headers to determine the actual MIME type
 /// and renames files when their extensions don't match their content.
-/// Common issues include Google Photos incorrectly renaming AVI files to .mp4.
+/// Common issues include:
+/// - Google Photos compressing HEIC to JPEG but keeping original extension
+/// - Files incorrectly renamed from AVI to .mp4 during export
+/// - Web-downloaded images with generic or incorrect extensions
 class ExtensionFixingService with LoggerMixin {
   /// Creates a new extension fixing service
   ExtensionFixingService() : _mimeTypeService = const MimeTypeService();
@@ -64,9 +67,10 @@ class ExtensionFixingService with LoggerMixin {
       return false;
     }
 
-    final String? extensionMimeType = lookupMimeType(file.path);
-
-    // Skip TIFF-based files (like RAW formats) as mime lib doesn't support them well
+    final String? extensionMimeType = lookupMimeType(
+      file.path,
+    ); // Skip TIFF-based files (like RAW formats) as MIME detection often
+    // misidentifies these formats, and renaming could break camera software compatibility
     if (actualMimeType == 'image/tiff') {
       return false;
     }

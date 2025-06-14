@@ -32,22 +32,7 @@ import '../models/pipeline_step_model.dart';
 /// ### Platform Detection
 /// - **Windows Only**: Operation is only performed on Windows systems
 /// - **Graceful Skipping**: Silently skips on non-Windows platforms
-/// - **API Availability**: Uses Windows-specific file system APIs
-/// - **Compatibility**: Works across different Windows versions
-///
-/// ## Implementation Details
-///
-/// ### Windows API Integration
-/// - **Native Calls**: Uses Windows file system APIs for timestamp modification
-/// - **Error Handling**: Manages Windows-specific error codes and messages
-/// - **Permission Handling**: Respects file system security and permissions
-/// - **Batch Processing**: Efficiently processes large numbers of files
-///
-/// ### File Attribute Management
-/// - **Selective Update**: Only modifies creation time, preserves other attributes
-/// - **Security Preservation**: Maintains file permissions and security descriptors
-/// - **Metadata Protection**: Ensures EXIF and other metadata remain intact
-/// - **System Files**: Respects system file attributes and special flags
+/// - **Cross-Platform Compatibility**: Uses Dart's Platform detection for safety
 ///
 /// ## Configuration and Control
 ///
@@ -59,45 +44,8 @@ import '../models/pipeline_step_model.dart';
 ///
 /// ### Safety Features
 /// - **Non-Destructive**: Only modifies timestamps, never file content
-/// - **Rollback Information**: Logs original timestamps for potential restoration
 /// - **Error Recovery**: Continues processing if individual files fail
 /// - **Permission Respect**: Skips files that can't be modified due to permissions
-///
-/// ## Performance Characteristics
-///
-/// ### Optimization Strategies
-/// - **Batch Operations**: Groups file operations for efficiency
-/// - **Minimal I/O**: Only reads modification time and writes creation time
-/// - **Memory Efficiency**: Processes files without loading content into memory
-/// - **Progress Tracking**: Provides user feedback for large collections
-///
-/// ### Scalability
-/// - **Large Collections**: Efficiently handles thousands of files
-/// - **Resource Management**: Manages system resources appropriately
-/// - **Interruption Handling**: Can be safely interrupted without corruption
-/// - **Network Storage**: Works with network-mounted drives and UNC paths
-///
-/// ## Error Handling and Edge Cases
-///
-/// ### File System Issues
-/// - **Access Denied**: Gracefully handles permission-protected files
-/// - **File Locks**: Manages files locked by other applications
-/// - **Network Timeouts**: Handles network storage connectivity issues
-/// - **Disk Errors**: Manages hardware-level file system errors
-///
-/// ### Special File Types
-/// - **System Files**: Respects system file protections
-/// - **Hidden Files**: Processes hidden files when appropriate
-/// - **Compressed Files**: Handles NTFS compressed files correctly
-/// - **Encrypted Files**: Works with NTFS encrypted files
-///
-/// ### Windows Version Compatibility
-/// - **Legacy Windows**: Compatible with older Windows versions
-/// - **Modern Windows**: Takes advantage of newer API features when available
-/// - **Server Editions**: Works on Windows Server operating systems
-/// - **File System Types**: Compatible with NTFS, ReFS, and other Windows file systems
-///
-/// ## Integration and Dependencies
 ///
 /// ### Step Sequencing
 /// - **Final Step**: Runs as the last step after all file operations complete

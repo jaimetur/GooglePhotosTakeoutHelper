@@ -10,7 +10,8 @@ import 'logging_service.dart';
 /// Service for handling ZIP file extraction with safety checks and error handling
 ///
 /// This service provides secure ZIP extraction functionality with comprehensive
-/// error handling, progress reporting, and security checks to prevent vulnerabilities.
+/// error handling, progress reporting, and security validation to prevent
+/// common ZIP-based vulnerabilities like path traversal attacks (Zip Slip).
 class ZipExtractionService {
   /// Creates a new instance of ZipExtractionService
   ZipExtractionService({final InteractivePresenter? presenter})
@@ -19,7 +20,7 @@ class ZipExtractionService {
   final InteractivePresenter _presenter;
   final LoggingService _logger = const LoggingService();
 
-  /// Unzips all zips to given folder (creates it if needed)
+  /// Extracts all ZIP files to the specified directory
   ///
   /// This function safely extracts all provided ZIP files to the specified directory.
   /// It includes comprehensive error handling, progress reporting, and cross-platform support.
