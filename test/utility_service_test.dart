@@ -137,31 +137,31 @@ void main() {
 
     group('formatDuration', () {
       test('formats duration less than 1 minute as seconds', () {
-        final duration = Duration(seconds: 30);
+        const duration = Duration(seconds: 30);
         final formatted = service.formatDuration(duration);
         expect(formatted, equals('30s'));
       });
 
       test('formats duration equal to 1 minute', () {
-        final duration = Duration(minutes: 1);
+        const duration = Duration(minutes: 1);
         final formatted = service.formatDuration(duration);
         expect(formatted, equals('1m 0s'));
       });
 
       test('formats duration with minutes and seconds', () {
-        final duration = Duration(minutes: 2, seconds: 45);
+        const duration = Duration(minutes: 2, seconds: 45);
         final formatted = service.formatDuration(duration);
         expect(formatted, equals('2m 45s'));
       });
 
       test('formats large duration correctly', () {
-        final duration = Duration(hours: 1, minutes: 30, seconds: 15);
+        const duration = Duration(hours: 1, minutes: 30, seconds: 15);
         final formatted = service.formatDuration(duration);
         expect(formatted, equals('90m 15s'));
       });
 
       test('formats zero duration', () {
-        final duration = Duration.zero;
+        const duration = Duration.zero;
         final formatted = service.formatDuration(duration);
         expect(formatted, equals('0s'));
       });
@@ -173,10 +173,7 @@ void main() {
         () async {
           final dir = Directory(fixture.basePath);
 
-          final result = await service.validateDirectory(
-            dir,
-            shouldExist: true,
-          );
+          final result = await service.validateDirectory(dir);
 
           expect(result, isTrue);
         },
@@ -187,10 +184,7 @@ void main() {
         () async {
           final dir = Directory('${fixture.basePath}/non-existent');
 
-          final result = await service.validateDirectory(
-            dir,
-            shouldExist: true,
-          );
+          final result = await service.validateDirectory(dir);
 
           expect(result, isFalse);
         },

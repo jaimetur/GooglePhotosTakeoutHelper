@@ -62,14 +62,17 @@
 library;
 
 import 'dart:io';
+
 import 'package:gpth/domain/services/file_system_service.dart';
 import 'package:gpth/domain/services/logging_service.dart';
+import 'package:gpth/domain/services/service_container.dart';
 import 'package:gpth/domain/services/utility_service.dart';
 import 'package:gpth/infrastructure/platform_service.dart';
 import 'package:gpth/infrastructure/windows_shortcut_service.dart';
 import 'package:gpth/shared/extensions/media_extensions.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+
 import './test_setup.dart';
 
 void main() {
@@ -83,6 +86,7 @@ void main() {
     setUp(() async {
       fixture = TestFixture();
       await fixture.setUp();
+      await ServiceContainer.instance.initialize();
       fileSystemService = const FileSystemService();
       utilityService = const UtilityService();
       platformService = const PlatformService();
@@ -91,6 +95,7 @@ void main() {
 
     tearDown(() async {
       await fixture.tearDown();
+      await ServiceContainer.reset();
     });
 
     group('Stream Extensions', () {

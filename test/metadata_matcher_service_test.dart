@@ -5,9 +5,9 @@
 library;
 
 import 'dart:io';
-import 'package:path/path.dart' as p;
 
 import 'package:gpth/domain/services/metadata_matcher_service.dart';
+import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import 'test_setup.dart';
@@ -58,14 +58,15 @@ void main() {
 
       test('prefers supplemental metadata over regular JSON', () async {
         final mediaFile = fixture.createImageWithExif('photo.jpg');
-        
-        final regularJsonFile = File(p.join(fixture.basePath, 'photo.jpg.json'));
+
+        final regularJsonFile = File(
+          p.join(fixture.basePath, 'photo.jpg.json'),
+        );
         await regularJsonFile.writeAsString('{"test": "regular"}');
-        
-        final supplementalJsonFile = File(p.join(
-          fixture.basePath,
-          'photo.jpg.supplemental-metadata.json',
-        ));
+
+        final supplementalJsonFile = File(
+          p.join(fixture.basePath, 'photo.jpg.supplemental-metadata.json'),
+        );
         await supplementalJsonFile.writeAsString('{"test": "supplemental"}');
 
         final result = await JsonFileMatcherService.findJsonForFile(
@@ -94,7 +95,7 @@ void main() {
         // Create a file that would need shortening when adding .json
         const shortName = 'test.jpg';
         final mediaFile = fixture.createImageWithExif(shortName);
-        
+
         // Basic strategy should find direct match first
         final jsonFile = File(p.join(fixture.basePath, '$shortName.json'));
         await jsonFile.writeAsString('{"test": "basic"}');
@@ -110,7 +111,7 @@ void main() {
 
       test('finds JSON with different strategies when tryhard enabled', () async {
         final mediaFile = fixture.createImageWithExif('image.jpg');
-        
+
         // No exact match, but strategies might find alternatives
         final result = await JsonFileMatcherService.findJsonForFile(
           mediaFile,
@@ -127,7 +128,7 @@ void main() {
       test('handles files with no extension', () async {
         final mediaFile = File(p.join(fixture.basePath, 'no_extension'));
         await mediaFile.writeAsBytes([1, 2, 3]); // Dummy content
-        
+
         final jsonFile = File(p.join(fixture.basePath, 'no_extension.json'));
         await jsonFile.writeAsString('{"test": "no extension"}');
 
@@ -142,8 +143,10 @@ void main() {
 
       test('handles files with multiple dots in name', () async {
         final mediaFile = fixture.createImageWithExif('file.with.dots.jpg');
-        
-        final jsonFile = File(p.join(fixture.basePath, 'file.with.dots.jpg.json'));
+
+        final jsonFile = File(
+          p.join(fixture.basePath, 'file.with.dots.jpg.json'),
+        );
         await jsonFile.writeAsString('{"test": "multiple dots"}');
 
         final result = await JsonFileMatcherService.findJsonForFile(
@@ -157,7 +160,7 @@ void main() {
 
       test('handles very short filenames', () async {
         final mediaFile = fixture.createImageWithExif('a.jpg');
-        
+
         final jsonFile = File(p.join(fixture.basePath, 'a.jpg.json'));
         await jsonFile.writeAsString('{"test": "short"}');
 
@@ -172,7 +175,7 @@ void main() {
 
       test('handles case sensitivity appropriately', () async {
         final mediaFile = fixture.createImageWithExif('Photo.JPG');
-        
+
         final jsonFile = File(p.join(fixture.basePath, 'Photo.JPG.json'));
         await jsonFile.writeAsString('{"test": "case"}');
 
@@ -189,13 +192,13 @@ void main() {
     group('findJsonForFile - performance', () {
       test('handles directories with many files efficiently', () async {
         final mediaFile = fixture.createImageWithExif('target.jpg');
-        
+
         // Create many unrelated files
         for (int i = 0; i < 50; i++) {
           final file = File(p.join(fixture.basePath, 'unrelated_$i.txt'));
           await file.writeAsString('content $i');
         }
-        
+
         final jsonFile = File(p.join(fixture.basePath, 'target.jpg.json'));
         await jsonFile.writeAsString('{"test": "performance"}');
 
@@ -214,7 +217,7 @@ void main() {
 
       test('tryhard mode completes in reasonable time', () async {
         final mediaFile = fixture.createImageWithExif('test.jpg');
-        
+
         final stopwatch = Stopwatch()..start();
         final result = await JsonFileMatcherService.findJsonForFile(
           mediaFile,
@@ -230,8 +233,10 @@ void main() {
 
     group('findJsonForFile - error handling', () {
       test('handles non-existent media file gracefully', () async {
-        final nonExistentFile = File(p.join(fixture.basePath, 'nonexistent.jpg'));
-        
+        final nonExistentFile = File(
+          p.join(fixture.basePath, 'nonexistent.jpg'),
+        );
+
         final result = await JsonFileMatcherService.findJsonForFile(
           nonExistentFile,
           tryhard: false,
@@ -243,7 +248,7 @@ void main() {
 
       test('handles permission errors gracefully', () async {
         final mediaFile = fixture.createImageWithExif('protected.jpg');
-        
+
         // Create a JSON file
         final jsonFile = File(p.join(fixture.basePath, 'protected.jpg.json'));
         await jsonFile.writeAsString('{"test": "protected"}');

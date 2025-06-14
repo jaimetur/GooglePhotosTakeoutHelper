@@ -5,9 +5,9 @@
 library;
 
 import 'dart:io';
-import 'package:path/path.dart' as p;
 
 import 'package:gpth/domain/services/metadata_matcher_service.dart';
+import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import 'test_setup.dart';

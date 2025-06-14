@@ -44,9 +44,7 @@ void main() {
       test('resolves path when pointing to Takeout directory', () {
         // Create Takeout/Google Photos structure
         final takeoutDir = fixture.createDirectory('Takeout');
-        final googlePhotosDir = fixture.createDirectory(
-          'Takeout/Google Photos',
-        );
+        fixture.createDirectory('Takeout/Google Photos');
         fixture.createDirectory('Takeout/Google Photos/Photos from 2023');
         fixture.createImageWithExif(
           'Takeout/Google Photos/Photos from 2023/photo.jpg',
@@ -56,15 +54,16 @@ void main() {
           takeoutDir.path,
         );
 
-        expect(result, equals(googlePhotosDir.path));
+        expect(
+          result,
+          equals(p.join(fixture.basePath, 'Takeout', 'Google Photos')),
+        );
       });
       test('resolves path when pointing to parent of Takeout directory', () {
         // Create parent/Takeout/Google Photos structure
         final parentDir = fixture.createDirectory('Export');
         fixture.createDirectory('Export/Takeout');
-        final googlePhotosDir = fixture.createDirectory(
-          'Export/Takeout/Google Photos',
-        );
+        fixture.createDirectory('Export/Takeout/Google Photos');
         fixture.createDirectory(
           'Export/Takeout/Google Photos/Photos from 2023',
         );
@@ -76,7 +75,12 @@ void main() {
           parentDir.path,
         );
 
-        expect(result, equals(googlePhotosDir.path));
+        expect(
+          result,
+          equals(
+            p.join(fixture.basePath, 'Export', 'Takeout', 'Google Photos'),
+          ),
+        );
       });
       test('recognizes Google Photos directory with album folders', () {
         // Create Google Photos structure with albums instead of year folders
@@ -98,7 +102,13 @@ void main() {
           () => TakeoutPathResolverService.resolveGooglePhotosPath(
             nonExistentPath,
           ),
-          throwsA(isA<DirectoryNotFoundException>()),
+          throwsA(
+            predicate(
+              (final e) =>
+                  e is DirectoryNotFoundException &&
+                  e.toString().contains('Input directory does not exist'),
+            ),
+          ),
         );
       });
 
@@ -111,16 +121,22 @@ void main() {
           () => TakeoutPathResolverService.resolveGooglePhotosPath(
             invalidDir.path,
           ),
-          throwsA(isA<InvalidTakeoutStructureException>()),
+          throwsA(
+            predicate(
+              (final e) =>
+                  e is InvalidTakeoutStructureException &&
+                  e.toString().contains(
+                    'Could not find valid Google Photos Takeout structure',
+                  ),
+            ),
+          ),
         );
       });
       test('handles nested Takeout structure', () {
         // Create nested structure with multiple levels
         final rootDir = fixture.createDirectory('MyExport');
         fixture.createDirectory('MyExport/Takeout');
-        final googlePhotosDir = fixture.createDirectory(
-          'MyExport/Takeout/Google Photos',
-        );
+        fixture.createDirectory('MyExport/Takeout/Google Photos');
         fixture.createDirectory(
           'MyExport/Takeout/Google Photos/Photos from 2022',
         );
@@ -138,15 +154,18 @@ void main() {
           rootDir.path,
         );
 
-        expect(result, equals(googlePhotosDir.path));
+        expect(
+          result,
+          equals(
+            p.join(fixture.basePath, 'MyExport', 'Takeout', 'Google Photos'),
+          ),
+        );
       });
       test('handles case-insensitive Takeout directory matching', () {
         // Create structure with different case
         final parentDir = fixture.createDirectory('Export');
         fixture.createDirectory('Export/TAKEOUT');
-        final googlePhotosDir = fixture.createDirectory(
-          'Export/TAKEOUT/Google Photos',
-        );
+        fixture.createDirectory('Export/TAKEOUT/Google Photos');
         fixture.createDirectory(
           'Export/TAKEOUT/Google Photos/Photos from 2023',
         );
@@ -158,7 +177,12 @@ void main() {
           parentDir.path,
         );
 
-        expect(result, equals(googlePhotosDir.path));
+        expect(
+          result,
+          equals(
+            p.join(fixture.basePath, 'Export', 'TAKEOUT', 'Google Photos'),
+          ),
+        );
       });
 
       test('validates presence of media files in year folders', () {

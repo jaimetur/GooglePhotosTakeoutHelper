@@ -46,7 +46,10 @@ void main() {
 
         final entities = [
           MediaEntity.single(file: yearPhoto, dateTaken: DateTime(2023)),
-          MediaEntity.single(file: albumPhoto, dateTaken: DateTime(2023)),
+          MediaEntity.fromMap(
+            files: {'Vacation': albumPhoto},
+            dateTaken: DateTime(2023),
+          ),
         ];
 
         final merged = await service.detectAndMergeAlbums(entities);
@@ -105,8 +108,14 @@ void main() {
 
         final entities = [
           MediaEntity.single(file: yearPhoto, dateTaken: DateTime(2023)),
-          MediaEntity.single(file: album1Photo, dateTaken: DateTime(2023)),
-          MediaEntity.single(file: album2Photo, dateTaken: DateTime(2023)),
+          MediaEntity.fromMap(
+            files: {'Vacation': album1Photo},
+            dateTaken: DateTime(2023),
+          ),
+          MediaEntity.fromMap(
+            files: {'Summer': album2Photo},
+            dateTaken: DateTime(2023),
+          ),
         ];
 
         final merged = await service.detectAndMergeAlbums(entities);
@@ -114,6 +123,7 @@ void main() {
         // Should merge all three into one entity
         expect(merged.length, equals(1));
         expect(merged.first.files.length, equals(3));
+        expect(merged.first.albumNames, containsAll(['Vacation', 'Summer']));
       });
     });
 

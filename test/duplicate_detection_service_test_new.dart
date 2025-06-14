@@ -153,7 +153,7 @@ void main() {
 
         await service.removeDuplicates(
           [media1, media2],
-          progressCallback: (processed, total) {
+          progressCallback: (final processed, final total) {
             callCount++;
             lastProcessed = processed;
             lastTotal = total;
@@ -301,7 +301,7 @@ void main() {
 
     group('DuplicateStats', () {
       test('calculates duplicate percentage correctly', () {
-        final stats = DuplicateStats(
+        const stats = DuplicateStats(
           totalFiles: 10,
           uniqueFiles: 7,
           duplicateGroups: 1,
@@ -313,7 +313,7 @@ void main() {
       });
 
       test('handles zero total files', () {
-        final stats = DuplicateStats(
+        const stats = DuplicateStats(
           totalFiles: 0,
           uniqueFiles: 0,
           duplicateGroups: 0,
@@ -325,7 +325,7 @@ void main() {
       });
 
       test('generates summary string', () {
-        final stats = DuplicateStats(
+        const stats = DuplicateStats(
           totalFiles: 10,
           uniqueFiles: 7,
           duplicateGroups: 2,
@@ -347,16 +347,16 @@ class MockMediaHashService implements MediaHashService {
   final Map<File, int> _fileSizes = {};
   final Map<File, String> _fileHashes = {};
 
-  void mockFileSize(File file, int size) {
+  void mockFileSize(final File file, final int size) {
     _fileSizes[file] = size;
   }
 
-  void mockFileHash(File file, String hash) {
+  void mockFileHash(final File file, final String hash) {
     _fileHashes[file] = hash;
   }
 
   @override
-  Future<int> calculateFileSize(File file) async {
+  Future<int> calculateFileSize(final File file) async {
     if (_fileSizes.containsKey(file)) {
       return _fileSizes[file]!;
     }
@@ -364,7 +364,7 @@ class MockMediaHashService implements MediaHashService {
   }
 
   @override
-  Future<String> calculateFileHash(File file) async {
+  Future<String> calculateFileHash(final File file) async {
     if (_fileHashes.containsKey(file)) {
       return _fileHashes[file]!;
     }
@@ -372,7 +372,9 @@ class MockMediaHashService implements MediaHashService {
   }
 
   @override
-  Future<({String hash, int size})> calculateHashAndSize(File file) async {
+  Future<({String hash, int size})> calculateHashAndSize(
+    final File file,
+  ) async {
     final hash = await calculateFileHash(file);
     final size = await calculateFileSize(file);
     return (hash: hash, size: size);
@@ -380,8 +382,8 @@ class MockMediaHashService implements MediaHashService {
 
   @override
   Future<Map<String, String>> calculateMultipleHashes(
-    List<File> files, {
-    int? maxConcurrency,
+    final List<File> files, {
+    final int? maxConcurrency,
   }) async {
     final results = <String, String>{};
     for (final file in files) {
@@ -396,7 +398,7 @@ class MockMediaHashService implements MediaHashService {
   }
 
   @override
-  Future<bool> areFilesIdentical(File file1, File file2) async {
+  Future<bool> areFilesIdentical(final File file1, final File file2) async {
     final size1 = await calculateFileSize(file1);
     final size2 = await calculateFileSize(file2);
     if (size1 != size2) return false;
@@ -408,19 +410,16 @@ class MockMediaHashService implements MediaHashService {
 }
 
 /// Helper function to create test MediaEntity
-MediaEntity createTestMediaEntity(File file) {
-  return MediaEntity.single(file: file);
-}
+MediaEntity createTestMediaEntity(final File file) =>
+    MediaEntity.single(file: file);
 
 /// Helper function to create test MediaEntity with date information
 MediaEntity createTestMediaEntityWithDate(
-  File file, {
-  DateTime? dateTaken,
-  DateAccuracy? dateAccuracy,
-}) {
-  return MediaEntity.single(
-    file: file,
-    dateTaken: dateTaken,
-    dateAccuracy: dateAccuracy,
-  );
-}
+  final File file, {
+  final DateTime? dateTaken,
+  final DateAccuracy? dateAccuracy,
+}) => MediaEntity.single(
+  file: file,
+  dateTaken: dateTaken,
+  dateAccuracy: dateAccuracy,
+);
