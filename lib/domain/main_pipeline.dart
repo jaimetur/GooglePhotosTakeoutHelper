@@ -87,16 +87,12 @@ class ProcessingPipeline {
         'Configuration: ${config.albumBehavior.name} album behavior, '
         '${config.dateDivision.name} date division',
       );
-    }
-
-    // Execute each step in sequence
+    } // Execute each step in sequence
     for (int i = 0; i < steps.length; i++) {
       final step = steps[i];
       final stepNumber = i + 1;
 
-      if (config.verbose) {
-        print('\n--- Step $stepNumber/8: ${step.name} ---');
-      }
+      print('\n--- Step $stepNumber/8: ${step.name} ---');
 
       // Check if step should be skipped
       if (step.shouldSkip(context)) {

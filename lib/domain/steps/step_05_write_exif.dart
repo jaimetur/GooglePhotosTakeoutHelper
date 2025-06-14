@@ -173,27 +173,20 @@ class WriteExifStep extends ProcessingStep {
           },
           message: 'EXIF writing skipped per configuration',
         );
-      }
-
-      // Initialize progress bar if verbose mode is enabled
-      FillingBar? progressBar;
-      if (context.config.verbose) {
-        progressBar = FillingBar(
-          desc: 'Writing EXIF data',
-          total: context.mediaCollection.length,
-          width: 50,
-        );
-      }
+      } // Initialize progress bar - always visible
+      final progressBar = FillingBar(
+        desc: 'Writing EXIF data',
+        total: context.mediaCollection.length,
+        width: 50,
+      );
 
       final result = await context.mediaCollection.writeExifData(
-        onProgress: context.config.verbose
-            ? (final current, final total) {
-                progressBar?.update(current);
-                if (current == total) {
-                  print(''); // Add a newline after progress bar completion
-                }
-              }
-            : null,
+        onProgress: (final current, final total) {
+          progressBar.update(current);
+          if (current == total) {
+            print(''); // Add a newline after progress bar completion
+          }
+        },
       );
       if (context.config.verbose) {
         print('EXIF writing completed:');

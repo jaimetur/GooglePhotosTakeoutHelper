@@ -154,15 +154,12 @@ class MoveFilesStep extends ProcessingStep {
     final stopwatch = Stopwatch()..start();
 
     try {
-      // Initialize progress bar if verbose mode is enabled
-      FillingBar? progressBar;
-      if (context.config.verbose) {
-        progressBar = FillingBar(
-          desc: 'Moving files',
-          total: context.mediaCollection.length,
-          width: 50,
-        );
-      } // Create modern moving context
+      // Initialize progress bar - always visible
+      final progressBar = FillingBar(
+        desc: 'Moving files',
+        total: context.mediaCollection.length,
+        width: 50,
+      ); // Create modern moving context
       final movingContext = MovingContext(
         outputDirectory: context.outputDirectory,
         copyMode: context.config.copyMode,
@@ -172,16 +169,13 @@ class MoveFilesStep extends ProcessingStep {
 
       // Create the moving service
       final movingService = MediaEntityMovingService();
-
       int processedCount = 0;
       await for (final _ in movingService.moveMediaEntities(
         context.mediaCollection,
         movingContext,
       )) {
         processedCount++;
-        if (context.config.verbose) {
-          progressBar?.update(processedCount);
-        }
+        progressBar.update(processedCount);
       }
 
       stopwatch.stop();

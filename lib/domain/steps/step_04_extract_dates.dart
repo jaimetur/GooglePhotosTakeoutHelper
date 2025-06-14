@@ -126,17 +126,15 @@ class ExtractDatesStep extends ProcessingStep {
     try {
       print('\n[Step 4/8] Extracting metadata (this may take a while)...');
 
-      final extractors = context.config.dateExtractors;
+      final extractors = context
+          .config
+          .dateExtractors; // Initialize progress bar - always visible
+      final progressBar = FillingBar(
+        desc: 'Processing media files',
+        total: context.mediaCollection.length,
+        width: 50,
+      );
 
-      // Initialize progress bar if verbose mode is enabled
-      FillingBar? progressBar;
-      if (context.config.verbose) {
-        progressBar = FillingBar(
-          desc: 'Processing media files',
-          total: context.mediaCollection.length,
-          width: 50,
-        );
-      }
       final extractionStats = await context.mediaCollection.extractDates(
         extractors
             .map(
@@ -144,14 +142,12 @@ class ExtractDatesStep extends ProcessingStep {
                   (final MediaEntity entity) => extractor(entity.primaryFile),
             )
             .toList(),
-        onProgress: context.config.verbose
-            ? (final int current, final int total) {
-                progressBar?.update(current);
-                if (current == total) {
-                  print(''); // Add a newline after progress bar completion
-                }
-              }
-            : null,
+        onProgress: (final int current, final int total) {
+          progressBar.update(current);
+          if (current == total) {
+            print(''); // Add a newline after progress bar completion
+          }
+        },
       );
 
       print('Date extraction completed:');
