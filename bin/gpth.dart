@@ -280,18 +280,22 @@ Future<ProcessingConfig> _buildConfigFromArgs(final ArgResults res) async {
   if (res['copy']) configBuilder.copyMode = true;
   if (res['skip-extras']) configBuilder.skipExtras = true;
   if (!res['guess-from-name']) configBuilder.guessFromName = false;
-
   // Set album behavior
   final albumBehavior = AlbumBehavior.fromString(res['albums']);
   configBuilder.albumBehavior = albumBehavior;
-  // Set date division
-  final divisionLevel = DateDivisionLevel.fromInt(
-    int.parse(res['divide-to-dates']),
-  );
-  configBuilder.dateDivision = divisionLevel; // Set extension fixing mode
+
+  // Set extension fixing mode
   ExtensionFixingMode extensionFixingMode;
   if (isInteractiveMode) {
+    // Ask user for date division preference in interactive mode
+    print('');
+    final dateDivision = await ServiceContainer.instance.interactiveService
+        .askDivideDates();
+    final divisionLevel = DateDivisionLevel.fromInt(dateDivision);
+    configBuilder.dateDivision = divisionLevel;
+
     // Ask user for extension fixing preference in interactive mode
+    print('');
     final extensionFixingChoice = await ServiceContainer
         .instance
         .interactiveService
@@ -325,9 +329,14 @@ Future<ProcessingConfig> _buildConfigFromArgs(final ArgResults res) async {
           .askChangeCreationTime();
       configBuilder.creationTimeUpdate = updateCreationTime;
     }
-
     configBuilder.interactiveMode = true;
   } else {
+    // Set date division from command line arguments
+    final divisionLevel = DateDivisionLevel.fromInt(
+      int.parse(res['divide-to-dates']),
+    );
+    configBuilder.dateDivision = divisionLevel;
+
     // Use command line arguments or defaults
     final fixExtensionsArg = res['fix-extensions'] ?? 'standard';
     extensionFixingMode = ExtensionFixingMode.fromString(fixExtensionsArg);

@@ -40,11 +40,6 @@ class MockInteractivePresenter extends InteractivePresenter {
   }
 
   @override
-  Future<void> showDateDivisionChoice(final String choice) async {
-    _messages.add('date_choice: $choice');
-  }
-
-  @override
   Future<void> promptForAlbumBehavior() async {
     _prompts.add('album_behavior');
   }
@@ -71,6 +66,18 @@ class MockInteractivePresenter extends InteractivePresenter {
   @override
   Future<void> showNothingFoundMessage() async {
     _messages.add('nothing_found_shown');
+  }
+
+  @override
+  Future<void> showUserSelection(
+    final String input,
+    final String selectedValue,
+  ) async {
+    String displayValue = selectedValue;
+    if (input.isEmpty) {
+      displayValue = '$selectedValue (default)';
+    }
+    _messages.add('user_selection: $displayValue');
   }
 
   void clearHistory() {
@@ -124,29 +131,27 @@ void main() {
 
         final result = await service.askDivideDates();
 
-        expect(
-          result,
-          equals(0),
-        ); // Input '1' maps to option 0 (one big folder)
+        expect(result, equals(1)); // Input '1' maps to option 1 (year folders)
         expect(mockPresenter.prompts, contains('date_division'));
         expect(
           mockPresenter.messages,
-          contains('date_choice: Will put all photos into one folder'),
+          contains('user_selection: year folders'),
         );
       });
-
       test('should handle year division option', () async {
         mockPresenter.setInputs(['2']);
 
         final result = await service.askDivideDates();
 
-        expect(result, equals(1)); // Input '2' maps to option 1 (year folders)
+        expect(
+          result,
+          equals(2),
+        ); // Input '2' maps to option 2 (year/month folders)
         expect(
           mockPresenter.messages,
-          contains('date_choice: Will divide by year'),
+          contains('user_selection: year/month folders'),
         );
       });
-
       test('should handle year/month division option', () async {
         mockPresenter.setInputs(['3']);
 
@@ -154,11 +159,11 @@ void main() {
 
         expect(
           result,
-          equals(2),
-        ); // Input '3' maps to option 2 (year/month folders)
+          equals(3),
+        ); // Input '3' maps to option 3 (year/month/day folders)
         expect(
           mockPresenter.messages,
-          contains('date_choice: Will divide by year and month'),
+          contains('user_selection: year/month/day folders'),
         );
       });
 
@@ -166,23 +171,36 @@ void main() {
         mockPresenter.setInputs(['4']);
 
         final result = await service.askDivideDates();
-
         expect(
           result,
           equals(3),
-        ); // Input '4' maps to option 3 (year/month/day folders)
+        ); // Input '3' maps to option 3 (year/month/day folders)
         expect(
           mockPresenter.messages,
-          contains('date_choice: Will divide by year, month, and day'),
+          contains('user_selection: year/month/day folders'),
         );
       });
-
       test('should retry on invalid input', () async {
         mockPresenter.setInputs(['invalid', '99', '1']);
 
         final result = await service.askDivideDates();
 
-        expect(result, equals(0));
+        expect(result, equals(1)); // Input '1' maps to option 1 (year folders)
+      });
+
+      test('should handle default (empty) input', () async {
+        mockPresenter.setInputs(['']);
+
+        final result = await service.askDivideDates();
+
+        expect(
+          result,
+          equals(0),
+        ); // Empty input maps to option 0 (one big folder)
+        expect(
+          mockPresenter.messages,
+          contains('user_selection: one big folder (default)'),
+        );
       });
     });
 

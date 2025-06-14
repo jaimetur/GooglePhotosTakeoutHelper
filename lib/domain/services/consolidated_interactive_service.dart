@@ -66,24 +66,18 @@ class ConsolidatedInteractiveService with LoggerMixin {
     while (true) {
       final input = await readUserInput();
       switch (input) {
-        case '1':
+        case '0':
         case '':
-          await _presenter.showDateDivisionChoice(
-            'Will put all photos into one folder',
-          );
+          await _presenter.showUserSelection(input, 'one big folder');
           return 0;
-        case '2':
-          await _presenter.showDateDivisionChoice('Will divide by year');
+        case '1':
+          await _presenter.showUserSelection(input, 'year folders');
           return 1;
-        case '3':
-          await _presenter.showDateDivisionChoice(
-            'Will divide by year and month',
-          );
+        case '2':
+          await _presenter.showUserSelection(input, 'year/month folders');
           return 2;
-        case '4':
-          await _presenter.showDateDivisionChoice(
-            'Will divide by year, month, and day',
-          );
+        case '3':
+          await _presenter.showUserSelection(input, 'year/month/day folders');
           return 3;
         default:
           await _presenter.showInvalidAnswerError();
@@ -104,14 +98,16 @@ class ConsolidatedInteractiveService with LoggerMixin {
     }
 
     while (true) {
-      final int? answer = int.tryParse(await readUserInput());
+      final input = await readUserInput();
+      final int? answer = int.tryParse(input);
       if (answer != null &&
           answer >= 0 &&
           answer < InteractivePresenter.albumOptions.length) {
         final String choice = InteractivePresenter.albumOptions.keys.elementAt(
           answer,
         );
-        await _presenter.showAlbumChoice(choice);
+        final String description = InteractivePresenter.albumOptions[choice]!;
+        await _presenter.showUserSelection(input, '$choice: $description');
         return choice;
       }
       await _presenter.showInvalidAnswerError();
@@ -125,14 +121,24 @@ class ConsolidatedInteractiveService with LoggerMixin {
     while (true) {
       final input = await readUserInput();
       switch (input) {
-        case 'y':
-        case 'yes':
-          await _presenter.showOutputCleanupResponse(input);
+        case '1':
+          await _presenter.showUserSelection(
+            input,
+            'delete all files inside output folder and continue',
+          );
           return true;
-        case 'n':
-        case 'no':
-          await _presenter.showOutputCleanupResponse(input);
+        case '2':
+          await _presenter.showUserSelection(
+            input,
+            'continue as usual - put output files alongside existing',
+          );
           return false;
+        case '3':
+          await _presenter.showUserSelection(
+            input,
+            'exit program to examine situation yourself',
+          );
+          exit(0);
         default:
           await _presenter.showInvalidAnswerError();
           continue;
@@ -149,12 +155,20 @@ class ConsolidatedInteractiveService with LoggerMixin {
       switch (input) {
         case 'y':
         case 'yes':
-          await _presenter.showPixelMpTransformResponse(input);
+        case '1':
+          await _presenter.showUserSelection(
+            input,
+            'yes, change extension to .mp4',
+          );
           return true;
         case 'n':
         case 'no':
         case '':
-          await _presenter.showPixelMpTransformResponse(input);
+        case '2':
+          await _presenter.showUserSelection(
+            input,
+            'no, keep original extension',
+          );
           return false;
         default:
           await _presenter.showInvalidAnswerError();
@@ -172,12 +186,20 @@ class ConsolidatedInteractiveService with LoggerMixin {
       switch (input) {
         case 'y':
         case 'yes':
-          await _presenter.showCreationTimeUpdateResponse(input);
+        case '2':
+          await _presenter.showUserSelection(
+            input,
+            'yes, update creation time to match modified time',
+          );
           return true;
         case 'n':
         case 'no':
         case '':
-          await _presenter.showCreationTimeUpdateResponse(input);
+        case '1':
+          await _presenter.showUserSelection(
+            input,
+            'no, don\'t update creation time',
+          );
           return false;
         default:
           await _presenter.showInvalidAnswerError();
@@ -196,11 +218,14 @@ class ConsolidatedInteractiveService with LoggerMixin {
         case 'y':
         case 'yes':
         case '':
-          await _presenter.showExifWritingResponse(input);
+          await _presenter.showUserSelection(input, 'yes, write EXIF data');
           return true;
         case 'n':
         case 'no':
-          await _presenter.showExifWritingResponse(input);
+          await _presenter.showUserSelection(
+            input,
+            'no, don\'t write EXIF data',
+          );
           return false;
         default:
           await _presenter.showInvalidAnswerError();
@@ -218,12 +243,15 @@ class ConsolidatedInteractiveService with LoggerMixin {
       switch (input) {
         case 'y':
         case 'yes':
-          await _presenter.showFileSizeLimitResponse(input);
+          await _presenter.showUserSelection(input, 'yes, limit file sizes');
           return true;
         case 'n':
         case 'no':
         case '':
-          await _presenter.showFileSizeLimitResponse(input);
+          await _presenter.showUserSelection(
+            input,
+            'no, don\'t limit file sizes',
+          );
           return false;
         default:
           await _presenter.showInvalidAnswerError('Invalid answer - try again');
@@ -242,15 +270,19 @@ class ConsolidatedInteractiveService with LoggerMixin {
         case '0':
         case '':
         case 'standard':
+          await _presenter.showUserSelection(input, 'standard (recommended)');
           return 'standard';
         case '1':
         case 'conservative':
+          await _presenter.showUserSelection(input, 'conservative');
           return 'conservative';
         case '2':
         case 'solo':
+          await _presenter.showUserSelection(input, 'solo');
           return 'solo';
         case '3':
         case 'none':
+          await _presenter.showUserSelection(input, 'none');
           return 'none';
         default:
           await _presenter.showInvalidAnswerError();
@@ -265,13 +297,20 @@ class ConsolidatedInteractiveService with LoggerMixin {
 
     while (true) {
       final input = await readUserInput();
-      await _presenter.showDataSourceResponse(input);
 
       switch (input) {
         case '1':
         case '':
+          await _presenter.showUserSelection(
+            input,
+            'select ZIP files from Google Takeout',
+          );
           return true;
         case '2':
+          await _presenter.showUserSelection(
+            input,
+            'use already extracted folder',
+          );
           return false;
         default:
           await _presenter.showInvalidAnswerError(

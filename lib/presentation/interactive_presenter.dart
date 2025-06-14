@@ -507,4 +507,20 @@ class InteractivePresenter with LoggerMixin {
     logError(message, forcePrint: true);
     if (enableSleep) await _sleep(1);
   }
+
+  /// Shows the user's selection with the actual value chosen
+  Future<void> showUserSelection(
+    final String input,
+    final String selectedValue,
+  ) async {
+    String displayValue = selectedValue;
+
+    // If user pressed enter (empty input), it's always a default choice
+    if (input.isEmpty) {
+      displayValue = '$selectedValue (default)';
+    }
+
+    print('You selected: $displayValue');
+    if (enableSleep) await _sleep(1);
+  }
 }
