@@ -56,18 +56,16 @@ class InteractivePresenter with LoggerMixin {
 
   /// Displays greeting message and introduction to the tool
   Future<void> showGreeting() async {
-    logInfo('GooglePhotosTakeoutHelper v$version', forcePrint: true);
+    print('GooglePhotosTakeoutHelper v$version');
     await _sleep(1);
-    logInfo(
+    print(
       'Hi there! This tool will help you to get all of your photos from '
       'Google Takeout to one nice tidy folder\n',
-      forcePrint: true,
     );
     await _sleep(3);
-    logInfo(
+    print(
       '(If any part confuses you, read the guide on:\n'
       'https://github.com/Xentraxx/GooglePhotosTakeoutHelper)',
-      forcePrint: true,
     );
     await _sleep(3);
   }
@@ -98,7 +96,7 @@ class InteractivePresenter with LoggerMixin {
 
   /// Prompts user to press enter to continue
   void showPressEnterPrompt() {
-    logInfo('[press enter to continue]', forcePrint: true);
+    print('[press enter to continue]');
     stdin.readLineSync();
   }
 
@@ -114,7 +112,7 @@ class InteractivePresenter with LoggerMixin {
 
   /// Shows available album options and prompts user to select one
   Future<String> selectAlbumOption() async {
-    logInfo('How do you want to handle albums?', forcePrint: true);
+    print('How do you want to handle albums?');
     await _sleep(1);
 
     int index = 1;
@@ -122,12 +120,12 @@ class InteractivePresenter with LoggerMixin {
 
     for (final entry in albumOptions.entries) {
       options.add(entry.key);
-      logInfo('[$index] ${entry.key}', forcePrint: true);
-      logInfo('    ${entry.value}', forcePrint: true);
+      print('[$index] ${entry.key}');
+      print('    ${entry.value}');
       index++;
     }
 
-    logInfo('Please enter the number of your choice:', forcePrint: true);
+    print('Please enter the number of your choice:');
 
     while (true) {
       final input = await readUserInput();
@@ -135,26 +133,25 @@ class InteractivePresenter with LoggerMixin {
 
       if (choice != null && choice >= 1 && choice <= options.length) {
         final selectedOption = options[choice - 1];
-        logInfo('You selected: $selectedOption', forcePrint: true);
+        print('You selected: $selectedOption');
         await _sleep(1);
         return selectedOption;
       }
 
-      logWarning(
+      print(
         'Invalid choice. Please enter a number between 1 and ${options.length}:',
-        forcePrint: true,
       );
     }
   }
 
   /// Shows directory selection prompt
   Future<Directory?> selectDirectory(final String prompt) async {
-    logInfo(prompt, forcePrint: true);
+    print(prompt);
     await _sleep(1);
 
     // For now, delegate to file picker or manual input
     // This could be enhanced with a proper directory picker
-    logInfo('Please enter the full path to the directory:', forcePrint: true);
+    print('Please enter the full path to the directory:');
 
     final input = await readUserInput();
     if (input.isEmpty) {
@@ -172,29 +169,22 @@ class InteractivePresenter with LoggerMixin {
 
   /// Prompts user to select input directory
   Future<void> promptForInputDirectory() async {
-    logInfo(
-      'Select the directory where you unzipped all your takeout zips',
-      forcePrint: true,
-    );
-    logInfo(
-      '(Make sure they are merged => there is only one "Takeout" folder!)',
-      forcePrint: true,
-    );
+    print('Select the directory where you unzipped all your takeout zips');
+    print('(Make sure they are merged => there is only one "Takeout" folder!)');
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows confirmation message for input directory selection
   Future<void> showInputDirectoryConfirmation() async {
-    logInfo('Cool!', forcePrint: true);
+    print('Cool!');
     if (enableSleep) await _sleep(1);
   }
 
   /// Prompts user to select ZIP files
   Future<void> promptForZipFiles() async {
-    logInfo(
+    print(
       'First, select all .zips from Google Takeout '
       '(use Ctrl to select multiple)',
-      forcePrint: true,
     );
     if (enableSleep) await _sleep(2);
   }
@@ -215,7 +205,7 @@ class InteractivePresenter with LoggerMixin {
     final int count,
     final String size,
   ) async {
-    logInfo('Selected $count zip files ($size)', forcePrint: true);
+    print('Selected $count zip files ($size)');
     if (enableSleep) await _sleep(1);
   }
 
@@ -227,389 +217,370 @@ class InteractivePresenter with LoggerMixin {
 
   /// Shows error message for invalid input directory
   Future<void> showInvalidInputDirectoryError() async {
-    logError('Invalid input directory!');
+    logError('Invalid input directory!', forcePrint: true);
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows error message for invalid output directory
   Future<void> showInvalidOutputDirectoryError() async {
-    logError('Invalid output directory!');
+    logError('Invalid output directory!', forcePrint: true);
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows error message for invalid album option
   Future<void> showInvalidAlbumOptionError() async {
-    logError('Invalid album option!');
+    logError('Invalid album option!', forcePrint: true);
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows error message for invalid file option
   Future<void> showInvalidFileOptionError() async {
-    logError('Invalid file option!');
+    logError('Invalid file option!', forcePrint: true);
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows error message for invalid date option
   Future<void> showInvalidDateOptionError() async {
-    logError('Invalid date option!');
+    logError('Invalid date option!', forcePrint: true);
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows error message for invalid time option
   Future<void> showInvalidTimeOptionError() async {
-    logError('Invalid time option!');
+    logError('Invalid time option!', forcePrint: true);
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows error message for invalid timezone option
   Future<void> showInvalidTimezoneOptionError() async {
-    logError('Invalid timezone option!');
+    logError('Invalid timezone option!', forcePrint: true);
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows error message for invalid timezone format
   Future<void> showInvalidTimezoneFormatError() async {
-    logError('Invalid timezone format!');
+    logError('Invalid timezone format!', forcePrint: true);
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows error message for invalid timezone offset
   Future<void> showInvalidTimezoneOffsetError() async {
-    logError('Invalid timezone offset!');
+    logError('Invalid timezone offset!', forcePrint: true);
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows error message for invalid timezone name
   Future<void> showInvalidTimezoneNameError() async {
-    logError('Invalid timezone name!');
+    logError('Invalid timezone name!', forcePrint: true);
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows error message for invalid timezone abbreviation
   Future<void> showInvalidTimezoneAbbreviationError() async {
-    logError('Invalid timezone abbreviation!');
+    logError('Invalid timezone abbreviation!', forcePrint: true);
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows error message for invalid timezone location
   Future<void> showInvalidTimezoneLocationError() async {
-    logError('Invalid timezone location!');
+    logError('Invalid timezone location!', forcePrint: true);
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows error message for invalid timezone region
   Future<void> showInvalidTimezoneRegionError() async {
-    logError('Invalid timezone region!');
+    logError('Invalid timezone region!', forcePrint: true);
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows error message for invalid timezone country
   Future<void> showInvalidTimezoneCountryError() async {
-    logError('Invalid timezone country!');
+    logError('Invalid timezone country!', forcePrint: true);
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows error message for invalid timezone continent
   Future<void> showInvalidTimezoneContinentError() async {
-    logError('Invalid timezone continent!');
+    logError('Invalid timezone continent!', forcePrint: true);
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows error message for invalid timezone hemisphere
   Future<void> showInvalidTimezoneHemisphereError() async {
-    logError('Invalid timezone hemisphere!');
+    logError('Invalid timezone hemisphere!', forcePrint: true);
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows error message for invalid timezone season
   Future<void> showInvalidTimezoneSeasonError() async {
-    logError('Invalid timezone season!');
+    logError('Invalid timezone season!', forcePrint: true);
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows error message for invalid timezone daylight saving time
   Future<void> showInvalidTimezoneDSTError() async {
-    logError('Invalid timezone daylight saving time!');
+    logError('Invalid timezone daylight saving time!', forcePrint: true);
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows error message for invalid timezone standard time
   Future<void> showInvalidTimezoneSTError() async {
-    logError('Invalid timezone standard time!');
+    logError('Invalid timezone standard time!', forcePrint: true);
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows error message for invalid timezone offset change
   Future<void> showInvalidTimezoneOffsetChangeError() async {
-    logError('Invalid timezone offset change!');
+    logError('Invalid timezone offset change!', forcePrint: true);
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows error message for invalid timezone name change
   Future<void> showInvalidTimezoneNameChangeError() async {
-    logError('Invalid timezone name change!');
+    logError('Invalid timezone name change!', forcePrint: true);
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows error message for invalid timezone abbreviation change
   Future<void> showInvalidTimezoneAbbreviationChangeError() async {
-    logError('Invalid timezone abbreviation change!');
+    logError('Invalid timezone abbreviation change!', forcePrint: true);
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows error message for invalid timezone location change
   Future<void> showInvalidTimezoneLocationChangeError() async {
-    logError('Invalid timezone location change!');
+    logError('Invalid timezone location change!', forcePrint: true);
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows error message for invalid timezone region change
   Future<void> showInvalidTimezoneRegionChangeError() async {
-    logError('Invalid timezone region change!');
+    logError('Invalid timezone region change!', forcePrint: true);
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows error message for invalid timezone country change
   Future<void> showInvalidTimezoneCountryChangeError() async {
-    logError('Invalid timezone country change!');
+    logError('Invalid timezone country change!', forcePrint: true);
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows error message for invalid timezone continent change
   Future<void> showInvalidTimezoneContinentChangeError() async {
-    logError('Invalid timezone continent change!');
+    logError('Invalid timezone continent change!', forcePrint: true);
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows error message for invalid timezone hemisphere change
   Future<void> showInvalidTimezoneHemisphereChangeError() async {
-    logError('Invalid timezone hemisphere change!');
+    logError('Invalid timezone hemisphere change!', forcePrint: true);
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows error message for invalid timezone season change
   Future<void> showInvalidTimezoneSeasonChangeError() async {
-    logError('Invalid timezone season change!');
+    logError('Invalid timezone season change!', forcePrint: true);
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows error message for invalid timezone daylight saving time change
   Future<void> showInvalidTimezoneDSTChangeError() async {
-    logError('Invalid timezone daylight saving time change!');
+    logError('Invalid timezone daylight saving time change!', forcePrint: true);
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows error message for invalid timezone standard time change
   Future<void> showInvalidTimezoneSTChangeError() async {
-    logError('Invalid timezone standard time change!');
+    logError('Invalid timezone standard time change!', forcePrint: true);
     if (enableSleep) await _sleep(1);
   }
 
   /// Prompts user to select output directory
   Future<void> promptForOutputDirectory() async {
-    logInfo(
-      'Select the directory where you want to save your photos',
-      forcePrint: true,
-    );
+    print('Select the directory where you want to save your photos');
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows confirmation message for output directory selection
   Future<void> showOutputDirectoryConfirmation() async {
-    logInfo('Great!', forcePrint: true);
+    print('Great!');
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows list of files to be processed
   Future<void> showFileList(final List<String> files) async {
-    logInfo('Files to be processed:', forcePrint: true);
+    print('Files to be processed:');
     for (final file in files) {
-      logInfo('  - $file', forcePrint: true);
+      print('  - $file');
     }
     if (enableSleep) await _sleep(1);
   }
 
   /// Prompts user to select date division option
   Future<void> promptForDateDivision() async {
-    logInfo('How do you want to divide your photos by date?', forcePrint: true);
-    logInfo('1. By year', forcePrint: true);
-    logInfo('2. By year and month', forcePrint: true);
-    logInfo('3. By year, month, and day', forcePrint: true);
+    print('How do you want to divide your photos by date?');
+    print('1. By year');
+    print('2. By year and month');
+    print('3. By year, month, and day');
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows the selected date division choice
   Future<void> showDateDivisionChoice(final String choice) async {
-    logInfo('You selected: $choice', forcePrint: true);
+    print('You selected: $choice');
     if (enableSleep) await _sleep(1);
   }
 
   /// Prompts user to select album behavior
   Future<void> promptForAlbumBehavior() async {
-    logInfo('How do you want to handle albums?', forcePrint: true);
-    logInfo(
-      '1. Create album folders with shortcuts to original photos',
-      forcePrint: true,
-    );
-    logInfo('2. Create album folders with copied photos', forcePrint: true);
-    logInfo(
+    print('How do you want to handle albums?');
+    print('1. Create album folders with shortcuts to original photos');
+    print('2. Create album folders with copied photos');
+    print(
       '3. Create a single folder with all photos and a JSON file for album info',
-      forcePrint: true,
     );
-    logInfo(
-      '4. Ignore albums and put all photos in one folder',
-      forcePrint: true,
-    );
+    print('4. Ignore albums and put all photos in one folder');
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows an album option to the user
   void showAlbumOption(final int index, final String key, final String value) {
-    logInfo('[$index] $key: $value', forcePrint: true);
+    print('[$index] $key: $value');
   }
 
   /// Shows the selected album choice
   Future<void> showAlbumChoice(final String choice) async {
-    logInfo('You selected album option: $choice', forcePrint: true);
+    print('You selected album option: $choice');
     if (enableSleep) await _sleep(1);
   }
 
   /// Prompts for output cleanup
   Future<void> promptForOutputCleanup() async {
-    logInfo(
-      'Do you want to clean the output directory before proceeding?',
-      forcePrint: true,
-    );
-    logInfo('1. Yes', forcePrint: true);
-    logInfo('2. No', forcePrint: true);
-    logInfo('3. Quit', forcePrint: true);
+    print('Do you want to clean the output directory before proceeding?');
+    print('1. Yes');
+    print('2. No');
+    print('3. Quit');
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows output cleanup response
   Future<void> showOutputCleanupResponse(final String answer) async {
-    logInfo('You selected: $answer', forcePrint: true);
+    print('You selected: $answer');
     if (enableSleep) await _sleep(1);
   }
 
   /// Prompts for Pixel MP transform
   Future<void> promptForPixelMpTransform() async {
-    logInfo(
-      'Do you want to transform Pixel Motion Photo extensions to .mp4?',
-      forcePrint: true,
-    );
-    logInfo('1. No', forcePrint: true);
-    logInfo('2. Yes', forcePrint: true);
+    print('Do you want to transform Pixel Motion Photo extensions to .mp4?');
+    print('1. No');
+    print('2. Yes');
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows Pixel MP transform response
   Future<void> showPixelMpTransformResponse(final String answer) async {
-    logInfo('You selected: $answer', forcePrint: true);
+    print('You selected: $answer');
     if (enableSleep) await _sleep(1);
   }
 
   /// Prompts for creation time update
   Future<void> promptForCreationTimeUpdate() async {
-    logInfo(
-      'Do you want to update creation times on Windows?',
-      forcePrint: true,
-    );
-    logInfo('1. No', forcePrint: true);
-    logInfo('2. Yes', forcePrint: true);
+    print('Do you want to update creation times on Windows?');
+    print('1. No');
+    print('2. Yes');
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows creation time update response
   Future<void> showCreationTimeUpdateResponse(final String answer) async {
-    logInfo('You selected: $answer', forcePrint: true);
+    print('You selected: $answer');
     if (enableSleep) await _sleep(1);
   }
 
   /// Prompts for EXIF writing
   Future<void> promptForExifWriting(final bool exifToolInstalled) async {
-    logInfo('Do you want to write EXIF data to your photos?', forcePrint: true);
-    logInfo('1. Yes', forcePrint: true);
-    logInfo('2. No', forcePrint: true);
+    print('Do you want to write EXIF data to your photos?');
+    print('1. Yes');
+    print('2. No');
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows EXIF writing response
   Future<void> showExifWritingResponse(final String answer) async {
-    logInfo('You selected: $answer', forcePrint: true);
+    print('You selected: $answer');
     if (enableSleep) await _sleep(1);
   }
 
   /// Prompts for file size limit
   Future<void> promptForFileSizeLimit() async {
-    logInfo('Do you want to set a file size limit?', forcePrint: true);
-    logInfo('1. No', forcePrint: true);
-    logInfo('2. Yes', forcePrint: true);
+    print('Do you want to set a file size limit?');
+    print('1. No');
+    print('2. Yes');
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows file size limit response
   Future<void> showFileSizeLimitResponse(final String answer) async {
-    logInfo('You selected: $answer', forcePrint: true);
+    print('You selected: $answer');
     if (enableSleep) await _sleep(1);
   }
 
   /// Prompts for extension fixing
   Future<void> promptForExtensionFixing() async {
-    logInfo('Do you want to fix file extensions?', forcePrint: true);
-    logInfo('1. Standard', forcePrint: true);
-    logInfo('2. Conservative', forcePrint: true);
-    logInfo('3. Solo', forcePrint: true);
+    print('Do you want to fix file extensions?');
+    print('1. Standard');
+    print('2. Conservative');
+    print('3. Solo');
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows extension fixing response
   Future<void> showExtensionFixingResponse(final String answer) async {
-    logInfo('You selected: $answer', forcePrint: true);
+    print('You selected: $answer');
     if (enableSleep) await _sleep(1);
   }
 
   /// Prompts for data source
   Future<void> promptForDataSource() async {
-    logInfo('Select your data source:', forcePrint: true);
-    logInfo('1. Google Takeout', forcePrint: true);
-    logInfo('2. Local Backup', forcePrint: true);
+    print('Select your data source:');
+    print('1. Google Takeout');
+    print('2. Local Backup');
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows data source response
   Future<void> showDataSourceResponse(final String answer) async {
-    logInfo('You selected: $answer', forcePrint: true);
+    print('You selected: $answer');
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows disk space notice
   Future<void> showDiskSpaceNotice(final String message) async {
-    logInfo('Disk space notice: $message', forcePrint: true);
+    print('Disk space notice: $message');
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows unzip start message
   Future<void> showUnzipStartMessage() async {
-    logInfo('Starting unzip process...', forcePrint: true);
+    print('Starting unzip process...');
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows unzip progress
   Future<void> showUnzipProgress(final String fileName) async {
-    logInfo('Unzipping: $fileName', forcePrint: true);
+    print('Unzipping: $fileName');
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows unzip success
   Future<void> showUnzipSuccess(final String fileName) async {
-    logInfo('Successfully unzipped: $fileName', forcePrint: true);
+    print('Successfully unzipped: $fileName');
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows unzip complete
   Future<void> showUnzipComplete() async {
-    logInfo('Unzip process complete.', forcePrint: true);
+    print('Unzip process complete.');
     if (enableSleep) await _sleep(1);
   }
 }

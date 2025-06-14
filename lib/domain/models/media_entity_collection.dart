@@ -187,6 +187,7 @@ class MediaEntityCollection {
     }
 
     // Remove all duplicates in a single operation to prevent race conditions
+    // ignore: prefer_foreach
     for (final entityToRemove in entitiesToRemove) {
       _media.remove(entityToRemove);
     }

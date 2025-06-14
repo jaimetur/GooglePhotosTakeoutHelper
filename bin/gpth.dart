@@ -65,16 +65,24 @@ import 'package:path/path.dart' as p;
 ///
 /// @param arguments Command line arguments from the user
 Future<void> main(final List<String> arguments) async {
+  // Initialize logger early with default settings
+  _logger = const LoggingService();
+
   try {
+    // Initialize ServiceContainer early to support interactive mode during argument parsing
+    await ServiceContainer.instance.initialize();
+
     // Parse command line arguments
     final config = await _parseArguments(arguments);
     if (config == null) {
       return; // Help was shown or other early exit
-    } // Initialize logger with correct verbosity
+    }
+
+    // Update logger with correct verbosity
     _logger = LoggingService(isVerbose: config.verbose);
 
-    // Initialize service container and dependencies
-    await _initializeDependencies(config); // Execute the processing pipeline
+    // Configure dependencies with the parsed config
+    await _configureDependencies(config); // Execute the processing pipeline
     final result = await _executeProcessing(config); // Show final results
     _showResults(config, result);
 
@@ -473,10 +481,7 @@ Future<InputOutputPaths> _getInputOutputPaths(
 /// - Initializes performance monitoring and progress tracking
 ///
 /// @param config Processing configuration with user preferences
-Future<void> _initializeDependencies(final ProcessingConfig config) async {
-  // Initialize service container
-  await ServiceContainer.instance.initialize();
-
+Future<void> _configureDependencies(final ProcessingConfig config) async {
   // Set up global verbose mode
   bool isDebugMode = false;
   assert(() {
@@ -501,7 +506,6 @@ Future<void> _initializeDependencies(final ProcessingConfig config) async {
     ServiceContainer.instance.globalConfig.exifToolInstalled = false;
     _logger.info('Exiftool not found! Continuing without EXIF support...');
   }
-
   sleep(const Duration(seconds: 3));
 }
 

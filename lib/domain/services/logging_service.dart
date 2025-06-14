@@ -58,13 +58,13 @@ class LoggingService {
   }
 
   /// Logs an error message
-  void error(final String message) {
-    log(message, level: 'error');
+  void error(final String message, {final bool forcePrint = false}) {
+    log(message, level: 'error', forcePrint: forcePrint);
   }
 
   /// Logs a debug message (only in verbose mode)
-  void debug(final String message) {
-    log(message, level: 'debug');
+  void debug(final String message, {final bool forcePrint = false}) {
+    log(message, level: 'debug', forcePrint: forcePrint);
   }
 
   /// Formats a message with level and color coding
@@ -138,12 +138,12 @@ mixin LoggerMixin {
   }
 
   /// Logs an error message
-  void logError(final String message) {
-    logger.error(message);
+  void logError(final String message, {final bool forcePrint = false}) {
+    logger.error(message, forcePrint: forcePrint);
   }
 
   /// Logs a debug message
-  void logDebug(final String message) {
-    logger.debug(message);
+  void logDebug(final String message, {final bool forcePrint = false}) {
+    logger.debug(message, forcePrint: forcePrint);
   }
 }
