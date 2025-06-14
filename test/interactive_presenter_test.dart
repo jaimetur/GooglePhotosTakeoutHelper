@@ -57,7 +57,7 @@ void main() {
       test('duplicate-copy option should mention copying', () {
         final duplicateDescription =
             InteractivePresenter.albumOptions['duplicate-copy']!;
-        expect(duplicateDescription.toLowerCase(), contains('copy'));
+        expect(duplicateDescription.toLowerCase(), contains('copied'));
         expect(duplicateDescription.toLowerCase(), contains('space'));
       });
 

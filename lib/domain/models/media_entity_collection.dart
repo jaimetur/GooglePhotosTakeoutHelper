@@ -151,12 +151,18 @@ class MediaEntityCollection {
     int processed = 0;
     final totalGroups = hashGroups.length;
 
+    // Collect all entities to remove first, then remove them all at once
+    // This prevents race conditions from concurrent modifications during iteration
+    final entitiesToRemove = <MediaEntity>[];
+
     for (final group in hashGroups.values) {
       if (group.length <= 1) {
         processed++;
         onProgress?.call(processed, totalGroups);
         continue; // No duplicates in this group
-      } // Sort by best date extraction quality, then file name length
+      }
+
+      // Sort by best date extraction quality, then file name length
       group.sort((final a, final b) {
         // Prefer files with dates from better extraction methods
         final aAccuracy = a.dateAccuracy?.value ?? 999;
@@ -171,15 +177,18 @@ class MediaEntityCollection {
         return aNameLength.compareTo(bNameLength);
       });
 
-      // Remove all duplicates except the first (best) one
+      // Add all duplicates except the first (best) one to removal list
       final duplicatesToRemove = group.sublist(1);
-      for (final duplicate in duplicatesToRemove) {
-        _media.remove(duplicate);
-        removedCount++;
-      }
+      entitiesToRemove.addAll(duplicatesToRemove);
+      removedCount += duplicatesToRemove.length;
 
       processed++;
       onProgress?.call(processed, totalGroups);
+    }
+
+    // Remove all duplicates in a single operation to prevent race conditions
+    for (final entityToRemove in entitiesToRemove) {
+      _media.remove(entityToRemove);
     }
 
     return removedCount;

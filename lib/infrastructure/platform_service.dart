@@ -12,23 +12,22 @@ class PlatformService {
   const PlatformService();
 
   /// Returns disk free space in bytes for the given path
+  ///  /// Returns disk free space in bytes for the given path
   ///
   /// [path] Directory path to check (defaults to current directory)
   /// Returns null if unable to determine free space
-  Future<int?> getDiskFreeSpace([String? path]) async {
-    path ??= Directory.current.path;
+  Future<int?> getDiskFreeSpace([final String? path]) async {
+    final targetPath = path ?? Directory.current.path;
 
     // Handle empty string as current directory
-    if (path.isEmpty) {
-      path = Directory.current.path;
-    }
+    final finalPath = targetPath.isEmpty ? Directory.current.path : targetPath;
 
     if (Platform.isLinux) {
-      return _getDiskFreeLinux(path);
+      return _getDiskFreeLinux(finalPath);
     } else if (Platform.isWindows) {
-      return _getDiskFreeWindows(path);
+      return _getDiskFreeWindows(finalPath);
     } else if (Platform.isMacOS) {
-      return _getDiskFreeMacOS(path);
+      return _getDiskFreeMacOS(finalPath);
     }
 
     return null; // Unsupported platform

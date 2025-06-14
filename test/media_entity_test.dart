@@ -288,44 +288,54 @@ void main() {
     group('Performance and Scalability - Large Collection Handling', () {
       /// Validates system performance under load with large media collections
       /// to ensure scalability for real-world Google Photos exports.
-      test(
-        'handles large collections efficiently in comprehensive workflow',
-        () async {
-          final collection = MediaEntityCollection();
+      test('handles large collections efficiently in comprehensive workflow', () async {
+        final collection =
+            MediaEntityCollection(); // Create 10 large files (1MB each) with unique content for performance testing
+        final createdFiles = <File>[];
+        for (int i = 0; i < 10; i++) {
+          final content = List<int>.filled(1024 * 1024, i);
+          final file = fixture.createLargeTestFile(
+            'large_test$i.jpg',
+            content: content,
+          );
+          createdFiles.add(file);
+          collection.add(MediaEntity.single(file: file));
+        }
 
-          // Create 10 large files (1MB each) with unique content for performance testing
-          for (int i = 0; i < 10; i++) {
-            final content = List<int>.filled(1024 * 1024, i);
-            if (i > 0) {
-              final prevContent = await collection.media[i - 1].primaryFile
-                  .readAsBytes();
-              expect(content.sublist(0, 10), isNot(prevContent.sublist(0, 10)));
-            }
-            final file = fixture.createLargeTestFile(
-              'large_test$i.jpg',
-              content: content,
+        // Verify unique content after all files are created to avoid race conditions
+        for (int i = 1; i < createdFiles.length; i++) {
+          final currentContent = await createdFiles[i].readAsBytes();
+          final prevContent = await createdFiles[i - 1].readAsBytes();
+          expect(
+            currentContent.sublist(0, 10),
+            isNot(prevContent.sublist(0, 10)),
+          );
+        } // Test duplicate detection
+        // Ensure all files still exist before processing (prevents race conditions)
+        for (final file in createdFiles) {
+          if (!file.existsSync()) {
+            fail(
+              'File ${file.path} was unexpectedly deleted before duplicate detection',
             );
-            collection.add(MediaEntity.single(file: file));
           }
+        }
 
-          // Test duplicate detection
-          final removedCount = await collection.removeDuplicates();
-          expect(removedCount, 0); // No duplicates in this test
+        final removedCount = await collection.removeDuplicates();
+        expect(removedCount, 0); // No duplicates in this test
 
-          // Test memory usage during operations
-          final memoryBefore = ProcessInfo.currentRss;
-          await collection.removeDuplicates();
-          final memoryAfter = ProcessInfo.currentRss;
+        // Test memory usage during operations
+        final memoryBefore = ProcessInfo.currentRss;
+        await collection.removeDuplicates();
+        final memoryAfter = ProcessInfo.currentRss;
 
-          // Memory usage should not grow significantly
-          if (!Platform.isWindows) {
-            expect(
-              memoryAfter - memoryBefore,
-              lessThan(50 * 1024 * 1024),
-            ); // 50MB limit
-          }
-        },
-      );
+        // Memory usage should not grow significantly
+        if (!Platform.isWindows) {
+          expect(
+            memoryAfter - memoryBefore,
+            lessThan(50 * 1024 * 1024),
+          ); // 50MB limit
+        }
+      });
 
       /// Validates memory usage patterns during intensive operations
       /// to prevent out-of-memory issues with large collections.

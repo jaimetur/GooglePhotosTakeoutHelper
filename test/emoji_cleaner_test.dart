@@ -403,7 +403,6 @@ void main() {
 
         final Directory hexDir = Directory(hexNameDir.path);
         expect(hexDir.existsSync(), isTrue);
-
         final File hexImg = File(p.join(hexDir.path, 'img.jpg'));
         expect(hexImg.existsSync(), isTrue);
 
@@ -414,6 +413,19 @@ void main() {
           '2022:12:16 16:06:47',
         ); // 3. Write using exiftool to hex_encoded folder
         if (exiftool != null) {
+          // Ensure file is accessible before writing EXIF data
+          // This prevents race conditions when running tests in parallel
+          var attempts = 0;
+          while (!hexImg.existsSync() && attempts < 10) {
+            await Future.delayed(const Duration(milliseconds: 10));
+            attempts++;
+          }
+          expect(
+            hexImg.existsSync(),
+            isTrue,
+            reason: 'File should be accessible before EXIF write',
+          );
+
           final Map<String, String> map = {};
           map['Artist'] = 'TestArtist';
           await exiftool!.writeExifData(hexImg, map);
