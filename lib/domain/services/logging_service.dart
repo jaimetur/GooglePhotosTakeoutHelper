@@ -1,5 +1,6 @@
 import 'dart:io';
 import '../models/processing_config_model.dart';
+import 'service_container.dart';
 
 /// Service for application logging with colored output and level filtering
 ///
@@ -121,8 +122,22 @@ class LoggingService {
 mixin LoggerMixin {
   LoggingService? _logger;
 
-  /// Gets or creates a logger instance
-  LoggingService get logger => _logger ??= const LoggingService();
+  /// Gets or creates a logger instance using global configuration
+  LoggingService get logger {
+    if (_logger != null) return _logger!;
+
+    // Try to get verbose setting from service container if available
+    try {
+      // Import service_container.dart at top level to avoid circular imports
+      final container = ServiceContainer.instance;
+      _logger = LoggingService(isVerbose: container.globalConfig.isVerbose);
+    } catch (e) {
+      // Fallback to default logger if service container not available
+      _logger = const LoggingService();
+    }
+
+    return _logger!;
+  }
 
   /// Sets a custom logger
   set logger(final LoggingService newLogger) => _logger = newLogger;
