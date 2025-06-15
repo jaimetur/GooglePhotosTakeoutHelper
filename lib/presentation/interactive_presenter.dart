@@ -1,4 +1,6 @@
 import 'dart:io';
+
+import '../domain/models/pipeline_step_model.dart';
 import '../domain/services/logging_service.dart';
 import '../shared/constants.dart';
 
@@ -522,5 +524,239 @@ class InteractivePresenter with LoggerMixin {
 
     print('You selected: $displayValue');
     if (enableSleep) await _sleep(1);
+  }
+
+  // ============================================================================
+  // PROCESSING SUMMARY DISPLAY METHODS
+  // ============================================================================
+  /// Displays a summary of warnings and errors encountered during processing
+  ///
+  /// Only shown in verbose mode, provides detailed information about any
+  /// issues that occurred during processing steps and throughout the application.
+  Future<void> showWarningsAndErrorsSummary(
+    final List<StepResult> stepResults,
+  ) async {
+    final failedSteps = stepResults.where((final r) => !r.isSuccess).toList();
+
+    // Get all logged warnings and errors from the logging service
+    final loggedWarnings = logger.warnings;
+    final loggedErrors = logger.errors;
+
+    // Collect additional warnings from step messages that might not have been logged
+    final additionalWarnings = <String>[];
+    for (final result in stepResults) {
+      if (result.message != null &&
+          (result.message!.toLowerCase().contains('warning') ||
+              result.message!.toLowerCase().contains('skipped'))) {
+        final warningMessage =
+            '${result.stepName}: ${result.message}'; // Only add if not already in logged warnings
+        if (!loggedWarnings.any((final w) => w.contains(result.message!))) {
+          additionalWarnings.add(warningMessage);
+        }
+      }
+    }
+
+    final hasWarnings =
+        loggedWarnings.isNotEmpty || additionalWarnings.isNotEmpty;
+    final hasErrors = loggedErrors.isNotEmpty || failedSteps.isNotEmpty;
+
+    if (hasWarnings || hasErrors) {
+      print('\n=== Warnings and Errors Summary ===');
+
+      if (hasErrors) {
+        print('Errors:');
+
+        // Show logged errors first
+        for (final error in loggedErrors) {
+          print('  ❌ $error');
+        }
+
+        // Show failed steps that haven't been logged as errors
+        for (final step in failedSteps) {
+          final stepError =
+              '${step.stepName}: ${step.message ?? 'Unknown error'}';
+          if (!loggedErrors.any((final e) => e.contains(step.stepName))) {
+            print('  ❌ $stepError');
+            if (step.error != null) {
+              print('     Details: ${step.error}');
+            }
+          }
+        }
+      }
+
+      if (hasWarnings) {
+        print('Warnings:');
+
+        // Show logged warnings first
+        for (final warning in loggedWarnings) {
+          print('  ⚠️  $warning');
+        }
+
+        // Show additional warnings from step results
+        for (final warning in additionalWarnings) {
+          print('  ⚠️  $warning');
+        }
+      }
+
+      if (!hasWarnings && !hasErrors) {
+        print('No warnings or errors encountered during processing.');
+      }
+    }
+
+    if (enableSleep) await _sleep(1);
+  }
+
+  /// Displays detailed results for each processing step
+  ///
+  /// Shows step-by-step breakdown of what was accomplished
+  Future<void> showStepResults(
+    final List<StepResult> stepResults,
+    final Map<String, Duration> stepTimings,
+  ) async {
+    print('\n=== Step-by-Step Results ===');
+
+    for (final result in stepResults) {
+      final timing = stepTimings[result.stepName] ?? result.duration;
+      final status = result.isSuccess ? '✅' : '❌';
+      final skipped = result.data['skipped'] == true;
+
+      print('$status ${result.stepName} (${_formatDuration(timing)})');
+
+      if (skipped) {
+        print('   Status: Skipped');
+        print('   Reason: ${result.message ?? 'Conditions not met'}');
+      } else if (result.isSuccess) {
+        print('   Status: Completed successfully');
+        if (result.message != null) {
+          print('   Result: ${result.message}');
+        }
+
+        // Display specific metrics for each step
+        _showStepMetrics(result);
+      } else {
+        print('   Status: Failed');
+        print('   Error: ${result.message ?? 'Unknown error'}');
+      }
+      print('');
+    }
+
+    if (enableSleep) await _sleep(1);
+  }
+
+  /// Displays a processing summary header and statistics
+  Future<void> showProcessingSummary({
+    required final Duration totalTime,
+    required final int successfulSteps,
+    required final int failedSteps,
+    required final int skippedSteps,
+    required final int mediaCount,
+  }) async {
+    print('\n=== Processing Summary ===');
+    print('Total time: ${totalTime.inMinutes}m ${totalTime.inSeconds % 60}s');
+    print(
+      'Steps: $successfulSteps successful, $failedSteps failed, $skippedSteps skipped',
+    );
+    print('Final media count: $mediaCount');
+
+    if (enableSleep) await _sleep(1);
+  }
+
+  /// Helper method to display step-specific metrics
+  void _showStepMetrics(final StepResult result) {
+    final data = result.data;
+
+    switch (result.stepName) {
+      case 'Fix Extensions':
+        if (data['extensionsFixed'] != null) {
+          print('   Extensions fixed: ${data['extensionsFixed']} files');
+        }
+        break;
+
+      case 'Discover Media':
+        if (data['mediaFound'] != null) {
+          print('   Media files found: ${data['mediaFound']}');
+        }
+        if (data['jsonFilesFound'] != null) {
+          print('   JSON metadata files: ${data['jsonFilesFound']}');
+        }
+        if (data['extrasSkipped'] != null) {
+          print('   Extra files skipped: ${data['extrasSkipped']}');
+        }
+        break;
+
+      case 'Remove Duplicates':
+        if (data['duplicatesRemoved'] != null) {
+          print('   Duplicates removed: ${data['duplicatesRemoved']} files');
+        }
+        if (data['uniqueFiles'] != null) {
+          print('   Unique files remaining: ${data['uniqueFiles']}');
+        }
+        break;
+
+      case 'Extract Dates':
+        if (data['datesExtracted'] != null) {
+          print('   Dates extracted: ${data['datesExtracted']} files');
+        }
+        if (data['extractionStats'] != null) {
+          final stats = data['extractionStats'] as Map<dynamic, dynamic>;
+          print('   Extraction methods used:');
+          for (final entry in stats.entries) {
+            if (entry.value > 0) {
+              print('     ${entry.key}: ${entry.value} files');
+            }
+          }
+        }
+        break;
+
+      case 'Write EXIF':
+        if (data['coordinatesWritten'] != null) {
+          print(
+            '   GPS coordinates written: ${data['coordinatesWritten']} files',
+          );
+        }
+        if (data['dateTimesWritten'] != null) {
+          print('   DateTime written: ${data['dateTimesWritten']} files');
+        }
+        break;
+
+      case 'Find Albums':
+        if (data['initialCount'] != null && data['finalCount'] != null) {
+          print('   Initial media count: ${data['initialCount']}');
+          print('   Final media count: ${data['finalCount']}');
+        }
+        if (data['mergedCount'] != null) {
+          print('   Album relationships merged: ${data['mergedCount']}');
+        }
+        break;
+
+      case 'Move Files':
+        if (data['processedCount'] != null) {
+          print('   Files processed: ${data['processedCount']}');
+        }
+        if (data['copyMode'] != null) {
+          print('   Operation mode: ${data['copyMode'] ? 'Copy' : 'Move'}');
+        }
+        if (data['albumBehavior'] != null) {
+          print('   Album behavior: ${data['albumBehavior']}');
+        }
+        break;
+
+      case 'Update Creation Time':
+        if (data['updatedCount'] != null) {
+          print('   Creation times updated: ${data['updatedCount']} files');
+        }
+        break;
+    }
+  }
+
+  /// Formats a duration as a human-readable string
+  String _formatDuration(final Duration duration) {
+    if (duration.inSeconds < 60) {
+      return '${duration.inSeconds}s';
+    } else {
+      final minutes = duration.inMinutes;
+      final seconds = duration.inSeconds % 60;
+      return '${minutes}m ${seconds}s';
+    }
   }
 }

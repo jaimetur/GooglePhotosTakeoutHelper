@@ -8,7 +8,7 @@ import 'service_container.dart';
 /// that can be easily mocked and configured for different environments.
 class LoggingService {
   /// Creates a new instance of LoggingService
-  const LoggingService({this.isVerbose = false, this.enableColors = true});
+  LoggingService({this.isVerbose = false, this.enableColors = true});
 
   /// Creates a logging service from processing configuration
   factory LoggingService.fromConfig(final ProcessingConfig config) =>
@@ -23,6 +23,12 @@ class LoggingService {
 
   /// Whether to use colored output (disable for file logging)
   final bool enableColors;
+
+  /// Collected warning messages during processing
+  final List<String> _warnings = [];
+
+  /// Collected error messages during processing
+  final List<String> _errors = [];
 
   /// Log levels with associated colors
   static const Map<String, String> _levelColors = {
@@ -55,11 +61,13 @@ class LoggingService {
 
   /// Logs a warning message
   void warning(final String message, {final bool forcePrint = false}) {
+    _warnings.add(message);
     log(message, level: 'warning', forcePrint: forcePrint);
   }
 
   /// Logs an error message
   void error(final String message, {final bool forcePrint = false}) {
+    _errors.add(message);
     log(message, level: 'error', forcePrint: forcePrint);
   }
 
@@ -88,6 +96,18 @@ class LoggingService {
         isVerbose: isVerbose ?? this.isVerbose,
         enableColors: enableColors ?? this.enableColors,
       );
+
+  /// Gets all collected warning messages
+  List<String> get warnings => List.unmodifiable(_warnings);
+
+  /// Gets all collected error messages
+  List<String> get errors => List.unmodifiable(_errors);
+
+  /// Clears all collected warning and error messages
+  void clearCollectedMessages() {
+    _warnings.clear();
+    _errors.clear();
+  }
 
   /// Prints error message to stderr with newline
   void errorToStderr(final Object? object) => stderr.write('$object\n');
@@ -133,7 +153,7 @@ mixin LoggerMixin {
       _logger = LoggingService(isVerbose: container.globalConfig.isVerbose);
     } catch (e) {
       // Fallback to default logger if service container not available
-      _logger = const LoggingService();
+      _logger = LoggingService();
     }
 
     return _logger!;

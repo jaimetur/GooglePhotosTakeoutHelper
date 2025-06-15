@@ -89,7 +89,7 @@ void main() {
       utilityService = const UtilityService();
       consolidatedUtilityService = const ConsolidatedUtilityService();
       platformService = const PlatformService();
-      loggingService = const LoggingService();
+      loggingService = LoggingService();
     });
 
     tearDown(() async {

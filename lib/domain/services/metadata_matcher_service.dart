@@ -339,7 +339,7 @@ class JsonFileMatcherService with LoggerMixin {
   static void _logDebug(final String message) {
     // Access global verbose setting and log accordingly
     if (ServiceContainer.instance.globalConfig.isVerbose) {
-      const LoggingService().debug(message, forcePrint: true);
+      LoggingService().debug(message, forcePrint: true);
     }
   }
 }

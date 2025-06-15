@@ -11,14 +11,14 @@ void main() {
   group('LoggingService', () {
     group('Construction', () {
       test('creates service with default parameters', () {
-        const service = LoggingService();
+        final service = LoggingService();
 
         expect(service.isVerbose, isFalse);
         expect(service.enableColors, isTrue);
       });
 
       test('creates service with custom parameters', () {
-        const service = LoggingService(isVerbose: true, enableColors: false);
+        final service = LoggingService(isVerbose: true, enableColors: false);
 
         expect(service.isVerbose, isTrue);
         expect(service.enableColors, isFalse);
@@ -38,10 +38,9 @@ void main() {
         expect(service.enableColors, isA<bool>());
       });
     });
-
     group('Message Formatting', () {
       test('formats messages without colors', () {
-        const service = LoggingService(enableColors: false);
+        final service = LoggingService(enableColors: false);
 
         // We can't directly test the _formatMessage method since it's private,
         // but we can test the behavior through public methods
@@ -52,7 +51,7 @@ void main() {
       });
 
       test('formats messages with colors enabled', () {
-        const service = LoggingService();
+        final service = LoggingService();
 
         expect(() => service.info('test message'), returnsNormally);
         expect(() => service.warning('test warning'), returnsNormally);
@@ -63,17 +62,16 @@ void main() {
 
     group('Logging Levels', () {
       test('info messages respect verbose setting', () {
-        const verboseService = LoggingService(isVerbose: true);
-        const quietService = LoggingService();
+        final verboseService = LoggingService(isVerbose: true);
+        final quietService = LoggingService();
 
         // Both should execute without error
         expect(() => verboseService.info('verbose info'), returnsNormally);
         expect(() => quietService.info('quiet info'), returnsNormally);
       });
-
       test('warning messages respect verbose setting', () {
-        const verboseService = LoggingService(isVerbose: true);
-        const quietService = LoggingService();
+        final verboseService = LoggingService(isVerbose: true);
+        final quietService = LoggingService();
 
         expect(
           () => verboseService.warning('verbose warning'),
@@ -83,23 +81,23 @@ void main() {
       });
 
       test('error messages always print', () {
-        const verboseService = LoggingService(isVerbose: true);
-        const quietService = LoggingService();
+        final verboseService = LoggingService(isVerbose: true);
+        final quietService = LoggingService();
 
         expect(() => verboseService.error('verbose error'), returnsNormally);
         expect(() => quietService.error('quiet error'), returnsNormally);
       });
 
       test('debug messages only print in verbose mode', () {
-        const verboseService = LoggingService(isVerbose: true);
-        const quietService = LoggingService();
+        final verboseService = LoggingService(isVerbose: true);
+        final quietService = LoggingService();
 
         expect(() => verboseService.debug('verbose debug'), returnsNormally);
         expect(() => quietService.debug('quiet debug'), returnsNormally);
       });
 
       test('forcePrint overrides verbose setting', () {
-        const quietService = LoggingService();
+        final quietService = LoggingService();
 
         expect(
           () => quietService.info('forced info', forcePrint: true),
@@ -111,10 +109,9 @@ void main() {
         );
       });
     });
-
     group('Duration Formatting', () {
       test('formats seconds correctly', () {
-        const service = LoggingService();
+        final service = LoggingService();
 
         expect(
           service.formatDuration(const Duration(seconds: 30)),
@@ -127,7 +124,7 @@ void main() {
       });
 
       test('formats minutes and seconds correctly', () {
-        const service = LoggingService();
+        final service = LoggingService();
 
         expect(
           service.formatDuration(const Duration(minutes: 1)),
@@ -144,7 +141,7 @@ void main() {
       });
 
       test('formats large durations correctly', () {
-        const service = LoggingService();
+        final service = LoggingService();
 
         expect(
           service.formatDuration(
@@ -154,10 +151,9 @@ void main() {
         );
       });
     });
-
     group('CopyWith Functionality', () {
       test('copies with same values when no parameters provided', () {
-        const original = LoggingService(isVerbose: true, enableColors: false);
+        final original = LoggingService(isVerbose: true, enableColors: false);
         final copy = original.copyWith();
 
         expect(copy.isVerbose, equals(original.isVerbose));
@@ -165,7 +161,7 @@ void main() {
       });
 
       test('copies with updated verbose setting', () {
-        const original = LoggingService();
+        final original = LoggingService();
         final copy = original.copyWith(isVerbose: true);
 
         expect(copy.isVerbose, isTrue);
@@ -173,7 +169,7 @@ void main() {
       });
 
       test('copies with updated colors setting', () {
-        const original = LoggingService(isVerbose: true);
+        final original = LoggingService(isVerbose: true);
         final copy = original.copyWith(enableColors: false);
 
         expect(copy.isVerbose, equals(original.isVerbose));
@@ -181,7 +177,7 @@ void main() {
       });
 
       test('copies with both settings updated', () {
-        const original = LoggingService(enableColors: false);
+        final original = LoggingService(enableColors: false);
         final copy = original.copyWith(isVerbose: true, enableColors: true);
 
         expect(copy.isVerbose, isTrue);
@@ -191,16 +187,15 @@ void main() {
 
     group('Error Handling', () {
       test('handles empty messages gracefully', () {
-        const service = LoggingService();
+        final service = LoggingService();
 
         expect(() => service.info(''), returnsNormally);
         expect(() => service.warning(''), returnsNormally);
         expect(() => service.error(''), returnsNormally);
         expect(() => service.debug(''), returnsNormally);
       });
-
       test('handles special characters in messages', () {
-        const service = LoggingService();
+        final service = LoggingService();
 
         expect(
           () => service.info('Message with \n newlines \t tabs'),
@@ -231,7 +226,7 @@ void main() {
     });
 
     test('allows custom logger assignment', () {
-      const customLogger = LoggingService(isVerbose: true, enableColors: false);
+      final customLogger = LoggingService(isVerbose: true, enableColors: false);
       testClass.logger = customLogger;
 
       expect(testClass.logger.isVerbose, isTrue);

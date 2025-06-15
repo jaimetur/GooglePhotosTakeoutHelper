@@ -66,7 +66,7 @@ import 'package:path/path.dart' as p;
 /// @param arguments Command line arguments from the user
 Future<void> main(final List<String> arguments) async {
   // Initialize logger early with default settings
-  _logger = const LoggingService();
+  _logger = LoggingService();
 
   try {
     // Initialize ServiceContainer early to support interactive mode during argument parsing
@@ -611,10 +611,11 @@ Future<ProcessingResult> _executeProcessing(
       await _cleanOutputDirectory(outputDir, config);
     }
   }
-
   await outputDir.create(recursive: true);
   // Execute the processing pipeline
-  const pipeline = ProcessingPipeline();
+  final pipeline = ProcessingPipeline(
+    interactiveService: ServiceContainer.instance.interactiveService,
+  );
   return pipeline.execute(
     config: config,
     inputDirectory: inputDir,

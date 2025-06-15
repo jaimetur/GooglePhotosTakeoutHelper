@@ -4,7 +4,7 @@ import 'package:path/path.dart' as p;
 import '../../utils.dart';
 import 'logging_service.dart';
 
-const LoggingService _logger = LoggingService();
+final LoggingService _logger = LoggingService();
 
 /// Encodes emoji characters in album directory names to hex representation and renames the folder.
 ///

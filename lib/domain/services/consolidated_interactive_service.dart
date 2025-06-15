@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:file_picker_desktop/file_picker_desktop.dart';
 
 import '../../presentation/interactive_presenter.dart';
+import '../models/pipeline_step_model.dart';
 import '../models/processing_config_model.dart';
 import '../services/global_config_service.dart';
 import '../services/logging_service.dart';
@@ -616,6 +617,42 @@ class ConsolidatedInteractiveService with LoggerMixin {
     }
 
     return const ValidationResult.success();
+  }
+
+  // ============================================================================
+  // PROCESSING SUMMARY DISPLAY OPERATIONS
+  // ============================================================================
+
+  /// Displays a summary of warnings and errors encountered during processing
+  Future<void> showWarningsAndErrorsSummary(
+    final List<StepResult> stepResults,
+  ) async {
+    await _presenter.showWarningsAndErrorsSummary(stepResults);
+  }
+
+  /// Displays detailed results for each processing step
+  Future<void> showStepResults(
+    final List<StepResult> stepResults,
+    final Map<String, Duration> stepTimings,
+  ) async {
+    await _presenter.showStepResults(stepResults, stepTimings);
+  }
+
+  /// Displays a processing summary header and statistics
+  Future<void> showProcessingSummary({
+    required final Duration totalTime,
+    required final int successfulSteps,
+    required final int failedSteps,
+    required final int skippedSteps,
+    required final int mediaCount,
+  }) async {
+    await _presenter.showProcessingSummary(
+      totalTime: totalTime,
+      successfulSteps: successfulSteps,
+      failedSteps: failedSteps,
+      skippedSteps: skippedSteps,
+      mediaCount: mediaCount,
+    );
   }
 
   // ============================================================================

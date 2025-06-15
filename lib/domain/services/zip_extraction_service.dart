@@ -18,7 +18,7 @@ class ZipExtractionService {
     : _presenter = presenter ?? InteractivePresenter();
 
   final InteractivePresenter _presenter;
-  final LoggingService _logger = const LoggingService();
+  final LoggingService _logger = LoggingService();
 
   /// Extracts all ZIP files to the specified directory
   ///
