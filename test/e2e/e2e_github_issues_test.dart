@@ -688,6 +688,144 @@ void main() {
           reason: 'Should process truncated filename images',
         );
       });
+
+      test('handles international truncated filenames', () async {
+        // Create test data with international truncated filenames
+        final fixture = TestFixture();
+        await fixture.setUp();
+
+        final takeoutDir = fixture.createDirectory('Takeout');
+        final googlePhotosDir = fixture.createDirectory(
+          '${takeoutDir.path}/Google Photos',
+        );
+        final yearDir = fixture.createDirectory(
+          '${googlePhotosDir.path}/Photos from 2023',
+        );
+
+        // Create files with international characters and truncated suffixes
+        fixture.createImageWithExif('${yearDir.path}/测试图片_中文-ha edi.jpg');
+        fixture.createFile(
+          '${yearDir.path}/测试图片_中文.jpg.json',
+          utf8.encode('{"photoTakenTime": {"timestamp": "1672531200"}}'),
+        );
+
+        fixture.createImageWithExif('${yearDir.path}/foto_española-ha ed.jpg');
+        fixture.createFile(
+          '${yearDir.path}/foto_española.jpg.json',
+          utf8.encode('{"photoTakenTime": {"timestamp": "1672531200"}}'),
+        );
+
+        final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+          takeoutDir.path,
+        );
+
+        final config = ProcessingConfig(
+          inputPath: googlePhotosPath,
+          outputPath: outputPath,
+          albumBehavior: AlbumBehavior.nothing,
+          dateDivision: DateDivisionLevel.none,
+          copyMode: true,
+          writeExif: false,
+        );
+
+        final result = await pipeline.execute(
+          config: config,
+          inputDirectory: Directory(googlePhotosPath),
+          outputDirectory: Directory(outputPath),
+        );
+
+        expect(
+          result.isSuccess,
+          isTrue,
+          reason: 'Should handle international truncated filenames',
+        );
+
+        // Verify files are processed correctly
+        final outputFiles = await Directory(outputPath)
+            .list(recursive: true)
+            .where(
+              (final entity) => entity is File && entity.path.endsWith('.jpg'),
+            )
+            .toList();
+
+        expect(
+          outputFiles.length,
+          equals(2),
+          reason: 'Should process all international truncated filename images',
+        );
+      });
+
+      test('handles multiple truncated suffixes in same directory', () async {
+        // Create test data with multiple truncated filenames in same directory
+        final fixture = TestFixture();
+        await fixture.setUp();
+
+        final takeoutDir = fixture.createDirectory('Takeout');
+        final googlePhotosDir = fixture.createDirectory(
+          '${takeoutDir.path}/Google Photos',
+        );
+        final yearDir = fixture.createDirectory(
+          '${googlePhotosDir.path}/Photos from 2023',
+        );
+
+        // Create multiple files with different truncated suffixes
+        fixture.createImageWithExif('${yearDir.path}/photo1-ha edi.jpg');
+        fixture.createFile(
+          '${yearDir.path}/photo1.jpg.json',
+          utf8.encode('{"photoTakenTime": {"timestamp": "1672531200"}}'),
+        );
+
+        fixture.createImageWithExif('${yearDir.path}/photo2-ha ed.jpg');
+        fixture.createFile(
+          '${yearDir.path}/photo2.jpg.json',
+          utf8.encode('{"photoTakenTime": {"timestamp": "1672531200"}}'),
+        );
+
+        fixture.createImageWithExif('${yearDir.path}/photo3-ha e.jpg');
+        fixture.createFile(
+          '${yearDir.path}/photo3.jpg.json',
+          utf8.encode('{"photoTakenTime": {"timestamp": "1672531200"}}'),
+        );
+
+        final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+          takeoutDir.path,
+        );
+
+        final config = ProcessingConfig(
+          inputPath: googlePhotosPath,
+          outputPath: outputPath,
+          albumBehavior: AlbumBehavior.nothing,
+          dateDivision: DateDivisionLevel.none,
+          copyMode: true,
+          writeExif: false,
+        );
+
+        final result = await pipeline.execute(
+          config: config,
+          inputDirectory: Directory(googlePhotosPath),
+          outputDirectory: Directory(outputPath),
+        );
+
+        expect(
+          result.isSuccess,
+          isTrue,
+          reason: 'Should handle multiple truncated filenames',
+        );
+
+        // Verify files are processed correctly
+        final outputFiles = await Directory(outputPath)
+            .list(recursive: true)
+            .where(
+              (final entity) => entity is File && entity.path.endsWith('.jpg'),
+            )
+            .toList();
+
+        expect(
+          outputFiles.length,
+          equals(3),
+          reason: 'Should process all truncated filename images',
+        );
+      });
     });
 
     group('Extension Fixing - Issue #32', () {
@@ -719,27 +857,170 @@ void main() {
           expect(
             result.isSuccess,
             isTrue,
-            reason: 'Should handle extension fixing',
+            reason: 'Should handle mismatched extensions',
           );
 
-          // Verify files are processed and potentially renamed
+          // Verify files are processed correctly
           final outputFiles = await Directory(outputPath)
               .list(recursive: true)
               .where(
                 (final entity) =>
-                    entity is File &&
-                    (entity.path.endsWith('.jpg') ||
-                        entity.path.contains('.heic')),
+                    entity is File && entity.path.endsWith('.jpg'),
               )
               .toList();
 
           expect(
             outputFiles.length,
             greaterThan(0),
-            reason: 'Should process files with extension fixing',
+            reason: 'Should process mismatched extension images',
           );
         },
       );
+
+      test('handles multiple extension mismatches in same directory', () async {
+        // Create test data with multiple extension mismatches
+        final fixture = TestFixture();
+        await fixture.setUp();
+
+        final takeoutDir = fixture.createDirectory('Takeout');
+        final googlePhotosDir = fixture.createDirectory(
+          '${takeoutDir.path}/Google Photos',
+        );
+        final yearDir = fixture.createDirectory(
+          '${googlePhotosDir.path}/Photos from 2023',
+        );
+
+        // Create JPEG files with different incorrect extensions
+        final jpegData = base64.decode(greenImgBase64.replaceAll('\n', ''));
+
+        fixture.createFile('${yearDir.path}/image1.heic', jpegData);
+        fixture.createFile(
+          '${yearDir.path}/image1.heic.json',
+          utf8.encode('{"photoTakenTime": {"timestamp": "1672531200"}}'),
+        );
+
+        fixture.createFile('${yearDir.path}/image2.png', jpegData);
+        fixture.createFile(
+          '${yearDir.path}/image2.png.json',
+          utf8.encode('{"photoTakenTime": {"timestamp": "1672531200"}}'),
+        );
+
+        fixture.createFile('${yearDir.path}/image3.gif', jpegData);
+        fixture.createFile(
+          '${yearDir.path}/image3.gif.json',
+          utf8.encode('{"photoTakenTime": {"timestamp": "1672531200"}}'),
+        );
+
+        final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+          takeoutDir.path,
+        );
+
+        final config = ProcessingConfig(
+          inputPath: googlePhotosPath,
+          outputPath: outputPath,
+          albumBehavior: AlbumBehavior.nothing,
+          dateDivision: DateDivisionLevel.none,
+          copyMode: true,
+          writeExif: false,
+          extensionFixing: ExtensionFixingMode.standard,
+        );
+
+        final result = await pipeline.execute(
+          config: config,
+          inputDirectory: Directory(googlePhotosPath),
+          outputDirectory: Directory(outputPath),
+        );
+
+        expect(
+          result.isSuccess,
+          isTrue,
+          reason: 'Should handle multiple extension mismatches',
+        );
+
+        // Verify files are processed correctly
+        final outputFiles = await Directory(outputPath)
+            .list(recursive: true)
+            .where(
+              (final entity) => entity is File && entity.path.endsWith('.jpg'),
+            )
+            .toList();
+
+        expect(
+          outputFiles.length,
+          equals(3),
+          reason: 'Should process all mismatched extension images',
+        );
+      });
+
+      test('handles extension fixing with numbered duplicates', () async {
+        // Create test data with numbered duplicates and extension mismatches
+        final fixture = TestFixture();
+        await fixture.setUp();
+
+        final takeoutDir = fixture.createDirectory('Takeout');
+        final googlePhotosDir = fixture.createDirectory(
+          '${takeoutDir.path}/Google Photos',
+        );
+        final yearDir = fixture.createDirectory(
+          '${googlePhotosDir.path}/Photos from 2023',
+        );
+
+        // Create JPEG files with numbered duplicates and incorrect extensions
+        final jpegData = base64.decode(greenImgBase64.replaceAll('\n', ''));
+
+        fixture.createFile('${yearDir.path}/image(1).heic', jpegData);
+        fixture.createFile(
+          '${yearDir.path}/image.heic.json',
+          utf8.encode('{"photoTakenTime": {"timestamp": "1672531200"}}'),
+        );
+
+        fixture.createFile('${yearDir.path}/image(2).heic', jpegData);
+        fixture.createFile(
+          '${yearDir.path}/image.heic(2).json',
+          utf8.encode('{"photoTakenTime": {"timestamp": "1672531200"}}'),
+        );
+
+        final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+          takeoutDir.path,
+        );
+
+        final config = ProcessingConfig(
+          inputPath: googlePhotosPath,
+          outputPath: outputPath,
+          albumBehavior: AlbumBehavior.nothing,
+          dateDivision: DateDivisionLevel.none,
+          copyMode: true,
+          writeExif: false,
+          extensionFixing: ExtensionFixingMode.standard,
+        );
+
+        final result = await pipeline.execute(
+          config: config,
+          inputDirectory: Directory(googlePhotosPath),
+          outputDirectory: Directory(outputPath),
+        );
+
+        expect(
+          result.isSuccess,
+          isTrue,
+          reason: 'Should handle extension fixing with numbered duplicates',
+        );
+
+        // Verify files are processed correctly
+        final outputFiles = await Directory(outputPath)
+            .list(recursive: true)
+            .where(
+              (final entity) => entity is File && entity.path.endsWith('.jpg'),
+            )
+            .toList();
+
+        expect(
+          outputFiles.length,
+          equals(2),
+          reason:
+              'Should process all numbered duplicate images with fixed extensions',
+        );
+      });
     });
 
     group('Performance and Large Dataset Handling', () {
