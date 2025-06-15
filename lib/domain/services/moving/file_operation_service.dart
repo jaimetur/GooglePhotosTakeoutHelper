@@ -15,15 +15,6 @@ class FileOperationService {
 
   final _operationSemaphore = _Semaphore(_maxConcurrentOperations);
 
-  /// Creates a unique file name by appending (1), (2), etc. until non-existing
-  ///
-  /// [initialFile] The file to find a unique name for
-  /// Returns a File object with a unique path that doesn't exist yet
-  ///
-  /// @deprecated Use ConsolidatedUtilityService.findUniqueFileName() instead
-  File findUniqueFileName(final File initialFile) =>
-      ServiceContainer.instance.utilityService.findUniqueFileName(initialFile);
-
   /// Safely moves or copies a file to the target location with basic implementation
   ///
   /// [sourceFile] The source file to move/copy  /// [targetDirectory] The target directory
@@ -39,9 +30,10 @@ class FileOperationService {
     // Ensure target directory exists
     await targetDirectory.create(recursive: true);
 
-    final File targetFile = findUniqueFileName(
-      File(p.join(targetDirectory.path, p.basename(sourceFile.path))),
-    );
+    final File targetFile = ServiceContainer.instance.utilityService
+        .findUniqueFileName(
+          File(p.join(targetDirectory.path, p.basename(sourceFile.path))),
+        );
 
     try {
       final resultFile = copyMode
@@ -82,9 +74,10 @@ class FileOperationService {
       // Ensure target directory exists
       await targetDirectory.create(recursive: true);
 
-      final File targetFile = findUniqueFileName(
-        File(p.join(targetDirectory.path, p.basename(sourceFile.path))),
-      );
+      final File targetFile = ServiceContainer.instance.utilityService
+          .findUniqueFileName(
+            File(p.join(targetDirectory.path, p.basename(sourceFile.path))),
+          );
 
       final resultFile = copyMode
           ? await _copyFileOptimized(sourceFile, targetFile)

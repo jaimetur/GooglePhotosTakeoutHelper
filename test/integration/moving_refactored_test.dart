@@ -37,7 +37,6 @@ void main() {
       setUp(() {
         service = FileOperationService();
       });
-
       test('findUniqueFileName generates unique names', () {
         final originalFile = fixture.createFile('test.jpg', [1, 2, 3]);
 
@@ -45,7 +44,8 @@ void main() {
         final conflictFile = File(originalFile.path);
         conflictFile.createSync();
 
-        final uniqueFile = service.findUniqueFileName(originalFile);
+        final uniqueFile = ServiceContainer.instance.utilityService
+            .findUniqueFileName(originalFile);
 
         expect(uniqueFile.path, contains('test(1).jpg'));
         expect(uniqueFile.existsSync(), isFalse);

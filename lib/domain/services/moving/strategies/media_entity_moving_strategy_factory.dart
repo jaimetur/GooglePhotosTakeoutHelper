@@ -19,12 +19,9 @@ class MediaEntityMovingStrategyFactory {
     this._pathService,
     this._shortcutService,
   );
-  // Dependencies ready for strategy implementations
-  // ignore: unused_field
+  // Dependencies for creating strategy implementations
   final FileOperationService _fileService;
-  // ignore: unused_field
   final PathGeneratorService _pathService;
-  // ignore: unused_field
   final ShortcutService _shortcutService;
 
   /// Creates the appropriate strategy for the given album behavior
