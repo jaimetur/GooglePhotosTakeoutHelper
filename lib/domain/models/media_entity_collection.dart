@@ -54,33 +54,62 @@ class MediaEntityCollection with LoggerMixin {
   }) async {
     final extractionStats = <DateTimeExtractionMethod, int>{};
 
+    // Map extractor index to extraction method for proper tracking
+    final extractorMethods = [
+      DateTimeExtractionMethod.json, // JSON extractor (first priority)
+      DateTimeExtractionMethod.exif, // EXIF extractor (second priority)
+      DateTimeExtractionMethod.guess, // Filename guess extractor (if enabled)
+      DateTimeExtractionMethod
+          .jsonTryHard, // JSON tryhard extractor (last resort)
+    ];
+
     for (int i = 0; i < _media.length; i++) {
+      final mediaFile = _media[i];
       DateTimeExtractionMethod? extractionMethod;
 
       // Skip if media already has a date
-      if (_media[i].dateTaken != null) {
+      if (mediaFile.dateTaken != null) {
         extractionMethod =
-            _media[i].dateTimeExtractionMethod ?? DateTimeExtractionMethod.none;
+            mediaFile.dateTimeExtractionMethod ?? DateTimeExtractionMethod.none;
+        logDebug(
+          'File already has date: ${mediaFile.primaryFile.path} (${extractionMethod.name})',
+        );
       } else {
         // Try each extractor in sequence until one succeeds
-        for (final extractor in extractors) {
-          final extractedDate = await extractor(_media[i]);
+        bool dateFound = false;
+        for (
+          int extractorIndex = 0;
+          extractorIndex < extractors.length;
+          extractorIndex++
+        ) {
+          final extractor = extractors[extractorIndex];
+          final extractedDate = await extractor(mediaFile);
+
           if (extractedDate != null) {
-            _media[i] = _media[i].withDate(
+            // Determine the correct extraction method based on extractor index
+            extractionMethod = extractorIndex < extractorMethods.length
+                ? extractorMethods[extractorIndex]
+                : DateTimeExtractionMethod.guess;
+
+            _media[i] = mediaFile.withDate(
               dateTaken: extractedDate,
-              dateTimeExtractionMethod: DateTimeExtractionMethod
-                  .guess, // Will be determined by extractor
+              dateTimeExtractionMethod: extractionMethod,
             );
-            extractionMethod = DateTimeExtractionMethod.guess;
+
+            logInfo(
+              'Date extracted for ${mediaFile.primaryFile.path}: $extractedDate (method: ${extractionMethod.name})',
+            );
+            dateFound = true;
             break;
           }
         }
 
-        if (_media[i].dateTaken == null) {
+        if (!dateFound) {
           extractionMethod = DateTimeExtractionMethod.none;
-          _media[i] = _media[i].withDate(
+          _media[i] = mediaFile.withDate(
             dateTimeExtractionMethod: DateTimeExtractionMethod.none,
           );
+          logInfo('No date found for ${mediaFile.primaryFile.path}');
         }
       }
 
