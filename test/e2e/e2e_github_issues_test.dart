@@ -700,16 +700,17 @@ void main() {
         );
         final yearDir = fixture.createDirectory(
           '${googlePhotosDir.path}/Photos from 2023',
-        );
-
-        // Create files with international characters and truncated suffixes
+        ); // Create files with international characters and truncated suffixes
+        // Use different image data to avoid duplicate detection
         fixture.createImageWithExif('${yearDir.path}/测试图片_中文-ha edi.jpg');
         fixture.createFile(
           '${yearDir.path}/测试图片_中文.jpg.json',
           utf8.encode('{"photoTakenTime": {"timestamp": "1672531200"}}'),
         );
 
-        fixture.createImageWithExif('${yearDir.path}/foto_española-ha ed.jpg');
+        fixture.createImageWithoutExif(
+          '${yearDir.path}/foto_española-ha ed.jpg',
+        );
         fixture.createFile(
           '${yearDir.path}/foto_española.jpg.json',
           utf8.encode('{"photoTakenTime": {"timestamp": "1672531200"}}'),
@@ -766,22 +767,30 @@ void main() {
         );
         final yearDir = fixture.createDirectory(
           '${googlePhotosDir.path}/Photos from 2023',
-        );
-
-        // Create multiple files with different truncated suffixes
+        ); // Create multiple files with different truncated suffixes
+        // Use different image creation methods to ensure unique content
         fixture.createImageWithExif('${yearDir.path}/photo1-ha edi.jpg');
         fixture.createFile(
           '${yearDir.path}/photo1.jpg.json',
           utf8.encode('{"photoTakenTime": {"timestamp": "1672531200"}}'),
         );
 
-        fixture.createImageWithExif('${yearDir.path}/photo2-ha ed.jpg');
+        fixture.createImageWithoutExif('${yearDir.path}/photo2-ha ed.jpg');
         fixture.createFile(
           '${yearDir.path}/photo2.jpg.json',
           utf8.encode('{"photoTakenTime": {"timestamp": "1672531200"}}'),
         );
 
-        fixture.createImageWithExif('${yearDir.path}/photo3-ha e.jpg');
+        // Create a third file with unique content to ensure it's not a duplicate
+        fixture.createFile(
+          '${yearDir.path}/photo3-ha e.jpg',
+          utf8.encode('unique content for photo3').followedBy([
+            0xFF,
+            0xD8,
+            0xFF,
+            0xE0,
+          ]).toList(),
+        );
         fixture.createFile(
           '${yearDir.path}/photo3.jpg.json',
           utf8.encode('{"photoTakenTime": {"timestamp": "1672531200"}}'),
@@ -888,24 +897,29 @@ void main() {
         );
         final yearDir = fixture.createDirectory(
           '${googlePhotosDir.path}/Photos from 2023',
+        ); // Create JPEG files with different incorrect extensions and unique content
+        final jpegData1 = base64.decode(greenImgBase64.replaceAll('\n', ''));
+        final jpegData2 = base64.decode(
+          greenImgNoMetaDataBase64.replaceAll('\n', ''),
         );
+        // Create a third unique JPEG by modifying the green image bytes
+        final jpegData3 = base64.decode(greenImgBase64.replaceAll('\n', ''));
+        jpegData3[jpegData3.length - 10] =
+            (jpegData3[jpegData3.length - 10] + 1) % 256;
 
-        // Create JPEG files with different incorrect extensions
-        final jpegData = base64.decode(greenImgBase64.replaceAll('\n', ''));
-
-        fixture.createFile('${yearDir.path}/image1.heic', jpegData);
+        fixture.createFile('${yearDir.path}/image1.heic', jpegData1);
         fixture.createFile(
           '${yearDir.path}/image1.heic.json',
           utf8.encode('{"photoTakenTime": {"timestamp": "1672531200"}}'),
         );
 
-        fixture.createFile('${yearDir.path}/image2.png', jpegData);
+        fixture.createFile('${yearDir.path}/image2.png', jpegData2);
         fixture.createFile(
           '${yearDir.path}/image2.png.json',
           utf8.encode('{"photoTakenTime": {"timestamp": "1672531200"}}'),
         );
 
-        fixture.createFile('${yearDir.path}/image3.gif', jpegData);
+        fixture.createFile('${yearDir.path}/image3.gif', jpegData3);
         fixture.createFile(
           '${yearDir.path}/image3.gif.json',
           utf8.encode('{"photoTakenTime": {"timestamp": "1672531200"}}'),
@@ -963,18 +977,19 @@ void main() {
         );
         final yearDir = fixture.createDirectory(
           '${googlePhotosDir.path}/Photos from 2023',
+        ); // Create JPEG files with numbered duplicates and incorrect extensions
+        final jpegData1 = base64.decode(greenImgBase64.replaceAll('\n', ''));
+        final jpegData2 = base64.decode(
+          greenImgNoMetaDataBase64.replaceAll('\n', ''),
         );
 
-        // Create JPEG files with numbered duplicates and incorrect extensions
-        final jpegData = base64.decode(greenImgBase64.replaceAll('\n', ''));
-
-        fixture.createFile('${yearDir.path}/image(1).heic', jpegData);
+        fixture.createFile('${yearDir.path}/image(1).heic', jpegData1);
         fixture.createFile(
           '${yearDir.path}/image.heic.json',
           utf8.encode('{"photoTakenTime": {"timestamp": "1672531200"}}'),
         );
 
-        fixture.createFile('${yearDir.path}/image(2).heic', jpegData);
+        fixture.createFile('${yearDir.path}/image(2).heic', jpegData2);
         fixture.createFile(
           '${yearDir.path}/image.heic(2).json',
           utf8.encode('{"photoTakenTime": {"timestamp": "1672531200"}}'),
