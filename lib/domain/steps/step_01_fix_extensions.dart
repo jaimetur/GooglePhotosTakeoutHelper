@@ -1,6 +1,7 @@
 import '../models/pipeline_step_model.dart';
 import '../models/processing_config_model.dart';
 import '../services/extension_fixing_service.dart';
+import '../services/logging_service.dart';
 
 /// Step 1: Fix incorrect file extensions
 ///
@@ -59,10 +60,10 @@ class FixExtensionsStep extends ProcessingStep {
           message: 'Extension fixing skipped per configuration',
         );
       }
-
       print('\n[Step 1/8] Fixing file extensions... (This might take a while)');
 
-      final extensionFixingService = ExtensionFixingService();
+      final extensionFixingService = ExtensionFixingService()
+        ..logger = LoggingService.fromConfig(context.config);
       final fixedCount = await extensionFixingService.fixIncorrectExtensions(
         context.inputDirectory,
         skipJpegFiles:

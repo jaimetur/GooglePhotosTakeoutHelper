@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import '../models/processing_config_model.dart';
+import 'consolidated_utility_service.dart';
 
 /// Domain service for handling interactive configuration logic
 ///
@@ -185,26 +186,15 @@ class DiskSpaceRequirement {
   final int outputSpace;
   final int totalRequired;
 
+  static const _utility = ConsolidatedUtilityService();
+
   /// Human-readable total required space
-  String get totalRequiredFormatted => _formatBytes(totalRequired);
+  String get totalRequiredFormatted => _utility.formatFileSize(totalRequired);
 
   /// Human-readable extraction space
-  String get extractionSpaceFormatted => _formatBytes(extractionSpace);
+  String get extractionSpaceFormatted =>
+      _utility.formatFileSize(extractionSpace);
 
   /// Human-readable output space
-  String get outputSpaceFormatted => _formatBytes(outputSpace);
-
-  /// Formats bytes using the consolidated utility service
-  ///
-  /// @deprecated This will be removed in favor of direct service access
-  static String _formatBytes(final int bytes) {
-    // For now, use a simple implementation to avoid circular dependencies
-    // In the next phase, this entire class will be consolidated
-    if (bytes < 1024) return '${bytes}B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)}KB';
-    if (bytes < 1024 * 1024 * 1024) {
-      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)}MB';
-    }
-    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)}GB';
-  }
+  String get outputSpaceFormatted => _utility.formatFileSize(outputSpace);
 }

@@ -284,7 +284,7 @@ class JsonFileMatcherService with LoggerMixin {
     );
 
     if (cleanedFilename != filename) {
-      JsonFileMatcherService().logInfo(
+      _logDebug(
         '$filename was renamed to $cleanedFilename by the removePartialExtraFormats function.',
       );
 
@@ -295,7 +295,7 @@ class JsonFileMatcherService with LoggerMixin {
       );
 
       if (restoredFilename != cleanedFilename) {
-        JsonFileMatcherService().logInfo(
+        _logDebug(
           'Extension restored from ${p.extension(cleanedFilename)} to ${p.extension(restoredFilename)} for file: $restoredFilename',
         );
         return restoredFilename;
@@ -311,7 +311,7 @@ class JsonFileMatcherService with LoggerMixin {
   static String _removeExtraEdgeCase(final String filename) {
     final String? result = _extrasService.removeEdgeCaseExtraFormats(filename);
     if (result != null) {
-      JsonFileMatcherService().logInfo(
+      _logDebug(
         'Truncated suffix detected and removed by edge case handling: $filename -> $result',
       );
       return result;
@@ -330,6 +330,17 @@ class JsonFileMatcherService with LoggerMixin {
       return '$nameWithoutExt.MP.jpg';
     }
     return filename;
+  }
+
+  /// Static debug logging for file transformation details
+  ///
+  /// Uses the global configuration to determine if verbose logging is enabled.
+  /// These messages help debug JSON matching issues when verbose mode is active.
+  static void _logDebug(final String message) {
+    // Access global verbose setting and log accordingly
+    if (ServiceContainer.instance.globalConfig.isVerbose) {
+      const LoggingService().debug(message, forcePrint: true);
+    }
   }
 }
 

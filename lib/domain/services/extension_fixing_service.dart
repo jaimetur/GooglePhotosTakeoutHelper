@@ -78,12 +78,10 @@ class ExtensionFixingService with LoggerMixin {
     // Check if extension matches content
     if (actualMimeType == extensionMimeType) {
       return false; // Extension is correct
-    }
-
-    // Log special cases
+    } // Log special cases
     if (extensionMimeType == 'video/mp4' &&
         actualMimeType == 'video/x-msvideo') {
-      logInfo(
+      logDebug(
         'Detected AVI file incorrectly named as .mp4: ${p.basename(file.path)}',
       );
     }
@@ -145,6 +143,8 @@ class ExtensionFixingService with LoggerMixin {
 
   /// Finds the JSON metadata file associated with a media file
   Future<File?> _findJsonFile(final File file) async {
+    logDebug('Looking for JSON file for: ${p.basename(file.path)}');
+
     // Try quick lookup first
     File? jsonFile = await JsonFileMatcherService.findJsonForFile(
       file,
@@ -152,6 +152,7 @@ class ExtensionFixingService with LoggerMixin {
     );
 
     if (jsonFile == null) {
+      logDebug('Quick JSON lookup failed, trying harder...');
       // Try harder lookup if quick one failed
       jsonFile = await JsonFileMatcherService.findJsonForFile(
         file,
@@ -160,7 +161,13 @@ class ExtensionFixingService with LoggerMixin {
 
       if (jsonFile == null) {
         logWarning('Unable to find matching JSON for file: ${file.path}');
+      } else {
+        logDebug(
+          'Found JSON file with tryHard methods: ${p.basename(jsonFile.path)}',
+        );
       }
+    } else {
+      logDebug('Found JSON file: ${p.basename(jsonFile.path)}');
     }
 
     return jsonFile;
