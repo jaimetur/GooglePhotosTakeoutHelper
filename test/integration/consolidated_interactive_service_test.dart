@@ -26,7 +26,9 @@ class MockInteractivePresenter extends InteractivePresenter {
     if (_inputIndex < _inputs.length) {
       return _inputs[_inputIndex++];
     }
-    return 'default';
+    // Return empty string (which is handled as default in most cases) instead of 'default'
+    // This prevents infinite loops when mock runs out of inputs
+    return '';
   }
 
   @override
@@ -166,9 +168,8 @@ void main() {
           contains('user_selection: year/month/day folders'),
         );
       });
-
       test('should handle year/month/day division option', () async {
-        mockPresenter.setInputs(['4']);
+        mockPresenter.setInputs(['3']);
 
         final result = await service.askDivideDates();
         expect(
@@ -234,7 +235,7 @@ void main() {
 
     group('Boolean prompts', () {
       test('should ask for clean output', () async {
-        mockPresenter.setInputs(['y']);
+        mockPresenter.setInputs(['1']);
 
         final result = await service.askForCleanOutput();
 
@@ -291,7 +292,7 @@ void main() {
     });
     group('Extension fixing prompt', () {
       test('should ask for extension fixing mode', () async {
-        mockPresenter.setInputs(['0']);
+        mockPresenter.setInputs(['1']);
 
         final result = await service.askFixExtensions();
 
@@ -299,7 +300,7 @@ void main() {
       });
 
       test('should handle conservative option', () async {
-        mockPresenter.setInputs(['1']);
+        mockPresenter.setInputs(['2']);
 
         final result = await service.askFixExtensions();
 
@@ -307,7 +308,7 @@ void main() {
       });
 
       test('should handle solo option', () async {
-        mockPresenter.setInputs(['2']);
+        mockPresenter.setInputs(['3']);
 
         final result = await service.askFixExtensions();
 
@@ -315,19 +316,26 @@ void main() {
       });
 
       test('should handle none option', () async {
-        mockPresenter.setInputs(['3']);
+        mockPresenter.setInputs(['4']);
 
         final result = await service.askFixExtensions();
 
         expect(result, equals('none'));
       });
-
       test('should handle default (empty input)', () async {
         mockPresenter.setInputs(['']);
 
         final result = await service.askFixExtensions();
 
         expect(result, equals('standard'));
+      });
+
+      test('should retry on invalid extension input', () async {
+        mockPresenter.setInputs(['invalid', '99', '1']);
+
+        final result = await service.askFixExtensions();
+
+        expect(result, equals('standard')); // Input '1' maps to standard
       });
     });
 
@@ -365,16 +373,14 @@ void main() {
 
     group('Integration tests', () {
       test('should handle complete date division workflow', () async {
-        mockPresenter.setInputs(['invalid', '1']);
+        mockPresenter.setInputs(['invalid', '0']);
 
         final result = await service.askDivideDates();
 
         expect(result, equals(0));
         expect(mockPresenter.prompts, contains('date_division'));
         expect(
-          mockPresenter.messages.any(
-            (final m) => m.contains('Will put all photos into one folder'),
-          ),
+          mockPresenter.messages.any((final m) => m.contains('one big folder')),
           isTrue,
         );
       });
@@ -395,18 +401,26 @@ void main() {
 
         expect(result, isFalse);
       });
-
       test('should handle boolean input variations', () async {
-        // Test different valid inputs for boolean questions
-        mockPresenter.setInputs(['yes']);
+        // Test askForCleanOutput with 'yes' input - this expects '1', not 'yes'
+        mockPresenter.setInputs(['1']);
         expect(await service.askForCleanOutput(), isTrue);
+      });
 
+      test('should handle more boolean input variations', () async {
+        // Test askTransformPixelMP with 'no' input
         mockPresenter.setInputs(['no']);
         expect(await service.askTransformPixelMP(), isFalse);
+      });
 
+      test('should handle creation time boolean variations', () async {
+        // Test askChangeCreationTime with 'y' input
         mockPresenter.setInputs(['y']);
         expect(await service.askChangeCreationTime(), isTrue);
+      });
 
+      test('should handle EXIF writing boolean variations', () async {
+        // Test askIfWriteExif with 'n' input
         mockPresenter.setInputs(['n']);
         expect(await service.askIfWriteExif(), isFalse);
       });

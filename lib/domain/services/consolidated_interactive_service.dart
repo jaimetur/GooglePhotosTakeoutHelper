@@ -267,20 +267,20 @@ class ConsolidatedInteractiveService with LoggerMixin {
     while (true) {
       final input = await readUserInput();
       switch (input) {
-        case '0':
+        case '1':
         case '':
         case 'standard':
           await _presenter.showUserSelection(input, 'standard (recommended)');
           return 'standard';
-        case '1':
+        case '2':
         case 'conservative':
           await _presenter.showUserSelection(input, 'conservative');
           return 'conservative';
-        case '2':
+        case '3':
         case 'solo':
           await _presenter.showUserSelection(input, 'solo');
           return 'solo';
-        case '3':
+        case '4':
         case 'none':
           await _presenter.showUserSelection(input, 'none');
           return 'none';
