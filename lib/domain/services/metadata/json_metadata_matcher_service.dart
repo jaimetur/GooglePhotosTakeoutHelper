@@ -5,7 +5,7 @@ import 'package:path/path.dart' as p;
 import 'package:unorm_dart/unorm_dart.dart' as unorm;
 
 import '../../../shared/constants/extra_formats.dart';
-import '../../../utils.dart' hide LoggerMixin, ServiceContainer, LoggingService;
+import '../../../shared/extensions/file_extensions.dart';
 import '../core/logging_service.dart';
 import '../core/service_container.dart';
 import '../processing/edited_version_detector_service.dart';

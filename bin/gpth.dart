@@ -7,9 +7,11 @@ import 'package:gpth/domain/main_pipeline.dart';
 import 'package:gpth/domain/models/io_paths_model.dart';
 import 'package:gpth/domain/models/processing_config_model.dart';
 import 'package:gpth/domain/models/processing_result_model.dart';
+import 'package:gpth/domain/services/core/logging_service.dart';
+import 'package:gpth/domain/services/core/service_container.dart';
 import 'package:gpth/domain/services/user_interaction/path_resolver_service.dart';
 import 'package:gpth/presentation/interactive_presenter.dart';
-import 'package:gpth/utils.dart';
+import 'package:gpth/shared/constants.dart';
 import 'package:path/path.dart' as p;
 
 /// ############################### GOOGLE PHOTOS TAKEOUT HELPER #############################
