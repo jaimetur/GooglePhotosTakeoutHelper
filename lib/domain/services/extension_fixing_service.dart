@@ -143,8 +143,6 @@ class ExtensionFixingService with LoggerMixin {
 
   /// Finds the JSON metadata file associated with a media file
   Future<File?> _findJsonFile(final File file) async {
-    logDebug('Looking for JSON file for: ${p.basename(file.path)}');
-
     // Try quick lookup first
     File? jsonFile = await JsonFileMatcherService.findJsonForFile(
       file,
@@ -152,13 +150,11 @@ class ExtensionFixingService with LoggerMixin {
     );
 
     if (jsonFile == null) {
-      logDebug('Quick JSON lookup failed, trying harder...');
       // Try harder lookup if quick one failed
       jsonFile = await JsonFileMatcherService.findJsonForFile(
         file,
         tryhard: true,
       );
-
       if (jsonFile == null) {
         logWarning('Unable to find matching JSON for file: ${file.path}');
       } else {
@@ -166,8 +162,6 @@ class ExtensionFixingService with LoggerMixin {
           'Found JSON file with tryHard methods: ${p.basename(jsonFile.path)}',
         );
       }
-    } else {
-      logDebug('Found JSON file: ${p.basename(jsonFile.path)}');
     }
 
     return jsonFile;
