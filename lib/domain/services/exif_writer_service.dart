@@ -108,7 +108,6 @@ class ExifWriterService with LoggerMixin {
           )) {
         return true;
       }
-
       if (mimeTypeFromExtension != mimeTypeFromHeader &&
           mimeTypeFromHeader != 'image/tiff') {
         logError(
@@ -117,6 +116,16 @@ class ExifWriterService with LoggerMixin {
         );
         return false;
       }
+
+      // Skip AVI files - ExifTool cannot write to RIFF AVI format
+      if (mimeTypeFromExtension == 'video/x-msvideo' ||
+          mimeTypeFromHeader == 'video/x-msvideo') {
+        logWarning(
+          '[Step 5/8] Skipping AVI file - ExifTool cannot write to RIFF AVI format: ${file.path}',
+        );
+        return false;
+      }
+
       final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
       final String dt = exifFormat.format(dateTime);
       try {
@@ -175,11 +184,19 @@ class ExifWriterService with LoggerMixin {
           )) {
         return true;
       }
-
       if (mimeTypeFromExtension != mimeTypeFromHeader) {
         logError(
           "GPSWriter - File has a wrong extension indicating '$mimeTypeFromExtension' but actually it is '$mimeTypeFromHeader'.\n"
           'ExifTool would fail, skipping. You may want to run GPTH with --fix-extensions.\n ${file.path}',
+        );
+        return false;
+      }
+
+      // Skip AVI files - ExifTool cannot write to RIFF AVI format
+      if (mimeTypeFromExtension == 'video/x-msvideo' ||
+          mimeTypeFromHeader == 'video/x-msvideo') {
+        logWarning(
+          '[Step 5/8] Skipping AVI file - ExifTool cannot write to RIFF AVI format: ${file.path}',
         );
         return false;
       }

@@ -416,13 +416,17 @@ class MockExifToolService extends ExifToolService {
   MockExifToolService() : super('mock_exiftool_path');
 
   @override
-  Future<void> writeExifData(File file, Map<String, dynamic> data) async {
+  Future<void> writeExifData(
+    final File file,
+    final Map<String, dynamic> data,
+  ) async {
     // Simulate successful write
     print('[MOCK] Writing EXIF data to ${file.path}: $data');
   }
 
   @override
-  Future<Map<String, dynamic>> readExifData(File file) async {
+  // ignore: prefer_expression_function_bodies
+  Future<Map<String, dynamic>> readExifData(final File file) async {
     // Simulate no existing GPS coordinates
     return {};
   }

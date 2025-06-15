@@ -217,7 +217,9 @@ class ExifToolService {
     } catch (e) {
       // Handle unsupported file formats gracefully - don't throw for these
       if (e.toString().contains('is not yet supported') ||
-          e.toString().contains('file format not supported')) {
+          e.toString().contains('file format not supported') ||
+          e.toString().contains("Can't currently write RIFF AVI files") ||
+          e.toString().contains('AVI files')) {
         print(
           'ExifTool does not support writing to this file format: ${file.path}',
         );

@@ -160,21 +160,25 @@ class MediaEntityCollection with LoggerMixin {
         logWarning(
           'Failed to extract/write GPS coordinates for ${mediaEntity.files.firstFile.path}: $e',
         );
-      }
-
-      // Write date/time to EXIF if available and not already from EXIF
+      } // Write date/time to EXIF if available and not already from EXIF
       if (mediaEntity.dateTaken != null &&
           mediaEntity.dateTimeExtractionMethod !=
               DateTimeExtractionMethod.exif &&
           mediaEntity.dateTimeExtractionMethod !=
               DateTimeExtractionMethod.none) {
-        final success = await exifWriter.writeDateTimeToExif(
-          mediaEntity.dateTaken!,
-          mediaEntity.files.firstFile,
-          ServiceContainer.instance.globalConfig,
-        );
-        if (success) {
-          dateTimesWritten++;
+        try {
+          final success = await exifWriter.writeDateTimeToExif(
+            mediaEntity.dateTaken!,
+            mediaEntity.files.firstFile,
+            ServiceContainer.instance.globalConfig,
+          );
+          if (success) {
+            dateTimesWritten++;
+          }
+        } catch (e) {
+          logWarning(
+            'Failed to write DateTime to EXIF for ${mediaEntity.files.firstFile.path}: $e',
+          );
         }
       }
 
