@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:gpth/domain/services/date_extraction/json_date_extractor.dart';
-import 'package:gpth/domain/services/metadata_matcher_service.dart';
+import 'package:gpth/domain/services/metadata/date_extraction/json_date_extractor.dart';
+import 'package:gpth/domain/services/metadata/json_metadata_matcher_service.dart';
 import 'package:test/test.dart';
 import '../setup/test_setup.dart';
 
@@ -154,7 +154,7 @@ void main() {
     group('Strategy Order Validation Tests', () {
       test('verifies strategy order is from most to least likely', () async {
         // Test that basic strategies are ordered correctly
-        final basicStrategies = JsonFileMatcherService.getAllStrategies(
+        final basicStrategies = JsonMetadataMatcherService.getAllStrategies(
           includeAggressive: false,
         );
         expect(basicStrategies.length, equals(6));
@@ -171,7 +171,7 @@ void main() {
       test(
         'verifies aggressive strategies are appropriately ordered',
         () async {
-          final allStrategies = JsonFileMatcherService.getAllStrategies(
+          final allStrategies = JsonMetadataMatcherService.getAllStrategies(
             includeAggressive: true,
           );
           expect(allStrategies.length, equals(10)); // 6 basic + 4 aggressive

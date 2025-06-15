@@ -1,5 +1,5 @@
 import 'dart:io';
-import '../../domain/services/file_system_service.dart';
+import '../../domain/services/file_operations/file_system_service.dart';
 
 /// Extensions for filtering file system entities by media type
 ///

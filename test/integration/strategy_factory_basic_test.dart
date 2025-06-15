@@ -2,10 +2,10 @@
 library;
 
 import 'package:gpth/domain/models/processing_config_model.dart';
-import 'package:gpth/domain/services/moving/file_operation_service.dart';
-import 'package:gpth/domain/services/moving/path_generator_service.dart';
-import 'package:gpth/domain/services/moving/shortcut_service.dart';
-import 'package:gpth/domain/services/moving/strategies/media_entity_moving_strategy_factory.dart';
+import 'package:gpth/domain/services/file_operations/moving/file_operation_service.dart';
+import 'package:gpth/domain/services/file_operations/moving/path_generator_service.dart';
+import 'package:gpth/domain/services/file_operations/moving/shortcut_service.dart';
+import 'package:gpth/domain/services/file_operations/moving/strategies/media_entity_moving_strategy_factory.dart';
 import 'package:test/test.dart';
 
 void main() {

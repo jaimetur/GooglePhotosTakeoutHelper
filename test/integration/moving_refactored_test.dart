@@ -7,10 +7,10 @@ library;
 import 'dart:io';
 
 import 'package:gpth/domain/models/processing_config_model.dart';
-import 'package:gpth/domain/services/moving/file_operation_service.dart';
-import 'package:gpth/domain/services/moving/moving_context_model.dart';
-import 'package:gpth/domain/services/moving/path_generator_service.dart';
-import 'package:gpth/domain/services/service_container.dart';
+import 'package:gpth/domain/services/core/service_container.dart';
+import 'package:gpth/domain/services/file_operations/moving/file_operation_service.dart';
+import 'package:gpth/domain/services/file_operations/moving/moving_context_model.dart';
+import 'package:gpth/domain/services/file_operations/moving/path_generator_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 

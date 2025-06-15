@@ -6,14 +6,14 @@ library;
 
 import 'dart:io';
 
-import 'package:gpth/domain/services/consolidated_utility_service.dart';
-import 'package:gpth/domain/services/service_container.dart';
+import 'package:gpth/domain/services/core/formatting_service.dart';
+import 'package:gpth/domain/services/core/service_container.dart';
 import 'package:gpth/infrastructure/consolidated_disk_space_service.dart';
 import 'package:test/test.dart';
 
 void main() {
   group('Consolidated Services', () {
-    late ConsolidatedUtilityService utilityService;
+    late FormattingService utilityService;
     late ConsolidatedDiskSpaceService diskSpaceService;
 
     setUpAll(() async {
@@ -27,11 +27,11 @@ void main() {
     });
 
     setUp(() {
-      utilityService = const ConsolidatedUtilityService();
+      utilityService = const FormattingService();
       diskSpaceService = ConsolidatedDiskSpaceService();
     });
 
-    group('ConsolidatedUtilityService', () {
+    group('FormattingService', () {
       test('formatFileSize formats bytes correctly', () {
         expect(utilityService.formatFileSize(0), equals('0 B'));
         expect(utilityService.formatFileSize(1024), contains('KB'));
@@ -221,15 +221,13 @@ void main() {
         final tempDir = Directory.systemTemp.createTempSync('test_delegation_');
         try {
           final testFile = File('${tempDir.path}/test.txt');
-          testFile.createSync();
-
-          // Test consolidated utility service directly
-          const consolidatedUtility = ConsolidatedUtilityService();
-          final uniqueFile = consolidatedUtility.findUniqueFileName(testFile);
+          testFile.createSync(); // Test formatting service directly
+          const formattingService = FormattingService();
+          final uniqueFile = formattingService.findUniqueFileName(testFile);
           expect(uniqueFile.path, contains('test(1).txt'));
 
           // Test file size formatting
-          final formatted = consolidatedUtility.formatFileSize(1024);
+          final formatted = formattingService.formatFileSize(1024);
           expect(formatted, contains('KB'));
         } finally {
           tempDir.deleteSync(recursive: true);

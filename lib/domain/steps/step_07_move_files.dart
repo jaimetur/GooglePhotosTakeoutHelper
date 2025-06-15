@@ -1,8 +1,8 @@
 import 'package:console_bars/console_bars.dart';
 
 import '../models/pipeline_step_model.dart';
-import '../services/moving/media_entity_moving_service.dart';
-import '../services/moving/moving_context_model.dart';
+import '../services/file_operations/moving/media_entity_moving_service.dart';
+import '../services/file_operations/moving/moving_context_model.dart';
 
 /// Step 7: Move files to output directory
 ///

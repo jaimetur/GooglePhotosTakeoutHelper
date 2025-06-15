@@ -7,7 +7,7 @@ import 'package:gpth/domain/main_pipeline.dart';
 import 'package:gpth/domain/models/io_paths_model.dart';
 import 'package:gpth/domain/models/processing_config_model.dart';
 import 'package:gpth/domain/models/processing_result_model.dart';
-import 'package:gpth/domain/services/takeout_path_resolver_service.dart';
+import 'package:gpth/domain/services/user_interaction/path_resolver_service.dart';
 import 'package:gpth/presentation/interactive_presenter.dart';
 import 'package:gpth/utils.dart';
 import 'package:path/path.dart' as p;
@@ -500,7 +500,7 @@ Future<InputOutputPaths> _getInputOutputPaths(
   }
   // Resolve input path to Google Photos directory using the domain service
   try {
-    inputPath = TakeoutPathResolverService.resolveGooglePhotosPath(inputPath);
+    inputPath = PathResolverService.resolveGooglePhotosPath(inputPath);
   } catch (e) {
     _logger.error('Path resolution failed: $e');
     exit(12);

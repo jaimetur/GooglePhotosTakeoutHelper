@@ -1,8 +1,8 @@
-import 'package:gpth/domain/services/extras_service.dart';
+import 'package:gpth/domain/services/processing/edited_version_detector_service.dart';
 import 'package:test/test.dart';
 
 void main() {
-  const extrasService = ExtrasService();
+  const extrasService = EditedVersionDetectorService();
 
   group('removePartialExtraFormats', () {
     test('should return original filename when no partial suffixes found', () {

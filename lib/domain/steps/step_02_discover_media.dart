@@ -3,7 +3,7 @@ import 'package:path/path.dart' as p;
 import '../../utils.dart';
 import '../entities/media_entity.dart';
 import '../models/pipeline_step_model.dart';
-import '../services/folder_classification_service.dart';
+import '../services/processing/takeout_folder_classifier_service.dart';
 
 /// Step 2: Discover and classify media files
 ///

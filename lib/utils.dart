@@ -5,10 +5,10 @@
 library;
 
 // Core services used throughout the application
-export 'domain/services/logging_service.dart';
-export 'domain/services/metadata_matcher_service.dart';
-export 'domain/services/mime_type_service.dart';
-export 'domain/services/service_container.dart';
+export 'domain/services/core/logging_service.dart';
+export 'domain/services/core/service_container.dart';
+export 'domain/services/media/mime_type_service.dart';
+export 'domain/services/metadata/json_metadata_matcher_service.dart';
 // Application constants
 export 'shared/constants.dart';
 // Extensions used by services

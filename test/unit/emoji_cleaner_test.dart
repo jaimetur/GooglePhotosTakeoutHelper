@@ -34,12 +34,14 @@ import 'dart:io';
 
 import 'package:emoji_regex/emoji_regex.dart' as r;
 import 'package:exif_reader/exif_reader.dart';
-import 'package:gpth/domain/services/emoji_cleaner_service.dart';
+import 'package:gpth/domain/services/processing/filename_sanitizer_service.dart';
 import 'package:gpth/infrastructure/exiftool_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import '../setup/test_setup.dart';
+
+final _filenameSanitizer = FilenameSanitizerService();
 
 /// Helper function to check if a string contains emoji characters.
 ///
@@ -149,7 +151,9 @@ String decodeEmoji(final String text) {
 /// Returns:
 ///   Directory object with decoded path (renamed if necessary)
 Directory decodeAndRenameAlbumIfHex(final Directory hexDir) {
-  final String decodedPath = decodeAndRestoreAlbumEmoji(hexDir.path);
+  final String decodedPath = _filenameSanitizer.decodeAndRestoreAlbumEmoji(
+    hexDir.path,
+  );
   if (decodedPath != hexDir.path) {
     hexDir.renameSync(decodedPath);
     return Directory(decodedPath);
@@ -323,7 +327,7 @@ void main() {
       test('encodeAndRenameAlbumIfEmoji renames emoji folders', () {
         final emojiDir = fixture.createDirectory('test_😊_folder');
 
-        final result = encodeAndRenameAlbumIfEmoji(emojiDir);
+        final result = _filenameSanitizer.encodeAndRenameAlbumIfEmoji(emojiDir);
 
         expect(result.existsSync(), isTrue);
         expect(result.path, isNot(contains('😊')));
@@ -335,7 +339,9 @@ void main() {
         final normalDir = fixture.createDirectory('normal_folder');
         final originalPath = normalDir.path;
 
-        final result = encodeAndRenameAlbumIfEmoji(normalDir);
+        final result = _filenameSanitizer.encodeAndRenameAlbumIfEmoji(
+          normalDir,
+        );
 
         expect(result.path, originalPath);
         expect(result.existsSync(), isTrue);
@@ -346,7 +352,9 @@ void main() {
         () {
           final complexEmojiDir = fixture.createDirectory('vacation_💖❤️🎉');
 
-          final result = encodeAndRenameAlbumIfEmoji(complexEmojiDir);
+          final result = _filenameSanitizer.encodeAndRenameAlbumIfEmoji(
+            complexEmojiDir,
+          );
 
           expect(result.existsSync(), isTrue);
           expect(result.path, contains('_0x1f496_')); // 💖
@@ -358,7 +366,9 @@ void main() {
 
       test('decodeAndRenameAlbumIfHex restores original emoji folder', () {
         final emojiDir = fixture.createDirectory('test_😊_folder');
-        final encoded = encodeAndRenameAlbumIfEmoji(emojiDir);
+        final encoded = _filenameSanitizer.encodeAndRenameAlbumIfEmoji(
+          emojiDir,
+        );
 
         final restored = decodeAndRenameAlbumIfHex(encoded);
 
@@ -396,7 +406,8 @@ void main() {
         expect(img.existsSync(), isTrue, reason: 'Image file should exist');
 
         // 1. Encode and rename folder
-        final Directory hexNameDir = encodeAndRenameAlbumIfEmoji(emojiDir);
+        final Directory hexNameDir = _filenameSanitizer
+            .encodeAndRenameAlbumIfEmoji(emojiDir);
         expect(hexNameDir.path, contains('_0x1f496_')); // 💖
         expect(hexNameDir.path, contains('_0x2764_')); // ❤
         expect(hexNameDir.path, contains('_0xfe0f_')); // Variation selector
@@ -485,7 +496,9 @@ void main() {
         emojiFile.writeAsBytesSync([1, 2, 3]);
 
         // Folder should not be renamed since it has no emoji
-        final result = encodeAndRenameAlbumIfEmoji(normalDir);
+        final result = _filenameSanitizer.encodeAndRenameAlbumIfEmoji(
+          normalDir,
+        );
         expect(result.path, normalDir.path);
 
         // But the emoji file should still exist
@@ -505,7 +518,9 @@ void main() {
         testFile.createSync();
         testFile.writeAsStringSync('test content');
 
-        final encoded = encodeAndRenameAlbumIfEmoji(emojiSubDir);
+        final encoded = _filenameSanitizer.encodeAndRenameAlbumIfEmoji(
+          emojiSubDir,
+        );
         expect(encoded.parent.path, parentDir.path);
 
         final encodedFile = File(p.join(encoded.path, 'test.txt'));
@@ -551,7 +566,7 @@ void main() {
         );
 
         expect(
-          () => encodeAndRenameAlbumIfEmoji(nonExistentDir),
+          () => _filenameSanitizer.encodeAndRenameAlbumIfEmoji(nonExistentDir),
           returnsNormally,
         );
       });

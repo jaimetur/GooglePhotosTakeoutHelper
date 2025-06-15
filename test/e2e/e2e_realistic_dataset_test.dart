@@ -10,8 +10,8 @@ import 'dart:io';
 
 import 'package:gpth/domain/main_pipeline.dart';
 import 'package:gpth/domain/models/processing_config_model.dart';
-import 'package:gpth/domain/services/service_container.dart';
-import 'package:gpth/domain/services/takeout_path_resolver_service.dart';
+import 'package:gpth/domain/services/core/service_container.dart';
+import 'package:gpth/domain/services/user_interaction/path_resolver_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
@@ -62,8 +62,9 @@ void main() {
     });
     test('should process realistic dataset with default settings', () async {
       // Resolve the takeout path to the actual Google Photos directory
-      final googlePhotosPath =
-          TakeoutPathResolverService.resolveGooglePhotosPath(takeoutPath);
+      final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+        takeoutPath,
+      );
       final inputDir = Directory(googlePhotosPath);
       final outputDir = Directory(outputPath);
 
@@ -125,8 +126,9 @@ void main() {
       );
     });
     test('should handle album processing correctly', () async {
-      final googlePhotosPath =
-          TakeoutPathResolverService.resolveGooglePhotosPath(takeoutPath);
+      final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+        takeoutPath,
+      );
       final inputDir = Directory(googlePhotosPath);
       final outputDir = Directory(outputPath);
       final config = ProcessingConfig(
@@ -175,8 +177,9 @@ void main() {
       );
     });
     test('should extract dates from various filename patterns', () async {
-      final googlePhotosPath =
-          TakeoutPathResolverService.resolveGooglePhotosPath(takeoutPath);
+      final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+        takeoutPath,
+      );
       final inputDir = Directory(googlePhotosPath);
       final outputDir = Directory(outputPath);
       final config = ProcessingConfig(
@@ -236,8 +239,9 @@ void main() {
       );
     });
     test('should handle JSON metadata extraction', () async {
-      final googlePhotosPath =
-          TakeoutPathResolverService.resolveGooglePhotosPath(takeoutPath);
+      final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+        takeoutPath,
+      );
       final inputDir = Directory(googlePhotosPath);
       final outputDir = Directory(outputPath);
       final config = ProcessingConfig(
@@ -276,8 +280,9 @@ void main() {
       );
     });
     test('should preserve EXIF data when available', () async {
-      final googlePhotosPath =
-          TakeoutPathResolverService.resolveGooglePhotosPath(takeoutPath);
+      final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+        takeoutPath,
+      );
       final inputDir = Directory(googlePhotosPath);
       final outputDir = Directory(outputPath);
 
@@ -338,8 +343,9 @@ void main() {
     test(
       'should handle special folders (Archive, Trash, Screenshots)',
       () async {
-        final googlePhotosPath =
-            TakeoutPathResolverService.resolveGooglePhotosPath(takeoutPath);
+        final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+          takeoutPath,
+        );
         final inputDir = Directory(googlePhotosPath);
         final outputDir = Directory(outputPath);
 
@@ -382,8 +388,9 @@ void main() {
       },
     );
     test('should handle photos with geo data', () async {
-      final googlePhotosPath =
-          TakeoutPathResolverService.resolveGooglePhotosPath(takeoutPath);
+      final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+        takeoutPath,
+      );
       final inputDir = Directory(googlePhotosPath);
       final outputDir = Directory(outputPath);
 
@@ -476,8 +483,9 @@ void main() {
           }
         }
       }
-      final googlePhotosPath =
-          TakeoutPathResolverService.resolveGooglePhotosPath(takeoutPath);
+      final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+        takeoutPath,
+      );
       final inputDir = Directory(googlePhotosPath);
       final outputDir = Directory(outputPath);
 
@@ -513,8 +521,9 @@ void main() {
       );
     });
     test('should generate processing metrics', () async {
-      final googlePhotosPath =
-          TakeoutPathResolverService.resolveGooglePhotosPath(takeoutPath);
+      final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+        takeoutPath,
+      );
       final inputDir = Directory(googlePhotosPath);
       final outputDir = Directory(outputPath);
 
@@ -558,8 +567,9 @@ void main() {
       final largeOutputPath = p.join(fixture.basePath, 'large_output');
       final stopwatch = Stopwatch()..start();
 
-      final largeGooglePhotosPath =
-          TakeoutPathResolverService.resolveGooglePhotosPath(largeTakeoutPath);
+      final largeGooglePhotosPath = PathResolverService.resolveGooglePhotosPath(
+        largeTakeoutPath,
+      );
       final inputDir = Directory(largeGooglePhotosPath);
       final outputDir = Directory(largeOutputPath);
 

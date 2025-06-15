@@ -63,10 +63,10 @@ library;
 
 import 'dart:io';
 
-import 'package:gpth/domain/services/consolidated_utility_service.dart';
-import 'package:gpth/domain/services/logging_service.dart';
-import 'package:gpth/domain/services/service_container.dart';
-import 'package:gpth/domain/services/utility_service.dart';
+import 'package:gpth/domain/services/core/formatting_service.dart';
+import 'package:gpth/domain/services/core/formatting_utility_service.dart';
+import 'package:gpth/domain/services/core/logging_service.dart';
+import 'package:gpth/domain/services/core/service_container.dart';
 import 'package:gpth/infrastructure/platform_service.dart';
 import 'package:gpth/infrastructure/windows_shortcut_service.dart';
 import 'package:gpth/shared/extensions/media_extensions.dart';
@@ -79,7 +79,7 @@ void main() {
   group('Refactored Service Tests', () {
     late TestFixture fixture;
     late UtilityService utilityService;
-    late ConsolidatedUtilityService consolidatedUtilityService;
+    late FormattingService formattingService;
     late PlatformService platformService;
     late LoggingService loggingService;
     setUp(() async {
@@ -87,7 +87,7 @@ void main() {
       await fixture.setUp();
       await ServiceContainer.instance.initialize();
       utilityService = const UtilityService();
-      consolidatedUtilityService = const ConsolidatedUtilityService();
+      formattingService = const FormattingService();
       platformService = const PlatformService();
       loggingService = LoggingService();
     });
@@ -130,10 +130,7 @@ void main() {
       /// path handling with proper collision resolution.
       test('findUniqueFileName generates unique filename', () {
         final existingFile = fixture.createFile('test.jpg', [1, 2, 3]);
-
-        final uniqueFile = consolidatedUtilityService.findUniqueFileName(
-          existingFile,
-        );
+        final uniqueFile = formattingService.findUniqueFileName(existingFile);
 
         expect(uniqueFile.path, endsWith('test(1).jpg'));
         expect(uniqueFile.existsSync(), isFalse);
@@ -142,10 +139,7 @@ void main() {
       /// Should return original if file does not exist.
       test('findUniqueFileName returns original if file does not exist', () {
         final nonExistentFile = File('${fixture.basePath}/nonexistent.jpg');
-
-        final result = consolidatedUtilityService.findUniqueFileName(
-          nonExistentFile,
-        );
+        final result = formattingService.findUniqueFileName(nonExistentFile);
 
         expect(result.path, nonExistentFile.path);
       });
@@ -164,13 +158,10 @@ void main() {
     group('File Size Formatting', () {
       /// Should format bytes correctly to human-readable string.
       test('formatFileSize formats bytes correctly', () {
-        expect(consolidatedUtilityService.formatFileSize(1024), contains('KB'));
+        expect(formattingService.formatFileSize(1024), contains('KB'));
+        expect(formattingService.formatFileSize(1024 * 1024), contains('MB'));
         expect(
-          consolidatedUtilityService.formatFileSize(1024 * 1024),
-          contains('MB'),
-        );
-        expect(
-          consolidatedUtilityService.formatFileSize(1024 * 1024 * 1024),
+          formattingService.formatFileSize(1024 * 1024 * 1024),
           contains('GB'),
         );
       });

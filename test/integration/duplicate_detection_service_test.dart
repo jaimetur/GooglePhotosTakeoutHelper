@@ -7,8 +7,8 @@ library;
 import 'dart:io';
 
 import 'package:gpth/domain/entities/media_entity.dart';
-import 'package:gpth/domain/services/duplicate_detection_service.dart';
-import 'package:gpth/domain/services/media_hash_service.dart';
+import 'package:gpth/domain/services/media/duplicate_detection_service.dart';
+import 'package:gpth/domain/services/media/media_hash_service.dart';
 import 'package:gpth/domain/value_objects/date_accuracy.dart';
 import 'package:test/test.dart';
 

@@ -4,7 +4,7 @@
 /// service initialization, disposal, and singleton behavior.
 library;
 
-import 'package:gpth/domain/services/service_container.dart';
+import 'package:gpth/domain/services/core/service_container.dart';
 import 'package:test/test.dart';
 
 void main() {

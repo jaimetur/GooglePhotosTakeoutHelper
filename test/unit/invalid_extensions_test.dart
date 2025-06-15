@@ -2,7 +2,7 @@ library;
 
 import 'dart:io';
 
-import 'package:gpth/domain/services/extension_fixing_service.dart';
+import 'package:gpth/domain/services/file_operations/file_extension_corrector_service.dart';
 import 'package:gpth/infrastructure/exiftool_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
@@ -11,10 +11,10 @@ import '../setup/test_setup.dart';
 
 void main() {
   late ExifToolService? exiftool;
-  late ExtensionFixingService extensionFixingService;
+  late FileExtensionCorrectorService extensionFixingService;
 
   setUpAll(() async {
-    extensionFixingService = ExtensionFixingService();
+    extensionFixingService = FileExtensionCorrectorService();
     exiftool = await ExifToolService.find();
     if (exiftool != null) {
       await exiftool!.startPersistentProcess();

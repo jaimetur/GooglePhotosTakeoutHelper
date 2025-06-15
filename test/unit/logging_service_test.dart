@@ -4,7 +4,7 @@
 library;
 
 import 'package:gpth/domain/models/processing_config_model.dart';
-import 'package:gpth/domain/services/logging_service.dart';
+import 'package:gpth/domain/services/core/logging_service.dart';
 import 'package:test/test.dart';
 
 void main() {

@@ -1,16 +1,16 @@
-/// Test suite for TakeoutPathResolverService
+/// Test suite for PathResolverService
 ///
 /// Tests the Google Photos Takeout path resolution functionality.
 library;
 
-import 'package:gpth/domain/services/takeout_path_resolver_service.dart';
+import 'package:gpth/domain/services/user_interaction/path_resolver_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import '../setup/test_setup.dart';
 
 void main() {
-  group('TakeoutPathResolverService', () {
+  group('PathResolverService', () {
     late TestFixture fixture;
 
     setUp(() async {
@@ -33,7 +33,7 @@ void main() {
             'Google Photos/Photos from 2023/photo.jpg',
           );
 
-          final result = TakeoutPathResolverService.resolveGooglePhotosPath(
+          final result = PathResolverService.resolveGooglePhotosPath(
             googlePhotosDir.path,
           );
 
@@ -50,7 +50,7 @@ void main() {
           'Takeout/Google Photos/Photos from 2023/photo.jpg',
         );
 
-        final result = TakeoutPathResolverService.resolveGooglePhotosPath(
+        final result = PathResolverService.resolveGooglePhotosPath(
           takeoutDir.path,
         );
 
@@ -71,7 +71,7 @@ void main() {
           'Export/Takeout/Google Photos/Photos from 2023/photo.jpg',
         );
 
-        final result = TakeoutPathResolverService.resolveGooglePhotosPath(
+        final result = PathResolverService.resolveGooglePhotosPath(
           parentDir.path,
         );
 
@@ -88,7 +88,7 @@ void main() {
         fixture.createDirectory('Google Photos/Vacation Album');
         fixture.createImageWithExif('Google Photos/Vacation Album/photo.jpg');
 
-        final result = TakeoutPathResolverService.resolveGooglePhotosPath(
+        final result = PathResolverService.resolveGooglePhotosPath(
           googlePhotosDir.path,
         );
 
@@ -99,9 +99,7 @@ void main() {
         final nonExistentPath = p.join(fixture.basePath, 'non_existent');
 
         expect(
-          () => TakeoutPathResolverService.resolveGooglePhotosPath(
-            nonExistentPath,
-          ),
+          () => PathResolverService.resolveGooglePhotosPath(nonExistentPath),
           throwsA(
             predicate(
               (final e) =>
@@ -118,9 +116,7 @@ void main() {
         fixture.createFile('InvalidStructure/random.txt', [1, 2, 3]);
 
         expect(
-          () => TakeoutPathResolverService.resolveGooglePhotosPath(
-            invalidDir.path,
-          ),
+          () => PathResolverService.resolveGooglePhotosPath(invalidDir.path),
           throwsA(
             predicate(
               (final e) =>
@@ -150,7 +146,7 @@ void main() {
           'MyExport/Takeout/Google Photos/Photos from 2023/photo2.jpg',
         );
 
-        final result = TakeoutPathResolverService.resolveGooglePhotosPath(
+        final result = PathResolverService.resolveGooglePhotosPath(
           rootDir.path,
         );
 
@@ -173,7 +169,7 @@ void main() {
           'Export/TAKEOUT/Google Photos/Photos from 2023/photo.jpg',
         );
 
-        final result = TakeoutPathResolverService.resolveGooglePhotosPath(
+        final result = PathResolverService.resolveGooglePhotosPath(
           parentDir.path,
         );
 
@@ -192,7 +188,7 @@ void main() {
         // No media files created
 
         // Should still work as long as the structure exists
-        final result = TakeoutPathResolverService.resolveGooglePhotosPath(
+        final result = PathResolverService.resolveGooglePhotosPath(
           googlePhotosDir.path,
         );
 
@@ -214,7 +210,7 @@ void main() {
           'Google Photos/Photos from 2023/photo3.jpg',
         );
 
-        final result = TakeoutPathResolverService.resolveGooglePhotosPath(
+        final result = PathResolverService.resolveGooglePhotosPath(
           googlePhotosDir.path,
         );
 
@@ -232,7 +228,7 @@ void main() {
         fixture.createImageWithExif('Google Photos/Family Album/photo2.jpg');
         fixture.createImageWithExif('Google Photos/Vacation Photos/photo3.jpg');
 
-        final result = TakeoutPathResolverService.resolveGooglePhotosPath(
+        final result = PathResolverService.resolveGooglePhotosPath(
           googlePhotosDir.path,
         );
 
@@ -246,9 +242,7 @@ void main() {
         fixture.createFile('NotAGooglePhotosExport/readme.txt', [1, 2, 3]);
 
         expect(
-          () => TakeoutPathResolverService.resolveGooglePhotosPath(
-            invalidDir.path,
-          ),
+          () => PathResolverService.resolveGooglePhotosPath(invalidDir.path),
           throwsA(
             allOf(
               isA<InvalidTakeoutStructureException>(),
@@ -267,8 +261,7 @@ void main() {
         // Should throw an InvalidTakeoutStructureException since TestDir
         // doesn't have the expected Google Photos structure
         expect(
-          () =>
-              TakeoutPathResolverService.resolveGooglePhotosPath(testDir.path),
+          () => PathResolverService.resolveGooglePhotosPath(testDir.path),
           throwsA(isA<InvalidTakeoutStructureException>()),
         );
       });

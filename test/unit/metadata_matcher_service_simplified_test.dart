@@ -1,4 +1,4 @@
-/// Test suite for JsonFileMatcherService
+/// Test suite for JsonMetadataMatcherService
 ///
 /// Tests the JSON metadata file matching functionality including
 /// basic strategies that are actually implemented.
@@ -6,14 +6,14 @@ library;
 
 import 'dart:io';
 
-import 'package:gpth/domain/services/metadata_matcher_service.dart';
+import 'package:gpth/domain/services/metadata/json_metadata_matcher_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import '../setup/test_setup.dart';
 
 void main() {
-  group('JsonFileMatcherService', () {
+  group('JsonMetadataMatcherService', () {
     late TestFixture fixture;
 
     setUp(() async {
@@ -31,7 +31,7 @@ void main() {
         final jsonFile = File(p.join(fixture.basePath, 'photo.jpg.json'));
         await jsonFile.writeAsString('{"test": "data"}');
 
-        final result = await JsonFileMatcherService.findJsonForFile(
+        final result = await JsonMetadataMatcherService.findJsonForFile(
           mediaFile,
           tryhard: false,
         );
@@ -47,7 +47,7 @@ void main() {
         );
         await jsonFile.writeAsString('{"test": "data"}');
 
-        final result = await JsonFileMatcherService.findJsonForFile(
+        final result = await JsonMetadataMatcherService.findJsonForFile(
           mediaFile,
           tryhard: false,
         );
@@ -69,7 +69,7 @@ void main() {
         );
         await supplementalJsonFile.writeAsString('{"test": "supplemental"}');
 
-        final result = await JsonFileMatcherService.findJsonForFile(
+        final result = await JsonMetadataMatcherService.findJsonForFile(
           mediaFile,
           tryhard: false,
         );
@@ -81,7 +81,7 @@ void main() {
       test('returns null when no JSON file found', () async {
         final mediaFile = fixture.createImageWithExif('photo.jpg');
 
-        final result = await JsonFileMatcherService.findJsonForFile(
+        final result = await JsonMetadataMatcherService.findJsonForFile(
           mediaFile,
           tryhard: false,
         );
@@ -100,7 +100,7 @@ void main() {
         final jsonFile = File(p.join(fixture.basePath, '$shortName.json'));
         await jsonFile.writeAsString('{"test": "basic"}');
 
-        final result = await JsonFileMatcherService.findJsonForFile(
+        final result = await JsonMetadataMatcherService.findJsonForFile(
           mediaFile,
           tryhard: false,
         );
@@ -113,7 +113,7 @@ void main() {
         final mediaFile = fixture.createImageWithExif('image.jpg');
 
         // No exact match, but strategies might find alternatives
-        final result = await JsonFileMatcherService.findJsonForFile(
+        final result = await JsonMetadataMatcherService.findJsonForFile(
           mediaFile,
           tryhard: true,
         );
@@ -132,7 +132,7 @@ void main() {
         final jsonFile = File(p.join(fixture.basePath, 'no_extension.json'));
         await jsonFile.writeAsString('{"test": "no extension"}');
 
-        final result = await JsonFileMatcherService.findJsonForFile(
+        final result = await JsonMetadataMatcherService.findJsonForFile(
           mediaFile,
           tryhard: false,
         );
@@ -149,7 +149,7 @@ void main() {
         );
         await jsonFile.writeAsString('{"test": "multiple dots"}');
 
-        final result = await JsonFileMatcherService.findJsonForFile(
+        final result = await JsonMetadataMatcherService.findJsonForFile(
           mediaFile,
           tryhard: false,
         );
@@ -164,7 +164,7 @@ void main() {
         final jsonFile = File(p.join(fixture.basePath, 'a.jpg.json'));
         await jsonFile.writeAsString('{"test": "short"}');
 
-        final result = await JsonFileMatcherService.findJsonForFile(
+        final result = await JsonMetadataMatcherService.findJsonForFile(
           mediaFile,
           tryhard: false,
         );
@@ -179,7 +179,7 @@ void main() {
         final jsonFile = File(p.join(fixture.basePath, 'Photo.JPG.json'));
         await jsonFile.writeAsString('{"test": "case"}');
 
-        final result = await JsonFileMatcherService.findJsonForFile(
+        final result = await JsonMetadataMatcherService.findJsonForFile(
           mediaFile,
           tryhard: false,
         );
@@ -203,7 +203,7 @@ void main() {
         await jsonFile.writeAsString('{"test": "performance"}');
 
         final stopwatch = Stopwatch()..start();
-        final result = await JsonFileMatcherService.findJsonForFile(
+        final result = await JsonMetadataMatcherService.findJsonForFile(
           mediaFile,
           tryhard: false,
         );
@@ -219,7 +219,7 @@ void main() {
         final mediaFile = fixture.createImageWithExif('test.jpg');
 
         final stopwatch = Stopwatch()..start();
-        final result = await JsonFileMatcherService.findJsonForFile(
+        final result = await JsonMetadataMatcherService.findJsonForFile(
           mediaFile,
           tryhard: true,
         );
@@ -237,7 +237,7 @@ void main() {
           p.join(fixture.basePath, 'nonexistent.jpg'),
         );
 
-        final result = await JsonFileMatcherService.findJsonForFile(
+        final result = await JsonMetadataMatcherService.findJsonForFile(
           nonExistentFile,
           tryhard: false,
         );
@@ -253,7 +253,7 @@ void main() {
         final jsonFile = File(p.join(fixture.basePath, 'protected.jpg.json'));
         await jsonFile.writeAsString('{"test": "protected"}');
 
-        final result = await JsonFileMatcherService.findJsonForFile(
+        final result = await JsonMetadataMatcherService.findJsonForFile(
           mediaFile,
           tryhard: false,
         );

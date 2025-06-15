@@ -32,8 +32,8 @@ import 'dart:io';
 import 'package:coordinate_converter/coordinate_converter.dart';
 import 'package:gpth/domain/entities/media_entity.dart';
 import 'package:gpth/domain/models/media_entity_collection.dart';
-import 'package:gpth/domain/services/date_extraction/json_date_extractor.dart';
-import 'package:gpth/domain/services/service_container.dart';
+import 'package:gpth/domain/services/core/service_container.dart';
+import 'package:gpth/domain/services/metadata/date_extraction/json_date_extractor.dart';
 import 'package:gpth/infrastructure/exiftool_service.dart';
 import 'package:test/test.dart';
 

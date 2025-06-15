@@ -25,8 +25,8 @@ import 'dart:io';
 
 import 'package:gpth/domain/main_pipeline.dart';
 import 'package:gpth/domain/models/processing_config_model.dart';
-import 'package:gpth/domain/services/service_container.dart';
-import 'package:gpth/domain/services/takeout_path_resolver_service.dart';
+import 'package:gpth/domain/services/core/service_container.dart';
+import 'package:gpth/domain/services/user_interaction/path_resolver_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
@@ -78,10 +78,9 @@ void main() {
         // Create test data with emoji folder names
         final emojiTakeoutPath = await _createEmojiAlbumTestData();
 
-        final googlePhotosPath =
-            TakeoutPathResolverService.resolveGooglePhotosPath(
-              emojiTakeoutPath,
-            );
+        final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+          emojiTakeoutPath,
+        );
         final config = ProcessingConfig(
           inputPath: googlePhotosPath,
           outputPath: outputPath,
@@ -141,8 +140,9 @@ void main() {
       test(
         'reverse-shortcut mode preserves album-centric organization (Issue #261)',
         () async {
-          final googlePhotosPath =
-              TakeoutPathResolverService.resolveGooglePhotosPath(takeoutPath);
+          final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+            takeoutPath,
+          );
           final config = ProcessingConfig(
             inputPath: googlePhotosPath,
             outputPath: outputPath,
@@ -233,8 +233,9 @@ void main() {
       test(
         'duplicate-copy mode handles album-only photos (Issue #261)',
         () async {
-          final googlePhotosPath =
-              TakeoutPathResolverService.resolveGooglePhotosPath(takeoutPath);
+          final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+            takeoutPath,
+          );
           final config = ProcessingConfig(
             inputPath: googlePhotosPath,
             outputPath: outputPath,
@@ -292,8 +293,9 @@ void main() {
       );
 
       test('json mode creates albums-info.json file', () async {
-        final googlePhotosPath =
-            TakeoutPathResolverService.resolveGooglePhotosPath(takeoutPath);
+        final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+          takeoutPath,
+        );
         final config = ProcessingConfig(
           inputPath: googlePhotosPath,
           outputPath: outputPath,
@@ -338,8 +340,9 @@ void main() {
 
     group('Date Organization - Issues #238, #299', () {
       test('year-level date division creates year folders', () async {
-        final googlePhotosPath =
-            TakeoutPathResolverService.resolveGooglePhotosPath(takeoutPath);
+        final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+          takeoutPath,
+        );
         final config = ProcessingConfig(
           inputPath: googlePhotosPath,
           outputPath: outputPath,
@@ -375,8 +378,9 @@ void main() {
       });
 
       test('month-level date division creates year/month structure', () async {
-        final googlePhotosPath =
-            TakeoutPathResolverService.resolveGooglePhotosPath(takeoutPath);
+        final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+          takeoutPath,
+        );
         final config = ProcessingConfig(
           inputPath: googlePhotosPath,
           outputPath: outputPath,
@@ -436,8 +440,9 @@ void main() {
       test(
         'day-level date division creates year/month/day structure',
         () async {
-          final googlePhotosPath =
-              TakeoutPathResolverService.resolveGooglePhotosPath(takeoutPath);
+          final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+            takeoutPath,
+          );
           final config = ProcessingConfig(
             inputPath: googlePhotosPath,
             outputPath: outputPath,
@@ -504,10 +509,9 @@ void main() {
       test('handles Motion Photo files (.MP, .MV)', () async {
         // Create test Motion Photo files
         final motionPhotoTakeout = await _createMotionPhotoTestData();
-        final googlePhotosPath =
-            TakeoutPathResolverService.resolveGooglePhotosPath(
-              motionPhotoTakeout,
-            );
+        final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+          motionPhotoTakeout,
+        );
 
         final config = ProcessingConfig(
           inputPath: googlePhotosPath,
@@ -550,8 +554,9 @@ void main() {
       test('handles RAW camera files (.DNG, .CR2)', () async {
         // Create test RAW files
         final rawTakeout = await _createRawFileTestData();
-        final googlePhotosPath =
-            TakeoutPathResolverService.resolveGooglePhotosPath(rawTakeout);
+        final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+          rawTakeout,
+        );
 
         final config = ProcessingConfig(
           inputPath: googlePhotosPath,
@@ -596,10 +601,9 @@ void main() {
       test('handles supplemental-metadata suffix removal', () async {
         // Create test data with supplemental-metadata JSON files
         final supplementalTakeout = await _createSupplementalMetadataTestData();
-        final googlePhotosPath =
-            TakeoutPathResolverService.resolveGooglePhotosPath(
-              supplementalTakeout,
-            );
+        final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+          supplementalTakeout,
+        );
 
         final config = ProcessingConfig(
           inputPath: googlePhotosPath,
@@ -645,10 +649,9 @@ void main() {
       test('handles truncated extra format suffixes', () async {
         // Create test data with truncated filenames
         final truncatedTakeout = await _createTruncatedFilenameTestData();
-        final googlePhotosPath =
-            TakeoutPathResolverService.resolveGooglePhotosPath(
-              truncatedTakeout,
-            );
+        final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+          truncatedTakeout,
+        );
 
         final config = ProcessingConfig(
           inputPath: googlePhotosPath,
@@ -693,10 +696,9 @@ void main() {
         () async {
           // Create test data with mismatched extensions
           final mismatchedTakeout = await _createMismatchedExtensionTestData();
-          final googlePhotosPath =
-              TakeoutPathResolverService.resolveGooglePhotosPath(
-                mismatchedTakeout,
-              );
+          final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+            mismatchedTakeout,
+          );
 
           final config = ProcessingConfig(
             inputPath: googlePhotosPath,
@@ -751,8 +753,9 @@ void main() {
           exifRatio: 0.5,
         );
 
-        final googlePhotosPath =
-            TakeoutPathResolverService.resolveGooglePhotosPath(largeTakeout);
+        final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+          largeTakeout,
+        );
         final config = ProcessingConfig(
           inputPath: googlePhotosPath,
           outputPath: outputPath,
@@ -801,8 +804,9 @@ void main() {
       test('handles corrupt or unreadable files gracefully', () async {
         // Create test data with a corrupt file
         final corruptTakeout = await _createCorruptFileTestData();
-        final googlePhotosPath =
-            TakeoutPathResolverService.resolveGooglePhotosPath(corruptTakeout);
+        final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+          corruptTakeout,
+        );
 
         final config = ProcessingConfig(
           inputPath: googlePhotosPath,
@@ -827,8 +831,9 @@ void main() {
       test('handles empty or minimal input gracefully', () async {
         // Create minimal test data
         final minimalTakeout = await _createMinimalTestData();
-        final googlePhotosPath =
-            TakeoutPathResolverService.resolveGooglePhotosPath(minimalTakeout);
+        final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+          minimalTakeout,
+        );
 
         final config = ProcessingConfig(
           inputPath: googlePhotosPath,
@@ -856,8 +861,9 @@ void main() {
       test('handles unicode and special characters in filenames', () async {
         // Create test data with unicode filenames
         final unicodeTakeout = await _createUnicodeFilenameTestData();
-        final googlePhotosPath =
-            TakeoutPathResolverService.resolveGooglePhotosPath(unicodeTakeout);
+        final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+          unicodeTakeout,
+        );
 
         final config = ProcessingConfig(
           inputPath: googlePhotosPath,
@@ -898,8 +904,9 @@ void main() {
 
     group('Cross-Platform Compatibility', () {
       test('creates platform-appropriate shortcuts/symlinks', () async {
-        final googlePhotosPath =
-            TakeoutPathResolverService.resolveGooglePhotosPath(takeoutPath);
+        final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+          takeoutPath,
+        );
         final config = ProcessingConfig(
           inputPath: googlePhotosPath,
           outputPath: outputPath,

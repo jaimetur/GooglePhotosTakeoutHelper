@@ -6,18 +6,18 @@ library;
 import 'dart:io';
 
 import 'package:gpth/domain/entities/media_entity.dart';
-import 'package:gpth/domain/services/album_detection_service.dart';
+import 'package:gpth/domain/services/media/album_relationship_service.dart';
 import 'package:test/test.dart';
 
 import '../setup/test_setup.dart';
 
 void main() {
   group('AlbumDetectionService', () {
-    late AlbumDetectionService service;
+    late AlbumRelationshipService service;
     late TestFixture fixture;
 
     setUp(() async {
-      service = AlbumDetectionService();
+      service = AlbumRelationshipService();
       fixture = TestFixture();
       await fixture.setUp();
     });

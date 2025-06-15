@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import '../domain/services/logging_service.dart';
+import '../domain/services/core/logging_service.dart';
 
 /// Consolidated service for all disk space operations across different platforms
 ///

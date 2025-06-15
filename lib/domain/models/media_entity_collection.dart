@@ -1,10 +1,10 @@
 import '../entities/media_entity.dart';
-import '../services/album_detection_service.dart';
-import '../services/date_extraction/json_date_extractor.dart';
-import '../services/duplicate_detection_service.dart';
-import '../services/exif_writer_service.dart';
-import '../services/logging_service.dart';
-import '../services/service_container.dart';
+import '../services/core/logging_service.dart';
+import '../services/core/service_container.dart';
+import '../services/media/album_relationship_service.dart';
+import '../services/media/duplicate_detection_service.dart';
+import '../services/metadata/date_extraction/json_date_extractor.dart';
+import '../services/metadata/exif_writer_service.dart';
 import '../value_objects/date_time_extraction_method.dart';
 
 /// Modern domain model representing a collection of media entities
@@ -239,10 +239,8 @@ class MediaEntityCollection with LoggerMixin {
       for (final group in hashGroups.values) {
         if (group.length <= 1) {
           continue; // No duplicates in this group
-        }
-
-        // Sort by best date extraction quality, then file name length
-        group.sort((final a, final b) {
+        } // Sort by best date extraction quality, then file name length
+        group.sort((final MediaEntity a, final MediaEntity b) {
           // Prefer files with dates from better extraction methods
           final aAccuracy = a.dateAccuracy?.value ?? 999;
           final bAccuracy = b.dateAccuracy?.value ?? 999;
@@ -293,7 +291,7 @@ class MediaEntityCollection with LoggerMixin {
   Future<void> findAlbums({
     final void Function(int processed, int total)? onProgress,
   }) async {
-    final albumService = AlbumDetectionService();
+    final albumService = AlbumRelationshipService();
 
     // Create a copy of the media list to avoid concurrent modification
     final mediaCopy = List<MediaEntity>.from(_media);

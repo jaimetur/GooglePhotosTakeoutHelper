@@ -1,5 +1,5 @@
-import 'package:gpth/domain/services/consolidated_interactive_service.dart';
-import 'package:gpth/domain/services/global_config_service.dart';
+import 'package:gpth/domain/services/core/global_config_service.dart';
+import 'package:gpth/domain/services/user_interaction/user_interaction_service.dart';
 import 'package:gpth/presentation/interactive_presenter.dart';
 import 'package:test/test.dart';
 
