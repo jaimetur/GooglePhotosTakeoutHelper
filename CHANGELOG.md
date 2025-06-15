@@ -1,52 +1,121 @@
-## 4.0.9-Xentraxx
+## 4.0.9-Xentraxx - Major Architecture Refactor
 
-### Extension Fixing Flag Consolidation
+### 🏗️ **Complete Architecture Overhaul**
 
-#### Breaking Changes
-- **Consolidated three separate extension fixing flags into a single unified option**
-  - **Before**: `--fix-extensions`, `--fix-extensions-non-jpeg`, `--fix-extensions-solo-mode` (separate boolean flags)
-  - **After**: `--fix-extensions=<mode>` with options: `none`, `standard`, `conservative`, `solo`
+This release represents a fundamental restructuring of the codebase following **Clean Architecture** principles, providing better maintainability, testability, and performance.
 
-#### New Extension Fixing Modes
-- **`--fix-extensions=none`**: Disable extension fixing entirely
-- **`--fix-extensions=standard`**: **Default** - Fix extensions but skip TIFF-based files (like RAW formats)
-- **`--fix-extensions=conservative`**: Fix extensions but skip both TIFF and JPEG files for maximum safety
-- **`--fix-extensions=solo`**: Fix extensions then exit immediately (standalone preprocessing mode)
+#### **Domain-Driven Design Implementation**
+- **Reorganized codebase into distinct layers**: Domain, Infrastructure, and Presentation
+- **Introduced service-oriented architecture** with dependency injection container
+- **Implemented immutable domain entities** for better data integrity and performance
+- **Added comprehensive test coverage** with over 200+ unit and integration tests
 
-### Major Performance Improvements
+#### **Service Consolidation & Modernization**
+- **Unified service interfaces** through consolidated service pattern
+- **Implemented ServiceContainer** for centralized dependency management
+- **Refactored moving logic** into strategy pattern with pluggable implementations
+- **Enhanced error handling** with proper exception hierarchies and logging
 
-#### Core Engine Optimizations
-- **Implemented async/stream-based file I/O operations** replacing synchronous file access
-  - Converted file size and hash calculations to async operations
-  - Added race condition protection for concurrent media processing
-  - Reduced memory usage by up to 99.4% for large files through streaming operations
+### 🚀 **Performance & Reliability Improvements**
 
-#### Hash Calculation Performance
-- **Streaming hash calculation** for both sync and async operations
-  - **20% faster hash computation** through chunked reading instead of loading entire files
-  - Memory-efficient processing that scales with file size
-  - Consistent hash results between sync and async methods
+#### **Async Processing Architecture**
+- **Stream-based file I/O operations** replacing synchronous access
+- **Persistent ExifTool process** management (10-50x faster EXIF operations)
+- **Concurrent media processing** with race condition protection
+- **Memory optimization** - up to 99.4% reduction for large file operations
 
-#### Directory Scanning Optimization
-- **Optimized media discovery step** with single-pass directory scanning
-  - **50% reduction in I/O operations** by eliminating redundant directory traversals
-  - Directory type caching to avoid repeated filesystem queries
-  - Race condition safe concurrent media processing
+#### **Advanced File Operations**
+- **Streaming hash calculations** (20% faster with reduced memory usage)
+- **Optimized directory scanning** (50% fewer I/O operations)
+- **Parallel file moving operations** (40-50% performance improvement)
+- **Smart duplicate detection** with memory-efficient algorithms
 
-#### Duplicate Detection & Album Finding
-- **Async duplicate removal and album finding** operations
-  - Memory-efficient grouping algorithms for large media collections
-  - Concurrent processing support with proper synchronization
-  - Improved scalability for collections with thousands of files
+### 🔧 **Enhanced Extension Fixing**
 
-### Performance improvements
-- Parallelize File Moving Operations (40-50% faster)
-- Made the Exiftool process persistant (10-50x faster)
-- Optimize Hash Calculation with hash caching (many times faster)
+#### **Breaking Changes**
+- **Consolidated extension fixing flags** into unified `--fix-extensions=<mode>` option
+  - **Before**: `--fix-extensions`, `--fix-extensions-non-jpeg`, `--fix-extensions-solo-mode`
+  - **After**: `--fix-extensions=<mode>` with `none`, `standard`, `conservative`, `solo` modes
 
-#### Bug fixes
+#### **Intelligent Extension Correction**
+- **MIME type validation** with file header detection
+- **RAW format protection** - prevents corruption of TIFF-based files
+- **Comprehensive safety modes** for different use cases
+- **JSON metadata synchronization** after extension fixes
 
-- Fixed the json finder from image name. Completely rewrote it.
+### 📁 **Modern File Management**
+
+#### **Strategy Pattern Implementation**
+- **Pluggable moving strategies**: Nothing, Copy, Shortcut, Reverse Shortcut
+- **Context-aware path generation** with date-based organization
+- **Atomic file operations** with rollback capabilities
+- **Smart collision handling** with unique filename generation
+
+#### **Cross-Platform Improvements**
+- **Platform-specific optimizations** for Windows, macOS, and Linux
+- **Enhanced shortcut creation** bypassing PowerShell on Windows
+- **Unified disk space management** across all platforms
+- **Improved encoding handling** for international filenames
+
+### 🧪 **Testing & Quality Assurance**
+
+#### **Comprehensive Test Suite**
+- **200+ automated tests** covering unit, integration, and end-to-end scenarios
+- **Mock service infrastructure** for reliable testing
+- **Performance regression testing** with benchmarks
+- **Cross-platform validation** across all supported systems
+
+#### **Code Quality Improvements**
+- **Comprehensive documentation** with detailed function descriptions
+- **Lint rule enforcement** following Dart best practices
+- **Type safety enhancements** with null safety
+- **Error logging standardization** with structured log levels
+
+### 🔄 **Processing Pipeline Modernization**
+
+#### **Eight-Step Pipeline Architecture**
+1. **Extension Fixing** - Intelligent MIME type correction
+2. **Media Discovery** - Optimized file system scanning
+3. **Duplicate Removal** - Content-based deduplication
+4. **Date Extraction** - Multi-source timestamp resolution
+5. **EXIF Writing** - Metadata synchronization
+6. **Album Detection** - Smart folder classification
+7. **File Moving** - Strategy-based organization
+8. **Creation Time Updates** - Final timestamp alignment
+
+#### **Enhanced Data Processing**
+- **MediaEntity immutable models** for thread-safe operations
+- **Coordinate processing** with validation and conversion
+- **JSON metadata matching** with truncated filename support
+- **Album relationship management** with shortcut strategies
+
+### 🛠️ **Infrastructure Enhancements**
+
+#### **External Tool Integration**
+- **Persistent ExifTool management** with automatic discovery
+- **Platform service abstraction** for system-specific operations
+- **Disk space monitoring** with real-time calculations
+- **Process lifecycle management** with proper cleanup
+
+#### **Interactive User Experience**
+- **Consolidated interactive services** with improved prompts
+- **Real-time progress reporting** for long-running operations
+- **Enhanced error messages** with actionable guidance
+- **ZIP extraction restoration** with security improvements
+
+### 📋 **Configuration & Usability**
+
+#### **Streamlined Configuration**
+- **Unified command-line interface** with consistent flag patterns
+- **Interactive configuration validation** with user guidance
+- **Global configuration service** with centralized settings
+- **Backward compatibility** for existing workflows
+
+#### **Bug Fixes & Stability**
+- **Race condition elimination** in concurrent operations
+- **JSON file matching improvements** for truncated names
+- **Memory leak prevention** in long-running processes
+- **Cross-platform filename handling** improvements
 
 ## 4.0.8-Xentraxx
 
