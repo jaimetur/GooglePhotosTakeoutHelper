@@ -2,6 +2,7 @@ import '../entities/media_entity.dart';
 import '../services/album_detection_service.dart';
 import '../services/duplicate_detection_service.dart';
 import '../services/exif_writer_service.dart';
+import '../services/logging_service.dart';
 import '../services/service_container.dart';
 import '../value_objects/date_time_extraction_method.dart';
 
@@ -9,7 +10,7 @@ import '../value_objects/date_time_extraction_method.dart';
 ///
 /// This replaces MediaCollection to use the new immutable MediaEntity
 /// throughout the processing pipeline, providing better type safety and performance.
-class MediaEntityCollection {
+class MediaEntityCollection with LoggerMixin {
   MediaEntityCollection([final List<MediaEntity>? initialMedia])
     : _media = initialMedia ?? [];
 
@@ -142,7 +143,7 @@ class MediaEntityCollection {
   }) async {
     if (_media.isEmpty) return 0;
 
-    const duplicateService = DuplicateDetectionService();
+    final duplicateService = DuplicateDetectionService();
     int removedCount = 0;
 
     // Group media by album association first to preserve cross-album duplicates
@@ -190,6 +191,16 @@ class MediaEntityCollection {
 
         // Add all duplicates except the first (best) one to removal list
         final duplicatesToRemove = group.sublist(1);
+
+        // Log which duplicates are being removed
+        if (duplicatesToRemove.isNotEmpty) {
+          final keptFile = group.first.primaryFile.path;
+          logInfo('Found ${group.length} identical files, keeping: $keptFile');
+          for (final duplicate in duplicatesToRemove) {
+            logInfo('  Removing duplicate: ${duplicate.primaryFile.path}');
+          }
+        }
+
         entitiesToRemove.addAll(duplicatesToRemove);
         removedCount += duplicatesToRemove.length;
       }

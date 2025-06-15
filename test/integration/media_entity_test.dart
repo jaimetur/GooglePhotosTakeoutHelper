@@ -367,13 +367,12 @@ void main() {
           3,
         ]); // Same content
         final file3 = fixture.createFile('test3.jpg', [4, 5, 6]);
-
         final collection = MediaEntityCollection([
           MediaEntity.single(file: file1),
           MediaEntity.single(file: file2),
           MediaEntity.single(file: file3),
         ]);
-        const duplicateService = DuplicateDetectionService();
+        final duplicateService = DuplicateDetectionService();
         final grouped = await duplicateService.groupIdentical(
           collection.entities.toList(),
         );

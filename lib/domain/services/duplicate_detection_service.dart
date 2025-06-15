@@ -1,5 +1,6 @@
 import 'dart:io';
 import '../entities/media_entity.dart';
+import 'logging_service.dart';
 import 'media_hash_service.dart';
 
 /// Service for detecting duplicate media files based on content hash and size
@@ -8,9 +9,9 @@ import 'media_hash_service.dart';
 /// by size (fast comparison), then calculating content hashes only for files
 /// with matching sizes. Uses parallel processing with concurrency limits to
 /// balance performance with system resource usage.
-class DuplicateDetectionService {
+class DuplicateDetectionService with LoggerMixin {
   /// Creates a new instance of DuplicateDetectionService
-  const DuplicateDetectionService({final MediaHashService? hashService})
+  DuplicateDetectionService({final MediaHashService? hashService})
     : _hashService = hashService ?? const MediaHashService();
 
   final MediaHashService _hashService;
@@ -118,6 +119,18 @@ class DuplicateDetectionService {
         // Multiple files with same content, keep the best one
         final best = _selectBestMedia(group);
         result.add(best);
+
+        // Log which duplicates are being removed
+        final duplicatesToRemove = group
+            .where((final media) => media != best)
+            .toList();
+        if (duplicatesToRemove.isNotEmpty) {
+          final keptFile = best.primaryFile.path;
+          logInfo('Found ${group.length} identical files, keeping: $keptFile');
+          for (final duplicate in duplicatesToRemove) {
+            logInfo('  Removing duplicate: ${duplicate.primaryFile.path}');
+          }
+        }
       }
 
       processed++;
