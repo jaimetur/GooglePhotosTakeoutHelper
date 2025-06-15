@@ -347,6 +347,9 @@ class MockMediaHashService implements MediaHashService {
   final Map<File, int> _fileSizes = {};
   final Map<File, String> _fileHashes = {};
 
+  @override
+  int get maxCacheSize => 1000;
+
   void mockFileSize(final File file, final int size) {
     _fileSizes[file] = size;
   }
@@ -425,6 +428,20 @@ class MockMediaHashService implements MediaHashService {
       }
     }
     return results;
+  }
+
+  @override
+  Map<String, dynamic> getCacheStats() => {
+    'hashCacheSize': _fileHashes.length,
+    'sizeCacheSize': _fileSizes.length,
+    'maxCacheSize': maxCacheSize,
+    'cacheUtilization': '0.0%',
+  };
+
+  @override
+  void clearCache() {
+    _fileHashes.clear();
+    _fileSizes.clear();
   }
 }
 

@@ -1,24 +1,50 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:io';
+
 import 'package:crypto/crypto.dart';
 
-/// Optimized service for calculating media file hashes and sizes
+/// Optimized service for calculating media file hashes and sizes with intelligent caching
 ///
 /// Uses streaming for large files to reduce memory usage and provides
-/// improved concurrency control for better performance.
+/// improved concurrency control for better performance. Now includes
+/// hash caching to avoid recalculating hashes for previously processed files.
 class MediaHashService {
   // 50MB
 
   /// Creates a new instance of MediaHashService
-  const MediaHashService();
+  const MediaHashService({this.maxCacheSize = 10000});
+
+  /// Maximum number of entries to keep in cache
+  final int maxCacheSize;
+
+  /// Cache for file hashes - uses LRU eviction policy
+  static final LinkedHashMap<String, _CacheEntry> _hashCache = LinkedHashMap();
+
+  /// Cache for file sizes - lightweight since sizes are quick to calculate
+  static final Map<String, ({int size, DateTime modified})> _sizeCache = {};
+
   static const int _largeFileThreshold = 50 * 1024 * 1024;
 
-  /// Calculates the SHA256 hash of a file using streaming for large files
+  /// Calculates the SHA256 hash of a file using streaming for large files with caching
   ///
   /// [file] File to calculate hash for
   /// Returns the SHA256 hash as a string
   /// Throws [FileSystemException] if file doesn't exist or can't be read
   Future<String> calculateFileHash(final File file) async {
+    // Generate cache key from file metadata
+    final fileStat = await file.stat();
+    final cacheKey = _generateCacheKey(file.path, fileStat);
+
+    // Check cache first
+    if (_hashCache.containsKey(cacheKey)) {
+      final cached = _hashCache[cacheKey]!;
+      // Move to end (LRU)
+      _hashCache.remove(cacheKey);
+      _hashCache[cacheKey] = cached;
+      return cached.hash;
+    }
+
     // Add retry logic for file system operations that might be delayed
     const maxRetries = 3;
     const baseDelay = Duration(milliseconds: 10);
@@ -27,25 +53,30 @@ class MediaHashService {
       if (await file.exists()) {
         try {
           final fileSize = await file.length();
+          String hash;
 
           // For small files, use the original method for better performance
           if (fileSize < _largeFileThreshold) {
             final bytes = await file.readAsBytes();
-            return sha256.convert(bytes).toString();
+            hash = sha256.convert(bytes).toString();
+          } else {
+            // For large files, use streaming to avoid memory issues
+            final sink = _HashSink();
+            final input = sha256.startChunkedConversion(sink);
+
+            final stream = file.openRead();
+            // ignore: prefer_foreach
+            await for (final chunk in stream) {
+              input.add(chunk);
+            }
+            input.close();
+
+            hash = sink.digest.toString();
           }
 
-          // For large files, use streaming to avoid memory issues
-          final sink = _HashSink();
-          final input = sha256.startChunkedConversion(sink);
-
-          final stream = file.openRead();
-          // ignore: prefer_foreach
-          await for (final chunk in stream) {
-            input.add(chunk);
-          }
-          input.close();
-
-          return sink.digest.toString();
+          // Store in cache
+          _addToCache(cacheKey, hash, fileSize);
+          return hash;
         } catch (e) {
           if (attempt == maxRetries - 1) {
             throw FileSystemException(
@@ -68,12 +99,25 @@ class MediaHashService {
     throw FileSystemException('File does not exist after retries', file.path);
   }
 
-  /// Calculates the size of a file in bytes
+  /// Calculates the size of a file in bytes with caching
   ///
   /// [file] File to get size of
   /// Returns file size in bytes
   /// Throws [FileSystemException] if file doesn't exist
   Future<int> calculateFileSize(final File file) async {
+    final filePath = file.path;
+
+    // Check if we have a recent size calculation
+    if (_sizeCache.containsKey(filePath)) {
+      final cached = _sizeCache[filePath]!;
+      final fileModified = await file.lastModified();
+
+      // Use cached size if file hasn't been modified
+      if (cached.modified.isAtSameMomentAs(fileModified)) {
+        return cached.size;
+      }
+    }
+
     // Add retry logic for file system operations that might be delayed
     const maxRetries = 3;
     const baseDelay = Duration(milliseconds: 10);
@@ -82,6 +126,7 @@ class MediaHashService {
       if (await file.exists()) {
         try {
           final stat = await file.stat();
+          _sizeCache[file.path] = (size: stat.size, modified: stat.modified);
           return stat.size;
         } catch (e) {
           if (attempt == maxRetries - 1) {
@@ -127,8 +172,12 @@ class MediaHashService {
       totalSize += chunk.length;
     }
     input.close();
+    final hash = sink.digest.toString();
+    final cacheKey = _generateCacheKey(file.path, await file.stat());
+    _addToCache(cacheKey, hash, totalSize);
+    _sizeCache[file.path] = (size: totalSize, modified: DateTime.now());
 
-    return (hash: sink.digest.toString(), size: totalSize);
+    return (hash: hash, size: totalSize);
   }
 
   /// Calculates hashes for multiple files with optimized concurrency control
@@ -221,6 +270,41 @@ class MediaHashService {
 
     return Future.wait(futures);
   }
+
+  /// Generate cache key from file metadata
+  // ignore: prefer_expression_function_bodies
+  String _generateCacheKey(final String path, final FileStat stat) {
+    // Use path, size, and modification time as cache key
+    // This ensures cache invalidation when files change
+    return '$path:${stat.size}:${stat.modified.millisecondsSinceEpoch}';
+  }
+
+  /// Add entry to hash cache with LRU eviction
+  void _addToCache(final String cacheKey, final String hash, final int size) {
+    // Remove oldest entries if cache is full
+    while (_hashCache.length >= maxCacheSize) {
+      final oldestKey = _hashCache.keys.first;
+      _hashCache.remove(oldestKey);
+      print('Evicting cache entry for key: $oldestKey');
+    }
+
+    _hashCache[cacheKey] = _CacheEntry(hash: hash, size: size);
+  }
+
+  /// Get cache statistics for monitoring performance
+  Map<String, dynamic> getCacheStats() => {
+    'hashCacheSize': _hashCache.length,
+    'sizeCacheSize': _sizeCache.length,
+    'maxCacheSize': maxCacheSize,
+    'cacheUtilization':
+        '${(_hashCache.length / maxCacheSize * 100).toStringAsFixed(1)}%',
+  };
+
+  /// Clear all caches
+  void clearCache() {
+    _hashCache.clear();
+    _sizeCache.clear();
+  }
 }
 
 /// Thread-safe semaphore for controlling concurrency
@@ -265,4 +349,11 @@ class _HashSink implements Sink<Digest> {
   void close() {
     // No-op
   }
+}
+
+class _CacheEntry {
+  const _CacheEntry({required this.hash, required this.size});
+
+  final String hash;
+  final int size;
 }

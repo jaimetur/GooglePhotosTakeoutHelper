@@ -42,7 +42,7 @@
 ### Performance improvements
 - Parallelize File Moving Operations (40-50% faster)
 - Made the Exiftool process persistant (10-50x faster)
-- Optimize Hash Calculation with Better Chunking (40-50% faster)
+- Optimize Hash Calculation with hash caching (many times faster)
 
 #### Bug fixes
 

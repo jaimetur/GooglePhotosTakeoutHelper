@@ -19,11 +19,11 @@ class DuplicateDetectionService with LoggerMixin {
   /// Maximum number of concurrent operations to prevent overwhelming the system
   static int get maxConcurrency => Platform.numberOfProcessors * 2;
 
-  /// Groups media entities by file size and hash for duplicate detection
+  /// Groups media entities by file size and hash for duplicate detection with caching
   ///
   /// Uses a two-phase approach for efficiency:
   /// 1. Group by file size (fast comparison using existing file metadata)
-  /// 2. For size-matching groups, calculate and compare content hashes
+  /// 2. For size-matching groups, calculate and compare content hashes (with caching)
   ///
   /// Returns a map where:
   /// - Key: Either "XXXbytes" for unique file sizes, or hash string for potential duplicates
@@ -33,19 +33,31 @@ class DuplicateDetectionService with LoggerMixin {
   Future<Map<String, List<MediaEntity>>> groupIdentical(
     final List<MediaEntity> mediaList,
   ) async {
+    if (mediaList.isEmpty) return <String, List<MediaEntity>>{};
+
     final Map<String, List<MediaEntity>> output = <String, List<MediaEntity>>{};
+    final stopwatch = Stopwatch()..start();
+
+    logInfo('Starting duplicate detection for ${mediaList.length} files...');
 
     // Step 1: Calculate all sizes in parallel with concurrency limit
     final sizeResults = <({MediaEntity media, int size})>[];
     for (int i = 0; i < mediaList.length; i += maxConcurrency) {
       final batch = mediaList.skip(i).take(maxConcurrency);
       final futures = batch.map((final media) async {
-        final size = await _hashService.calculateFileSize(media.primaryFile);
-        return (media: media, size: size);
+        try {
+          final size = await _hashService.calculateFileSize(media.primaryFile);
+          return (media: media, size: size);
+        } catch (e) {
+          logError('Failed to get size for ${media.primaryFile.path}: $e');
+          return null;
+        }
       });
 
       final batchResults = await Future.wait(futures);
-      sizeResults.addAll(batchResults);
+      sizeResults.addAll(
+        batchResults.whereType<({MediaEntity media, int size})>(),
+      );
     }
 
     // Group by size
@@ -56,12 +68,22 @@ class DuplicateDetectionService with LoggerMixin {
           .add(entry.media);
     }
 
+    logInfo(
+      'Grouped ${mediaList.length} files into ${sizeGroups.length} size groups',
+    );
+
     // Step 2: Calculate hashes in parallel for groups with multiple files
+    int hashCalculationsNeeded = 0;
+    int uniqueSizeFiles = 0;
+
     for (final MapEntry<int, List<MediaEntity>> sameSize
         in sizeGroups.entries) {
       if (sameSize.value.length <= 1) {
         output['${sameSize.key}bytes'] = sameSize.value;
+        uniqueSizeFiles++;
       } else {
+        hashCalculationsNeeded += sameSize.value.length;
+
         // Calculate hashes in parallel batches
         final hashResults = <({MediaEntity media, String hash})>[];
         final mediaWithSameSize = sameSize.value;
@@ -69,14 +91,23 @@ class DuplicateDetectionService with LoggerMixin {
         for (int i = 0; i < mediaWithSameSize.length; i += maxConcurrency) {
           final batch = mediaWithSameSize.skip(i).take(maxConcurrency);
           final futures = batch.map((final media) async {
-            final hash = await _hashService.calculateFileHash(
-              media.primaryFile,
-            );
-            return (media: media, hash: hash);
+            try {
+              final hash = await _hashService.calculateFileHash(
+                media.primaryFile,
+              );
+              return (media: media, hash: hash);
+            } catch (e) {
+              logError(
+                'Failed to calculate hash for ${media.primaryFile.path}: $e',
+              );
+              return null;
+            }
           });
 
           final batchResults = await Future.wait(futures);
-          hashResults.addAll(batchResults);
+          hashResults.addAll(
+            batchResults.whereType<({MediaEntity media, String hash})>(),
+          );
         }
 
         // Group by hash
@@ -89,10 +120,37 @@ class DuplicateDetectionService with LoggerMixin {
         output.addAll(hashGroups);
       }
     }
+
+    stopwatch.stop();
+
+    // Log performance statistics
+    final cacheStats = _hashService.getCacheStats();
+    logInfo(
+      'Duplicate detection completed in ${stopwatch.elapsed.inMilliseconds}ms',
+    );
+    logInfo('Files with unique sizes: $uniqueSizeFiles');
+    logInfo('Files requiring hash calculation: $hashCalculationsNeeded');
+    logInfo('Cache statistics: $cacheStats');
+
+    // Count and log duplicate groups found
+    final duplicateGroups = output.values.where(
+      (final group) => group.length > 1,
+    );
+    final totalDuplicates = duplicateGroups.fold<int>(
+      0,
+      (final sum, final group) => sum + group.length - 1,
+    );
+
+    if (duplicateGroups.isNotEmpty) {
+      logInfo(
+        'Found ${duplicateGroups.length} duplicate groups with $totalDuplicates duplicate files',
+      );
+    }
+
     return output;
   }
 
-  /// Removes duplicate media from list of media entities
+  /// Removes duplicate media from list of media entities with enhanced logging
   ///
   /// This method is designed for early-stage processing before album merging.
   /// It preserves duplicated files that have different album associations,
@@ -107,9 +165,14 @@ class DuplicateDetectionService with LoggerMixin {
   }) async {
     if (mediaList.length <= 1) return mediaList;
 
+    logInfo(
+      'Starting duplicate removal for ${mediaList.length} media entities...',
+    );
+
     final grouped = await groupIdentical(mediaList);
     final result = <MediaEntity>[];
     int processed = 0;
+    int duplicatesRemoved = 0;
 
     for (final group in grouped.values) {
       if (group.length == 1) {
@@ -124,6 +187,8 @@ class DuplicateDetectionService with LoggerMixin {
         final duplicatesToRemove = group
             .where((final media) => media != best)
             .toList();
+        duplicatesRemoved += duplicatesToRemove.length;
+
         if (duplicatesToRemove.isNotEmpty) {
           final keptFile = best.primaryFile.path;
           logInfo('Found ${group.length} identical files, keeping: $keptFile');
@@ -136,6 +201,14 @@ class DuplicateDetectionService with LoggerMixin {
       processed++;
       progressCallback?.call(processed, grouped.length);
     }
+
+    logInfo(
+      'Duplicate removal completed: removed $duplicatesRemoved files, kept ${result.length}',
+    );
+
+    // Log cache performance
+    final cacheStats = _hashService.getCacheStats();
+    logInfo('Final cache statistics: $cacheStats');
 
     return result;
   }
