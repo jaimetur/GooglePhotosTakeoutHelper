@@ -117,18 +117,24 @@ class ExifWriterService with LoggerMixin {
         );
         return false;
       }
-
       final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
       final String dt = exifFormat.format(dateTime);
-      await _exifTool.writeExifData(file, {
-        'DateTimeOriginal': '"$dt"',
-        'DateTimeDigitized': '"$dt"',
-        'DateTime': '"$dt"',
-      });
-      logInfo(
-        '[Step 5/8] New DateTime $dt written to EXIF (exiftool): ${file.path}',
-      );
-      return true;
+      try {
+        await _exifTool.writeExifData(file, {
+          'DateTimeOriginal': '"$dt"',
+          'DateTimeDigitized': '"$dt"',
+          'DateTime': '"$dt"',
+        });
+        logInfo(
+          '[Step 5/8] New DateTime $dt written to EXIF (exiftool): ${file.path}',
+        );
+        return true;
+      } catch (e) {
+        logError(
+          '[Step 5/8] DateTime $dt could not be written to EXIF: ${file.path}',
+        );
+        return false;
+      }
     } else {
       // When exiftool is not installed
       return _noExifToolDateTimeWriter(
@@ -189,14 +195,23 @@ class ExifWriterService with LoggerMixin {
         logInfo(
           '[Step 5/8] Found coordinates ${coordinates.toString()} in json, but missing in EXIF for file: ${file.path}',
         );
-        await _exifTool.writeExifData(file, {
-          'GPSLatitude': coordinates.toDD().latitude.toString(),
-          'GPSLongitude': coordinates.toDD().longitude.toString(),
-          'GPSLatitudeRef': coordinates.latDirection.abbreviation.toString(),
-          'GPSLongitudeRef': coordinates.longDirection.abbreviation.toString(),
-        });
-        logInfo('[Step 5/8] New coordinates written to EXIF: ${file.path}');
-        return true;
+
+        try {
+          await _exifTool.writeExifData(file, {
+            'GPSLatitude': coordinates.toDD().latitude.toString(),
+            'GPSLongitude': coordinates.toDD().longitude.toString(),
+            'GPSLatitudeRef': coordinates.latDirection.abbreviation.toString(),
+            'GPSLongitudeRef': coordinates.longDirection.abbreviation
+                .toString(),
+          });
+          logInfo('[Step 5/8] New coordinates written to EXIF: ${file.path}');
+          return true;
+        } catch (e) {
+          logError(
+            '[Step 5/8] Coordinates ${coordinates.toString()} could not be written to EXIF: ${file.path}',
+          );
+          return false;
+        }
       }
       // Found coords in json but already present in exif. Skip.
       return false;

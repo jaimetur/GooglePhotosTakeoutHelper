@@ -1,5 +1,6 @@
 import '../entities/media_entity.dart';
 import '../services/album_detection_service.dart';
+import '../services/date_extraction/json_date_extractor.dart';
 import '../services/duplicate_detection_service.dart';
 import '../services/exif_writer_service.dart';
 import '../services/logging_service.dart';
@@ -129,21 +130,44 @@ class MediaEntityCollection with LoggerMixin {
   Future<Map<String, int>> writeExifData({
     final void Function(int current, int total)? onProgress,
   }) async {
-    const coordinatesWritten = 0;
+    var coordinatesWritten = 0;
     var dateTimesWritten = 0;
+
+    logInfo('[Step 5/8] Starting EXIF data writing for ${_media.length} files');
 
     for (int i = 0; i < _media.length; i++) {
       final mediaEntity = _media[i];
+      final exifWriter = ExifWriterService(ServiceContainer.instance.exifTool!);
 
-      // Write date/time to EXIF if available
+      // Write GPS coordinates to EXIF if available
+      try {
+        final coordinates = await jsonCoordinatesExtractor(
+          mediaEntity.files.firstFile,
+          // ignore: avoid_redundant_argument_values
+          tryhard: false,
+        );
+        if (coordinates != null) {
+          final success = await exifWriter.writeGpsToExif(
+            coordinates,
+            mediaEntity.files.firstFile,
+            ServiceContainer.instance.globalConfig,
+          );
+          if (success) {
+            coordinatesWritten++;
+          }
+        }
+      } catch (e) {
+        logWarning(
+          'Failed to extract/write GPS coordinates for ${mediaEntity.files.firstFile.path}: $e',
+        );
+      }
+
+      // Write date/time to EXIF if available and not already from EXIF
       if (mediaEntity.dateTaken != null &&
           mediaEntity.dateTimeExtractionMethod !=
               DateTimeExtractionMethod.exif &&
           mediaEntity.dateTimeExtractionMethod !=
               DateTimeExtractionMethod.none) {
-        final exifWriter = ExifWriterService(
-          ServiceContainer.instance.exifTool!,
-        );
         final success = await exifWriter.writeDateTimeToExif(
           mediaEntity.dateTaken!,
           mediaEntity.files.firstFile,
@@ -155,6 +179,16 @@ class MediaEntityCollection with LoggerMixin {
       }
 
       onProgress?.call(i + 1, _media.length);
+    }
+
+    // Log final statistics similar to canonical implementation
+    if (coordinatesWritten > 0) {
+      logInfo(
+        '$coordinatesWritten files got their coordinates set in EXIF data (from json)',
+      );
+    }
+    if (dateTimesWritten > 0) {
+      logInfo('$dateTimesWritten got their DateTime set in EXIF data');
     }
 
     return {
