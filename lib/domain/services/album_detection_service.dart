@@ -90,14 +90,23 @@ class AlbumDetectionService with LoggerMixin {
     if (group.length == 1) {
       return group.first;
     }
+    print('[DEBUG] Merging group of ${group.length} identical media files');
 
-    logDebug('Merging group of ${group.length} identical media files');
+    // Debug: log file associations before merging
+    for (int i = 0; i < group.length; i++) {
+      final entity = group[i];
+      print(
+        '[DEBUG] Entity $i: ${entity.primaryFile.path}, albums: ${entity.albumNames}',
+      );
+    }
 
     // Start with the first entity and merge others into it
     MediaEntity result = group.first;
-
     for (int i = 1; i < group.length; i++) {
       result = result.mergeWith(group[i]);
+      print(
+        '[DEBUG] After merging with entity $i: albums: ${result.albumNames}',
+      );
     }
     logDebug(
       'Merged into entity with ${result.files.length} file associations '

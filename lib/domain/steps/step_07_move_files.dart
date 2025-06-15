@@ -165,10 +165,24 @@ class MoveFilesStep extends ProcessingStep {
         copyMode: context.config.copyMode,
         dateDivision: context.config.dateDivision,
         albumBehavior: context.config.albumBehavior,
-      );
-
-      // Create the moving service
+      ); // Create the moving service
       final movingService = MediaEntityMovingService();
+
+      // Debug: Check album associations before moving
+      print(
+        '[DEBUG] Moving step: Processing ${context.mediaCollection.length} entities',
+      );
+      int entitiesWithAlbums = 0;
+      for (final entity in context.mediaCollection.media) {
+        if (entity.albumNames.isNotEmpty) {
+          entitiesWithAlbums++;
+          print(
+            '[DEBUG] Entity with albums: ${entity.primaryFile.path}, albums: ${entity.albumNames}',
+          );
+        }
+      }
+      print('[DEBUG] Total entities with albums: $entitiesWithAlbums');
+
       int processedCount = 0;
       await for (final _ in movingService.moveMediaEntities(
         context.mediaCollection,

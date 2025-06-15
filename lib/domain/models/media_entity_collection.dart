@@ -145,42 +145,54 @@ class MediaEntityCollection {
     const duplicateService = DuplicateDetectionService();
     int removedCount = 0;
 
-    // Group media by hash to find duplicates
-    final hashGroups = await duplicateService.groupIdentical(_media);
+    // Group media by album association first to preserve cross-album duplicates
+    final albumGroups = <String?, List<MediaEntity>>{};
+    for (final media in _media) {
+      // Get the album key (null for year folder files, album name for album files)
+      final albumKey = media.files.getAlbumKey();
+      albumGroups.putIfAbsent(albumKey, () => []).add(media);
+    }
 
-    int processed = 0;
-    final totalGroups = hashGroups.length;
-
-    // Collect all entities to remove first, then remove them all at once
-    // This prevents race conditions from concurrent modifications during iteration
+    // Process each album group separately to avoid removing cross-album duplicates
     final entitiesToRemove = <MediaEntity>[];
+    int processed = 0;
+    final totalGroups = albumGroups.length;
 
-    for (final group in hashGroups.values) {
-      if (group.length <= 1) {
+    for (final albumGroup in albumGroups.values) {
+      if (albumGroup.length <= 1) {
         processed++;
         onProgress?.call(processed, totalGroups);
-        continue; // No duplicates in this group
+        continue;
       }
 
-      // Sort by best date extraction quality, then file name length
-      group.sort((final a, final b) {
-        // Prefer files with dates from better extraction methods
-        final aAccuracy = a.dateAccuracy?.value ?? 999;
-        final bAccuracy = b.dateAccuracy?.value ?? 999;
-        if (aAccuracy != bAccuracy) {
-          return aAccuracy.compareTo(bAccuracy);
+      // Find duplicates within this album group only
+      final hashGroups = await duplicateService.groupIdentical(albumGroup);
+
+      for (final group in hashGroups.values) {
+        if (group.length <= 1) {
+          continue; // No duplicates in this group
         }
 
-        // If equal accuracy, prefer shorter file names (typically original names)
-        final aNameLength = a.files.firstFile.path.length;
-        final bNameLength = b.files.firstFile.path.length;
-        return aNameLength.compareTo(bNameLength);
-      });
+        // Sort by best date extraction quality, then file name length
+        group.sort((final a, final b) {
+          // Prefer files with dates from better extraction methods
+          final aAccuracy = a.dateAccuracy?.value ?? 999;
+          final bAccuracy = b.dateAccuracy?.value ?? 999;
+          if (aAccuracy != bAccuracy) {
+            return aAccuracy.compareTo(bAccuracy);
+          }
 
-      // Add all duplicates except the first (best) one to removal list
-      final duplicatesToRemove = group.sublist(1);
-      entitiesToRemove.addAll(duplicatesToRemove);
-      removedCount += duplicatesToRemove.length;
+          // If equal accuracy, prefer shorter file names (typically original names)
+          final aNameLength = a.files.firstFile.path.length;
+          final bNameLength = b.files.firstFile.path.length;
+          return aNameLength.compareTo(bNameLength);
+        });
+
+        // Add all duplicates except the first (best) one to removal list
+        final duplicatesToRemove = group.sublist(1);
+        entitiesToRemove.addAll(duplicatesToRemove);
+        removedCount += duplicatesToRemove.length;
+      }
 
       processed++;
       onProgress?.call(processed, totalGroups);

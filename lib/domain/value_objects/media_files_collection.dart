@@ -69,6 +69,16 @@ class MediaFilesCollection {
   /// Whether the collection is not empty
   bool get isNotEmpty => _files.isNotEmpty;
 
+  /// Gets the album key for duplicate removal grouping
+  ///
+  /// Returns the first album name found, or null if the media is only in year folders.
+  /// This is used to group media by album for album-aware duplicate removal.
+  // ignore: prefer_expression_function_bodies
+  String? getAlbumKey() {
+    // Return the first album name found, or null for year-based files
+    return albumNames.isNotEmpty ? albumNames.first : null;
+  }
+
   @override
   bool operator ==(final Object other) {
     if (identical(this, other)) return true;

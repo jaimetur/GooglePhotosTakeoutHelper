@@ -301,25 +301,31 @@ class ExifWriterService with LoggerMixin {
         return false; // Ignoring errors during image decoding as it may not be a valid image file
       }
       if (exifData != null && !exifData.isEmpty) {
-        exifData.gpsIfd['GPSLatitude'] = coordinates.toDD().latitude.toString();
-        exifData.gpsIfd['GPSLongitude'] = coordinates
-            .toDD()
-            .longitude
-            .toString();
-        exifData.gpsIfd['GPSLatitudeRef'] =
-            coordinates.latDirection.abbreviation;
-        exifData.gpsIfd['GPSLongitudeRef'] =
-            coordinates.longDirection.abbreviation;
-        final Uint8List? newbytes = injectJpgExif(
-          origbytes,
-          exifData,
-        ); // This overwrites the original exif data of the image with the altered exif data.
-        if (newbytes != null) {
-          file.writeAsBytesSync(newbytes);
-          logInfo(
-            '[Step 5/8] New coordinates written to EXIF (natively): ${file.path}',
+        try {
+          // Use the same approach as the old exif_writer.dart
+          exifData.gpsIfd.gpsLatitude = coordinates.toDD().latitude;
+          exifData.gpsIfd.gpsLongitude = coordinates.toDD().longitude;
+          exifData.gpsIfd.gpsLatitudeRef =
+              coordinates.latDirection.abbreviation;
+          exifData.gpsIfd.gpsLongitudeRef =
+              coordinates.longDirection.abbreviation;
+
+          final Uint8List? newbytes = injectJpgExif(
+            origbytes,
+            exifData,
+          ); // This overwrites the original exif data of the image with the altered exif data.
+          if (newbytes != null) {
+            file.writeAsBytesSync(newbytes);
+            logInfo(
+              '[Step 5/8] New coordinates written to EXIF (natively): ${file.path}',
+            );
+            return true;
+          }
+        } catch (e) {
+          logError(
+            '[Step 5/8] Error writing GPS coordinates to EXIF for file: ${file.path}. Error: $e',
           );
-          return true;
+          return false;
         }
       }
     }

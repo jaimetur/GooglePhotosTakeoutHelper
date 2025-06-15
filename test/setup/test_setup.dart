@@ -617,9 +617,8 @@ Future<void> generateRealisticDataset({
           break;
         }
       }
-
       if (originalPhoto != null) {
-        // Copy photo to album
+        // Copy photo to album (creating identical files as in real Google Photos Takeout)
         final albumPhotoPath = p.join(albumDir.path, photoName);
         originalPhoto.copySync(albumPhotoPath);
 

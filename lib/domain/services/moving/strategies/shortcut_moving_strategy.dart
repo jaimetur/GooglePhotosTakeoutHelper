@@ -34,6 +34,10 @@ class ShortcutMovingStrategy extends MediaEntityMovingStrategy {
     final MediaEntity entity,
     final MovingContext context,
   ) async* {
+    print(
+      '[DEBUG] ShortcutMovingStrategy.processMediaEntity called for ${entity.primaryFile.path}',
+    );
+    print('[DEBUG] Entity album names: ${entity.albumNames}');
     final results = <MediaEntityMovingResult>[];
 
     // Step 1: Move primary file to ALL_PHOTOS
@@ -43,15 +47,17 @@ class ShortcutMovingStrategy extends MediaEntityMovingStrategy {
       entity.dateTaken,
       context,
     );
-
     final stopwatch = Stopwatch()..start();
     try {
+      print(
+        '[DEBUG] Moving primary file ${primaryFile.path} to ${allPhotosDir.path}',
+      );
       final movedFile = await _fileService.moveOrCopyFile(
         primaryFile,
         allPhotosDir,
         copyMode: context.copyMode,
       );
-
+      print('[DEBUG] Primary file moved successfully to ${movedFile.path}');
       stopwatch.stop();
       final primaryResult = MediaEntityMovingResult.success(
         operation: MediaEntityMovingOperation(
@@ -66,23 +72,39 @@ class ShortcutMovingStrategy extends MediaEntityMovingStrategy {
         duration: stopwatch.elapsed,
       );
       results.add(primaryResult);
+      print(
+        '[DEBUG] About to yield primary result for ${entity.primaryFile.path}',
+      );
       yield primaryResult;
+      print(
+        '[DEBUG] Primary result yielded, now processing album associations for ${entity.primaryFile.path}',
+      );
 
-      // Step 2: Create shortcuts for each album association
+      print(
+        '[DEBUG] About to process album associations for ${entity.primaryFile.path}',
+      );
+      // Step 2: Create shortcuts for each album association      print('[DEBUG] Entity ${entity.primaryFile.path} has ${entity.albumNames.length} albums: ${entity.albumNames}');
       for (final albumName in entity.albumNames) {
+        print(
+          '[DEBUG] Processing album: $albumName for ${entity.primaryFile.path}',
+        );
         final albumDir = _pathService.generateTargetDirectory(
           albumName,
           entity.dateTaken,
           context,
         );
-
+        print('[DEBUG] Generated album directory: ${albumDir.path}');
         final shortcutStopwatch = Stopwatch()..start();
         try {
+          print(
+            '[DEBUG] Creating shortcut for album $albumName from ${movedFile.path} to ${albumDir.path}',
+          );
           final shortcutFile = await _shortcutService.createShortcut(
             albumDir,
             movedFile,
           );
 
+          print('[DEBUG] Shortcut created successfully: ${shortcutFile.path}');
           shortcutStopwatch.stop();
           final shortcutResult = MediaEntityMovingResult.success(
             operation: MediaEntityMovingOperation(
@@ -96,8 +118,11 @@ class ShortcutMovingStrategy extends MediaEntityMovingStrategy {
             duration: shortcutStopwatch.elapsed,
           );
           results.add(shortcutResult);
+          print('[DEBUG] About to yield shortcut result for album $albumName');
           yield shortcutResult;
+          print('[DEBUG] Shortcut result yielded for album $albumName');
         } catch (e) {
+          print('[DEBUG] Exception creating shortcut for album $albumName: $e');
           shortcutStopwatch.stop();
           final errorResult = MediaEntityMovingResult.failure(
             operation: MediaEntityMovingOperation(
@@ -111,10 +136,20 @@ class ShortcutMovingStrategy extends MediaEntityMovingStrategy {
             duration: shortcutStopwatch.elapsed,
           );
           results.add(errorResult);
+          print(
+            '[DEBUG] About to yield shortcut error result for album $albumName',
+          );
           yield errorResult;
+          print('[DEBUG] Shortcut error result yielded for album $albumName');
         }
       }
+      print(
+        '[DEBUG] Finished processing all albums for ${entity.primaryFile.path}',
+      );
     } catch (e) {
+      print(
+        '[DEBUG] Exception moving primary file ${entity.primaryFile.path}: $e',
+      );
       stopwatch.stop();
       final errorResult = MediaEntityMovingResult.failure(
         operation: MediaEntityMovingOperation(

@@ -10,6 +10,7 @@ import 'dart:io';
 
 import 'package:gpth/domain/main_pipeline.dart';
 import 'package:gpth/domain/models/processing_config_model.dart';
+import 'package:gpth/domain/services/service_container.dart';
 import 'package:gpth/domain/services/takeout_path_resolver_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
@@ -22,8 +23,10 @@ void main() {
     late ProcessingPipeline pipeline;
     late String takeoutPath;
     late String outputPath;
-
     setUpAll(() async {
+      // Initialize ServiceContainer first
+      await ServiceContainer.instance.initialize();
+
       fixture = TestFixture();
       await fixture.setUp();
 
@@ -50,9 +53,12 @@ void main() {
       }
       await outputDir.create(recursive: true);
     });
-
     tearDownAll(() async {
       await fixture.tearDown();
+
+      // Clean up ServiceContainer
+      await ServiceContainer.instance.dispose();
+      await ServiceContainer.reset();
     });
     test('should process realistic dataset with default settings', () async {
       // Resolve the takeout path to the actual Google Photos directory
