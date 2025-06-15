@@ -26,14 +26,15 @@ class FileOperationService {
 
   /// Safely moves or copies a file to the target location with basic implementation
   ///
-  /// [sourceFile] The source file to move/copy
-  /// [targetDirectory] The target directory
+  /// [sourceFile] The source file to move/copy  /// [targetDirectory] The target directory
   /// [copyMode] Whether to copy (true) or move (false)
+  /// [dateTaken] Optional date to set as file modification time
   /// Returns the result file
   Future<File> moveOrCopyFile(
     final File sourceFile,
     final Directory targetDirectory, {
     required final bool copyMode,
+    final DateTime? dateTaken,
   }) async {
     // Ensure target directory exists
     await targetDirectory.create(recursive: true);
@@ -43,9 +44,16 @@ class FileOperationService {
     );
 
     try {
-      return copyMode
+      final resultFile = copyMode
           ? await sourceFile.copy(targetFile.path)
           : await sourceFile.rename(targetFile.path);
+
+      // Set file timestamp if dateTaken is provided
+      if (dateTaken != null) {
+        await setFileTimestamp(resultFile, dateTaken);
+      }
+
+      return resultFile;
     } on FileSystemException catch (e) {
       // Handle cross-device move errors
       if (e.osError?.errorCode == 18 || e.message.contains('cross-device')) {
@@ -62,10 +70,12 @@ class FileOperationService {
   /// High-performance file copy/move using optimized streaming and concurrency control
   ///
   /// Uses platform-specific optimizations and streaming for large files
+  /// [dateTaken] Optional date to set as file modification time
   Future<File> moveOrCopyFileOptimized(
     final File sourceFile,
     final Directory targetDirectory, {
     required final bool copyMode,
+    final DateTime? dateTaken,
   }) async {
     await _operationSemaphore.acquire();
     try {
@@ -76,18 +86,26 @@ class FileOperationService {
         File(p.join(targetDirectory.path, p.basename(sourceFile.path))),
       );
 
-      if (copyMode) {
-        return await _copyFileOptimized(sourceFile, targetFile);
-      } else {
-        return await _moveFileOptimized(sourceFile, targetFile);
+      final resultFile = copyMode
+          ? await _copyFileOptimized(sourceFile, targetFile)
+          : await _moveFileOptimized(sourceFile, targetFile);
+
+      // Set file timestamp if dateTaken is provided
+      if (dateTaken != null) {
+        await setFileTimestamp(resultFile, dateTaken);
       }
+
+      return resultFile;
     } finally {
       _operationSemaphore.release();
     }
   }
 
   /// Internal optimized file copy implementation
-  Future<File> _copyFileOptimized(final File source, final File destination) async {
+  Future<File> _copyFileOptimized(
+    final File source,
+    final File destination,
+  ) async {
     final fileSize = await source.length();
 
     // For very large files, use isolate-based copying
@@ -100,7 +118,10 @@ class FileOperationService {
   }
 
   /// Internal optimized file move implementation
-  Future<File> _moveFileOptimized(final File source, final File destination) async {
+  Future<File> _moveFileOptimized(
+    final File source,
+    final File destination,
+  ) async {
     // Check if it's a same-drive operation for optimization
     if (_isSameDrive(source.path, destination.path)) {
       try {
@@ -121,7 +142,10 @@ class FileOperationService {
   }
 
   /// Streaming file copy for better memory efficiency
-  Future<File> _copyFileStreaming(final File source, final File destination) async {
+  Future<File> _copyFileStreaming(
+    final File source,
+    final File destination,
+  ) async {
     final sourceStream = source.openRead();
     final destinationSink = destination.openWrite();
 
@@ -134,7 +158,10 @@ class FileOperationService {
   }
 
   /// Copy large files using isolates to avoid blocking the main thread
-  Future<File> _copyLargeFileInIsolate(final File source, final File destination) async {
+  Future<File> _copyLargeFileInIsolate(
+    final File source,
+    final File destination,
+  ) async {
     final receivePort = ReceivePort();
     final isolate = await Isolate.spawn(
       _isolateCopyFile,

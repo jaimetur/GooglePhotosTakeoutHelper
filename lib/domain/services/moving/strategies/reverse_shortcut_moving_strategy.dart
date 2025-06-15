@@ -53,6 +53,7 @@ class ReverseShortcutMovingStrategy extends MediaEntityMovingStrategy {
           primaryFile,
           primaryAlbumDir,
           copyMode: context.copyMode,
+          dateTaken: entity.dateTaken,
         );
 
         stopwatch.stop();
@@ -194,6 +195,7 @@ class ReverseShortcutMovingStrategy extends MediaEntityMovingStrategy {
           primaryFile,
           allPhotosDir,
           copyMode: context.copyMode,
+          dateTaken: entity.dateTaken,
         );
 
         stopwatch.stop();

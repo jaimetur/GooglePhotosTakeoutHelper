@@ -56,6 +56,7 @@ class ShortcutMovingStrategy extends MediaEntityMovingStrategy {
         primaryFile,
         allPhotosDir,
         copyMode: context.copyMode,
+        dateTaken: entity.dateTaken,
       );
       print('[DEBUG] Primary file moved successfully to ${movedFile.path}');
       stopwatch.stop();

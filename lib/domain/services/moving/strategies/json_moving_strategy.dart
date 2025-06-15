@@ -48,6 +48,7 @@ class JsonMovingStrategy extends MediaEntityMovingStrategy {
         primaryFile,
         allPhotosDir,
         copyMode: context.copyMode,
+        dateTaken: entity.dateTaken,
       );
 
       stopwatch.stop();

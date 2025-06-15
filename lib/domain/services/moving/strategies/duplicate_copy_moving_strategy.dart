@@ -44,6 +44,7 @@ class DuplicateCopyMovingStrategy extends MediaEntityMovingStrategy {
         primaryFile,
         allPhotosDir,
         copyMode: context.copyMode,
+        dateTaken: entity.dateTaken,
       );
 
       stopwatch.stop();
@@ -76,6 +77,7 @@ class DuplicateCopyMovingStrategy extends MediaEntityMovingStrategy {
             movedFile,
             albumDir,
             copyMode: true, // Always copy for album folders
+            dateTaken: entity.dateTaken,
           );
 
           copyStopwatch.stop();
