@@ -468,12 +468,16 @@ Future<InputOutputPaths> _getInputOutputPaths(
         inDir = await ServiceContainer.instance.interactiveService
             .selectInputDirectory();
       } catch (e) {
-        print(
+        _logger.warning('⚠️  INTERACTIVE DIRECTORY SELECTION FAILED');
+        _logger.warning(
           'Interactive selecting input dir crashed... \n'
           "It looks like you're running headless/on Synology/NAS...\n"
           "If so, you have to use cli options - run 'gpth --help' to see them",
         );
-        exit(69);
+        _logger.warning('');
+        _logger.warning('Please restart the program with CLI options instead.');
+        _logger.error('No input directory could be selected');
+        exit(2); // Use standard argument error exit code instead of 69
       }
       print('');
       final out = await ServiceContainer.instance.interactiveService

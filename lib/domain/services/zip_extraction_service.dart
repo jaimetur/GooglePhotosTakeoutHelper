@@ -32,11 +32,13 @@ class ZipExtractionService {
   /// - Handles filename encoding issues across platforms
   /// - Prevents path traversal attacks (Zip Slip vulnerability)
   /// - Graceful error handling with user-friendly messages
+  /// - Continues processing remaining ZIPs if individual extractions fail
   ///
   /// [zips] List of ZIP files to extract
   /// [dir] Target directory for extraction (will be created if needed)
   ///
-  /// Throws [SystemExit] with code 69 on extraction errors or path traversal attempts.
+  /// Individual ZIP extraction failures are logged as warnings and do not stop
+  /// the overall process. The method continues processing remaining ZIP files.
   ///
   /// Example usage:
   /// ```dart
@@ -62,7 +64,6 @@ class ZipExtractionService {
         if (!await zip.exists()) {
           throw FileSystemException('ZIP file not found', zip.path);
         }
-
         final int zipSize = await zip.length();
         if (zipSize == 0) {
           throw FileSystemException('ZIP file is empty', zip.path);
@@ -73,13 +74,33 @@ class ZipExtractionService {
 
         await _presenter.showUnzipSuccess(p.basename(zip.path));
       } on ArchiveException catch (e) {
-        _handleExtractionError(zip, e, isArchiveError: true);
+        try {
+          _handleExtractionError(zip, e, isArchiveError: true);
+        } catch (extractionError) {
+          _logger.warning('Failed to extract ${p.basename(zip.path)}: $e');
+          _logger.warning('Continuing with remaining ZIP files...');
+        }
       } on PathNotFoundException catch (e) {
-        _handleExtractionError(zip, e, isPathError: true);
+        try {
+          _handleExtractionError(zip, e, isPathError: true);
+        } catch (extractionError) {
+          _logger.warning('Failed to extract ${p.basename(zip.path)}: $e');
+          _logger.warning('Continuing with remaining ZIP files...');
+        }
       } on FileSystemException catch (e) {
-        _handleExtractionError(zip, e, isFileSystemError: true);
+        try {
+          _handleExtractionError(zip, e, isFileSystemError: true);
+        } catch (extractionError) {
+          _logger.warning('Failed to extract ${p.basename(zip.path)}: $e');
+          _logger.warning('Continuing with remaining ZIP files...');
+        }
       } catch (e) {
-        _handleExtractionError(zip, e);
+        try {
+          _handleExtractionError(zip, e);
+        } catch (extractionError) {
+          _logger.warning('Failed to extract ${p.basename(zip.path)}: $e');
+          _logger.warning('Continuing with remaining ZIP files...');
+        }
       }
     }
 
@@ -268,8 +289,19 @@ class ZipExtractionService {
     );
     _logger.error('');
     _logger.error('===============================================');
+    _logger.error('');
+    _logger.error('⚠️  ZIP EXTRACTION FAILED - CONTINUING WITH PROCESSING');
+    _logger.error(
+      'The ZIP extraction failed, but GPTH will continue processing',
+    );
+    _logger.error(
+      'any files that were successfully extracted before the error.',
+    );
+    _logger.error('Please check the extraction directory for partial results.');
 
-    _logger.quit(69);
+    // Instead of quitting, we'll throw an exception that can be caught
+    // and handled by the calling code
+    throw Exception('ZIP extraction failed: $errorObject');
   }
 }
 

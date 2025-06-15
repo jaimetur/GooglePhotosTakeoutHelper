@@ -359,12 +359,32 @@ class ConsolidatedInteractiveService with LoggerMixin {
     await _presenter.showDiskSpaceNotice(
       'Required: ${_utility.formatFileSize(required)}, '
       'Directory: ${dir.path}, '
-      'Free: ${freeSpace != null ? _utility.formatFileSize(freeSpace) : 'Unknown'}',
+      'Free: ${freeSpace != null ? _utility.formatFileSize(freeSpace) : 'Unknown (unable to check)'}',
     );
 
     if (freeSpace != null && freeSpace < required) {
-      logError('Insufficient disk space available');
-      exit(69);
+      logWarning('⚠️  INSUFFICIENT DISK SPACE WARNING');
+      logWarning('Required: ${_utility.formatFileSize(required)}');
+      logWarning('Available: ${_utility.formatFileSize(freeSpace)}');
+      logWarning('Shortfall: ${_utility.formatFileSize(required - freeSpace)}');
+      logWarning('');
+      logWarning(
+        'Continuing anyway - process may fail during extraction/processing!',
+      );
+      logWarning(
+        'Consider freeing up disk space or choosing a different directory.',
+      );
+    } else if (freeSpace == null) {
+      logWarning('⚠️  DISK SPACE CHECK UNAVAILABLE');
+      logWarning('Required space: ${_utility.formatFileSize(required)}');
+      logWarning('Directory: ${dir.path}');
+      logWarning('');
+      logWarning(
+        'Unable to check available disk space (common in containers/minimal systems)',
+      );
+      logWarning(
+        'Continuing anyway - please ensure you have sufficient space available.',
+      );
     }
 
     _presenter.showPressEnterPrompt();
