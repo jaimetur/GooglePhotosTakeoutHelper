@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:gpth/domain/services/date_extraction/json_date_extractor.dart';
+import 'package:gpth/domain/services/service_container.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import '../setup/test_setup.dart';
@@ -8,14 +9,16 @@ import '../setup/test_setup.dart';
 void main() {
   group('jsonForFile() Integration Tests - Issue #29 Resolution', () {
     late TestFixture fixture;
-
     setUp(() async {
       fixture = TestFixture();
       await fixture.setUp();
+      // Initialize ServiceContainer to provide globalConfig
+      await ServiceContainer.instance.initialize();
     });
 
     tearDown(() async {
       await fixture.tearDown();
+      await ServiceContainer.reset();
     });
 
     /// Helper method to create a text file using the existing createFile method

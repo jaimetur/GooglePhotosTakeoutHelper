@@ -7,6 +7,7 @@ library;
 
 import 'dart:io';
 
+import 'package:coordinate_converter/coordinate_converter.dart';
 import 'package:gpth/domain/services/date_extraction/date_extractor_service.dart';
 import 'package:gpth/domain/services/global_config_service.dart';
 import 'package:gpth/domain/services/service_container.dart';
@@ -130,13 +131,152 @@ void main() {
           },
         );
       });
-
       test('returns null for unrecognizable filename patterns', () async {
         final file = File('${fixture.basePath}/random_name.jpg');
 
         final result = await guessExtractor(file);
 
         expect(result, isNull);
+      });
+    });
+
+    group('JSON Coordinate Extractor', () {
+      test('extracts coordinates from JSON with geoData', () async {
+        final imageFile = fixture.createImageWithoutExif(
+          'test_with_coords.jpg',
+        );
+        final jsonFile = File('${imageFile.path}.json');
+        await jsonFile.writeAsString('''
+{
+  "title": "Test Image",
+  "photoTakenTime": {
+    "timestamp": "1609459200",
+    "formatted": "01.01.2021, 00:00:00 UTC"
+  },
+  "geoData": {
+    "latitude": 41.3221611,
+    "longitude": 19.8149139,
+    "altitude": 143.09,
+    "latitudeSpan": 0.0,
+    "longitudeSpan": 0.0
+  }
+}
+''');
+
+        final coordinates = await jsonCoordinatesExtractor(imageFile);
+
+        expect(coordinates, isNotNull);
+        expect(coordinates!.toDD().latitude, closeTo(41.3221611, 0.0001));
+        expect(coordinates.toDD().longitude, closeTo(19.8149139, 0.0001));
+        expect(coordinates.latDirection, DirectionY.north);
+        expect(coordinates.longDirection, DirectionX.east);
+
+        await jsonFile.delete();
+      });
+
+      test(
+        'extracts negative coordinates (Southern/Western hemispheres)',
+        () async {
+          final imageFile = fixture.createImageWithoutExif(
+            'test_negative_coords.jpg',
+          );
+          final jsonFile = File('${imageFile.path}.json');
+          await jsonFile.writeAsString('''
+{
+  "title": "Southern Hemisphere Test",
+  "photoTakenTime": {
+    "timestamp": "1609459200",
+    "formatted": "01.01.2021, 00:00:00 UTC"
+  },
+  "geoData": {
+    "latitude": -33.865143,
+    "longitude": -70.657437,
+    "altitude": 545.0,
+    "latitudeSpan": 0.0,
+    "longitudeSpan": 0.0
+  }
+}
+''');
+
+          final coordinates = await jsonCoordinatesExtractor(imageFile);
+
+          expect(coordinates, isNotNull);
+          expect(coordinates!.toDD().latitude, closeTo(-33.865143, 0.0001));
+          expect(coordinates.toDD().longitude, closeTo(-70.657437, 0.0001));
+          expect(coordinates.latDirection, DirectionY.south);
+          expect(coordinates.longDirection, DirectionX.west);
+
+          await jsonFile.delete();
+        },
+      );
+
+      test('returns null when geoData is missing', () async {
+        final imageFile = fixture.createImageWithoutExif('test_no_coords.jpg');
+        final jsonFile = File('${imageFile.path}.json');
+        await jsonFile.writeAsString('''
+{
+  "title": "No Coordinates Test",
+  "photoTakenTime": {
+    "timestamp": "1609459200",
+    "formatted": "01.01.2021, 00:00:00 UTC"
+  }
+}
+''');
+
+        final coordinates = await jsonCoordinatesExtractor(imageFile);
+
+        expect(coordinates, isNull);
+
+        await jsonFile.delete();
+      });
+
+      test(
+        'returns null when coordinates are zero (invalid location)',
+        () async {
+          final imageFile = fixture.createImageWithoutExif(
+            'test_zero_coords.jpg',
+          );
+          final jsonFile = File('${imageFile.path}.json');
+          await jsonFile.writeAsString('''
+{
+  "title": "Zero Coordinates Test",
+  "geoData": {
+    "latitude": 0.0,
+    "longitude": 0.0,
+    "altitude": 0.0,
+    "latitudeSpan": 0.0,
+    "longitudeSpan": 0.0
+  }
+}
+''');
+
+          final coordinates = await jsonCoordinatesExtractor(imageFile);
+
+          expect(coordinates, isNull);
+
+          await jsonFile.delete();
+        },
+      );
+
+      test('handles JSON file not found gracefully', () async {
+        final imageFile = fixture.createImageWithoutExif('test_no_json.jpg');
+        // No JSON file created
+
+        final coordinates = await jsonCoordinatesExtractor(imageFile);
+
+        expect(coordinates, isNull);
+      });
+
+      test('handles malformed JSON gracefully', () async {
+        final imageFile = fixture.createImageWithoutExif('test_bad_json.jpg');
+        final jsonFile = File('${imageFile.path}.json');
+        await jsonFile.writeAsString('{ invalid json content }');
+
+        final coordinates = await jsonCoordinatesExtractor(imageFile);
+
+        expect(coordinates, isNull);
+
+        await jsonFile.delete();
       });
     });
   });

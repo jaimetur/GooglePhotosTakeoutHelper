@@ -53,7 +53,7 @@ Future<DMSCoordinates?> jsonCoordinatesExtractor(
     final double lat = data['geoData']['latitude'] as double;
     final double long = data['geoData']['longitude'] as double;
     //var alt = double.tryParse(data['geoData']['altitude']); //Info: Altitude is not used.
-    if (lat == 0.0 || long == 0.0) {
+    if (lat == 0.0 && long == 0.0) {
       return null;
     } else {
       final DDCoordinates ddcoords = DDCoordinates(

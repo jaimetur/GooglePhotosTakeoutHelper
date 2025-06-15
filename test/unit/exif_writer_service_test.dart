@@ -205,7 +205,6 @@ void main() {
         expect(result, isA<bool>());
       });
     });
-
     group('writeGpsToExif', () {
       test('handles GPS coordinate writing attempt', () async {
         final file = fixture.createImageWithExif('test.jpg');
@@ -225,6 +224,123 @@ void main() {
 
         // Complex method that depends on file format and exiftool availability
         expect(result, isA<bool>());
+      });
+
+      test('writes coordinates to image without existing GPS data', () async {
+        final file = fixture.createImageWithoutExif('no_gps.jpg');
+        final coordinates = DMSCoordinates(
+          latDegrees: 41,
+          latMinutes: 19,
+          latSeconds: 22.1611,
+          longDegrees: 19,
+          longMinutes: 48,
+          longSeconds: 14.9139,
+          latDirection: DirectionY.north,
+          longDirection: DirectionX.east,
+        );
+        final globalConfig = GlobalConfigService();
+
+        final result = await service.writeGpsToExif(
+          coordinates,
+          file,
+          globalConfig,
+        );
+
+        expect(result, isA<bool>());
+        // Verify that the GPS writing attempt was logged
+        print('GPS coordinate writing result: $result');
+        print('Coordinates: ${coordinates.toString()}');
+      });
+
+      test('handles different coordinate formats and directions', () async {
+        // Test coordinates in different hemispheres
+        final testCases = [
+          {
+            'name': 'Northern/Eastern coordinates',
+            'coordinates': DMSCoordinates(
+              latDegrees: 48,
+              latMinutes: 8,
+              latSeconds: 34.2,
+              longDegrees: 11,
+              longMinutes: 34,
+              longSeconds: 12.7,
+              latDirection: DirectionY.north,
+              longDirection: DirectionX.east,
+            ),
+          },
+          {
+            'name': 'Southern/Western coordinates',
+            'coordinates': DMSCoordinates(
+              latDegrees: 33,
+              latMinutes: 55,
+              latSeconds: 11.09,
+              longDegrees: 118,
+              longMinutes: 24,
+              longSeconds: 7.35,
+              latDirection: DirectionY.south,
+              longDirection: DirectionX.west,
+            ),
+          },
+          {
+            'name': 'Zero coordinates (edge case)',
+            'coordinates': DMSCoordinates(
+              latDegrees: 0,
+              latMinutes: 0,
+              latSeconds: 0,
+              longDegrees: 0,
+              longMinutes: 0,
+              longSeconds: 0,
+              latDirection: DirectionY.north,
+              longDirection: DirectionX.east,
+            ),
+          },
+        ];
+
+        for (final testCase in testCases) {
+          final file = fixture.createImageWithoutExif(
+            '${testCase['name']}.jpg',
+          );
+          final coordinates = testCase['coordinates'] as DMSCoordinates;
+          final globalConfig = GlobalConfigService();
+
+          final result = await service.writeGpsToExif(
+            coordinates,
+            file,
+            globalConfig,
+          );
+
+          expect(result, isA<bool>(), reason: 'Failed for ${testCase['name']}');
+          print('✓ ${testCase['name']}: ${coordinates.toString()}');
+        }
+      });
+
+      test('handles error cases gracefully', () async {
+        final file = fixture.createFile('invalid.txt', [
+          1,
+          2,
+          3,
+        ]); // Non-image file
+        final coordinates = DMSCoordinates(
+          latDegrees: 40,
+          latMinutes: 42,
+          latSeconds: 46,
+          longDegrees: 74,
+          longMinutes: 0,
+          longSeconds: 21,
+          latDirection: DirectionY.north,
+          longDirection: DirectionX.west,
+        );
+        final globalConfig = GlobalConfigService();
+
+        final result = await service.writeGpsToExif(
+          coordinates,
+          file,
+          globalConfig,
+        );
+
+        // Should return false for unsupported file types
+        expect(result, isFalse);
+        print('✓ Correctly handled unsupported file type');
       });
     });
 
