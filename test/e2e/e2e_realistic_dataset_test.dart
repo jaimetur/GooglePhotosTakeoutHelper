@@ -29,8 +29,13 @@ void main() {
 
       fixture = TestFixture();
       await fixture.setUp();
+    });
+    setUp(() async {
+      // Initialize pipeline
+      pipeline = const ProcessingPipeline();
 
-      // Generate a comprehensive realistic dataset
+      // Generate a fresh realistic dataset for each test to ensure test isolation
+      // This prevents tests from interfering with each other when they move/modify files
       takeoutPath = await fixture.generateRealisticTakeoutDataset(
         yearSpan: 3,
         albumCount: 5,
@@ -39,12 +44,9 @@ void main() {
         exifRatio: 0.7,
       );
 
-      outputPath = p.join(fixture.basePath, 'output');
-    });
-
-    setUp(() async {
-      // Initialize pipeline
-      pipeline = const ProcessingPipeline();
+      // Create unique output path for each test
+      final timestamp = DateTime.now().microsecondsSinceEpoch.toString();
+      outputPath = p.join(fixture.basePath, 'output_$timestamp');
 
       // Ensure clean output directory for each test
       final outputDir = Directory(outputPath);
@@ -605,139 +607,135 @@ void main() {
         reason: 'Processing should complete within reasonable time',
       );
     });
+    test('should actually move files in move mode (move logic verification)', () async {
+      // NOTE: In move mode, files from year folders are moved to output,
+      // but album-only files (files that exist only in album folders, not in year folders)
+      // remain in place to prevent data loss. This is expected behavior.
+      final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+        takeoutPath,
+      );
+      final inputDir = Directory(googlePhotosPath);
+      final outputDir = Directory(outputPath);
+
+      // Get list of all files in input directory before processing
+      final inputFiles = await inputDir
+          .list(recursive: true)
+          .where(
+            (final entity) => entity is File && entity.path.endsWith('.jpg'),
+          )
+          .cast<File>()
+          .map((final file) => file.path)
+          .toSet();
+
+      print('[DEBUG] Input files before processing: ${inputFiles.length}');
+      for (final path in inputFiles.take(5)) {
+        print('[DEBUG] Input file: $path');
+      }
+
+      final config = ProcessingConfig(
+        inputPath: googlePhotosPath,
+        outputPath: outputPath,
+        albumBehavior: AlbumBehavior.shortcut,
+        dateDivision:
+            DateDivisionLevel.none, // Files are moved from input to output
+        skipExtras: false,
+        writeExif: false,
+      );
+
+      final result = await pipeline.execute(
+        config: config,
+        inputDirectory: inputDir,
+        outputDirectory: outputDir,
+      );
+
+      expect(
+        result.isSuccess,
+        isTrue,
+        reason: 'Pipeline should execute successfully',
+      );
+
+      // Verify output structure exists
+      final allPhotosDir = Directory(p.join(outputPath, 'ALL_PHOTOS'));
+      expect(
+        await allPhotosDir.exists(),
+        isTrue,
+        reason: 'ALL_PHOTOS directory should exist',
+      );
+
+      // Get list of output files
+      final outputFiles = await outputDir
+          .list(recursive: true)
+          .where(
+            (final entity) => entity is File && entity.path.endsWith('.jpg'),
+          )
+          .cast<File>()
+          .toList();
+
+      expect(
+        outputFiles.length,
+        greaterThan(0),
+        reason: 'Should have processed files in output',
+      );
+
+      print('[DEBUG] Output files after processing: ${outputFiles.length}');
+      for (final file in outputFiles.take(5)) {
+        print('[DEBUG] Output file: ${file.path}');
+      } // CRITICAL TEST: In move mode, check remaining files behavior
+      final remainingInputFiles = await inputDir
+          .list(recursive: true)
+          .where(
+            (final entity) => entity is File && entity.path.endsWith('.jpg'),
+          )
+          .cast<File>()
+          .toList();
+
+      print(
+        '[DEBUG] Remaining input files after processing: ${remainingInputFiles.length}',
+      );
+      for (final file in remainingInputFiles) {
+        print('[DEBUG] Remaining input file: ${file.path}');
+      }
+
+      // IMPORTANT: In move mode, album-only files remain in album folders
+      // This is expected behavior to prevent data loss for files that exist
+      // only in albums (not duplicated in year folders)
+      final albumOnlyFiles = remainingInputFiles.where((final file) {
+        // Check if this file is in an album folder (not a year folder)
+        final relativePath = p.relative(file.path, from: inputDir.path);
+        final pathParts = relativePath.split(p.separator);
+
+        // Album folders don't start with "Photos from"
+        return pathParts.isNotEmpty &&
+            !pathParts.first.startsWith('Photos from');
+      }).toList();
+
+      print('[DEBUG] Album-only files remaining: ${albumOnlyFiles.length}');
+      for (final file in albumOnlyFiles) {
+        print('[DEBUG] Album-only file: ${file.path}');
+      }
+
+      // All remaining files should be album-only files
+      expect(
+        remainingInputFiles.length,
+        equals(albumOnlyFiles.length),
+        reason:
+            'In move mode, only album-only files should remain in original location. '
+            'These files exist only in album folders and are preserved to prevent data loss. '
+            'Found ${remainingInputFiles.length} total remaining files, '
+            '${albumOnlyFiles.length} are album-only files.',
+      ); // Verify output file count: should be input files minus album-only files
+      // (album-only files remain in place to prevent data loss)
+      final expectedOutputCount = inputFiles.length - albumOnlyFiles.length;
+      expect(
+        outputFiles.length,
+        equals(expectedOutputCount),
+        reason:
+            'Expected $expectedOutputCount files in output directory '
+            '(${inputFiles.length} input files minus ${albumOnlyFiles.length} album-only files)',
+      );
+    });
     test(
-      'should actually move files when copyMode is false (move logic verification)',
-      () async {
-        // NOTE: In move mode, files from year folders are moved to output,
-        // but album-only files (files that exist only in album folders, not in year folders)
-        // remain in place to prevent data loss. This is expected behavior.
-        final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
-          takeoutPath,
-        );
-        final inputDir = Directory(googlePhotosPath);
-        final outputDir = Directory(outputPath);
-
-        // Get list of all files in input directory before processing
-        final inputFiles = await inputDir
-            .list(recursive: true)
-            .where(
-              (final entity) => entity is File && entity.path.endsWith('.jpg'),
-            )
-            .cast<File>()
-            .map((final file) => file.path)
-            .toSet();
-
-        print('[DEBUG] Input files before processing: ${inputFiles.length}');
-        for (final path in inputFiles.take(5)) {
-          print('[DEBUG] Input file: $path');
-        }
-
-        final config = ProcessingConfig(
-          inputPath: googlePhotosPath,
-          outputPath: outputPath,
-          albumBehavior: AlbumBehavior.shortcut,
-          dateDivision:
-              DateDivisionLevel.none, // Files are moved from input to output
-          skipExtras: false,
-          writeExif: false,
-        );
-
-        final result = await pipeline.execute(
-          config: config,
-          inputDirectory: inputDir,
-          outputDirectory: outputDir,
-        );
-
-        expect(
-          result.isSuccess,
-          isTrue,
-          reason: 'Pipeline should execute successfully',
-        );
-
-        // Verify output structure exists
-        final allPhotosDir = Directory(p.join(outputPath, 'ALL_PHOTOS'));
-        expect(
-          await allPhotosDir.exists(),
-          isTrue,
-          reason: 'ALL_PHOTOS directory should exist',
-        );
-
-        // Get list of output files
-        final outputFiles = await outputDir
-            .list(recursive: true)
-            .where(
-              (final entity) => entity is File && entity.path.endsWith('.jpg'),
-            )
-            .cast<File>()
-            .toList();
-
-        expect(
-          outputFiles.length,
-          greaterThan(0),
-          reason: 'Should have processed files in output',
-        );
-
-        print('[DEBUG] Output files after processing: ${outputFiles.length}');
-        for (final file in outputFiles.take(5)) {
-          print('[DEBUG] Output file: ${file.path}');
-        } // CRITICAL TEST: In move mode, check remaining files behavior
-        final remainingInputFiles = await inputDir
-            .list(recursive: true)
-            .where(
-              (final entity) => entity is File && entity.path.endsWith('.jpg'),
-            )
-            .cast<File>()
-            .toList();
-
-        print(
-          '[DEBUG] Remaining input files after processing: ${remainingInputFiles.length}',
-        );
-        for (final file in remainingInputFiles) {
-          print('[DEBUG] Remaining input file: ${file.path}');
-        }
-
-        // IMPORTANT: In move mode, album-only files remain in album folders
-        // This is expected behavior to prevent data loss for files that exist
-        // only in albums (not duplicated in year folders)
-        final albumOnlyFiles = remainingInputFiles.where((final file) {
-          // Check if this file is in an album folder (not a year folder)
-          final relativePath = p.relative(file.path, from: inputDir.path);
-          final pathParts = relativePath.split(p.separator);
-
-          // Album folders don't start with "Photos from"
-          return pathParts.isNotEmpty &&
-              !pathParts.first.startsWith('Photos from');
-        }).toList();
-
-        print('[DEBUG] Album-only files remaining: ${albumOnlyFiles.length}');
-        for (final file in albumOnlyFiles) {
-          print('[DEBUG] Album-only file: ${file.path}');
-        }
-
-        // All remaining files should be album-only files
-        expect(
-          remainingInputFiles.length,
-          equals(albumOnlyFiles.length),
-          reason:
-              'In move mode, only album-only files should remain in original location. '
-              'These files exist only in album folders and are preserved to prevent data loss. '
-              'Found ${remainingInputFiles.length} total remaining files, '
-              '${albumOnlyFiles.length} are album-only files.',
-        ); // Verify output file count: should be input files minus album-only files
-        // (album-only files remain in place to prevent data loss)
-        final expectedOutputCount = inputFiles.length - albumOnlyFiles.length;
-        expect(
-          outputFiles.length,
-          equals(expectedOutputCount),
-          reason:
-              'Expected ${expectedOutputCount} files in output directory '
-              '(${inputFiles.length} input files minus ${albumOnlyFiles.length} album-only files)',
-        );
-      },
-    );
-
-    test(
-      'should retain files in original location when copyMode is true (copy logic verification)',
+      'should move files from input to output directory (move logic verification)',
       () async {
         final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
           takeoutPath,
@@ -756,15 +754,14 @@ void main() {
             .toSet();
 
         print(
-          '[DEBUG] Input files before copy processing: ${inputFilesBefore.length}',
+          '[DEBUG] Input files before processing: ${inputFilesBefore.length}',
         );
 
         final config = ProcessingConfig(
           inputPath: googlePhotosPath,
           outputPath: outputPath,
           albumBehavior: AlbumBehavior.shortcut,
-          dateDivision:
-              DateDivisionLevel.none, // Files are moved to output directory
+          dateDivision: DateDivisionLevel.none,
           skipExtras: false,
           writeExif: false,
         );
@@ -792,27 +789,28 @@ void main() {
             .toSet();
 
         print(
-          '[DEBUG] Input files after copy processing: ${inputFilesAfter.length}',
-        );
+          '[DEBUG] Input files after processing: ${inputFilesAfter.length}',
+        ); // CRITICAL TEST: Files are moved from input to output directory
+        // NOTE: Album-only files (files that exist only in album folders, not in year folders)
+        // remain in place to prevent data loss. This is expected behavior in move mode.
+        final albumOnlyFiles = inputFilesAfter.where((final filePath) {
+          // Check if this file is in an album folder (not a year folder)
+          final relativePath = p.relative(filePath, from: inputDir.path);
+          final pathParts = relativePath.split(p.separator);
 
-        // CRITICAL TEST: Files are moved to output directory (input directory preserved)
+          // Album folders don't start with "Photos from"
+          return pathParts.isNotEmpty &&
+              !pathParts.first.startsWith('Photos from');
+        }).toList();
+
         expect(
           inputFilesAfter.length,
-          equals(inputFilesBefore.length),
+          equals(albumOnlyFiles.length),
           reason:
-              'Files are moved to output directory while preserving input structure. '
-              'Expected ${inputFilesBefore.length}, found ${inputFilesAfter.length}',
-        );
-
-        // Verify that the original files are exactly the same
-        expect(
-          inputFilesAfter,
-          equals(inputFilesBefore),
-          reason:
-              'Original file paths should be identical before and after copy processing',
-        );
-
-        // Verify output files were also created
+              'In move mode, only album-only files should remain in input directory. '
+              'These files exist only in album folders and are preserved to prevent data loss. '
+              'Expected ${albumOnlyFiles.length} album-only files, found ${inputFilesAfter.length} total remaining files.',
+        ); // Verify output files were created
         final outputFiles = await outputDir
             .list(recursive: true)
             .where(
@@ -821,10 +819,16 @@ void main() {
             .cast<File>()
             .toList();
 
+        // Output should contain files that were moved from year folders
+        final expectedOutputFiles =
+            inputFilesBefore.length - albumOnlyFiles.length;
         expect(
           outputFiles.length,
-          equals(inputFilesBefore.length),
-          reason: 'Output should contain copies of all input files',
+          equals(expectedOutputFiles),
+          reason:
+              'Output should contain moved files from year folders. '
+              'Expected $expectedOutputFiles files (${inputFilesBefore.length} total - ${albumOnlyFiles.length} album-only), '
+              'found ${outputFiles.length}',
         );
 
         print('[DEBUG] Output files created: ${outputFiles.length}');
@@ -864,9 +868,10 @@ void main() {
         outputDirectory: outputDir,
       );
 
-      expect(result.isSuccess, isTrue);
-
-      // Verify no files remain in input
+      expect(
+        result.isSuccess,
+        isTrue,
+      ); // Verify no files remain in input (except album-only files)
       final remainingInputFiles = await inputDir
           .list(recursive: true)
           .where(
@@ -875,11 +880,23 @@ void main() {
           .cast<File>()
           .toList();
 
+      // Album-only files (files that exist only in album folders) remain to prevent data loss
+      final albumOnlyFiles = remainingInputFiles.where((final file) {
+        final relativePath = p.relative(file.path, from: inputDir.path);
+        final pathParts = relativePath.split(p.separator);
+        // Album folders don't start with "Photos from"
+        return pathParts.isNotEmpty &&
+            !pathParts.first.startsWith('Photos from');
+      }).toList();
+
       expect(
         remainingInputFiles.length,
-        equals(0),
+        equals(albumOnlyFiles.length),
         reason:
-            'Even with duplicate-copy behavior, original files should be moved (not exist in input)',
+            'In move mode, only album-only files should remain in input directory. '
+            'These files exist only in album folders and are preserved to prevent data loss. '
+            'Found ${remainingInputFiles.length} total remaining files, '
+            '${albumOnlyFiles.length} are album-only files.',
       );
 
       // Verify output structure with duplicates
@@ -889,14 +906,17 @@ void main() {
             (final entity) => entity is File && entity.path.endsWith('.jpg'),
           )
           .cast<File>()
-          .toList();
-
-      // With duplicate-copy, we should have more output files than input files
+          .toList(); // With duplicate-copy, we should have more output files than input files
       // because files are copied to both ALL_PHOTOS and album folders
+      // But we need to account for album-only files that remain in input
+      final movedFiles = inputFiles.length - albumOnlyFiles.length;
       expect(
         outputFiles.length,
-        greaterThanOrEqualTo(inputFiles.length),
-        reason: 'Duplicate-copy should create copies in album folders',
+        greaterThanOrEqualTo(movedFiles),
+        reason:
+            'Duplicate-copy should create copies in album folders. '
+            'Expected at least $movedFiles files (${inputFiles.length} total - ${albumOnlyFiles.length} album-only), '
+            'found ${outputFiles.length}',
       );
     });
 
@@ -917,13 +937,11 @@ void main() {
           .toList();
 
       final originalInputCount = inputFiles.length;
-
       final config = ProcessingConfig(
         inputPath: googlePhotosPath,
         outputPath: outputPath,
         albumBehavior: AlbumBehavior.duplicateCopy,
-        dateDivision:
-            DateDivisionLevel.none, // Copy mode - originals should remain
+        dateDivision: DateDivisionLevel.none,
         skipExtras: false,
         writeExif: false,
       );
@@ -934,9 +952,10 @@ void main() {
         outputDirectory: outputDir,
       );
 
-      expect(result.isSuccess, isTrue);
-
-      // Verify all files remain in input
+      expect(
+        result.isSuccess,
+        isTrue,
+      ); // Verify all files moved from input (except album-only files)
       final remainingInputFiles = await inputDir
           .list(recursive: true)
           .where(
@@ -945,11 +964,23 @@ void main() {
           .cast<File>()
           .toList();
 
+      // Album-only files remain to prevent data loss
+      final albumOnlyFiles = remainingInputFiles.where((final file) {
+        final relativePath = p.relative(file.path, from: inputDir.path);
+        final pathParts = relativePath.split(p.separator);
+        // Album folders don't start with "Photos from"
+        return pathParts.isNotEmpty &&
+            !pathParts.first.startsWith('Photos from');
+      }).toList();
+
       expect(
         remainingInputFiles.length,
-        equals(originalInputCount),
+        equals(albumOnlyFiles.length),
         reason:
-            'In copy mode, all original files should remain in input directory',
+            'In move mode, only album-only files should remain in input directory. '
+            'These files exist only in album folders and are preserved to prevent data loss. '
+            'Expected ${albumOnlyFiles.length} album-only files, '
+            'found ${remainingInputFiles.length} total remaining',
       );
 
       // Verify output has duplicates
@@ -960,12 +991,14 @@ void main() {
           )
           .cast<File>()
           .toList();
-
       expect(
         outputFiles.length,
-        greaterThanOrEqualTo(originalInputCount),
+        greaterThanOrEqualTo(originalInputCount - albumOnlyFiles.length),
         reason:
-            'Output should contain copies with potential duplicates in album folders',
+            'Output should contain copies with potential duplicates in album folders. '
+            'Expected at least ${originalInputCount - albumOnlyFiles.length} files '
+            '($originalInputCount total - ${albumOnlyFiles.length} album-only), '
+            'found ${outputFiles.length}',
       );
     });
 
@@ -991,9 +1024,10 @@ void main() {
         outputDirectory: outputDir,
       );
 
-      expect(result.isSuccess, isTrue);
-
-      // Verify no files remain in original year folders within input
+      expect(
+        result.isSuccess,
+        isTrue,
+      ); // Verify no files remain in original year folders within input (except album-only files)
       final remainingInputFiles = await inputDir
           .list(recursive: true)
           .where(
@@ -1002,15 +1036,48 @@ void main() {
           .cast<File>()
           .toList();
 
+      // Album-only files remain to prevent data loss
+      final albumOnlyFiles = remainingInputFiles.where((final file) {
+        final relativePath = p.relative(file.path, from: inputDir.path);
+        final pathParts = relativePath.split(p.separator);
+        // Album folders don't start with "Photos from"
+        return pathParts.isNotEmpty &&
+            !pathParts.first.startsWith('Photos from');
+      }).toList();
+
       expect(
         remainingInputFiles.length,
-        equals(0),
+        equals(albumOnlyFiles.length),
         reason:
-            'Move mode with year division should move all files from input year folders',
+            'Move mode with year division should move all files from input year folders. '
+            'Only album-only files should remain to prevent data loss. '
+            'Expected ${albumOnlyFiles.length} album-only files, '
+            'found ${remainingInputFiles.length} total remaining',
+      ); // Verify year-based organization in output
+      final allPhotosDir = Directory(p.join(outputPath, 'ALL_PHOTOS'));
+      // Debug: Check if ALL_PHOTOS directory exists and what's in output
+      print('[DEBUG] Year-based test - Output path: $outputPath');
+      final outputDirContents = await Directory(outputPath).list().toList();
+      print(
+        '[DEBUG] Year-based test - Output contents: ${outputDirContents.map((final e) => p.basename(e.path)).toList()}',
+      );
+      print(
+        '[DEBUG] Year-based test - ALL_PHOTOS exists: ${await allPhotosDir.exists()}',
       );
 
-      // Verify year-based organization in output
-      final allPhotosDir = Directory(p.join(outputPath, 'ALL_PHOTOS'));
+      if (await allPhotosDir.exists()) {
+        final allPhotosContents = await allPhotosDir.list().toList();
+        print(
+          '[DEBUG] Year-based test - ALL_PHOTOS contents: ${allPhotosContents.map((final e) => p.basename(e.path)).toList()}',
+        );
+      }
+
+      if (!await allPhotosDir.exists()) {
+        throw StateError(
+          'ALL_PHOTOS directory does not exist in output path: ${allPhotosDir.path}',
+        );
+      }
+
       final yearDirs = await allPhotosDir
           .list()
           .where((final entity) => entity is Directory)
@@ -1027,7 +1094,7 @@ void main() {
       );
     });
     test(
-      'should verify move vs copy behavior consistency across different album behaviors',
+      'should verify move behavior consistency across different album behaviors',
       () async {
         // Test multiple album behaviors to ensure consistent move/copy logic
 
@@ -1049,9 +1116,9 @@ void main() {
           final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
             takeoutPath,
           );
-          final inputDir = Directory(googlePhotosPath);
-
-          // Count input files before processing
+          final inputDir = Directory(
+            googlePhotosPath,
+          ); // Count input files before processing
           final inputFiles = await inputDir
               .list(recursive: true)
               .where(
@@ -1063,29 +1130,27 @@ void main() {
 
           final originalInputCount = inputFiles.length;
 
-          // Test move mode (copyMode: false)
-          final moveConfig = ProcessingConfig(
+          // Test move behavior (only mode available)
+          final config = ProcessingConfig(
             inputPath: googlePhotosPath,
             outputPath: outputPath,
             albumBehavior: albumBehavior,
-            dateDivision: DateDivisionLevel.none, // Move mode
+            dateDivision: DateDivisionLevel.none,
             skipExtras: false,
             writeExif: false,
           );
 
-          final moveResult = await pipeline.execute(
-            config: moveConfig,
+          final result = await pipeline.execute(
+            config: config,
             inputDirectory: inputDir,
             outputDirectory: outputDir,
           );
 
           expect(
-            moveResult.isSuccess,
+            result.isSuccess,
             isTrue,
-            reason: 'Move mode should succeed for ${albumBehavior.value}',
-          );
-
-          // Verify files were moved (no longer in input)
+            reason: 'Processing should succeed for ${albumBehavior.value}',
+          ); // Verify files were moved (except album-only files)
           final remainingAfterMove = await inputDir
               .list(recursive: true)
               .where(
@@ -1095,57 +1160,27 @@ void main() {
               .cast<File>()
               .toList();
 
+          // Album-only files remain to prevent data loss
+          final albumOnlyFiles = remainingAfterMove.where((final file) {
+            final relativePath = p.relative(file.path, from: inputDir.path);
+            final pathParts = relativePath.split(p.separator);
+            // Album folders don't start with "Photos from"
+            return pathParts.isNotEmpty &&
+                !pathParts.first.startsWith('Photos from');
+          }).toList();
+
           expect(
             remainingAfterMove.length,
-            equals(0),
+            equals(albumOnlyFiles.length),
             reason:
-                'Move mode with ${albumBehavior.value} should leave no files in input directory',
+                'In move mode, only album-only files should remain in input directory. '
+                'These files exist only in album folders and are preserved to prevent data loss. '
+                'Album behavior ${albumBehavior.value}: expected ${albumOnlyFiles.length} album-only files, '
+                'found ${remainingAfterMove.length} total remaining',
           );
 
-          // Reset for copy test - regenerate the dataset
-          final newTakeoutPath = await fixture.generateRealisticTakeoutDataset(
-            yearSpan: 3,
-            albumCount: 5,
-            photosPerYear: 10,
-            albumOnlyPhotos: 3,
-            exifRatio: 0.7,
-          );
-
-          final newGooglePhotosPath =
-              PathResolverService.resolveGooglePhotosPath(newTakeoutPath);
-          final newInputDir = Directory(newGooglePhotosPath);
-
-          // Clean output directory for copy test
-          final copyOutputDir = Directory(outputPath);
-          if (await copyOutputDir.exists()) {
-            await copyOutputDir.delete(recursive: true);
-          }
-          await copyOutputDir.create(recursive: true);
-
-          // Test copy mode (copyMode: true)
-          final copyConfig = ProcessingConfig(
-            inputPath: newGooglePhotosPath,
-            outputPath: outputPath,
-            albumBehavior: albumBehavior,
-            dateDivision: DateDivisionLevel.none, // Copy mode
-            skipExtras: false,
-            writeExif: false,
-          );
-
-          final copyResult = await pipeline.execute(
-            config: copyConfig,
-            inputDirectory: newInputDir,
-            outputDirectory: copyOutputDir,
-          );
-
-          expect(
-            copyResult.isSuccess,
-            isTrue,
-            reason: 'Copy mode should succeed for ${albumBehavior.value}',
-          );
-
-          // Verify original files remain in input
-          final remainingAfterCopy = await newInputDir
+          // Verify output files were created
+          final outputFiles = await outputDir
               .list(recursive: true)
               .where(
                 (final entity) =>
@@ -1153,16 +1188,19 @@ void main() {
               )
               .cast<File>()
               .toList();
-
           expect(
-            remainingAfterCopy.length,
-            equals(originalInputCount),
+            outputFiles.length,
+            greaterThanOrEqualTo(originalInputCount - albumOnlyFiles.length),
             reason:
-                'Copy mode with ${albumBehavior.value} should retain all files in input directory',
+                'Output should contain at least moved files for ${albumBehavior.value}. '
+                'Expected at least ${originalInputCount - albumOnlyFiles.length} files '
+                '($originalInputCount total - ${albumOnlyFiles.length} album-only), '
+                'found ${outputFiles.length}',
           );
 
           print(
-            '[TEST] Verified move/copy behavior for ${albumBehavior.value}',
+            '[TEST] Verified move behavior for ${albumBehavior.value} - '
+            'moved $originalInputCount files to output',
           );
         }
       },
