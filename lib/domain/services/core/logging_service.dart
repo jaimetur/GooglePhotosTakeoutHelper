@@ -1,6 +1,5 @@
 import 'dart:io';
 import '../../models/processing_config_model.dart';
-import 'service_container.dart';
 
 /// Service for application logging with colored output and level filtering
 ///
@@ -125,38 +124,18 @@ class LoggingService {
     }
     exit(code);
   }
-
-  /// Formats a [Duration] as a string: "Xs" if < 1 min, otherwise "Xm Ys".
-  String formatDuration(final Duration duration) {
-    if (duration.inSeconds < 60) {
-      return '${duration.inSeconds}s';
-    } else {
-      final minutes = duration.inMinutes;
-      final seconds = duration.inSeconds % 60;
-      return '${minutes}m ${seconds}s';
-    }
-  }
 }
 
 /// Extension to add logging capabilities to any class
 mixin LoggerMixin {
   LoggingService? _logger;
 
-  /// Gets or creates a logger instance using global configuration
+  /// Gets or creates a logger instance with default configuration
+  // ignore: prefer_expression_function_bodies
   LoggingService get logger {
-    if (_logger != null) return _logger!;
-
-    // Try to get verbose setting from service container if available
-    try {
-      // Import service_container.dart at top level to avoid circular imports
-      final container = ServiceContainer.instance;
-      _logger = LoggingService(isVerbose: container.globalConfig.isVerbose);
-    } catch (e) {
-      // Fallback to default logger if service container not available
-      _logger = LoggingService();
-    }
-
-    return _logger!;
+    // Always use a default logger to avoid circular dependencies
+    // Services that need specific logging configuration should inject it explicitly
+    return _logger ??= LoggingService();
   }
 
   /// Sets a custom logger

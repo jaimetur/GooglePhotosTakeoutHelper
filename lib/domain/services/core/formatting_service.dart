@@ -33,12 +33,12 @@ class FormattingService {
     );
   }
 
-  /// Formats duration in milliseconds to human-readable string
+  /// Formats duration to human-readable string
   ///
-  /// [milliseconds] Duration in milliseconds
+  /// [duration] Duration object to format
   /// Returns formatted string like "1m 30s" or "45s"
-  String formatDuration(final int milliseconds) {
-    final seconds = (milliseconds / 1000).round();
+  String formatDuration(final Duration duration) {
+    final seconds = duration.inSeconds;
 
     if (seconds < 60) {
       return '${seconds}s';

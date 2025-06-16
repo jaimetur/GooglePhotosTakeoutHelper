@@ -45,13 +45,27 @@ void main() {
       test('formatFileSize handles negative input', () {
         expect(utilityService.formatFileSize(-100), equals('0 B'));
       });
-
-      test('formatDuration formats milliseconds correctly', () {
-        expect(utilityService.formatDuration(500), equals('1s'));
-        expect(utilityService.formatDuration(30000), equals('30s'));
-        expect(utilityService.formatDuration(90000), equals('1m 30s'));
-        expect(utilityService.formatDuration(3600000), equals('1h'));
-        expect(utilityService.formatDuration(3660000), equals('1h 1m'));
+      test('formatDuration formats durations correctly', () {
+        expect(
+          utilityService.formatDuration(const Duration(milliseconds: 500)),
+          equals('0s'),
+        );
+        expect(
+          utilityService.formatDuration(const Duration(seconds: 30)),
+          equals('30s'),
+        );
+        expect(
+          utilityService.formatDuration(const Duration(seconds: 90)),
+          equals('1m 30s'),
+        );
+        expect(
+          utilityService.formatDuration(const Duration(hours: 1)),
+          equals('1h'),
+        );
+        expect(
+          utilityService.formatDuration(const Duration(hours: 1, minutes: 1)),
+          equals('1h 1m'),
+        );
       });
 
       test('formatNumber adds thousand separators', () {
@@ -264,6 +278,3 @@ void main() {
     });
   });
 }
-
-
-

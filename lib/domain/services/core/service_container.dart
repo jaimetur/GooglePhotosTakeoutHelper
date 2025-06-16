@@ -10,11 +10,15 @@ import 'global_config_service.dart';
 /// centralized configuration and initialization.
 class ServiceContainer {
   ServiceContainer._();
-  late final GlobalConfigService globalConfig;
-  late final FormattingService utilityService;
-  late final ConsolidatedDiskSpaceService diskSpaceService;
-  late final ConsolidatedInteractiveService interactiveService;
+
+  // Use nullable fields instead of late final to allow re-initialization
+  GlobalConfigService? _globalConfig;
+  FormattingService? _utilityService;
+  ConsolidatedDiskSpaceService? _diskSpaceService;
+  ConsolidatedInteractiveService? _interactiveService;
   ExifToolService? exifTool;
+
+  bool _isInitialized = false;
 
   static ServiceContainer? _instance;
 
@@ -24,26 +28,70 @@ class ServiceContainer {
     return _instance!;
   }
 
+  /// Getters with null checks
+  GlobalConfigService get globalConfig {
+    if (_globalConfig == null) {
+      throw StateError(
+        'ServiceContainer not initialized. Call initialize() first.',
+      );
+    }
+    return _globalConfig!;
+  }
+
+  FormattingService get utilityService {
+    if (_utilityService == null) {
+      throw StateError(
+        'ServiceContainer not initialized. Call initialize() first.',
+      );
+    }
+    return _utilityService!;
+  }
+
+  ConsolidatedDiskSpaceService get diskSpaceService {
+    if (_diskSpaceService == null) {
+      throw StateError(
+        'ServiceContainer not initialized. Call initialize() first.',
+      );
+    }
+    return _diskSpaceService!;
+  }
+
+  ConsolidatedInteractiveService get interactiveService {
+    if (_interactiveService == null) {
+      throw StateError(
+        'ServiceContainer not initialized. Call initialize() first.',
+      );
+    }
+    return _interactiveService!;
+  }
+
   /// Initialize all services
   Future<void> initialize() async {
+    // Allow re-initialization by checking if already initialized
+    if (_isInitialized) {
+      return; // Already initialized, no-op
+    }
+
     // Initialize core services first
-    globalConfig = GlobalConfigService();
-    utilityService = const FormattingService();
-    diskSpaceService = ConsolidatedDiskSpaceService();
+    _globalConfig = GlobalConfigService();
+    _utilityService = const FormattingService();
+    _diskSpaceService = ConsolidatedDiskSpaceService();
 
     // Initialize interactive service with dependencies
-    interactiveService = ConsolidatedInteractiveService(
-      globalConfig: globalConfig,
+    _interactiveService = ConsolidatedInteractiveService(
+      globalConfig: _globalConfig!,
     );
 
     // Try to find and initialize ExifTool
     exifTool = await ExifToolService.find();
     if (exifTool != null) {
       await exifTool!.startPersistentProcess();
-      globalConfig.exifToolInstalled = true;
+      _globalConfig!.exifToolInstalled = true;
     } else {
-      globalConfig.exifToolInstalled = false;
+      _globalConfig!.exifToolInstalled = false;
     }
+
+    _isInitialized = true;
   }
 
   /// Dispose of all services and cleanup resources
@@ -52,6 +100,13 @@ class ServiceContainer {
       await exifTool!.dispose();
       exifTool = null;
     }
+
+    // Reset initialization state
+    _isInitialized = false;
+    _globalConfig = null;
+    _utilityService = null;
+    _diskSpaceService = null;
+    _interactiveService = null;
   }
 
   /// Reset the service container (primarily for testing)

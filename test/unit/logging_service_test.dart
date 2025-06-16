@@ -109,48 +109,6 @@ void main() {
         );
       });
     });
-    group('Duration Formatting', () {
-      test('formats seconds correctly', () {
-        final service = LoggingService();
-
-        expect(
-          service.formatDuration(const Duration(seconds: 30)),
-          equals('30s'),
-        );
-        expect(
-          service.formatDuration(const Duration(seconds: 59)),
-          equals('59s'),
-        );
-      });
-
-      test('formats minutes and seconds correctly', () {
-        final service = LoggingService();
-
-        expect(
-          service.formatDuration(const Duration(minutes: 1)),
-          equals('1m 0s'),
-        );
-        expect(
-          service.formatDuration(const Duration(minutes: 2, seconds: 30)),
-          equals('2m 30s'),
-        );
-        expect(
-          service.formatDuration(const Duration(minutes: 10, seconds: 45)),
-          equals('10m 45s'),
-        );
-      });
-
-      test('formats large durations correctly', () {
-        final service = LoggingService();
-
-        expect(
-          service.formatDuration(
-            const Duration(hours: 1, minutes: 30, seconds: 45),
-          ),
-          equals('90m 45s'),
-        );
-      });
-    });
     group('CopyWith Functionality', () {
       test('copies with same values when no parameters provided', () {
         final original = LoggingService(isVerbose: true, enableColors: false);
@@ -262,6 +220,3 @@ class TestClassWithLogging with LoggerMixin {
     logError('Something went wrong');
   }
 }
-
-
-

@@ -4,7 +4,7 @@ import 'models/media_entity_collection.dart';
 import 'models/pipeline_step_model.dart';
 import 'models/processing_config_model.dart';
 import 'models/processing_result_model.dart';
-import 'services/core/formatting_utility_service.dart';
+import 'services/core/formatting_service.dart';
 import 'services/user_interaction/user_interaction_service.dart';
 import 'steps/step_01_fix_extensions.dart';
 import 'steps/step_02_discover_media.dart';
@@ -136,10 +136,9 @@ class ProcessingPipeline {
               creationTimesUpdated = value,
           extractionMethodStats: extractionMethodStats,
         );
-
         if (result.isSuccess) {
           print(
-            '✅ ${step.name} completed in ${const UtilityService().formatDuration(result.duration)}',
+            '✅ ${step.name} completed in ${const FormattingService().formatDuration(result.duration)}',
           );
           if (result.message != null) {
             print('   ${result.message}');
@@ -192,7 +191,6 @@ class ProcessingPipeline {
         .where((final StepResult r) => r.data['skipped'] == true)
         .length;
     final totalProcessingTime = overallStopwatch.elapsed;
-
     if (config.verbose && interactiveService != null) {
       // Display warnings and errors summary first
       await interactiveService!.showWarningsAndErrorsSummary(stepResults);
@@ -208,21 +206,6 @@ class ProcessingPipeline {
 
       // Display detailed step results
       await interactiveService!.showStepResults(stepResults, stepTimings);
-    } else if (config.verbose) {
-      // Fallback to legacy display if no interactive service provided
-      _displayWarningsAndErrorsSummary(stepResults);
-
-      print('\n=== Processing Summary ===');
-      print(
-        'Total time: ${totalProcessingTime.inMinutes}m ${totalProcessingTime.inSeconds % 60}s',
-      );
-      print(
-        'Steps: $successfulSteps successful, $failedSteps failed, $skippedSteps skipped',
-      );
-      print('Final media count: ${mediaCollection.length}');
-
-      // Display detailed step results
-      _displayStepResults(stepResults, stepTimings);
     }
 
     // Create comprehensive result
@@ -287,181 +270,6 @@ class ProcessingPipeline {
           }
         }
       }
-    }
-  }
-
-  /// Displays a summary of warnings and errors encountered during processing
-  ///
-  /// Only shown in verbose mode, provides detailed information about any
-  /// issues that occurred during processing steps.
-  void _displayWarningsAndErrorsSummary(final List<StepResult> stepResults) {
-    final failedSteps = stepResults.where((final r) => !r.isSuccess).toList();
-    final warnings = <String>[];
-
-    // Collect warnings from step messages and errors
-    for (final result in stepResults) {
-      if (!result.isSuccess && result.error != null) {
-        warnings.add('${result.stepName}: ${result.error}');
-      } else if (result.message != null &&
-          (result.message!.toLowerCase().contains('warning') ||
-              result.message!.toLowerCase().contains('skipped') ||
-              result.message!.toLowerCase().contains('failed'))) {
-        warnings.add('${result.stepName}: ${result.message}');
-      }
-    }
-
-    if (warnings.isNotEmpty || failedSteps.isNotEmpty) {
-      print('\n=== Warnings and Errors Summary ===');
-
-      if (failedSteps.isNotEmpty) {
-        print('Failed Steps:');
-        for (final step in failedSteps) {
-          print('  ❌ ${step.stepName}: ${step.message ?? 'Unknown error'}');
-          if (step.error != null) {
-            print('     Error: ${step.error}');
-          }
-        }
-      }
-
-      if (warnings.isNotEmpty) {
-        print('Warnings:');
-        for (final warning in warnings) {
-          print('  ⚠️  $warning');
-        }
-      }
-
-      if (warnings.isEmpty && failedSteps.isEmpty) {
-        print('No warnings or errors encountered during processing.');
-      }
-    }
-  }
-
-  /// Displays detailed results for each processing step
-  ///
-  /// Shows step-by-step breakdown of what was accomplished
-  void _displayStepResults(
-    final List<StepResult> stepResults,
-    final Map<String, Duration> stepTimings,
-  ) {
-    print('\n=== Step-by-Step Results ===');
-
-    for (final result in stepResults) {
-      final timing = stepTimings[result.stepName] ?? result.duration;
-      final status = result.isSuccess ? '✅' : '❌';
-      final skipped = result.data['skipped'] == true;
-
-      print('$status ${result.stepName} (${_formatDuration(timing)})');
-
-      if (skipped) {
-        print('   Status: Skipped');
-        print('   Reason: ${result.message ?? 'Conditions not met'}');
-      } else if (result.isSuccess) {
-        print('   Status: Completed successfully');
-        if (result.message != null) {
-          print('   Result: ${result.message}');
-        }
-
-        // Display specific metrics for each step
-        _displayStepMetrics(result);
-      } else {
-        print('   Status: Failed');
-        print('   Error: ${result.message ?? 'Unknown error'}');
-      }
-      print('');
-    }
-  }
-
-  /// Displays specific metrics for a step based on its data
-  void _displayStepMetrics(final StepResult result) {
-    final data = result.data;
-
-    switch (result.stepName) {
-      case 'Fix Extensions':
-        if (data['fixedCount'] != null) {
-          print('   Fixed extensions: ${data['fixedCount']} files');
-        }
-        break;
-
-      case 'Discover Media':
-        if (data['totalFiles'] != null) {
-          print('   Total files discovered: ${data['totalFiles']}');
-        }
-        if (data['yearFolderFiles'] != null) {
-          print('   Year folder files: ${data['yearFolderFiles']}');
-        }
-        if (data['albumFolderFiles'] != null) {
-          print('   Album folder files: ${data['albumFolderFiles']}');
-        }
-        break;
-
-      case 'Remove Duplicates':
-        if (data['duplicatesRemoved'] != null) {
-          print('   Duplicates removed: ${data['duplicatesRemoved']} files');
-        }
-        if (data['remainingMedia'] != null) {
-          print('   Remaining media: ${data['remainingMedia']} files');
-        }
-        break;
-
-      case 'Extract Dates':
-        if (data['processedMedia'] != null) {
-          print('   Media processed: ${data['processedMedia']} files');
-        }
-        if (data['extractionStats'] != null) {
-          final stats = data['extractionStats'] as Map;
-          print('   Extraction methods used:');
-          for (final entry in stats.entries) {
-            print('     ${entry.key}: ${entry.value} files');
-          }
-        }
-        break;
-
-      case 'Write EXIF Data':
-        if (data['coordinatesWritten'] != null) {
-          print(
-            '   GPS coordinates written: ${data['coordinatesWritten']} files',
-          );
-        }
-        if (data['dateTimesWritten'] != null) {
-          print('   DateTime written: ${data['dateTimesWritten']} files');
-        }
-        break;
-
-      case 'Find Albums':
-        if (data['initialCount'] != null && data['finalCount'] != null) {
-          print('   Initial media count: ${data['initialCount']}');
-          print('   Final media count: ${data['finalCount']}');
-        }
-        if (data['mergedCount'] != null) {
-          print('   Album relationships merged: ${data['mergedCount']}');
-        }
-        break;
-
-      case 'Move Files':
-        if (data['processedCount'] != null) {
-          print('   Files processed: ${data['processedCount']}');
-        }
-        if (data['albumBehavior'] != null) {
-          print('   Album behavior: ${data['albumBehavior']}');
-        }
-        break;
-
-      case 'Update Creation Time':
-        if (data['updatedCount'] != null) {
-          print('   Creation times updated: ${data['updatedCount']} files');
-        }
-        break;
-    }
-  }
-
-  /// Formats a duration as a human-readable string
-  String _formatDuration(final Duration duration) {
-    if (duration.inSeconds < 60) {
-      return '${duration.inSeconds}s';
-    } else {
-      final minutes = duration.inMinutes;
-      final seconds = duration.inSeconds % 60;
-      return '${minutes}m ${seconds}s';
     }
   }
 }

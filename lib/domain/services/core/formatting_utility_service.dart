@@ -44,17 +44,6 @@ class UtilityService {
     }
   }
 
-  /// Formats a [Duration] as a string: "Xs" if < 1 min, otherwise "Xm Ys".
-  String formatDuration(final Duration duration) {
-    if (duration.inSeconds < 60) {
-      return '${duration.inSeconds}s';
-    } else {
-      final minutes = duration.inMinutes;
-      final seconds = duration.inSeconds % 60;
-      return '${minutes}m ${seconds}s';
-    }
-  }
-
   /// Validates directory exists and is accessible
   Future<bool> validateDirectory(
     final Directory dir, {

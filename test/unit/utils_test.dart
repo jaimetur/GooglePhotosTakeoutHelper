@@ -69,7 +69,7 @@ import 'package:gpth/domain/services/core/logging_service.dart';
 import 'package:gpth/domain/services/core/service_container.dart';
 import 'package:gpth/infrastructure/platform_service.dart';
 import 'package:gpth/infrastructure/windows_shortcut_service.dart';
-import 'package:gpth/shared/extensions/media_extensions.dart';
+import 'package:gpth/shared/extensions/file_extensions.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
@@ -228,6 +228,3 @@ void main() {
     });
   });
 }
-
-
-

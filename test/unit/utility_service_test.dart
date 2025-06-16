@@ -135,38 +135,6 @@ void main() {
       });
     });
 
-    group('formatDuration', () {
-      test('formats duration less than 1 minute as seconds', () {
-        const duration = Duration(seconds: 30);
-        final formatted = service.formatDuration(duration);
-        expect(formatted, equals('30s'));
-      });
-
-      test('formats duration equal to 1 minute', () {
-        const duration = Duration(minutes: 1);
-        final formatted = service.formatDuration(duration);
-        expect(formatted, equals('1m 0s'));
-      });
-
-      test('formats duration with minutes and seconds', () {
-        const duration = Duration(minutes: 2, seconds: 45);
-        final formatted = service.formatDuration(duration);
-        expect(formatted, equals('2m 45s'));
-      });
-
-      test('formats large duration correctly', () {
-        const duration = Duration(hours: 1, minutes: 30, seconds: 15);
-        final formatted = service.formatDuration(duration);
-        expect(formatted, equals('90m 15s'));
-      });
-
-      test('formats zero duration', () {
-        const duration = Duration.zero;
-        final formatted = service.formatDuration(duration);
-        expect(formatted, equals('0s'));
-      });
-    });
-
     group('validateDirectory', () {
       test(
         'returns true for existing directory when shouldExist is true',
@@ -306,6 +274,3 @@ void main() {
     });
   });
 }
-
-
-
