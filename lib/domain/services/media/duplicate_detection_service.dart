@@ -31,7 +31,7 @@ class DuplicateDetectionService with LoggerMixin {
     }
 
     final avgPerformance =
-        _recentPerformanceMetrics.reduce((a, b) => a + b) /
+        _recentPerformanceMetrics.reduce((final a, final b) => a + b) /
         _recentPerformanceMetrics.length;
 
     // Scale concurrency based on performance
@@ -50,7 +50,7 @@ class DuplicateDetectionService with LoggerMixin {
   static int get maxConcurrency => Platform.numberOfProcessors * 2;
 
   /// Records performance metric for adaptive optimization
-  void _recordPerformance(int filesProcessed, Duration elapsed) {
+  void _recordPerformance(final int filesProcessed, final Duration elapsed) {
     final filesPerSecond =
         filesProcessed / elapsed.inSeconds.clamp(1, double.infinity);
     _recentPerformanceMetrics.add(filesPerSecond);

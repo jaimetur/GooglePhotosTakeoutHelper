@@ -148,12 +148,21 @@ class ProcessingPipeline {
           if (result.error != null) {
             print('   Error: ${result.error}');
           }
-        }
-
-        // Stop processing if a critical step fails
+        } // Stop processing if a critical step fails
         if (!result.isSuccess && _isCriticalStep(step)) {
           if (config.verbose) {
             print('\n⚠️  Critical step failed, stopping pipeline execution');
+          }
+          break;
+        }
+
+        // Stop after extension fixing in solo mode
+        if (step is FixExtensionsStep &&
+            !config.shouldContinueAfterExtensionFix) {
+          if (config.verbose) {
+            print(
+              '\n⚠️  Extension fixing solo mode complete, stopping pipeline execution',
+            );
           }
           break;
         }
@@ -244,9 +253,10 @@ class ProcessingPipeline {
   }) {
     final data = result.data;
 
-    if (step is RemoveDuplicatesStep) {
+    if (step is DiscoverMediaStep) {
+      extrasSkipped(data['extrasSkipped'] as int? ?? 0);
+    } else if (step is RemoveDuplicatesStep) {
       duplicatesRemoved(data['duplicatesRemoved'] as int? ?? 0);
-      extrasSkipped(data['extrasRemoved'] as int? ?? 0);
     } else if (step is FixExtensionsStep) {
       extensionsFixed(data['extensionsFixed'] as int? ?? 0);
     } else if (step is WriteExifStep) {

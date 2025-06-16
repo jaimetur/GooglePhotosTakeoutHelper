@@ -393,7 +393,7 @@ class _Mutex {
   bool _locked = false;
   final Queue<Completer<void>> _waitQueue = Queue<Completer<void>>();
 
-  Future<T> protect<T>(Future<T> Function() operation) async {
+  Future<T> protect<T>(final Future<T> Function() operation) async {
     await _acquire();
     try {
       return await operation();

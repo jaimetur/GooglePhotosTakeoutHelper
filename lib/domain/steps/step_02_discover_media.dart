@@ -1,8 +1,13 @@
 import 'dart:io';
+
+import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
+
 import '../../shared/extensions/file_extensions.dart';
 import '../entities/media_entity.dart';
 import '../models/pipeline_step_model.dart';
+import '../models/processing_config_model.dart';
+import '../services/processing/edited_version_detector_service.dart';
 import '../services/processing/takeout_folder_classifier_service.dart';
 
 /// Step 2: Discover and classify media files
@@ -108,12 +113,26 @@ class DiscoverMediaStep extends ProcessingStep {
         throw Exception(
           'Input directory does not exist: ${context.config.inputPath}',
         );
-      }
-
-      // Use optimized single-pass directory scanning
+      } // Use optimized single-pass directory scanning
       final scanResult = await _scanDirectoriesOptimized(inputDir, context);
       final totalFiles =
           scanResult.yearFolderFiles + scanResult.albumFolderFiles;
+
+      // Apply skipExtras filtering if enabled
+      var extrasSkipped = 0;
+      if (context.config.skipExtras) {
+        const extrasService = EditedVersionDetectorService();
+        final result = extrasService.removeExtras(context.mediaCollection);
+        context.mediaCollection.clear();
+        context.mediaCollection.addAll(result.collection.media);
+        extrasSkipped = result.removedCount;
+
+        if (context.config.verbose) {
+          print(
+            'Skipped $extrasSkipped extra files due to skipExtras configuration',
+          );
+        }
+      }
 
       stopwatch.stop();
       return StepResult.success(
@@ -123,9 +142,11 @@ class DiscoverMediaStep extends ProcessingStep {
           'yearFolderFiles': scanResult.yearFolderFiles,
           'albumFolderFiles': scanResult.albumFolderFiles,
           'totalFiles': totalFiles,
+          'extrasSkipped': extrasSkipped,
         },
         message:
-            'Discovered $totalFiles media files (${scanResult.yearFolderFiles} from year folders, ${scanResult.albumFolderFiles} from albums)',
+            'Discovered $totalFiles media files (${scanResult.yearFolderFiles} from year folders, ${scanResult.albumFolderFiles} from albums)'
+            '${extrasSkipped > 0 ? ', skipped $extrasSkipped extra files' : ''}',
       );
     } catch (e) {
       stopwatch.stop();
@@ -175,30 +196,24 @@ class DiscoverMediaStep extends ProcessingStep {
             break;
         }
       }
-    }
-
-    // Process year directories
+    } // Process year directories
     for (final yearDir in yearDirectories) {
       if (context.config.verbose) {
         print('Scanning year folder: ${p.basename(yearDir.path)}');
       }
-      await for (final mediaFile
-          in yearDir.list(recursive: true).wherePhotoVideo()) {
+      await for (final mediaFile in _getMediaFiles(yearDir, context)) {
         context.mediaCollection.add(
           MediaEntity.fromMap(files: {null: mediaFile}),
         );
         yearFolderFiles++;
       }
-    }
-
-    // Process album directories
+    } // Process album directories
     for (final albumDir in albumDirectories) {
       final albumName = p.basename(albumDir.path);
       if (context.config.verbose) {
         print('Scanning album folder: $albumName');
       }
-      await for (final mediaFile
-          in albumDir.list(recursive: true).wherePhotoVideo()) {
+      await for (final mediaFile in _getMediaFiles(albumDir, context)) {
         context.mediaCollection.add(
           MediaEntity.fromMap(files: {albumName: mediaFile}),
         );
@@ -235,6 +250,51 @@ class DiscoverMediaStep extends ProcessingStep {
 
     cache[path] = type;
     return type;
+  }
+
+  /// Get media files from a directory, respecting extension fixing configuration
+  Stream<File> _getMediaFiles(
+    Directory directory,
+    ProcessingContext context,
+  ) async* {
+    if (context.config.extensionFixing == ExtensionFixingMode.none) {
+      // When extension fixing is disabled, be more lenient about file detection
+      // Use content-based MIME detection rather than extension-based
+      await for (final entity in directory.list(recursive: true)) {
+        if (entity is File) {
+          try {
+            // Try to detect MIME type by reading file content
+            final bytes = await entity.readAsBytes();
+            final String? mimeType = lookupMimeType(
+              entity.path,
+              headerBytes: bytes,
+            );
+
+            if (mimeType != null &&
+                (mimeType.startsWith('image/') ||
+                    mimeType.startsWith('video/'))) {
+              yield entity;
+              continue;
+            }
+
+            // Fallback: check if it has a JSON metadata file (indicating it's a Google Photos media file)
+            final metadataFile = File('${entity.path}.json');
+            if (await metadataFile.exists()) {
+              yield entity;
+            }
+          } catch (e) {
+            // If we can't read the file, skip it
+            continue;
+          }
+        }
+      }
+    } else {
+      // Use standard media detection when extension fixing is enabled
+      await for (final file
+          in directory.list(recursive: true).wherePhotoVideo()) {
+        yield file;
+      }
+    }
   }
 
   @override

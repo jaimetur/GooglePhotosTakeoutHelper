@@ -1,8 +1,12 @@
+import 'dart:io';
+
 import 'package:console_bars/console_bars.dart';
 
+import '../entities/media_entity.dart';
 import '../models/pipeline_step_model.dart';
 import '../services/file_operations/moving/media_entity_moving_service.dart';
 import '../services/file_operations/moving/moving_context_model.dart';
+import '../value_objects/media_files_collection.dart';
 
 /// Step 7: Move files to output directory
 ///
@@ -139,12 +143,20 @@ import '../services/file_operations/moving/moving_context_model.dart';
 /// - **Performance Data**: Provides insights for future processing optimizations
 class MoveFilesStep extends ProcessingStep {
   const MoveFilesStep() : super('Move Files');
-
   @override
   Future<StepResult> execute(final ProcessingContext context) async {
     final stopwatch = Stopwatch()..start();
 
     try {
+      // Transform Pixel MP/MV files if enabled
+      int transformedCount = 0;
+      if (context.config.transformPixelMp) {
+        transformedCount = await _transformPixelFiles(context);
+        if (context.config.verbose) {
+          print('Transformed $transformedCount Pixel .MP/.MV files to .mp4');
+        }
+      }
+
       // Initialize progress bar - always visible
       final progressBar = FillingBar(
         desc: 'Moving files',
@@ -167,16 +179,17 @@ class MoveFilesStep extends ProcessingStep {
         processedCount++;
         progressBar.update(processedCount);
       }
-
       stopwatch.stop();
       return StepResult.success(
         stepName: name,
         duration: stopwatch.elapsed,
         data: {
           'processedCount': processedCount,
+          'transformedCount': transformedCount,
           'albumBehavior': context.config.albumBehavior.value,
         },
-        message: 'Moved $processedCount files to output directory',
+        message:
+            'Moved $processedCount files to output directory${transformedCount > 0 ? ', transformed $transformedCount Pixel files to .mp4' : ''}',
       );
     } catch (e) {
       stopwatch.stop();
@@ -192,4 +205,70 @@ class MoveFilesStep extends ProcessingStep {
   @override
   bool shouldSkip(final ProcessingContext context) =>
       context.mediaCollection.isEmpty;
+
+  /// Transform Pixel .MP/.MV files to .mp4 extension
+  ///
+  /// Updates MediaEntity file paths to use .mp4 extension for better compatibility
+  /// while preserving the original file content.
+  Future<int> _transformPixelFiles(final ProcessingContext context) async {
+    int transformedCount = 0;
+    final updatedEntities = <MediaEntity>[];
+
+    for (final mediaEntity in context.mediaCollection.media) {
+      var hasChanges = false;
+      final updatedFiles = <String?, File>{};
+
+      for (final entry in mediaEntity.files.files.entries) {
+        final albumName = entry.key;
+        final file = entry.value;
+        final String currentPath = file.path;
+        final String extension = currentPath.toLowerCase();
+
+        if (extension.endsWith('.mp') || extension.endsWith('.mv')) {
+          // Create new path with .mp4 extension
+          final String newPath =
+              '${currentPath.substring(0, currentPath.lastIndexOf('.'))}.mp4';
+
+          try {
+            // Rename the physical file
+            await file.rename(newPath);
+            updatedFiles[albumName] = File(newPath);
+            hasChanges = true;
+            transformedCount++;
+
+            if (context.config.verbose) {
+              print('Transformed: ${file.path} -> $newPath');
+            }
+          } catch (e) {
+            // If rename fails, keep original file reference
+            updatedFiles[albumName] = file;
+            print('Warning: Failed to transform ${file.path}: $e');
+          }
+        } else {
+          // Keep original file reference
+          updatedFiles[albumName] = file;
+        }
+      }
+
+      // Create updated entity
+      if (hasChanges) {
+        final newFilesCollection = MediaFilesCollection.fromMap(updatedFiles);
+        final updatedEntity = MediaEntity(
+          files: newFilesCollection,
+          dateTaken: mediaEntity.dateTaken,
+          dateAccuracy: mediaEntity.dateAccuracy,
+          dateTimeExtractionMethod: mediaEntity.dateTimeExtractionMethod,
+        );
+        updatedEntities.add(updatedEntity);
+      } else {
+        updatedEntities.add(mediaEntity);
+      }
+    }
+
+    // Replace all entities in the collection
+    context.mediaCollection.clear();
+    context.mediaCollection.addAll(updatedEntities);
+
+    return transformedCount;
+  }
 }
