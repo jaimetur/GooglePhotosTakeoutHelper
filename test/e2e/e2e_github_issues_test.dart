@@ -1526,6 +1526,3 @@ Future<String> _createUnicodeFilenameTestData() async {
 
   return takeoutDir.path;
 }
-
-
-

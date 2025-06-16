@@ -772,6 +772,3 @@ Future<void> generateRealisticDataset({
   print('${(exifRatio * 100).round()}% of photos have EXIF data');
   print('Total files created: ${createdEntities.length}');
 }
-
-
-
