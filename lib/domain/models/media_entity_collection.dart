@@ -1,8 +1,6 @@
 import '../entities/media_entity.dart';
 import '../services/core/logging_service.dart';
 import '../services/core/service_container.dart';
-import '../services/media/album_relationship_service.dart';
-import '../services/media/duplicate_detection_service.dart';
 import '../services/metadata/date_extraction/json_date_extractor.dart';
 import '../services/metadata/exif_writer_service.dart';
 import '../value_objects/date_time_extraction_method.dart';
@@ -210,7 +208,8 @@ class MediaEntityCollection with LoggerMixin {
   }) async {
     if (_media.isEmpty) return 0;
 
-    final duplicateService = DuplicateDetectionService();
+    final duplicateService =
+        ServiceContainer.instance.duplicateDetectionService;
     int removedCount = 0;
 
     // Group media by album association first to preserve cross-album duplicates
@@ -291,7 +290,7 @@ class MediaEntityCollection with LoggerMixin {
   Future<void> findAlbums({
     final void Function(int processed, int total)? onProgress,
   }) async {
-    final albumService = AlbumRelationshipService();
+    final albumService = ServiceContainer.instance.albumRelationshipService;
 
     // Create a copy of the media list to avoid concurrent modification
     final mediaCopy = List<MediaEntity>.from(_media);

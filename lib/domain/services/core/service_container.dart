@@ -1,5 +1,7 @@
 import '../../../infrastructure/consolidated_disk_space_service.dart';
 import '../../../infrastructure/exiftool_service.dart';
+import '../media/album_relationship_service.dart';
+import '../media/duplicate_detection_service.dart';
 import '../user_interaction/user_interaction_service.dart';
 import 'formatting_service.dart';
 import 'global_config_service.dart';
@@ -10,12 +12,13 @@ import 'global_config_service.dart';
 /// centralized configuration and initialization.
 class ServiceContainer {
   ServiceContainer._();
-
   // Use nullable fields instead of late final to allow re-initialization
   GlobalConfigService? _globalConfig;
   FormattingService? _utilityService;
   ConsolidatedDiskSpaceService? _diskSpaceService;
   ConsolidatedInteractiveService? _interactiveService;
+  DuplicateDetectionService? _duplicateDetectionService;
+  AlbumRelationshipService? _albumRelationshipService;
   ExifToolService? exifTool;
 
   bool _isInitialized = false;
@@ -65,17 +68,37 @@ class ServiceContainer {
     return _interactiveService!;
   }
 
+  DuplicateDetectionService get duplicateDetectionService {
+    if (_duplicateDetectionService == null) {
+      throw StateError(
+        'ServiceContainer not initialized. Call initialize() first.',
+      );
+    }
+    return _duplicateDetectionService!;
+  }
+
+  AlbumRelationshipService get albumRelationshipService {
+    if (_albumRelationshipService == null) {
+      throw StateError(
+        'ServiceContainer not initialized. Call initialize() first.',
+      );
+    }
+    return _albumRelationshipService!;
+  }
+
   /// Initialize all services
   Future<void> initialize() async {
     // Allow re-initialization by checking if already initialized
     if (_isInitialized) {
       return; // Already initialized, no-op
-    }
-
-    // Initialize core services first
+    } // Initialize core services first
     _globalConfig = GlobalConfigService();
     _utilityService = const FormattingService();
     _diskSpaceService = ConsolidatedDiskSpaceService();
+
+    // Initialize media processing services
+    _duplicateDetectionService = DuplicateDetectionService();
+    _albumRelationshipService = AlbumRelationshipService();
 
     // Initialize interactive service with dependencies
     _interactiveService = ConsolidatedInteractiveService(
@@ -99,14 +122,14 @@ class ServiceContainer {
     if (exifTool != null) {
       await exifTool!.dispose();
       exifTool = null;
-    }
-
-    // Reset initialization state
+    } // Reset initialization state
     _isInitialized = false;
     _globalConfig = null;
     _utilityService = null;
     _diskSpaceService = null;
     _interactiveService = null;
+    _duplicateDetectionService = null;
+    _albumRelationshipService = null;
   }
 
   /// Reset the service container (primarily for testing)

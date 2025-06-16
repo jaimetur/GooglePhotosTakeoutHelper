@@ -54,6 +54,7 @@ import 'dart:io';
 
 import 'package:gpth/domain/entities/media_entity.dart';
 import 'package:gpth/domain/models/media_entity_collection.dart';
+import 'package:gpth/domain/services/core/service_container.dart';
 import 'package:gpth/domain/services/media/duplicate_detection_service.dart';
 import 'package:test/test.dart';
 
@@ -62,15 +63,17 @@ import '../setup/test_setup.dart';
 void main() {
   group('MediaEntity and Collection - Modern Content Management System', () {
     late TestFixture fixture;
-
     setUp(() async {
       // Initialize a clean test environment for each test
       fixture = TestFixture();
       await fixture.setUp();
+      // Initialize ServiceContainer for tests that use services
+      await ServiceContainer.instance.initialize();
     });
 
     tearDown(() async {
       // Clean up test artifacts to prevent interference between tests
+      await ServiceContainer.reset();
       await fixture.tearDown();
     });
 
@@ -666,6 +669,3 @@ void main() {
     });
   });
 }
-
-
-

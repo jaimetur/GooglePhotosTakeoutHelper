@@ -45,12 +45,17 @@ void main() {
         // ExifTool might not be available in test environment
         // so we don't assert on its presence
       });
-      test('cannot be initialized multiple times', () async {
+      test('handles multiple initialization calls gracefully', () async {
         final container = ServiceContainer.instance;
 
-        await container
-            .initialize(); // Second initialization should throw since fields are late final
-        await expectLater(container.initialize(), throwsA(anything));
+        await container.initialize();
+
+        // Second initialization should be a no-op and not throw
+        await expectLater(container.initialize(), completes);
+
+        // Services should still be available
+        expect(container.globalConfig, isNotNull);
+        expect(container.utilityService, isNotNull);
       });
     });
 
@@ -140,6 +145,3 @@ void main() {
     });
   });
 }
-
-
-
