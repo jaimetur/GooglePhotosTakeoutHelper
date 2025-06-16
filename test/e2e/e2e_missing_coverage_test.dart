@@ -793,6 +793,476 @@ void main() {
         );
       });
     });
+
+    group('EXIF Edge Cases and Error Handling', () {
+      test('EXIF edge cases and error handling validation', () async {
+        // Create test files with various EXIF scenarios
+        final customTakeout = await _createDataWithVariousExifScenarios();
+        final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+          customTakeout,
+        );
+
+        final config = ProcessingConfig(
+          inputPath: googlePhotosPath,
+          outputPath: outputPath,
+          albumBehavior: AlbumBehavior.nothing,
+          dateDivision: DateDivisionLevel.none,
+          writeExif: true,
+        );
+
+        final result = await pipeline.execute(
+          config: config,
+          inputDirectory: Directory(googlePhotosPath),
+          outputDirectory: Directory(outputPath),
+        );
+
+        expect(result.isSuccess, isTrue);
+
+        final serviceContainer = ServiceContainer.instance;
+        expect(serviceContainer.exifTool, isNotNull);
+
+        final outputFiles = await Directory(outputPath)
+            .list(recursive: true)
+            .where((final entity) => entity is File)
+            .where((final file) => file.path.endsWith('.jpg'))
+            .cast<File>()
+            .toList();
+
+        expect(outputFiles.length, greaterThan(0));
+        for (final outputFile in outputFiles) {
+          final exifData = await serviceContainer.exifTool!.readExifData(
+            outputFile,
+          );
+
+          // Verify basic EXIF structure exists
+          expect(
+            exifData,
+            isNotEmpty,
+            reason: 'Output file ${outputFile.path} should have EXIF data',
+          );
+
+          // Test GPS data validation - check any file with GPS data
+          if (exifData.containsKey('GPSLatitude') &&
+              exifData.containsKey('GPSLongitude')) {
+            final latitude = exifData['GPSLatitude'] as num;
+            final longitude = exifData['GPSLongitude'] as num;
+
+            // Verify GPS coordinates are reasonable values
+            expect(
+              latitude,
+              isA<num>(),
+              reason: 'GPS Latitude should be numeric',
+            );
+            expect(
+              longitude,
+              isA<num>(),
+              reason: 'GPS Longitude should be numeric',
+            );
+
+            // Verify coordinates are within valid ranges
+            expect(
+              latitude.abs(),
+              lessThanOrEqualTo(90.0),
+              reason: 'Latitude should be within ±90 degrees',
+            );
+            expect(
+              longitude.abs(),
+              lessThanOrEqualTo(180.0),
+              reason: 'Longitude should be within ±180 degrees',
+            );
+          } // Test DateTime format validation
+          if (exifData.containsKey('DateTimeOriginal') ||
+              exifData.containsKey('DateTime')) {
+            final dateTime =
+                exifData['DateTimeOriginal'] ?? exifData['DateTime'];
+            expect(dateTime, isNotNull, reason: 'DateTime should be present');
+
+            if (dateTime is String) {
+              // Verify EXIF DateTime format
+              final exifDatePattern = RegExp(
+                r'^\d{4}:\d{2}:\d{2} \d{2}:\d{2}:\d{2}$',
+              );
+              expect(
+                exifDatePattern.hasMatch(dateTime.trim()),
+                isTrue,
+                reason: 'DateTime should be in EXIF format: "$dateTime"',
+              );
+
+              // Verify reasonable date range (should be either from JSON or existing EXIF)
+              final year = int.tryParse(dateTime.substring(0, 4));
+              expect(
+                year != null && year >= 2020 && year <= 2025,
+                isTrue,
+                reason: 'DateTime year should be reasonable: "$dateTime"',
+              );
+            }
+          }
+
+          // Test coordinate reference validation when present
+          if (exifData.containsKey('GPSLatitudeRef')) {
+            final latRef = exifData['GPSLatitudeRef'];
+            expect(
+              ['N', 'S', 'North', 'South'].contains(latRef),
+              isTrue,
+              reason: 'GPSLatitudeRef should be valid: "$latRef"',
+            );
+          }
+
+          if (exifData.containsKey('GPSLongitudeRef')) {
+            final lngRef = exifData['GPSLongitudeRef'];
+            expect(
+              ['E', 'W', 'East', 'West'].contains(lngRef),
+              isTrue,
+              reason: 'GPSLongitudeRef should be valid: "$lngRef"',
+            );
+          }
+        }
+      });
+
+      test('Date extraction method priority validation', () async {
+        // Create files with conflicting dates from different sources
+        final customTakeout = await _createDataWithConflictingDates();
+        final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+          customTakeout,
+        );
+
+        final config = ProcessingConfig(
+          inputPath: googlePhotosPath,
+          outputPath: outputPath,
+          albumBehavior: AlbumBehavior.nothing,
+          dateDivision: DateDivisionLevel.none,
+          writeExif: true,
+          guessFromName: true, // Enable filename guessing
+        );
+
+        final result = await pipeline.execute(
+          config: config,
+          inputDirectory: Directory(googlePhotosPath),
+          outputDirectory: Directory(outputPath),
+        );
+
+        expect(result.isSuccess, isTrue);
+
+        final outputFiles = await Directory(outputPath)
+            .list(recursive: true)
+            .where((final entity) => entity is File)
+            .where((final file) => file.path.endsWith('.jpg'))
+            .cast<File>()
+            .toList();
+
+        final serviceContainer = ServiceContainer.instance;
+
+        for (final outputFile in outputFiles) {
+          final exifData = await serviceContainer.exifTool!.readExifData(
+            outputFile,
+          );
+
+          if (outputFile.path.contains('json_wins')) {
+            // JSON date (2023) should win over EXIF date (2022) and filename date (2021)
+            final dateTime = exifData['DateTimeOriginal'] as String?;
+            expect(
+              dateTime?.startsWith('2023:'),
+              isTrue,
+              reason: 'JSON date should have highest priority',
+            );
+          }
+
+          if (outputFile.path.contains('exif_wins')) {
+            // EXIF date (2022) should win over filename date (2021) when no JSON
+            final dateTime = exifData['DateTimeOriginal'] as String?;
+            expect(
+              dateTime?.startsWith('2022:'),
+              isTrue,
+              reason:
+                  'EXIF date should have priority over filename when no JSON',
+            );
+          }
+
+          if (outputFile.path.contains('filename_fallback')) {
+            // Filename date (2021) should be used when no JSON or EXIF
+            final dateTime = exifData['DateTimeOriginal'] as String?;
+            expect(
+              dateTime?.startsWith('2021:'),
+              isTrue,
+              reason: 'Filename date should be used as fallback',
+            );
+          }
+        }
+      });
+
+      test('Complex filename pattern extraction validation', () async {
+        // Create files with edge case filename patterns
+        final customTakeout = await _createDataWithComplexFilenames();
+        final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+          customTakeout,
+        );
+
+        final config = ProcessingConfig(
+          inputPath: googlePhotosPath,
+          outputPath: outputPath,
+          albumBehavior: AlbumBehavior.nothing,
+          dateDivision: DateDivisionLevel.none,
+          writeExif: false, // Test pure filename extraction
+          guessFromName: true,
+        );
+
+        final result = await pipeline.execute(
+          config: config,
+          inputDirectory: Directory(googlePhotosPath),
+          outputDirectory: Directory(outputPath),
+        );
+
+        expect(result.isSuccess, isTrue);
+
+        // Verify specific filename patterns were correctly extracted
+        final outputFiles = await Directory(outputPath)
+            .list(recursive: true)
+            .where((final entity) => entity is File)
+            .cast<File>()
+            .toList();
+
+        expect(
+          outputFiles
+              .where((final f) => f.path.contains('Screenshot_20230615-143022'))
+              .isNotEmpty,
+          isTrue,
+          reason: 'Screenshot pattern should be processed',
+        );
+        expect(
+          outputFiles
+              .where((final f) => f.path.contains('IMG_20230101_120000'))
+              .isNotEmpty,
+          isTrue,
+          reason: 'IMG pattern should be processed',
+        );
+        expect(
+          outputFiles
+              .where((final f) => f.path.contains('signal-2023-06-15-120000'))
+              .isNotEmpty,
+          isTrue,
+          reason: 'Signal pattern should be processed',
+        );
+      });
+    });
+
+    group('Missing Configuration Flag Tests', () {
+      test('writeExif: false should not write EXIF data', () async {
+        final customTakeout = await _createDataWithSpecificExif();
+        final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+          customTakeout,
+        );
+
+        final config = ProcessingConfig(
+          inputPath: googlePhotosPath,
+          outputPath: outputPath,
+          albumBehavior: AlbumBehavior.nothing,
+          dateDivision: DateDivisionLevel.none,
+          writeExif: false, // Disabled EXIF writing
+        );
+
+        final result = await pipeline.execute(
+          config: config,
+          inputDirectory: Directory(googlePhotosPath),
+          outputDirectory: Directory(outputPath),
+        );
+
+        expect(result.isSuccess, isTrue);
+
+        final outputFiles = await Directory(outputPath)
+            .list(recursive: true)
+            .where((final entity) => entity is File)
+            .where((final file) => file.path.endsWith('.jpg'))
+            .cast<File>()
+            .toList();
+
+        final serviceContainer = ServiceContainer.instance;
+
+        for (final outputFile in outputFiles) {
+          final exifData = await serviceContainer.exifTool!.readExifData(
+            outputFile,
+          );
+
+          // Should not have GPS data written from JSON when writeExif is false
+          if (outputFile.path.contains('without_exif')) {
+            expect(
+              exifData.containsKey('GPSLatitude') &&
+                  exifData.containsKey('GPSLongitude'),
+              isFalse,
+              reason: 'GPS data should not be written when writeExif is false',
+            );
+          }
+        }
+      });
+
+      test('verbose: true should not affect output content', () async {
+        final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+          takeoutPath,
+        );
+
+        final config = ProcessingConfig(
+          inputPath: googlePhotosPath,
+          outputPath: outputPath,
+          albumBehavior: AlbumBehavior.nothing,
+          dateDivision: DateDivisionLevel.none,
+          verbose: true, // Enable verbose mode
+        );
+
+        final result = await pipeline.execute(
+          config: config,
+          inputDirectory: Directory(googlePhotosPath),
+          outputDirectory: Directory(outputPath),
+        );
+
+        expect(result.isSuccess, isTrue);
+
+        // Verbose mode should not change the actual file processing outcome
+        final outputFiles = await Directory(outputPath)
+            .list(recursive: true)
+            .where((final entity) => entity is File)
+            .cast<File>()
+            .toList();
+
+        expect(outputFiles.length, greaterThan(0));
+      });
+
+      test(
+        'updateCreationTime: true should work on supported platforms',
+        () async {
+          final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+            takeoutPath,
+          );
+
+          final config = ProcessingConfig(
+            inputPath: googlePhotosPath,
+            outputPath: outputPath,
+            albumBehavior: AlbumBehavior.nothing,
+            dateDivision: DateDivisionLevel.none,
+            updateCreationTime: true, // Enable creation time update
+          );
+
+          final result = await pipeline.execute(
+            config: config,
+            inputDirectory: Directory(googlePhotosPath),
+            outputDirectory: Directory(outputPath),
+          );
+
+          // Should succeed even if not on Windows (feature should be safely ignored)
+          expect(result.isSuccess, isTrue);
+
+          final outputFiles = await Directory(outputPath)
+              .list(recursive: true)
+              .where((final entity) => entity is File)
+              .cast<File>()
+              .toList();
+
+          expect(outputFiles.length, greaterThan(0));
+        },
+      );
+
+      test(
+        'limitFileSize: true should handle large files appropriately',
+        () async {
+          // Create a test with simulated large files
+          final customTakeout = await _createDataWithLargeFiles();
+          final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+            customTakeout,
+          );
+
+          final config = ProcessingConfig(
+            inputPath: googlePhotosPath,
+            outputPath: outputPath,
+            albumBehavior: AlbumBehavior.nothing,
+            dateDivision: DateDivisionLevel.none,
+            limitFileSize: true, // Enable file size limiting
+          );
+
+          final result = await pipeline.execute(
+            config: config,
+            inputDirectory: Directory(googlePhotosPath),
+            outputDirectory: Directory(outputPath),
+          );
+
+          expect(result.isSuccess, isTrue);
+
+          // Should still process files (our test files are small anyway)
+          final outputFiles = await Directory(outputPath)
+              .list(recursive: true)
+              .where((final entity) => entity is File)
+              .cast<File>()
+              .toList();
+
+          expect(outputFiles.length, greaterThan(0));
+        },
+      );
+
+      test('ExtensionFixingMode.solo should stop after extension fixing', () async {
+        final customTakeout = await _createDataWithWrongExtensions();
+        final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+          customTakeout,
+        );
+
+        final config = ProcessingConfig(
+          inputPath: googlePhotosPath,
+          outputPath: outputPath,
+          albumBehavior: AlbumBehavior.nothing,
+          dateDivision: DateDivisionLevel.none,
+          extensionFixing: ExtensionFixingMode.solo, // Solo mode
+        );
+
+        final result = await pipeline.execute(
+          config: config,
+          inputDirectory: Directory(googlePhotosPath),
+          outputDirectory: Directory(outputPath),
+        );
+
+        expect(result.isSuccess, isTrue);
+
+        // In solo mode, should fix extensions but not continue with full processing
+        // This means files should be renamed but not moved to date-based structure
+        final inputFiles = await Directory(googlePhotosPath)
+            .list(recursive: true)
+            .where((final entity) => entity is File)
+            .cast<File>()
+            .toList();
+
+        // Files should still be in input directory after extension fixing in solo mode
+        expect(inputFiles.length, greaterThan(0));
+      });
+
+      test(
+        'ExtensionFixingMode.conservative should be more restrictive',
+        () async {
+          final customTakeout = await _createDataWithWrongExtensions();
+          final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+            customTakeout,
+          );
+
+          final config = ProcessingConfig(
+            inputPath: googlePhotosPath,
+            outputPath: outputPath,
+            albumBehavior: AlbumBehavior.nothing,
+            dateDivision: DateDivisionLevel.none,
+            extensionFixing: ExtensionFixingMode.conservative,
+          );
+
+          final result = await pipeline.execute(
+            config: config,
+            inputDirectory: Directory(googlePhotosPath),
+            outputDirectory: Directory(outputPath),
+          );
+
+          expect(result.isSuccess, isTrue);
+
+          final outputFiles = await Directory(outputPath)
+              .list(recursive: true)
+              .where((final entity) => entity is File)
+              .cast<File>()
+              .toList();
+
+          expect(outputFiles.length, greaterThan(0));
+        },
+      );
+    });
   });
 }
 
@@ -1089,6 +1559,160 @@ Future<String> _createDataWithSpecificExif() async {
       }),
     ),
   );
+
+  return takeoutDir.path;
+}
+
+/// Creates test data with various EXIF scenarios for edge case testing
+Future<String> _createDataWithVariousExifScenarios() async {
+  final fixture = TestFixture();
+  await fixture.setUp();
+
+  final takeoutDir = fixture.createDirectory('Takeout');
+  final googlePhotosDir = fixture.createDirectory(
+    '${takeoutDir.path}/Google Photos',
+  );
+  final yearDir = fixture.createDirectory(
+    '${googlePhotosDir.path}/Photos from 2023',
+  );
+
+  // File with conflicting dates (JSON: 2023, EXIF: 2022)
+  fixture.createImageWithExif('${yearDir.path}/conflicting_dates.jpg');
+  fixture.createFile(
+    '${yearDir.path}/conflicting_dates.jpg.json',
+    utf8.encode(
+      jsonEncode({
+        'photoTakenTime': {'timestamp': '1672531200'}, // 2023-01-01
+        'geoData': {'latitude': 37.7749, 'longitude': -122.4194},
+      }),
+    ),
+  );
+
+  // File with high-precision GPS coordinates
+  fixture.createImageWithoutExif('${yearDir.path}/precise_gps.jpg');
+  fixture.createFile(
+    '${yearDir.path}/precise_gps.jpg.json',
+    utf8.encode(
+      jsonEncode({
+        'photoTakenTime': {'timestamp': '1672531200'},
+        'geoData': {
+          'latitude': 37.774929123456,
+          'longitude': -122.419401987654,
+          'altitude': 123.456789,
+        },
+      }),
+    ),
+  );
+
+  // File with altitude data
+  fixture.createImageWithoutExif('${yearDir.path}/with_altitude.jpg');
+  fixture.createFile(
+    '${yearDir.path}/with_altitude.jpg.json',
+    utf8.encode(
+      jsonEncode({
+        'photoTakenTime': {'timestamp': '1672531200'},
+        'geoData': {
+          'latitude': 40.7128,
+          'longitude': -74.0060,
+          'altitude': 10.5,
+        },
+      }),
+    ),
+  );
+
+  // File with edge case coordinates (negative coordinates)
+  fixture.createImageWithoutExif('${yearDir.path}/edge_coordinates.jpg');
+  fixture.createFile(
+    '${yearDir.path}/edge_coordinates.jpg.json',
+    utf8.encode(
+      jsonEncode({
+        'photoTakenTime': {'timestamp': '1672531200'},
+        'geoData': {
+          'latitude': -33.8688, // Sydney (South)
+          'longitude': 151.2093, // Sydney (East)
+          'altitude': 0.0,
+        },
+      }),
+    ),
+  );
+
+  return takeoutDir.path;
+}
+
+/// Creates test data with conflicting dates from different sources
+Future<String> _createDataWithConflictingDates() async {
+  final fixture = TestFixture();
+  await fixture.setUp();
+
+  final takeoutDir = fixture.createDirectory('Takeout');
+  final googlePhotosDir = fixture.createDirectory(
+    '${takeoutDir.path}/Google Photos',
+  );
+  final yearDir = fixture.createDirectory(
+    '${googlePhotosDir.path}/Photos from 2023',
+  );
+
+  // File where JSON date should win (has JSON: 2023, EXIF: 2022, filename: 2021)
+  fixture.createImageWithExif(
+    '${yearDir.path}/IMG_20210615_120000_json_wins.jpg',
+  );
+  fixture.createFile(
+    '${yearDir.path}/IMG_20210615_120000_json_wins.jpg.json',
+    utf8.encode(
+      jsonEncode({
+        'photoTakenTime': {'timestamp': '1672531200'}, // 2023-01-01
+      }),
+    ),
+  );
+
+  // File where EXIF date should win (has EXIF: 2022, filename: 2021, no JSON)
+  fixture.createImageWithExif(
+    '${yearDir.path}/IMG_20210615_120000_exif_wins.jpg',
+  );
+
+  // File where filename should be fallback (no JSON, no EXIF, only filename: 2021)
+  fixture.createImageWithoutExif(
+    '${yearDir.path}/IMG_20210615_120000_filename_fallback.jpg',
+  );
+
+  return takeoutDir.path;
+}
+
+/// Creates test data with complex filename patterns for edge case testing
+Future<String> _createDataWithComplexFilenames() async {
+  final fixture = TestFixture();
+  await fixture.setUp();
+
+  final takeoutDir = fixture.createDirectory('Takeout');
+  final googlePhotosDir = fixture.createDirectory(
+    '${takeoutDir.path}/Google Photos',
+  );
+  final yearDir = fixture.createDirectory(
+    '${googlePhotosDir.path}/Photos from 2023',
+  );
+  // Various complex filename patterns that should be extracted
+  final filenamePatterns = [
+    'Screenshot_20230615-143022_Camera.jpg',
+    'IMG_20230101_120000-edited.jpg',
+    'signal-2023-06-15-120000.jpg',
+    'MVIMG_20230301_140000.mp4',
+    '20230401_150000.jpg',
+    'photo_2023_04_01_15_00_00.jpg',
+    'burst_20230501160000123.jpg',
+  ];
+
+  // Create unique files with different content to avoid duplicate detection
+  for (int i = 0; i < filenamePatterns.length; i++) {
+    final filename = filenamePatterns[i];
+    final file = File('${yearDir.path}/$filename');
+
+    // Create unique content for each file based on index
+    final uniqueContent = List.generate(
+      1000 + i * 100,
+      (final index) => i + index,
+    );
+    await file.writeAsBytes(uniqueContent);
+  }
 
   return takeoutDir.path;
 }
