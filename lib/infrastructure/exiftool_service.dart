@@ -7,14 +7,12 @@ class ExifToolService {
   /// Constructor for dependency injection
   ExifToolService(this.exiftoolPath);
 
-  final String exiftoolPath;
-  // Persistent process management
+  final String exiftoolPath; // Persistent process management
   Process? _persistentProcess;
   StreamSubscription<String>? _outputSubscription;
   StreamSubscription<String>? _errorSubscription;
   final Map<int, Completer<String>> _pendingCommands = {};
   final Map<int, String> _commandOutputs = {};
-  int _commandIdCounter = 0;
   bool _isDisposed = false;
   bool _isStarting = false;
 
@@ -103,16 +101,18 @@ class ExifToolService {
   /// Handle output from persistent process
   void _handleOutput(final String line) {
     if (line.startsWith('{ready}')) {
-      final commandId = _commandIdCounter - 1;
-      if (_pendingCommands.containsKey(commandId)) {
+      // Find the most recent pending command to complete
+      if (_pendingCommands.isNotEmpty) {
+        final commandId = _pendingCommands.keys.last;
         final output = _commandOutputs[commandId] ?? '';
         _pendingCommands[commandId]!.complete(output);
         _pendingCommands.remove(commandId);
         _commandOutputs.remove(commandId);
       }
     } else {
-      final currentCommandId = _commandIdCounter - 1;
-      if (_pendingCommands.containsKey(currentCommandId)) {
+      // Add output to the most recent command
+      if (_pendingCommands.isNotEmpty) {
+        final currentCommandId = _pendingCommands.keys.last;
         _commandOutputs[currentCommandId] =
             '${_commandOutputs[currentCommandId] ?? ''}$line\n';
       }
