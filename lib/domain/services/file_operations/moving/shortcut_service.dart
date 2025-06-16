@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../../../../infrastructure/windows_shortcut_service.dart';
+import '../../core/service_container.dart';
 
 /// Service responsible for creating shortcuts and symlinks across platforms
 ///
@@ -23,10 +24,8 @@ class ShortcutService {
     final String linkName = Platform.isWindows
         ? (basename.endsWith('.lnk') ? basename : '$basename.lnk')
         : basename;
-
-    final File linkFile = _findUniqueFileName(
-      File(p.join(targetDirectory.path, linkName)),
-    );
+    final File linkFile = ServiceContainer.instance.utilityService
+        .findUniqueFileName(File(p.join(targetDirectory.path, linkName)));
 
     // Ensure the parent directory for the shortcut exists
     final linkDir = Directory(p.dirname(linkFile.path));
@@ -54,18 +53,5 @@ class ShortcutService {
       final link = await Link(linkFile.path).create(targetRelativePath);
       return File(link.path);
     }
-  }
-
-  /// Creates a unique file name by appending (1), (2), etc. until non-existing
-  File _findUniqueFileName(final File initialFile) {
-    File file = initialFile;
-    int counter = 1;
-    while (file.existsSync()) {
-      final String baseName = p.withoutExtension(initialFile.path);
-      final String extension = p.extension(initialFile.path);
-      file = File('$baseName($counter)$extension');
-      counter++;
-    }
-    return file;
   }
 }
