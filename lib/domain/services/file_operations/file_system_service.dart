@@ -142,21 +142,19 @@ class FileSystemService {
   ///
   /// [dir] Directory to validate
   /// [shouldExist] Whether the directory should exist (true) or not exist (false)
-  /// Returns true if validation passes
-  Future<bool> validateDirectory(
+  /// Returns ValidationResult with success/failure status and message
+  Future<ValidationResult> validateDirectory(
     final Directory dir, {
     final bool shouldExist = true,
   }) async {
     final exists = await dir.exists();
     if (shouldExist && !exists) {
-      stderr.write('Directory does not exist: ${dir.path}\n');
-      return false;
+      return ValidationResult.failure('Directory does not exist: ${dir.path}');
     }
     if (!shouldExist && exists) {
-      stderr.write('Directory already exists: ${dir.path}\n');
-      return false;
+      return ValidationResult.failure('Directory already exists: ${dir.path}');
     }
-    return true;
+    return const ValidationResult.success();
   }
 
   /// Safely creates directory with error handling
@@ -172,4 +170,25 @@ class FileSystemService {
       return false;
     }
   }
+}
+
+/// Result of a validation operation
+class ValidationResult {
+  const ValidationResult._({required this.isSuccess, this.message});
+
+  /// Creates a successful validation result
+  const ValidationResult.success() : this._(isSuccess: true);
+
+  /// Creates a failed validation result with message
+  const ValidationResult.failure(final String message)
+    : this._(isSuccess: false, message: message);
+
+  /// Whether the validation was successful
+  final bool isSuccess;
+
+  /// Error message if validation failed
+  final String? message;
+
+  /// Whether the validation failed
+  bool get isFailure => !isSuccess;
 }

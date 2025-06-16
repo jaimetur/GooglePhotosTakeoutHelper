@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'package:proper_filesize/proper_filesize.dart';
 
+import '../../entities/media_entity.dart';
+
 /// Consolidated utility service for common formatting and utility operations
 ///
 /// This service consolidates formatting functionality that was previously
@@ -162,6 +164,67 @@ class FormattingService {
 
     return const ValidationResult.success();
   }
+  // ============================================================================
+  // UTILITY OPERATIONS (migrated from UtilityService)
+  // ============================================================================
+
+  /// Calculates total number of output files based on album behavior
+  ///
+  /// [media] List of media entities
+  /// [albumOption] Album handling option ('shortcut', 'duplicate-copy', etc.)
+  /// Returns expected number of output files
+  int calculateOutputFileCount(
+    final List<MediaEntity> media,
+    final String albumOption,
+  ) {
+    if (<String>[
+      'shortcut',
+      'duplicate-copy',
+      'reverse-shortcut',
+    ].contains(albumOption)) {
+      return media.fold(
+        0,
+        (final int prev, final MediaEntity e) => prev + e.files.files.length,
+      );
+    } else if (albumOption == 'json') {
+      return media.length;
+    } else if (albumOption == 'nothing') {
+      return media
+          .where((final MediaEntity e) => e.files.hasYearBasedFiles)
+          .length;
+    } else {
+      throw ArgumentError.value(albumOption, 'albumOption');
+    }
+  }
+
+  /// Safely creates directory with error handling
+  Future<bool> safeCreateDirectory(final Directory dir) async {
+    try {
+      await dir.create(recursive: true);
+      return true;
+    } catch (e) {
+      printError('Failed to create directory ${dir.path}: $e');
+      return false;
+    }
+  }
+
+  /// Exits the program with optional code, showing interactive message if needed
+  ///
+  /// [code] Exit code (default: 1)
+  /// [showInteractiveMessage] Whether to show press-enter prompt
+  Never exitProgram(
+    final int code, {
+    final bool showInteractiveMessage = false,
+  }) {
+    if (showInteractiveMessage) {
+      print(
+        '[gpth ${code != 0 ? 'quitted :(' : 'finished :)'} (code $code) - '
+        'press enter to close]',
+      );
+      stdin.readLineSync();
+    }
+    exit(code);
+  }
 
   // ============================================================================
   // ERROR HANDLING
@@ -179,6 +242,16 @@ class FormattingService {
   /// [message] Warning message to print
   void printWarning(final Object? message) {
     stderr.writeln('[WARNING] $message');
+  }
+}
+
+/// Extension for string utility operations
+extension StringUtilityExtensions on String {
+  /// Returns same string if pattern not found, otherwise replaces last occurrence
+  String replaceLast(final String from, final String to) {
+    final int lastIndex = lastIndexOf(from);
+    if (lastIndex == -1) return this;
+    return replaceRange(lastIndex, lastIndex + from.length, to);
   }
 }
 

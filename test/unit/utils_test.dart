@@ -64,7 +64,6 @@ library;
 import 'dart:io';
 
 import 'package:gpth/domain/services/core/formatting_service.dart';
-import 'package:gpth/domain/services/core/formatting_utility_service.dart';
 import 'package:gpth/domain/services/core/logging_service.dart';
 import 'package:gpth/domain/services/core/service_container.dart';
 import 'package:gpth/infrastructure/platform_service.dart';
@@ -78,15 +77,14 @@ import '../setup/test_setup.dart';
 void main() {
   group('Refactored Service Tests', () {
     late TestFixture fixture;
-    late UtilityService utilityService;
     late FormattingService formattingService;
     late PlatformService platformService;
     late LoggingService loggingService;
+
     setUp(() async {
       fixture = TestFixture();
       await fixture.setUp();
       await ServiceContainer.instance.initialize();
-      utilityService = const UtilityService();
       formattingService = const FormattingService();
       platformService = const PlatformService();
       loggingService = LoggingService();
@@ -176,26 +174,25 @@ void main() {
         expect(() => loggingService.error('test error'), returnsNormally);
       });
     });
-
     group('Directory Validation', () {
       /// Should succeed for existing directory.
-      test('validateDirectory succeeds for existing directory', () async {
+      test('validateDirectory succeeds for existing directory', () {
         final dir = fixture.createDirectory('test_dir');
 
-        final result = await utilityService.validateDirectory(dir);
+        final result = formattingService.validateDirectory(dir);
 
-        expect(result, isTrue);
+        expect(result.isSuccess, isTrue);
       });
 
       /// Should fail for non-existing directory when should exist.
       test(
         'validateDirectory fails for non-existing directory when should exist',
-        () async {
+        () {
           final dir = Directory('${fixture.basePath}/nonexistent');
 
-          final result = await utilityService.validateDirectory(dir);
+          final result = formattingService.validateDirectory(dir);
 
-          expect(result, isFalse);
+          expect(result.isFailure, isTrue);
         },
       );
     });

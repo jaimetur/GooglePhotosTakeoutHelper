@@ -273,24 +273,23 @@ void main() {
 
         expect(isEmpty, isTrue);
       });
-
       test('validates existing directory correctly', () async {
         final existingDir = fixture.createDirectory('existing');
 
-        final isValid = await service.validateDirectory(existingDir);
+        final result = await service.validateDirectory(existingDir);
 
-        expect(isValid, isTrue);
+        expect(result.isSuccess, isTrue);
       });
 
       test('validates non-existing directory correctly', () async {
         final nonExistentDir = Directory('${fixture.basePath}/nonexistent');
 
-        final isValid = await service.validateDirectory(
+        final result = await service.validateDirectory(
           nonExistentDir,
           shouldExist: false,
         );
 
-        expect(isValid, isTrue);
+        expect(result.isSuccess, isTrue);
       });
 
       test(
@@ -298,9 +297,10 @@ void main() {
         () async {
           final nonExistentDir = Directory('${fixture.basePath}/nonexistent');
 
-          final isValid = await service.validateDirectory(nonExistentDir);
+          final result = await service.validateDirectory(nonExistentDir);
 
-          expect(isValid, isFalse);
+          expect(result.isFailure, isTrue);
+          expect(result.message, contains('does not exist'));
         },
       );
 
@@ -309,12 +309,13 @@ void main() {
         () async {
           final existingDir = fixture.createDirectory('existing');
 
-          final isValid = await service.validateDirectory(
+          final result = await service.validateDirectory(
             existingDir,
             shouldExist: false,
           );
 
-          expect(isValid, isFalse);
+          expect(result.isFailure, isTrue);
+          expect(result.message, contains('already exists'));
         },
       );
 
@@ -362,6 +363,3 @@ void main() {
     });
   });
 }
-
-
-

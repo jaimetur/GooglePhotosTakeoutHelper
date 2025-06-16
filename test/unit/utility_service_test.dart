@@ -1,4 +1,4 @@
-/// Test suite for UtilityService
+/// Test suite for FormattingService (formerly UtilityService)
 ///
 /// Tests utility functions for file operations, calculations, and formatting.
 library;
@@ -6,19 +6,18 @@ library;
 import 'dart:io';
 
 import 'package:gpth/domain/entities/media_entity.dart';
-import 'package:gpth/domain/services/core/formatting_utility_service.dart';
+import 'package:gpth/domain/services/core/formatting_service.dart';
 import 'package:gpth/domain/value_objects/media_files_collection.dart';
 import 'package:test/test.dart';
 
 import '../setup/test_setup.dart';
 
 void main() {
-  group('UtilityService', () {
-    late UtilityService service;
+  group('FormattingService', () {
+    late FormattingService service;
     late TestFixture fixture;
-
     setUp(() async {
-      service = const UtilityService();
+      service = const FormattingService();
       fixture = TestFixture();
       await fixture.setUp();
     });
@@ -137,52 +136,43 @@ void main() {
 
     group('validateDirectory', () {
       test(
-        'returns true for existing directory when shouldExist is true',
+        'returns success for existing directory when shouldExist is true',
         () async {
           final dir = Directory(fixture.basePath);
 
-          final result = await service.validateDirectory(dir);
+          final result = service.validateDirectory(dir);
 
-          expect(result, isTrue);
+          expect(result.isSuccess, isTrue);
         },
       );
-
       test(
-        'returns false for non-existing directory when shouldExist is true',
+        'returns failure for non-existing directory when shouldExist is true',
         () async {
           final dir = Directory('${fixture.basePath}/non-existent');
 
-          final result = await service.validateDirectory(dir);
+          final result = service.validateDirectory(dir);
 
-          expect(result, isFalse);
+          expect(result.isFailure, isTrue);
         },
       );
-
       test(
-        'returns true for non-existing directory when shouldExist is false',
+        'returns success for non-existing directory when shouldExist is false',
         () async {
           final dir = Directory('${fixture.basePath}/non-existent');
 
-          final result = await service.validateDirectory(
-            dir,
-            shouldExist: false,
-          );
+          final result = service.validateDirectory(dir, shouldExist: false);
 
-          expect(result, isTrue);
+          expect(result.isSuccess, isTrue);
         },
       );
-
       test(
-        'returns false for existing directory when shouldExist is false',
+        'returns failure for existing directory when shouldExist is false',
         () async {
           final dir = Directory(fixture.basePath);
 
-          final result = await service.validateDirectory(
-            dir,
-            shouldExist: false,
-          );
+          final result = service.validateDirectory(dir, shouldExist: false);
 
-          expect(result, isFalse);
+          expect(result.isFailure, isTrue);
         },
       );
     });
