@@ -7,8 +7,9 @@ import 'media_hash_service.dart';
 ///
 /// This service provides efficient duplicate detection by first grouping files
 /// by size (fast comparison), then calculating content hashes only for files
-/// with matching sizes. Uses parallel processing with concurrency limits to
-/// balance performance with system resource usage.
+/// with matching sizes. Uses parallel processing with adaptive concurrency limits to
+/// balance performance with system resource usage and automatically adjusts
+/// batch sizes based on system performance.
 class DuplicateDetectionService with LoggerMixin {
   /// Creates a new instance of DuplicateDetectionService
   DuplicateDetectionService({final MediaHashService? hashService})
@@ -16,14 +17,60 @@ class DuplicateDetectionService with LoggerMixin {
 
   final MediaHashService _hashService;
 
+  /// Performance monitoring for adaptive optimization
+  final List<double> _recentPerformanceMetrics = [];
+  static const int _maxPerformanceHistory = 10;
+
+  /// Base concurrency multiplier based on CPU cores
+  static int get baseConcurrency => Platform.numberOfProcessors;
+
+  /// Adaptive concurrency based on recent performance
+  int get adaptiveConcurrency {
+    if (_recentPerformanceMetrics.isEmpty) {
+      return baseConcurrency * 2; // Start with conservative default
+    }
+
+    final avgPerformance =
+        _recentPerformanceMetrics.reduce((a, b) => a + b) /
+        _recentPerformanceMetrics.length;
+
+    // Scale concurrency based on performance
+    // Good performance (high files/sec) = increase concurrency
+    // Poor performance (low files/sec) = decrease concurrency
+    if (avgPerformance > 10.0) {
+      return (baseConcurrency * 3).clamp(4, 16);
+    } else if (avgPerformance > 5.0) {
+      return (baseConcurrency * 2).clamp(2, 12);
+    } else {
+      return baseConcurrency.clamp(1, 8);
+    }
+  }
+
   /// Maximum number of concurrent operations to prevent overwhelming the system
   static int get maxConcurrency => Platform.numberOfProcessors * 2;
 
+  /// Records performance metric for adaptive optimization
+  void _recordPerformance(int filesProcessed, Duration elapsed) {
+    final filesPerSecond =
+        filesProcessed / elapsed.inSeconds.clamp(1, double.infinity);
+    _recentPerformanceMetrics.add(filesPerSecond);
+
+    // Keep only recent metrics
+    if (_recentPerformanceMetrics.length > _maxPerformanceHistory) {
+      _recentPerformanceMetrics.removeAt(0);
+    }
+
+    logInfo(
+      'Performance: ${filesPerSecond.toStringAsFixed(1)} files/sec, adaptive concurrency: $adaptiveConcurrency',
+    );
+  }
+
   /// Groups media entities by file size and hash for duplicate detection with caching
   ///
-  /// Uses a two-phase approach for efficiency:
+  /// Uses a three-phase approach for maximum efficiency:
   /// 1. Group by file size (fast comparison using existing file metadata)
   /// 2. For size-matching groups, calculate and compare content hashes (with caching)
+  /// 3. Use batch processing with optimal concurrency to maximize throughput
   ///
   /// Returns a map where:
   /// - Key: Either "XXXbytes" for unique file sizes, or hash string for potential duplicates
@@ -38,12 +85,15 @@ class DuplicateDetectionService with LoggerMixin {
     final Map<String, List<MediaEntity>> output = <String, List<MediaEntity>>{};
     final stopwatch = Stopwatch()..start();
 
-    logInfo('Starting duplicate detection for ${mediaList.length} files...');
-
-    // Step 1: Calculate all sizes in parallel with concurrency limit
+    logInfo(
+      'Starting duplicate detection for ${mediaList.length} files...',
+    ); // Step 1: Calculate all sizes in parallel with optimal batching
     final sizeResults = <({MediaEntity media, int size})>[];
-    for (int i = 0; i < mediaList.length; i += maxConcurrency) {
-      final batch = mediaList.skip(i).take(maxConcurrency);
+    final batchSize = (adaptiveConcurrency * 1.5)
+        .round(); // Use adaptive concurrency
+
+    for (int i = 0; i < mediaList.length; i += batchSize) {
+      final batch = mediaList.skip(i).take(batchSize);
       final futures = batch.map((final media) async {
         try {
           final size = await _hashService.calculateFileSize(media.primaryFile);
@@ -58,6 +108,13 @@ class DuplicateDetectionService with LoggerMixin {
       sizeResults.addAll(
         batchResults.whereType<({MediaEntity media, int size})>(),
       );
+
+      // Progress reporting
+      if (mediaList.length > 1000) {
+        final processed = i + batchSize;
+        final progress = (processed / mediaList.length * 100).clamp(0, 100);
+        logInfo('Size calculation progress: ${progress.toStringAsFixed(1)}%');
+      }
     }
 
     // Group by size
@@ -82,14 +139,16 @@ class DuplicateDetectionService with LoggerMixin {
         output['${sameSize.key}bytes'] = sameSize.value;
         uniqueSizeFiles++;
       } else {
-        hashCalculationsNeeded += sameSize.value.length;
-
-        // Calculate hashes in parallel batches
+        hashCalculationsNeeded += sameSize
+            .value
+            .length; // Calculate hashes in optimized parallel batches
         final hashResults = <({MediaEntity media, String hash})>[];
-        final mediaWithSameSize = sameSize.value;
+        final mediaWithSameSize =
+            sameSize.value; // Use adaptive batch size for hash calculation
+        final hashBatchSize = adaptiveConcurrency;
 
-        for (int i = 0; i < mediaWithSameSize.length; i += maxConcurrency) {
-          final batch = mediaWithSameSize.skip(i).take(maxConcurrency);
+        for (int i = 0; i < mediaWithSameSize.length; i += hashBatchSize) {
+          final batch = mediaWithSameSize.skip(i).take(hashBatchSize);
           final futures = batch.map((final media) async {
             try {
               final hash = await _hashService.calculateFileHash(
@@ -108,6 +167,18 @@ class DuplicateDetectionService with LoggerMixin {
           hashResults.addAll(
             batchResults.whereType<({MediaEntity media, String hash})>(),
           );
+
+          // Progress reporting for large groups
+          if (mediaWithSameSize.length > 100) {
+            final processed = i + hashBatchSize;
+            final progress = (processed / mediaWithSameSize.length * 100).clamp(
+              0,
+              100,
+            );
+            logInfo(
+              'Hash calculation progress for ${sameSize.key}bytes group: ${progress.toStringAsFixed(1)}%',
+            );
+          }
         }
 
         // Group by hash
@@ -120,8 +191,10 @@ class DuplicateDetectionService with LoggerMixin {
         output.addAll(hashGroups);
       }
     }
-
     stopwatch.stop();
+
+    // Record performance metrics for adaptive optimization
+    _recordPerformance(mediaList.length, stopwatch.elapsed);
 
     // Log performance statistics
     final cacheStats = _hashService.getCacheStats();

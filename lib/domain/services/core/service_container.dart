@@ -88,10 +88,15 @@ class ServiceContainer {
 
   /// Initialize all services
   Future<void> initialize() async {
-    // Allow re-initialization by checking if already initialized
+    // Prevent concurrent initialization attempts
     if (_isInitialized) {
       return; // Already initialized, no-op
-    } // Initialize core services first
+    }
+
+    // Set flag early to prevent race conditions
+    _isInitialized = true;
+
+    // Initialize core services first
     _globalConfig = GlobalConfigService();
     _utilityService = const FormattingService();
     _diskSpaceService = ConsolidatedDiskSpaceService();

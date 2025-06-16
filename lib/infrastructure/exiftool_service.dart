@@ -8,15 +8,15 @@ class ExifToolService {
   ExifToolService(this.exiftoolPath);
 
   final String exiftoolPath;
-
   // Persistent process management
   Process? _persistentProcess;
   StreamSubscription<String>? _outputSubscription;
   StreamSubscription<String>? _errorSubscription;
   final Map<int, Completer<String>> _pendingCommands = {};
   final Map<int, String> _commandOutputs = {};
-  final int _commandIdCounter = 0;
+  int _commandIdCounter = 0;
   bool _isDisposed = false;
+  bool _isStarting = false;
 
   /// Factory method to find and create ExifTool service
   static Future<ExifToolService?> find() async {
@@ -70,8 +70,10 @@ class ExifToolService {
 
   /// Start persistent ExifTool process for better performance
   Future<void> startPersistentProcess() async {
-    if (_persistentProcess != null || _isDisposed) return;
+    // Prevent concurrent start attempts
+    if (_persistentProcess != null || _isDisposed || _isStarting) return;
 
+    _isStarting = true;
     try {
       _persistentProcess = await Process.start(exiftoolPath, [
         '-stay_open',
@@ -93,6 +95,8 @@ class ExifToolService {
     } catch (e) {
       print('Failed to start ExifTool persistent process: $e');
       _persistentProcess = null;
+    } finally {
+      _isStarting = false;
     }
   }
 

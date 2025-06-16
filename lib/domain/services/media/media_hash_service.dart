@@ -24,6 +24,9 @@ class MediaHashService {
   /// Cache for file sizes - lightweight since sizes are quick to calculate
   static final Map<String, ({int size, DateTime modified})> _sizeCache = {};
 
+  /// Mutex for thread-safe cache operations
+  static final _cacheMutex = _Mutex();
+
   static const int _largeFileThreshold = 50 * 1024 * 1024;
 
   /// Calculates the SHA256 hash of a file using streaming for large files with caching
@@ -34,15 +37,23 @@ class MediaHashService {
   Future<String> calculateFileHash(final File file) async {
     // Generate cache key from file metadata
     final fileStat = await file.stat();
-    final cacheKey = _generateCacheKey(file.path, fileStat);
+    final cacheKey = _generateCacheKey(
+      file.path,
+      fileStat,
+    ); // Check cache first (with synchronization)
+    final cached = await _cacheMutex.protect(() async {
+      if (_hashCache.containsKey(cacheKey)) {
+        final cached = _hashCache[cacheKey]!;
+        // Move to end (LRU)
+        _hashCache.remove(cacheKey);
+        _hashCache[cacheKey] = cached;
+        return cached.hash;
+      }
+      return null;
+    });
 
-    // Check cache first
-    if (_hashCache.containsKey(cacheKey)) {
-      final cached = _hashCache[cacheKey]!;
-      // Move to end (LRU)
-      _hashCache.remove(cacheKey);
-      _hashCache[cacheKey] = cached;
-      return cached.hash;
+    if (cached != null) {
+      return cached;
     }
 
     // Add retry logic for file system operations that might be delayed
@@ -72,10 +83,10 @@ class MediaHashService {
             input.close();
 
             hash = sink.digest.toString();
-          }
-
-          // Store in cache
-          _addToCache(cacheKey, hash, fileSize);
+          } // Store in cache (with synchronization)
+          await _cacheMutex.protect(() async {
+            _addToCache(cacheKey, hash, fileSize);
+          });
           return hash;
         } catch (e) {
           if (attempt == maxRetries - 1) {
@@ -174,13 +185,15 @@ class MediaHashService {
     input.close();
     final hash = sink.digest.toString();
     final cacheKey = _generateCacheKey(file.path, await file.stat());
-    _addToCache(cacheKey, hash, totalSize);
+    await _cacheMutex.protect(() async {
+      _addToCache(cacheKey, hash, totalSize);
+    });
     _sizeCache[file.path] = (size: totalSize, modified: DateTime.now());
 
     return (hash: hash, size: totalSize);
   }
 
-  /// Calculates hashes for multiple files with optimized concurrency control
+  /// Calculates hashes for multiple files with optimized concurrency control and memory management
   ///
   /// [files] List of files to process
   /// [maxConcurrency] Maximum number of concurrent operations
@@ -193,23 +206,40 @@ class MediaHashService {
     final results = <String, String>{};
     final semaphore = _Semaphore(concurrency);
 
-    final futures = files.map((final file) async {
-      await semaphore.acquire();
-      try {
-        final hash = await calculateFileHash(file);
-        return MapEntry(file.path, hash);
-      } catch (e) {
-        print('Warning: Failed to calculate hash for ${file.path}: $e');
-        return null;
-      } finally {
-        semaphore.release();
-      }
-    });
+    // Process in chunks to manage memory for large collections
+    const chunkSize = 1000;
+    for (
+      int chunkStart = 0;
+      chunkStart < files.length;
+      chunkStart += chunkSize
+    ) {
+      final chunk = files.skip(chunkStart).take(chunkSize);
 
-    final completedResults = await Future.wait(futures);
-    for (final result in completedResults) {
-      if (result != null) {
-        results[result.key] = result.value;
+      final futures = chunk.map((final file) async {
+        await semaphore.acquire();
+        try {
+          final hash = await calculateFileHash(file);
+          return MapEntry(file.path, hash);
+        } catch (e) {
+          print('Warning: Failed to calculate hash for ${file.path}: $e');
+          return null;
+        } finally {
+          semaphore.release();
+        }
+      });
+
+      final chunkResults = await Future.wait(futures);
+      for (final result in chunkResults) {
+        if (result != null) {
+          results[result.key] = result.value;
+        }
+      }
+
+      // Report progress for large operations
+      if (files.length > 1000) {
+        final processed = chunkStart + chunkSize;
+        final progress = (processed / files.length * 100).clamp(0, 100);
+        print('Hash calculation progress: ${progress.toStringAsFixed(1)}%');
       }
     }
 
@@ -356,4 +386,39 @@ class _CacheEntry {
 
   final String hash;
   final int size;
+}
+
+/// Simple mutex for synchronizing cache operations
+class _Mutex {
+  bool _locked = false;
+  final Queue<Completer<void>> _waitQueue = Queue<Completer<void>>();
+
+  Future<T> protect<T>(Future<T> Function() operation) async {
+    await _acquire();
+    try {
+      return await operation();
+    } finally {
+      _release();
+    }
+  }
+
+  Future<void> _acquire() async {
+    if (!_locked) {
+      _locked = true;
+      return;
+    }
+
+    final completer = Completer<void>();
+    _waitQueue.add(completer);
+    return completer.future;
+  }
+
+  void _release() {
+    if (_waitQueue.isNotEmpty) {
+      final next = _waitQueue.removeFirst();
+      next.complete();
+    } else {
+      _locked = false;
+    }
+  }
 }
