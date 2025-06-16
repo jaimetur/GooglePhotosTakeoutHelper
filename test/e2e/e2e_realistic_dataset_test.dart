@@ -615,5 +615,547 @@ void main() {
         reason: 'Processing should complete within reasonable time',
       );
     });
+    test(
+      'should actually move files when copyMode is false (move logic verification)',
+      () async {
+        final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+          takeoutPath,
+        );
+        final inputDir = Directory(googlePhotosPath);
+        final outputDir = Directory(outputPath);
+
+        // Get list of all files in input directory before processing
+        final inputFiles = await inputDir
+            .list(recursive: true)
+            .where(
+              (final entity) => entity is File && entity.path.endsWith('.jpg'),
+            )
+            .cast<File>()
+            .map((final file) => file.path)
+            .toSet();
+
+        print('[DEBUG] Input files before processing: ${inputFiles.length}');
+        for (final path in inputFiles.take(5)) {
+          print('[DEBUG] Input file: $path');
+        }
+
+        final config = ProcessingConfig(
+          inputPath: googlePhotosPath,
+          outputPath: outputPath,
+          albumBehavior: AlbumBehavior.shortcut,
+          dateDivision: DateDivisionLevel.none,
+          copyMode: false, // This is the key: move mode, not copy mode
+          skipExtras: false,
+          writeExif: false,
+        );
+
+        final result = await pipeline.execute(
+          config: config,
+          inputDirectory: inputDir,
+          outputDirectory: outputDir,
+        );
+
+        expect(
+          result.isSuccess,
+          isTrue,
+          reason: 'Pipeline should execute successfully',
+        );
+
+        // Verify output structure exists
+        final allPhotosDir = Directory(p.join(outputPath, 'ALL_PHOTOS'));
+        expect(
+          await allPhotosDir.exists(),
+          isTrue,
+          reason: 'ALL_PHOTOS directory should exist',
+        );
+
+        // Get list of output files
+        final outputFiles = await outputDir
+            .list(recursive: true)
+            .where(
+              (final entity) => entity is File && entity.path.endsWith('.jpg'),
+            )
+            .cast<File>()
+            .toList();
+
+        expect(
+          outputFiles.length,
+          greaterThan(0),
+          reason: 'Should have processed files in output',
+        );
+
+        print('[DEBUG] Output files after processing: ${outputFiles.length}');
+        for (final file in outputFiles.take(5)) {
+          print('[DEBUG] Output file: ${file.path}');
+        }
+
+        // CRITICAL TEST: In move mode, NO files should exist in original year/album folders
+        final remainingInputFiles = await inputDir
+            .list(recursive: true)
+            .where(
+              (final entity) => entity is File && entity.path.endsWith('.jpg'),
+            )
+            .cast<File>()
+            .toList();
+
+        print(
+          '[DEBUG] Remaining input files after processing: ${remainingInputFiles.length}',
+        );
+        for (final file in remainingInputFiles) {
+          print('[DEBUG] Remaining input file: ${file.path}');
+        }
+
+        expect(
+          remainingInputFiles.length,
+          equals(0),
+          reason:
+              'In move mode, NO files should remain in original input location. '
+              'Found ${remainingInputFiles.length} files still in input directory.',
+        );
+
+        // Verify that the number of output files matches the original input files
+        expect(
+          outputFiles.length,
+          equals(inputFiles.length),
+          reason: 'All input files should be moved to output directory',
+        );
+      },
+    );
+
+    test(
+      'should retain files in original location when copyMode is true (copy logic verification)',
+      () async {
+        final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+          takeoutPath,
+        );
+        final inputDir = Directory(googlePhotosPath);
+        final outputDir = Directory(outputPath);
+
+        // Get list of all files in input directory before processing
+        final inputFilesBefore = await inputDir
+            .list(recursive: true)
+            .where(
+              (final entity) => entity is File && entity.path.endsWith('.jpg'),
+            )
+            .cast<File>()
+            .map((final file) => file.path)
+            .toSet();
+
+        print(
+          '[DEBUG] Input files before copy processing: ${inputFilesBefore.length}',
+        );
+
+        final config = ProcessingConfig(
+          inputPath: googlePhotosPath,
+          outputPath: outputPath,
+          albumBehavior: AlbumBehavior.shortcut,
+          dateDivision: DateDivisionLevel.none,
+          copyMode:
+              true, // Copy mode - files should remain in original location
+          skipExtras: false,
+          writeExif: false,
+        );
+
+        final result = await pipeline.execute(
+          config: config,
+          inputDirectory: inputDir,
+          outputDirectory: outputDir,
+        );
+
+        expect(
+          result.isSuccess,
+          isTrue,
+          reason: 'Pipeline should execute successfully',
+        );
+
+        // Get list of files in input directory after processing
+        final inputFilesAfter = await inputDir
+            .list(recursive: true)
+            .where(
+              (final entity) => entity is File && entity.path.endsWith('.jpg'),
+            )
+            .cast<File>()
+            .map((final file) => file.path)
+            .toSet();
+
+        print(
+          '[DEBUG] Input files after copy processing: ${inputFilesAfter.length}',
+        );
+
+        // CRITICAL TEST: In copy mode, ALL original files should still exist
+        expect(
+          inputFilesAfter.length,
+          equals(inputFilesBefore.length),
+          reason:
+              'In copy mode, ALL original files should remain in input directory. '
+              'Expected ${inputFilesBefore.length}, found ${inputFilesAfter.length}',
+        );
+
+        // Verify that the original files are exactly the same
+        expect(
+          inputFilesAfter,
+          equals(inputFilesBefore),
+          reason:
+              'Original file paths should be identical before and after copy processing',
+        );
+
+        // Verify output files were also created
+        final outputFiles = await outputDir
+            .list(recursive: true)
+            .where(
+              (final entity) => entity is File && entity.path.endsWith('.jpg'),
+            )
+            .cast<File>()
+            .toList();
+
+        expect(
+          outputFiles.length,
+          equals(inputFilesBefore.length),
+          reason: 'Output should contain copies of all input files',
+        );
+
+        print('[DEBUG] Output files created: ${outputFiles.length}');
+      },
+    );
+
+    test('should verify move logic with duplicate-copy album behavior', () async {
+      final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+        takeoutPath,
+      );
+      final inputDir = Directory(googlePhotosPath);
+      final outputDir = Directory(outputPath);
+
+      // Count input files before processing
+      final inputFiles = await inputDir
+          .list(recursive: true)
+          .where(
+            (final entity) => entity is File && entity.path.endsWith('.jpg'),
+          )
+          .cast<File>()
+          .toList();
+
+      final config = ProcessingConfig(
+        inputPath: googlePhotosPath,
+        outputPath: outputPath,
+        albumBehavior:
+            AlbumBehavior.duplicateCopy, // This creates duplicates in albums
+        dateDivision: DateDivisionLevel.none,
+        copyMode: false, // Move mode - originals should be gone
+        skipExtras: false,
+        writeExif: false,
+      );
+
+      final result = await pipeline.execute(
+        config: config,
+        inputDirectory: inputDir,
+        outputDirectory: outputDir,
+      );
+
+      expect(result.isSuccess, isTrue);
+
+      // Verify no files remain in input
+      final remainingInputFiles = await inputDir
+          .list(recursive: true)
+          .where(
+            (final entity) => entity is File && entity.path.endsWith('.jpg'),
+          )
+          .cast<File>()
+          .toList();
+
+      expect(
+        remainingInputFiles.length,
+        equals(0),
+        reason:
+            'Even with duplicate-copy behavior, original files should be moved (not exist in input)',
+      );
+
+      // Verify output structure with duplicates
+      final outputFiles = await outputDir
+          .list(recursive: true)
+          .where(
+            (final entity) => entity is File && entity.path.endsWith('.jpg'),
+          )
+          .cast<File>()
+          .toList();
+
+      // With duplicate-copy, we should have more output files than input files
+      // because files are copied to both ALL_PHOTOS and album folders
+      expect(
+        outputFiles.length,
+        greaterThanOrEqualTo(inputFiles.length),
+        reason: 'Duplicate-copy should create copies in album folders',
+      );
+    });
+
+    test('should verify copy logic with duplicate-copy album behavior', () async {
+      final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+        takeoutPath,
+      );
+      final inputDir = Directory(googlePhotosPath);
+      final outputDir = Directory(outputPath);
+
+      // Count input files before processing
+      final inputFiles = await inputDir
+          .list(recursive: true)
+          .where(
+            (final entity) => entity is File && entity.path.endsWith('.jpg'),
+          )
+          .cast<File>()
+          .toList();
+
+      final originalInputCount = inputFiles.length;
+
+      final config = ProcessingConfig(
+        inputPath: googlePhotosPath,
+        outputPath: outputPath,
+        albumBehavior: AlbumBehavior.duplicateCopy,
+        dateDivision: DateDivisionLevel.none,
+        copyMode: true, // Copy mode - originals should remain
+        skipExtras: false,
+        writeExif: false,
+      );
+
+      final result = await pipeline.execute(
+        config: config,
+        inputDirectory: inputDir,
+        outputDirectory: outputDir,
+      );
+
+      expect(result.isSuccess, isTrue);
+
+      // Verify all files remain in input
+      final remainingInputFiles = await inputDir
+          .list(recursive: true)
+          .where(
+            (final entity) => entity is File && entity.path.endsWith('.jpg'),
+          )
+          .cast<File>()
+          .toList();
+
+      expect(
+        remainingInputFiles.length,
+        equals(originalInputCount),
+        reason:
+            'In copy mode, all original files should remain in input directory',
+      );
+
+      // Verify output has duplicates
+      final outputFiles = await outputDir
+          .list(recursive: true)
+          .where(
+            (final entity) => entity is File && entity.path.endsWith('.jpg'),
+          )
+          .cast<File>()
+          .toList();
+
+      expect(
+        outputFiles.length,
+        greaterThanOrEqualTo(originalInputCount),
+        reason:
+            'Output should contain copies with potential duplicates in album folders',
+      );
+    });
+
+    test('should verify move logic with year-based date division', () async {
+      final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+        takeoutPath,
+      );
+      final inputDir = Directory(googlePhotosPath);
+      final outputDir = Directory(outputPath);
+
+      final config = ProcessingConfig(
+        inputPath: googlePhotosPath,
+        outputPath: outputPath,
+        albumBehavior: AlbumBehavior.nothing, // No albums, just year folders
+        dateDivision: DateDivisionLevel.year,
+        copyMode: false, // Move mode
+        skipExtras: false,
+        writeExif: false,
+      );
+
+      final result = await pipeline.execute(
+        config: config,
+        inputDirectory: inputDir,
+        outputDirectory: outputDir,
+      );
+
+      expect(result.isSuccess, isTrue);
+
+      // Verify no files remain in original year folders within input
+      final remainingInputFiles = await inputDir
+          .list(recursive: true)
+          .where(
+            (final entity) => entity is File && entity.path.endsWith('.jpg'),
+          )
+          .cast<File>()
+          .toList();
+
+      expect(
+        remainingInputFiles.length,
+        equals(0),
+        reason:
+            'Move mode with year division should move all files from input year folders',
+      );
+
+      // Verify year-based organization in output
+      final allPhotosDir = Directory(p.join(outputPath, 'ALL_PHOTOS'));
+      final yearDirs = await allPhotosDir
+          .list()
+          .where((final entity) => entity is Directory)
+          .cast<Directory>()
+          .where(
+            (final dir) => RegExp(r'^\d{4}$').hasMatch(p.basename(dir.path)),
+          )
+          .toList();
+
+      expect(
+        yearDirs.length,
+        greaterThan(0),
+        reason: 'Should create year-based folders in ALL_PHOTOS',
+      );
+    });
+    test(
+      'should verify move vs copy behavior consistency across different album behaviors',
+      () async {
+        // Test multiple album behaviors to ensure consistent move/copy logic
+
+        final testCases = [
+          AlbumBehavior.shortcut,
+          AlbumBehavior.duplicateCopy,
+          AlbumBehavior.nothing,
+          AlbumBehavior.json,
+        ];
+
+        for (final albumBehavior in testCases) {
+          // Clean output directory for each test
+          final outputDir = Directory(outputPath);
+          if (await outputDir.exists()) {
+            await outputDir.delete(recursive: true);
+          }
+          await outputDir.create(recursive: true);
+
+          final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
+            takeoutPath,
+          );
+          final inputDir = Directory(googlePhotosPath);
+
+          // Count input files before processing
+          final inputFiles = await inputDir
+              .list(recursive: true)
+              .where(
+                (final entity) =>
+                    entity is File && entity.path.endsWith('.jpg'),
+              )
+              .cast<File>()
+              .toList();
+
+          final originalInputCount = inputFiles.length;
+
+          // Test move mode (copyMode: false)
+          final moveConfig = ProcessingConfig(
+            inputPath: googlePhotosPath,
+            outputPath: outputPath,
+            albumBehavior: albumBehavior,
+            dateDivision: DateDivisionLevel.none,
+            copyMode: false, // Move mode
+            skipExtras: false,
+            writeExif: false,
+          );
+
+          final moveResult = await pipeline.execute(
+            config: moveConfig,
+            inputDirectory: inputDir,
+            outputDirectory: outputDir,
+          );
+
+          expect(
+            moveResult.isSuccess,
+            isTrue,
+            reason: 'Move mode should succeed for ${albumBehavior.value}',
+          );
+
+          // Verify files were moved (no longer in input)
+          final remainingAfterMove = await inputDir
+              .list(recursive: true)
+              .where(
+                (final entity) =>
+                    entity is File && entity.path.endsWith('.jpg'),
+              )
+              .cast<File>()
+              .toList();
+
+          expect(
+            remainingAfterMove.length,
+            equals(0),
+            reason:
+                'Move mode with ${albumBehavior.value} should leave no files in input directory',
+          );
+
+          // Reset for copy test - regenerate the dataset
+          final newTakeoutPath = await fixture.generateRealisticTakeoutDataset(
+            yearSpan: 3,
+            albumCount: 5,
+            photosPerYear: 10,
+            albumOnlyPhotos: 3,
+            exifRatio: 0.7,
+          );
+
+          final newGooglePhotosPath =
+              PathResolverService.resolveGooglePhotosPath(newTakeoutPath);
+          final newInputDir = Directory(newGooglePhotosPath);
+
+          // Clean output directory for copy test
+          final copyOutputDir = Directory(outputPath);
+          if (await copyOutputDir.exists()) {
+            await copyOutputDir.delete(recursive: true);
+          }
+          await copyOutputDir.create(recursive: true);
+
+          // Test copy mode (copyMode: true)
+          final copyConfig = ProcessingConfig(
+            inputPath: newGooglePhotosPath,
+            outputPath: outputPath,
+            albumBehavior: albumBehavior,
+            dateDivision: DateDivisionLevel.none,
+            copyMode: true, // Copy mode
+            skipExtras: false,
+            writeExif: false,
+          );
+
+          final copyResult = await pipeline.execute(
+            config: copyConfig,
+            inputDirectory: newInputDir,
+            outputDirectory: copyOutputDir,
+          );
+
+          expect(
+            copyResult.isSuccess,
+            isTrue,
+            reason: 'Copy mode should succeed for ${albumBehavior.value}',
+          );
+
+          // Verify original files remain in input
+          final remainingAfterCopy = await newInputDir
+              .list(recursive: true)
+              .where(
+                (final entity) =>
+                    entity is File && entity.path.endsWith('.jpg'),
+              )
+              .cast<File>()
+              .toList();
+
+          expect(
+            remainingAfterCopy.length,
+            equals(originalInputCount),
+            reason:
+                'Copy mode with ${albumBehavior.value} should retain all files in input directory',
+          );
+
+          print(
+            '[TEST] Verified move/copy behavior for ${albumBehavior.value}',
+          );
+        }
+      },
+    );
   });
 }

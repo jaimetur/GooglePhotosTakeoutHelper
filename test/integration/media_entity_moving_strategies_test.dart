@@ -313,8 +313,7 @@ void main() {
           equals(MediaEntityOperationType.move),
         );
       });
-
-      test('skips album-only files', () async {
+      test('processes album-only files (fixed behavior)', () async {
         final sourceFile = fixture.createFile('test.jpg', [1, 2, 3]);
         final entity = MediaEntity.fromMap(
           files: {'Vacation': sourceFile}, // No null key = album-only
@@ -329,7 +328,15 @@ void main() {
           results.add(result);
         }
 
-        expect(results, isEmpty); // Should skip album-only files
+        expect(
+          results.length,
+          equals(1),
+        ); // Should now process album-only files
+        expect(results[0].success, isTrue);
+        expect(
+          results[0].operation.operationType,
+          equals(MediaEntityOperationType.move),
+        );
       });
     });
 

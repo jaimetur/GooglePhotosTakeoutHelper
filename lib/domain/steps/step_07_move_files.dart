@@ -45,9 +45,10 @@ import '../services/file_operations/moving/moving_context_model.dart';
 /// #### Nothing Mode
 /// - **Primary Location**: Creates only `ALL_PHOTOS` with chronological organization
 /// - **Album Information**: Completely discarded for simplest possible structure
-/// - **Advantages**: Fastest processing, simplest result, maximum compatibility
-/// - **File Operations**: Moves files to date-organized folders only
-/// - **Use Case**: Users who don't care about album information
+/// - **File Processing**: Moves ALL files to date-organized folders, regardless of source
+/// - **Advantages**: Fastest processing, simplest result, maximum compatibility, no data loss
+/// - **File Operations**: Moves all files to ALL_PHOTOS (including album-only files)
+/// - **Use Case**: Users who don't care about album information and want all photos
 ///
 /// ### Date-Based Organization
 ///

@@ -8,6 +8,10 @@ This release represents a fundamental restructuring of the codebase following **
 
 - fix extenstion flag changed to `--fix-extensions=<mode>`
 - Improved performance.
+- **CRITICAL FIX**: Nothing mode now processes ALL files, preventing data loss in move mode
+
+#### **Critical Bug Fixes**
+- **🚨 FIXED: Data loss in Nothing mode** - Album-only files are now properly moved in Nothing mode instead of being silently skipped, preventing potential data loss when using move mode with `--album-behavior=nothing`
 
 #### **Domain-Driven Design Implementation**
 - **Reorganized codebase into distinct layers**: Domain, Infrastructure, and Presentation

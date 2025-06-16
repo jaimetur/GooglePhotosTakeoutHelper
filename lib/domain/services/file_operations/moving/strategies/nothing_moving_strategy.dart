@@ -6,8 +6,9 @@ import 'media_entity_moving_strategy.dart';
 
 /// Nothing moving strategy implementation
 ///
-/// This strategy ignores albums entirely and creates only ALL_PHOTOS with files
-/// organized chronologically. This is the simplest strategy.
+/// This strategy ignores albums entirely and creates only ALL_PHOTOS with all files
+/// organized chronologically. All files are moved to ALL_PHOTOS regardless of their
+/// source location (year folders or albums) to ensure no data loss.
 class NothingMovingStrategy extends MediaEntityMovingStrategy {
   const NothingMovingStrategy(this._fileService, this._pathService);
 
@@ -22,18 +23,13 @@ class NothingMovingStrategy extends MediaEntityMovingStrategy {
 
   @override
   bool get createsDuplicates => false;
-
   @override
   Stream<MediaEntityMovingResult> processMediaEntity(
     final MediaEntity entity,
     final MovingContext context,
   ) async* {
-    // Only process files that have year folder associations (albumKey = null)
-    // Skip album-only files
-    if (!entity.files.hasYearBasedFiles) {
-      // Skip album-only files in nothing mode
-      return;
-    }
+    // Move ALL files to ALL_PHOTOS, regardless of their source location
+    // This ensures no data loss in move mode and provides transparent behavior
 
     // Move file to ALL_PHOTOS
     final primaryFile = entity.primaryFile;
