@@ -86,7 +86,6 @@ void main() {
           outputPath: outputPath,
           albumBehavior: AlbumBehavior.shortcut,
           dateDivision: DateDivisionLevel.none,
-          copyMode: true,
           writeExif: false,
         );
 
@@ -148,7 +147,6 @@ void main() {
             outputPath: outputPath,
             albumBehavior: AlbumBehavior.reverseShortcut,
             dateDivision: DateDivisionLevel.none,
-            copyMode: true,
             writeExif: false,
           );
 
@@ -241,7 +239,6 @@ void main() {
             outputPath: outputPath,
             albumBehavior: AlbumBehavior.duplicateCopy,
             dateDivision: DateDivisionLevel.none,
-            copyMode: true,
             writeExif: false,
           );
 
@@ -301,7 +298,6 @@ void main() {
           outputPath: outputPath,
           albumBehavior: AlbumBehavior.json,
           dateDivision: DateDivisionLevel.none,
-          copyMode: true,
           writeExif: false,
         );
 
@@ -348,7 +344,6 @@ void main() {
           outputPath: outputPath,
           albumBehavior: AlbumBehavior.nothing,
           dateDivision: DateDivisionLevel.year,
-          copyMode: true,
           writeExif: false,
         );
 
@@ -386,7 +381,6 @@ void main() {
           outputPath: outputPath,
           albumBehavior: AlbumBehavior.nothing,
           dateDivision: DateDivisionLevel.month,
-          copyMode: true,
           writeExif: false,
         );
 
@@ -448,7 +442,6 @@ void main() {
             outputPath: outputPath,
             albumBehavior: AlbumBehavior.nothing,
             dateDivision: DateDivisionLevel.day,
-            copyMode: true,
             writeExif: false,
           );
 
@@ -518,7 +511,6 @@ void main() {
           outputPath: outputPath,
           albumBehavior: AlbumBehavior.nothing,
           dateDivision: DateDivisionLevel.none,
-          copyMode: true,
           writeExif: false,
         );
 
@@ -563,7 +555,6 @@ void main() {
           outputPath: outputPath,
           albumBehavior: AlbumBehavior.nothing,
           dateDivision: DateDivisionLevel.none,
-          copyMode: true,
           writeExif: false,
         );
 
@@ -610,7 +601,6 @@ void main() {
           outputPath: outputPath,
           albumBehavior: AlbumBehavior.nothing,
           dateDivision: DateDivisionLevel.none,
-          copyMode: true,
           writeExif: false,
         );
 
@@ -658,7 +648,6 @@ void main() {
           outputPath: outputPath,
           albumBehavior: AlbumBehavior.nothing,
           dateDivision: DateDivisionLevel.none,
-          copyMode: true,
           writeExif: false,
         );
 
@@ -725,7 +714,6 @@ void main() {
           outputPath: outputPath,
           albumBehavior: AlbumBehavior.nothing,
           dateDivision: DateDivisionLevel.none,
-          copyMode: true,
           writeExif: false,
         );
 
@@ -805,7 +793,6 @@ void main() {
           outputPath: outputPath,
           albumBehavior: AlbumBehavior.nothing,
           dateDivision: DateDivisionLevel.none,
-          copyMode: true,
           writeExif: false,
         );
 
@@ -852,7 +839,6 @@ void main() {
             outputPath: outputPath,
             albumBehavior: AlbumBehavior.nothing,
             dateDivision: DateDivisionLevel.none,
-            copyMode: true,
             writeExif: false,
             extensionFixing: ExtensionFixingMode.standard,
           );
@@ -934,7 +920,6 @@ void main() {
           outputPath: outputPath,
           albumBehavior: AlbumBehavior.nothing,
           dateDivision: DateDivisionLevel.none,
-          copyMode: true,
           writeExif: false,
           extensionFixing: ExtensionFixingMode.standard,
         );
@@ -1004,7 +989,6 @@ void main() {
           outputPath: outputPath,
           albumBehavior: AlbumBehavior.nothing,
           dateDivision: DateDivisionLevel.none,
-          copyMode: true,
           writeExif: false,
           extensionFixing: ExtensionFixingMode.standard,
         );
@@ -1057,7 +1041,6 @@ void main() {
           outputPath: outputPath,
           albumBehavior: AlbumBehavior.shortcut,
           dateDivision: DateDivisionLevel.year,
-          copyMode: true,
           writeExif: false,
         );
 
@@ -1109,7 +1092,6 @@ void main() {
           outputPath: outputPath,
           albumBehavior: AlbumBehavior.nothing,
           dateDivision: DateDivisionLevel.none,
-          copyMode: true,
           writeExif: false,
         );
 
@@ -1136,7 +1118,6 @@ void main() {
           outputPath: outputPath,
           albumBehavior: AlbumBehavior.nothing,
           dateDivision: DateDivisionLevel.none,
-          copyMode: true,
           writeExif: false,
         );
 
@@ -1166,7 +1147,6 @@ void main() {
           outputPath: outputPath,
           albumBehavior: AlbumBehavior.shortcut,
           dateDivision: DateDivisionLevel.none,
-          copyMode: true,
           writeExif: false,
         );
 
@@ -1208,7 +1188,6 @@ void main() {
           outputPath: outputPath,
           albumBehavior: AlbumBehavior.shortcut,
           dateDivision: DateDivisionLevel.none,
-          copyMode: true,
           writeExif: false,
         );
 
@@ -1547,3 +1526,6 @@ Future<String> _createUnicodeFilenameTestData() async {
 
   return takeoutDir.path;
 }
+
+
+

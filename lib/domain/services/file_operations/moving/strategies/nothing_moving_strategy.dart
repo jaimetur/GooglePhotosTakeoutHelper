@@ -38,13 +38,11 @@ class NothingMovingStrategy extends MediaEntityMovingStrategy {
       entity.dateTaken,
       context,
     );
-
     final stopwatch = Stopwatch()..start();
     try {
-      final movedFile = await _fileService.moveOrCopyFile(
+      final movedFile = await _fileService.moveFile(
         primaryFile,
         allPhotosDir,
-        copyMode: context.copyMode,
         dateTaken: entity.dateTaken,
       );
 
@@ -53,9 +51,7 @@ class NothingMovingStrategy extends MediaEntityMovingStrategy {
         operation: MediaEntityMovingOperation(
           sourceFile: primaryFile,
           targetDirectory: allPhotosDir,
-          operationType: context.copyMode
-              ? MediaEntityOperationType.copy
-              : MediaEntityOperationType.move,
+          operationType: MediaEntityOperationType.move,
           mediaEntity: entity,
         ),
         resultFile: movedFile,
@@ -68,9 +64,7 @@ class NothingMovingStrategy extends MediaEntityMovingStrategy {
         operation: MediaEntityMovingOperation(
           sourceFile: primaryFile,
           targetDirectory: allPhotosDir,
-          operationType: context.copyMode
-              ? MediaEntityOperationType.copy
-              : MediaEntityOperationType.move,
+          operationType: MediaEntityOperationType.move,
           mediaEntity: entity,
         ),
         errorMessage: 'Failed to move file: $e',

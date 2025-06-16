@@ -52,10 +52,9 @@ class ShortcutMovingStrategy extends MediaEntityMovingStrategy {
       print(
         '[DEBUG] Moving primary file ${primaryFile.path} to ${allPhotosDir.path}',
       );
-      final movedFile = await _fileService.moveOrCopyFile(
+      final movedFile = await _fileService.moveFile(
         primaryFile,
         allPhotosDir,
-        copyMode: context.copyMode,
         dateTaken: entity.dateTaken,
       );
       print('[DEBUG] Primary file moved successfully to ${movedFile.path}');
@@ -64,9 +63,7 @@ class ShortcutMovingStrategy extends MediaEntityMovingStrategy {
         operation: MediaEntityMovingOperation(
           sourceFile: primaryFile,
           targetDirectory: allPhotosDir,
-          operationType: context.copyMode
-              ? MediaEntityOperationType.copy
-              : MediaEntityOperationType.move,
+          operationType: MediaEntityOperationType.move,
           mediaEntity: entity,
         ),
         resultFile: movedFile,
@@ -156,9 +153,7 @@ class ShortcutMovingStrategy extends MediaEntityMovingStrategy {
         operation: MediaEntityMovingOperation(
           sourceFile: primaryFile,
           targetDirectory: allPhotosDir,
-          operationType: context.copyMode
-              ? MediaEntityOperationType.copy
-              : MediaEntityOperationType.move,
+          operationType: MediaEntityOperationType.move,
           mediaEntity: entity,
         ),
         errorMessage: 'Failed to move primary file: $e',

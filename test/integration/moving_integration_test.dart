@@ -50,7 +50,6 @@ void main() {
 
         final context = MovingContext(
           outputDirectory: outputDir,
-          copyMode: false,
           dateDivision: DateDivisionLevel.year,
           albumBehavior: AlbumBehavior.shortcut,
         );
@@ -81,7 +80,6 @@ void main() {
 
       final context = MovingContext(
         outputDirectory: outputDir,
-        copyMode: false,
         dateDivision: DateDivisionLevel.year,
         albumBehavior: AlbumBehavior.shortcut,
       );
@@ -119,7 +117,6 @@ void main() {
 
       final context = MovingContext(
         outputDirectory: outputDir,
-        copyMode: false,
         dateDivision: DateDivisionLevel.year,
         albumBehavior: AlbumBehavior.json,
       );
@@ -154,7 +151,6 @@ void main() {
 
         final context = MovingContext(
           outputDirectory: outputDir,
-          copyMode: false,
           dateDivision: DateDivisionLevel.year,
           albumBehavior: behavior,
         );
@@ -177,3 +173,6 @@ void main() {
     });
   });
 }
+
+
+

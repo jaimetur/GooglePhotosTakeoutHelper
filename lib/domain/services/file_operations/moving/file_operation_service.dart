@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:isolate';
 import 'package:path/path.dart' as p;
 import '../../core/service_container.dart';
 
@@ -9,22 +8,19 @@ import '../../core/service_container.dart';
 /// This service provides efficient file operations with streaming for large files,
 /// proper concurrency control, and cross-platform optimizations.
 class FileOperationService {
-  static const int _defaultBufferSize = 64 * 1024; // 64KB buffer
-  static const int _largeFileThreshold = 100 * 1024 * 1024; // 100MB
   static const int _maxConcurrentOperations = 4;
 
   final _operationSemaphore = _Semaphore(_maxConcurrentOperations);
 
-  /// Safely moves or copies a file to the target location with basic implementation
+  /// Safely moves a file to the target location
   ///
-  /// [sourceFile] The source file to move/copy  /// [targetDirectory] The target directory
-  /// [copyMode] Whether to copy (true) or move (false)
+  /// [sourceFile] The source file to move
+  /// [targetDirectory] The target directory
   /// [dateTaken] Optional date to set as file modification time
   /// Returns the result file
-  Future<File> moveOrCopyFile(
+  Future<File> moveFile(
     final File sourceFile,
     final Directory targetDirectory, {
-    required final bool copyMode,
     final DateTime? dateTaken,
   }) async {
     // Ensure target directory exists
@@ -36,9 +32,7 @@ class FileOperationService {
         );
 
     try {
-      final resultFile = copyMode
-          ? await sourceFile.copy(targetFile.path)
-          : await sourceFile.rename(targetFile.path);
+      final resultFile = await sourceFile.rename(targetFile.path);
 
       // Set file timestamp if dateTaken is provided
       if (dateTaken != null) {
@@ -59,14 +53,13 @@ class FileOperationService {
     }
   }
 
-  /// High-performance file copy/move using optimized streaming and concurrency control
+  /// High-performance file move using optimized streaming and concurrency control
   ///
   /// Uses platform-specific optimizations and streaming for large files
   /// [dateTaken] Optional date to set as file modification time
-  Future<File> moveOrCopyFileOptimized(
+  Future<File> moveFileOptimized(
     final File sourceFile,
     final Directory targetDirectory, {
-    required final bool copyMode,
     final DateTime? dateTaken,
   }) async {
     await _operationSemaphore.acquire();
@@ -79,9 +72,7 @@ class FileOperationService {
             File(p.join(targetDirectory.path, p.basename(sourceFile.path))),
           );
 
-      final resultFile = copyMode
-          ? await _copyFileOptimized(sourceFile, targetFile)
-          : await _moveFileOptimized(sourceFile, targetFile);
+      final resultFile = await _moveFileOptimized(sourceFile, targetFile);
 
       // Set file timestamp if dateTaken is provided
       if (dateTaken != null) {
@@ -92,22 +83,6 @@ class FileOperationService {
     } finally {
       _operationSemaphore.release();
     }
-  }
-
-  /// Internal optimized file copy implementation
-  Future<File> _copyFileOptimized(
-    final File source,
-    final File destination,
-  ) async {
-    final fileSize = await source.length();
-
-    // For very large files, use isolate-based copying
-    if (fileSize > _largeFileThreshold) {
-      return _copyLargeFileInIsolate(source, destination);
-    }
-
-    // For smaller files, use streaming copy
-    return _copyFileStreaming(source, destination);
   }
 
   /// Internal optimized file move implementation
@@ -129,7 +104,7 @@ class FileOperationService {
     }
 
     // Cross-drive move requires copy + delete
-    final copied = await _copyFileOptimized(source, destination);
+    final copied = await _copyFileStreaming(source, destination);
     await source.delete();
     return copied;
   }
@@ -148,32 +123,6 @@ class FileOperationService {
     } finally {
       await destinationSink.close();
     }
-  }
-
-  /// Copy large files using isolates to avoid blocking the main thread
-  Future<File> _copyLargeFileInIsolate(
-    final File source,
-    final File destination,
-  ) async {
-    final receivePort = ReceivePort();
-    final isolate = await Isolate.spawn(
-      _isolateCopyFile,
-      _IsolateCopyData(
-        sourcePath: source.path,
-        destinationPath: destination.path,
-        sendPort: receivePort.sendPort,
-        bufferSize: _defaultBufferSize,
-      ),
-    );
-
-    final result = await receivePort.first;
-    isolate.kill();
-
-    if (result is String) {
-      throw FileOperationException('Isolate copy failed: $result');
-    }
-
-    return destination;
   }
 
   /// Check if two paths are on the same drive (for optimization)
@@ -249,9 +198,9 @@ class FileOperationService {
     await Future.wait(futures);
   }
 
-  /// Batch file operations with progress reporting
-  Future<List<FileOperationResult>> batchMoveOrCopy(
-    final List<({File source, Directory target, bool copyMode})> operations, {
+  /// Batch file move operations with progress reporting
+  Future<List<FileOperationResult>> batchMove(
+    final List<({File source, Directory target})> operations, {
     final void Function(int completed, int total)? onProgress,
   }) async {
     final results = <FileOperationResult>[];
@@ -261,11 +210,7 @@ class FileOperationService {
     final futures = operations.map((final op) async {
       await semaphore.acquire();
       try {
-        final result = await moveOrCopyFileOptimized(
-          op.source,
-          op.target,
-          copyMode: op.copyMode,
-        );
+        final result = await moveFileOptimized(op.source, op.target);
         completed++;
         onProgress?.call(completed, operations.length);
         return FileOperationResult(
@@ -288,6 +233,35 @@ class FileOperationService {
 
     results.addAll(await Future.wait(futures));
     return results;
+  }
+
+  /// Copies a file to the target location (for duplicate copy strategy)
+  ///
+  /// [sourceFile] The source file to copy
+  /// [targetDirectory] The target directory
+  /// [dateTaken] Optional date to set as file modification time
+  /// Returns the copied file
+  Future<File> copyFile(
+    final File sourceFile,
+    final Directory targetDirectory, {
+    final DateTime? dateTaken,
+  }) async {
+    // Ensure target directory exists
+    await targetDirectory.create(recursive: true);
+
+    final File targetFile = ServiceContainer.instance.utilityService
+        .findUniqueFileName(
+          File(p.join(targetDirectory.path, p.basename(sourceFile.path))),
+        );
+
+    final resultFile = await _copyFileStreaming(sourceFile, targetFile);
+
+    // Set file timestamp if dateTaken is provided
+    if (dateTaken != null) {
+      await setFileTimestamp(resultFile, dateTaken);
+    }
+
+    return resultFile;
   }
 }
 
@@ -317,39 +291,6 @@ class _Semaphore {
     } else {
       _currentCount++;
     }
-  }
-}
-
-/// Data structure for isolate-based file copying
-class _IsolateCopyData {
-  const _IsolateCopyData({
-    required this.sourcePath,
-    required this.destinationPath,
-    required this.sendPort,
-    required this.bufferSize,
-  });
-
-  final String sourcePath;
-  final String destinationPath;
-  final SendPort sendPort;
-  final int bufferSize;
-}
-
-/// Isolate entry point for large file copying
-Future<void> _isolateCopyFile(final _IsolateCopyData data) async {
-  try {
-    final source = File(data.sourcePath);
-    final destination = File(data.destinationPath);
-
-    final sourceStream = source.openRead();
-    final destinationSink = destination.openWrite();
-
-    await sourceStream.pipe(destinationSink);
-    await destinationSink.close();
-
-    data.sendPort.send(true);
-  } catch (e) {
-    data.sendPort.send(e.toString());
   }
 }
 

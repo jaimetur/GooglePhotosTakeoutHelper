@@ -50,7 +50,6 @@ void main() {
       outputDir = fixture.createDirectory('output');
       context = MovingContext(
         outputDirectory: outputDir,
-        copyMode: false,
         dateDivision: DateDivisionLevel.year,
         albumBehavior: AlbumBehavior.shortcut,
       );
@@ -389,3 +388,6 @@ void main() {
     });
   });
 }
+
+
+

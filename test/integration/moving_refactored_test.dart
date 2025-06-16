@@ -50,16 +50,11 @@ void main() {
         expect(uniqueFile.path, contains('test(1).jpg'));
         expect(uniqueFile.existsSync(), isFalse);
       });
-
-      test('moveOrCopyFile copies file when copyMode is true', () async {
+      test('copyFile copies file while preserving original', () async {
         final sourceFile = fixture.createFile('source.jpg', [1, 2, 3]);
         final targetDir = fixture.createDirectory('target');
 
-        final result = await service.moveOrCopyFile(
-          sourceFile,
-          targetDir,
-          copyMode: true,
-        );
+        final result = await service.copyFile(sourceFile, targetDir);
 
         // Original file should still exist
         expect(sourceFile.existsSync(), isTrue);
@@ -69,16 +64,11 @@ void main() {
         expect(result.parent.path, equals(targetDir.path));
         expect(result.readAsBytesSync(), equals([1, 2, 3]));
       });
-
-      test('moveOrCopyFile moves file when copyMode is false', () async {
+      test('moveFile moves file to target directory', () async {
         final sourceFile = fixture.createFile('source.jpg', [1, 2, 3]);
         final targetDir = fixture.createDirectory('target');
 
-        final result = await service.moveOrCopyFile(
-          sourceFile,
-          targetDir,
-          copyMode: false,
-        );
+        final result = await service.moveFile(sourceFile, targetDir);
 
         // Original file should no longer exist
         expect(sourceFile.existsSync(), isFalse);
@@ -135,7 +125,6 @@ void main() {
         service = PathGeneratorService();
         context = MovingContext(
           outputDirectory: fixture.createDirectory('output'),
-          copyMode: false,
           dateDivision: DateDivisionLevel.year,
           albumBehavior: AlbumBehavior.shortcut,
         );
@@ -173,7 +162,6 @@ void main() {
           // Test year division
           context = MovingContext(
             outputDirectory: context.outputDirectory,
-            copyMode: context.copyMode,
             dateDivision: DateDivisionLevel.year,
             albumBehavior: context.albumBehavior,
           );
@@ -184,7 +172,6 @@ void main() {
           // Test month division
           context = MovingContext(
             outputDirectory: context.outputDirectory,
-            copyMode: context.copyMode,
             dateDivision: DateDivisionLevel.month,
             albumBehavior: context.albumBehavior,
           );
@@ -195,7 +182,6 @@ void main() {
           // Test day division
           context = MovingContext(
             outputDirectory: context.outputDirectory,
-            copyMode: context.copyMode,
             dateDivision: DateDivisionLevel.day,
             albumBehavior: context.albumBehavior,
           );
@@ -234,7 +220,6 @@ void main() {
           outputPath: outputDir.path,
           albumBehavior: AlbumBehavior.json,
           dateDivision: DateDivisionLevel.month,
-          copyMode: true,
           verbose: true,
         );
 
@@ -243,7 +228,6 @@ void main() {
         expect(context.outputDirectory.path, equals(outputDir.path));
         expect(context.albumBehavior, equals(AlbumBehavior.json));
         expect(context.dateDivision, equals(DateDivisionLevel.month));
-        expect(context.copyMode, isTrue);
         expect(context.verbose, isTrue);
       });
     });

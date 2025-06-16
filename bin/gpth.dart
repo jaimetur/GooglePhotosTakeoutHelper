@@ -187,7 +187,6 @@ ArgParser _createArgumentParser() => ArgParser()
     help: 'Try to guess file dates from their names',
     defaultsTo: true,
   )
-  ..addFlag('copy', help: 'Copy files instead of moving them')
   ..addOption(
     'fix-extensions',
     help: 'Fix incorrect file extensions',
@@ -281,7 +280,6 @@ Future<ProcessingConfig> _buildConfigFromArgs(final ArgResults res) async {
     outputPath: paths.outputPath,
   ); // Apply all configuration options
   if (res['verbose']) configBuilder.verboseOutput = true;
-  if (res['copy']) configBuilder.copyMode = true;
   if (res['skip-extras']) configBuilder.skipExtras = true;
   if (!res['guess-from-name']) configBuilder.guessFromName = false;
   // Set album behavior

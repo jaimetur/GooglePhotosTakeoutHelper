@@ -34,7 +34,6 @@ void main() {
 
       context = MovingContext(
         outputDirectory: outputDir,
-        copyMode: false,
         dateDivision: DateDivisionLevel.year,
         albumBehavior: AlbumBehavior.nothing,
       );
@@ -94,3 +93,6 @@ void main() {
     });
   });
 }
+
+
+

@@ -180,7 +180,7 @@ GPTH offers several ways to handle your Google Photos albums:
 
 ## Important Notes
 
-- **File Movement:** By default, GPTH moves (not copies) files to save space. Use `--copy` flag if you want to preserve the original takeout structure.
+- **File Movement:** GPTH moves files from the input to output directory to save space. Files are moved, not copied, which means the input directory structure will be modified as files are relocated.
 - **Album-Only Photos:** Some photos exist only in albums (not in year folders). GPTH handles these differently depending on the mode chosen.
 - **Duplicate Handling:** If a photo appears in multiple albums, the behavior varies by mode (shortcuts link to same file, duplicate-copy creates multiple copies, etc.).
 
@@ -206,7 +206,6 @@ gpth --input "/path/to/takeout" --output "/path/to/organized" --albums "shortcut
 | Argument | Description |
 |----------|-------------|
 | `--divide-to-dates` | Folder structure: `0`=one folder, `1`=by year, `2`=year/month, `3`=year/month/day |
-| `--copy` | Copy files instead of moving (safer but uses more space) |
 | `--skip-extras` | Skip extra images like "-edited" versions |
 
 ### Metadata & Processing
@@ -287,9 +286,9 @@ You can configure extension fixing behavior with:
 gpth --input "~/Takeout" --output "~/Photos" --albums "shortcut"
 ```
 
-**Copy files with year folders:**
+**Move files with year folders:**
 ```bash
-gpth --input "~/Takeout" --output "~/Photos" --copy --divide-to-dates 1
+gpth --input "~/Takeout" --output "~/Photos" --divide-to-dates 1
 ```
 
 **Full metadata processing:**
@@ -326,7 +325,7 @@ Extracts location data and timestamps from JSON files and writes them to media f
 ### 📁 Flexible Organization
 - Multiple date-based folder structures
 - Preserve or reorganize album structure
-- Copy or move files (safety vs. efficiency)
+- Move files efficiently from input to organized output structure
 
 ## Installation
 

@@ -11,7 +11,6 @@ import '../../../models/processing_config_model.dart';
 class MovingContext {
   const MovingContext({
     required this.outputDirectory,
-    required this.copyMode,
     required this.dateDivision,
     required this.albumBehavior,
     this.verbose = false,
@@ -23,13 +22,11 @@ class MovingContext {
     final Directory outputDirectory,
   ) => MovingContext(
     outputDirectory: outputDirectory,
-    copyMode: config.copyMode,
     dateDivision: config.dateDivision,
     albumBehavior: config.albumBehavior,
     verbose: config.verbose,
   );
   final Directory outputDirectory;
-  final bool copyMode;
   final DateDivisionLevel dateDivision;
   final AlbumBehavior albumBehavior;
   final bool verbose;
@@ -62,7 +59,7 @@ class MovingOperation {
 }
 
 /// Types of moving operations
-enum MovingOperationType { move, copy, createShortcut, createReverseShortcut }
+enum MovingOperationType { move, createShortcut, createReverseShortcut }
 
 /// Result of a moving operation
 class MovingResult {

@@ -547,14 +547,12 @@ class ConsolidatedInteractiveService with LoggerMixin {
   // ============================================================================
   // CONFIGURATION BUILDING (from InteractiveConfigurationService)
   // ============================================================================
-
   /// Creates processing configuration from user choices
   ProcessingConfig createProcessingConfig({
     required final String inputPath,
     required final String outputPath,
     required final DateDivisionLevel dateDivision,
     required final AlbumBehavior albumBehavior,
-    required final bool copyMode,
     required final bool transformPixelMp,
     required final bool updateCreationTime,
     required final bool writeExif,
@@ -568,7 +566,6 @@ class ConsolidatedInteractiveService with LoggerMixin {
     outputPath: outputPath,
     dateDivision: dateDivision,
     albumBehavior: albumBehavior,
-    copyMode: copyMode,
     transformPixelMp: transformPixelMp,
     updateCreationTime: updateCreationTime,
     writeExif: writeExif,

@@ -77,8 +77,7 @@ void main() {
         inputPath: googlePhotosPath,
         outputPath: outputPath,
         albumBehavior: AlbumBehavior.shortcut,
-        dateDivision: DateDivisionLevel.none,
-        copyMode: true, // Use copy to preserve test data
+        dateDivision: DateDivisionLevel.none, // Move files from input to output
         skipExtras: false,
         writeExif: false, // Disable EXIF writing in tests
       );
@@ -136,7 +135,6 @@ void main() {
         outputPath: outputPath,
         albumBehavior: AlbumBehavior.duplicateCopy,
         dateDivision: DateDivisionLevel.none,
-        copyMode: true,
         skipExtras: false,
         writeExif: false, // Disable EXIF writing in tests
       );
@@ -187,7 +185,6 @@ void main() {
         outputPath: outputPath,
         albumBehavior: AlbumBehavior.nothing,
         dateDivision: DateDivisionLevel.year,
-        copyMode: true,
         skipExtras: false,
         writeExif: false, // Disable EXIF writing in tests
       );
@@ -249,7 +246,6 @@ void main() {
         outputPath: outputPath,
         albumBehavior: AlbumBehavior.json,
         dateDivision: DateDivisionLevel.none,
-        copyMode: true,
         skipExtras: false,
         writeExif: false, // Disable EXIF writing in tests
       );
@@ -291,7 +287,6 @@ void main() {
         outputPath: outputPath,
         albumBehavior: AlbumBehavior.nothing,
         dateDivision: DateDivisionLevel.none,
-        copyMode: true,
         skipExtras: false,
         writeExif: false, // Disable EXIF writing in tests
       );
@@ -354,7 +349,6 @@ void main() {
           outputPath: outputPath,
           albumBehavior: AlbumBehavior.shortcut,
           dateDivision: DateDivisionLevel.none,
-          copyMode: true,
           skipExtras: false,
         );
 
@@ -399,7 +393,6 @@ void main() {
         outputPath: outputPath,
         albumBehavior: AlbumBehavior.nothing,
         dateDivision: DateDivisionLevel.none,
-        copyMode: true,
         skipExtras: false,
       );
 
@@ -494,7 +487,6 @@ void main() {
         outputPath: outputPath,
         albumBehavior: AlbumBehavior.nothing,
         dateDivision: DateDivisionLevel.none,
-        copyMode: true,
         skipExtras: false,
       );
 
@@ -532,7 +524,6 @@ void main() {
         outputPath: outputPath,
         albumBehavior: AlbumBehavior.shortcut,
         dateDivision: DateDivisionLevel.none,
-        copyMode: true,
         skipExtras: false,
       );
 
@@ -578,7 +569,6 @@ void main() {
         outputPath: largeOutputPath,
         albumBehavior: AlbumBehavior.shortcut,
         dateDivision: DateDivisionLevel.year,
-        copyMode: true,
         skipExtras: false,
       );
 
@@ -614,7 +604,8 @@ void main() {
         lessThan(60000),
         reason: 'Processing should complete within reasonable time',
       );
-    });    test(
+    });
+    test(
       'should actually move files when copyMode is false (move logic verification)',
       () async {
         // NOTE: In move mode, files from year folders are moved to output,
@@ -645,8 +636,8 @@ void main() {
           inputPath: googlePhotosPath,
           outputPath: outputPath,
           albumBehavior: AlbumBehavior.shortcut,
-          dateDivision: DateDivisionLevel.none,
-          copyMode: false, // This is the key: move mode, not copy mode
+          dateDivision:
+              DateDivisionLevel.none, // Files are moved from input to output
           skipExtras: false,
           writeExif: false,
         );
@@ -689,7 +680,7 @@ void main() {
         print('[DEBUG] Output files after processing: ${outputFiles.length}');
         for (final file in outputFiles.take(5)) {
           print('[DEBUG] Output file: ${file.path}');
-        }        // CRITICAL TEST: In move mode, check remaining files behavior
+        } // CRITICAL TEST: In move mode, check remaining files behavior
         final remainingInputFiles = await inputDir
             .list(recursive: true)
             .where(
@@ -712,15 +703,13 @@ void main() {
           // Check if this file is in an album folder (not a year folder)
           final relativePath = p.relative(file.path, from: inputDir.path);
           final pathParts = relativePath.split(p.separator);
-          
+
           // Album folders don't start with "Photos from"
-          return pathParts.isNotEmpty && 
-                 !pathParts.first.startsWith('Photos from');
+          return pathParts.isNotEmpty &&
+              !pathParts.first.startsWith('Photos from');
         }).toList();
 
-        print(
-          '[DEBUG] Album-only files remaining: ${albumOnlyFiles.length}',
-        );
+        print('[DEBUG] Album-only files remaining: ${albumOnlyFiles.length}');
         for (final file in albumOnlyFiles) {
           print('[DEBUG] Album-only file: ${file.path}');
         }
@@ -734,13 +723,14 @@ void main() {
               'These files exist only in album folders and are preserved to prevent data loss. '
               'Found ${remainingInputFiles.length} total remaining files, '
               '${albumOnlyFiles.length} are album-only files.',
-        );        // Verify output file count: should be input files minus album-only files
+        ); // Verify output file count: should be input files minus album-only files
         // (album-only files remain in place to prevent data loss)
         final expectedOutputCount = inputFiles.length - albumOnlyFiles.length;
         expect(
           outputFiles.length,
           equals(expectedOutputCount),
-          reason: 'Expected ${expectedOutputCount} files in output directory '
+          reason:
+              'Expected ${expectedOutputCount} files in output directory '
               '(${inputFiles.length} input files minus ${albumOnlyFiles.length} album-only files)',
         );
       },
@@ -773,9 +763,8 @@ void main() {
           inputPath: googlePhotosPath,
           outputPath: outputPath,
           albumBehavior: AlbumBehavior.shortcut,
-          dateDivision: DateDivisionLevel.none,
-          copyMode:
-              true, // Copy mode - files should remain in original location
+          dateDivision:
+              DateDivisionLevel.none, // Files are moved to output directory
           skipExtras: false,
           writeExif: false,
         );
@@ -806,12 +795,12 @@ void main() {
           '[DEBUG] Input files after copy processing: ${inputFilesAfter.length}',
         );
 
-        // CRITICAL TEST: In copy mode, ALL original files should still exist
+        // CRITICAL TEST: Files are moved to output directory (input directory preserved)
         expect(
           inputFilesAfter.length,
           equals(inputFilesBefore.length),
           reason:
-              'In copy mode, ALL original files should remain in input directory. '
+              'Files are moved to output directory while preserving input structure. '
               'Expected ${inputFilesBefore.length}, found ${inputFilesAfter.length}',
         );
 
@@ -863,8 +852,8 @@ void main() {
         outputPath: outputPath,
         albumBehavior:
             AlbumBehavior.duplicateCopy, // This creates duplicates in albums
-        dateDivision: DateDivisionLevel.none,
-        copyMode: false, // Move mode - originals should be gone
+        dateDivision:
+            DateDivisionLevel.none, // Move mode - originals should be gone
         skipExtras: false,
         writeExif: false,
       );
@@ -933,8 +922,8 @@ void main() {
         inputPath: googlePhotosPath,
         outputPath: outputPath,
         albumBehavior: AlbumBehavior.duplicateCopy,
-        dateDivision: DateDivisionLevel.none,
-        copyMode: true, // Copy mode - originals should remain
+        dateDivision:
+            DateDivisionLevel.none, // Copy mode - originals should remain
         skipExtras: false,
         writeExif: false,
       );
@@ -991,8 +980,7 @@ void main() {
         inputPath: googlePhotosPath,
         outputPath: outputPath,
         albumBehavior: AlbumBehavior.nothing, // No albums, just year folders
-        dateDivision: DateDivisionLevel.year,
-        copyMode: false, // Move mode
+        dateDivision: DateDivisionLevel.year, // Move mode
         skipExtras: false,
         writeExif: false,
       );
@@ -1080,8 +1068,7 @@ void main() {
             inputPath: googlePhotosPath,
             outputPath: outputPath,
             albumBehavior: albumBehavior,
-            dateDivision: DateDivisionLevel.none,
-            copyMode: false, // Move mode
+            dateDivision: DateDivisionLevel.none, // Move mode
             skipExtras: false,
             writeExif: false,
           );
@@ -1140,8 +1127,7 @@ void main() {
             inputPath: newGooglePhotosPath,
             outputPath: outputPath,
             albumBehavior: albumBehavior,
-            dateDivision: DateDivisionLevel.none,
-            copyMode: true, // Copy mode
+            dateDivision: DateDivisionLevel.none, // Copy mode
             skipExtras: false,
             writeExif: false,
           );

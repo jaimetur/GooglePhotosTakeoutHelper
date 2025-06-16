@@ -37,13 +37,11 @@ class DuplicateCopyMovingStrategy extends MediaEntityMovingStrategy {
       entity.dateTaken,
       context,
     );
-
     final stopwatch = Stopwatch()..start();
     try {
-      final movedFile = await _fileService.moveOrCopyFile(
+      final movedFile = await _fileService.moveFile(
         primaryFile,
         allPhotosDir,
-        copyMode: context.copyMode,
         dateTaken: entity.dateTaken,
       );
 
@@ -52,9 +50,7 @@ class DuplicateCopyMovingStrategy extends MediaEntityMovingStrategy {
         operation: MediaEntityMovingOperation(
           sourceFile: primaryFile,
           targetDirectory: allPhotosDir,
-          operationType: context.copyMode
-              ? MediaEntityOperationType.copy
-              : MediaEntityOperationType.move,
+          operationType: MediaEntityOperationType.move,
           mediaEntity: entity,
         ),
         resultFile: movedFile,
@@ -73,10 +69,9 @@ class DuplicateCopyMovingStrategy extends MediaEntityMovingStrategy {
 
         final copyStopwatch = Stopwatch()..start();
         try {
-          final copiedFile = await _fileService.moveOrCopyFile(
+          final copiedFile = await _fileService.copyFile(
             movedFile,
             albumDir,
-            copyMode: true, // Always copy for album folders
             dateTaken: entity.dateTaken,
           );
 
@@ -117,9 +112,7 @@ class DuplicateCopyMovingStrategy extends MediaEntityMovingStrategy {
         operation: MediaEntityMovingOperation(
           sourceFile: primaryFile,
           targetDirectory: allPhotosDir,
-          operationType: context.copyMode
-              ? MediaEntityOperationType.copy
-              : MediaEntityOperationType.move,
+          operationType: MediaEntityOperationType.move,
           mediaEntity: entity,
         ),
         errorMessage: 'Failed to move primary file: $e',

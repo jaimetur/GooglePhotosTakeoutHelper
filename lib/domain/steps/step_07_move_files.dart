@@ -163,7 +163,6 @@ class MoveFilesStep extends ProcessingStep {
       ); // Create modern moving context
       final movingContext = MovingContext(
         outputDirectory: context.outputDirectory,
-        copyMode: context.config.copyMode,
         dateDivision: context.config.dateDivision,
         albumBehavior: context.config.albumBehavior,
       ); // Create the moving service
@@ -199,7 +198,6 @@ class MoveFilesStep extends ProcessingStep {
         duration: stopwatch.elapsed,
         data: {
           'processedCount': processedCount,
-          'copyMode': context.config.copyMode,
           'albumBehavior': context.config.albumBehavior.value,
         },
         message: 'Moved $processedCount files to output directory',

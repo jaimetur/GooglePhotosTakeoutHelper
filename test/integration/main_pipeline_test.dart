@@ -32,13 +32,11 @@ void main() {
     test('should create ProcessingPipeline instance', () {
       expect(pipeline, isA<ProcessingPipeline>());
     });
-
     test('should execute pipeline with minimal config', () async {
       // Create minimal config for fast test
       final config = ProcessingConfig(
         inputPath: tempInputDir.path,
         outputPath: tempOutputDir.path,
-        copyMode: true, // Use copy mode for safer testing
         writeExif: false,
         skipExtras: true,
         guessFromName: false,
@@ -69,7 +67,6 @@ void main() {
       final config = ProcessingConfig(
         inputPath: tempInputDir.path,
         outputPath: tempOutputDir.path,
-        copyMode: true,
         writeExif: false,
         skipExtras: true,
         guessFromName: false,
@@ -85,12 +82,10 @@ void main() {
       expect(result.isSuccess, isTrue);
       expect(result.totalProcessingTime, isNotNull);
     });
-
     test('should handle empty input directory gracefully', () async {
       final config = ProcessingConfig(
         inputPath: tempInputDir.path,
         outputPath: tempOutputDir.path,
-        copyMode: true,
         writeExif: false,
         skipExtras: true,
         guessFromName: false,
@@ -119,12 +114,10 @@ void main() {
         limitFileSize: true,
         verbose: true,
       );
-
       expect(config.inputPath, equals(tempInputDir.path));
       expect(config.outputPath, equals(tempOutputDir.path));
       expect(config.albumBehavior, equals(AlbumBehavior.duplicateCopy));
       expect(config.dateDivision, equals(DateDivisionLevel.month));
-      expect(config.copyMode, isFalse);
       expect(config.writeExif, isTrue);
       expect(config.skipExtras, isFalse);
       expect(config.guessFromName, isTrue);
@@ -135,11 +128,9 @@ void main() {
     });
     test('should handle non-existent input directory', () async {
       final nonExistentDir = Directory('${tempInputDir.path}/non_existent');
-
       final config = ProcessingConfig(
         inputPath: nonExistentDir.path,
         outputPath: tempOutputDir.path,
-        copyMode: true,
         writeExif: false,
         skipExtras: true,
         guessFromName: false,
@@ -160,7 +151,6 @@ void main() {
       final config = ProcessingConfig(
         inputPath: tempInputDir.path,
         outputPath: tempOutputDir.path,
-        copyMode: true,
         writeExif: false,
         skipExtras: true,
         guessFromName: false,
@@ -183,12 +173,10 @@ void main() {
         expect(timing.inMilliseconds, greaterThanOrEqualTo(0));
       }
     });
-
     test('should handle solo extension fixing mode', () async {
       final config = ProcessingConfig(
         inputPath: tempInputDir.path,
         outputPath: tempOutputDir.path,
-        copyMode: true,
         writeExif: false,
         skipExtras: true,
         guessFromName: false,

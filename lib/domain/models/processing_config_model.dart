@@ -38,7 +38,6 @@ class ProcessingConfig {
     required this.outputPath,
     this.albumBehavior = AlbumBehavior.shortcut,
     this.dateDivision = DateDivisionLevel.none,
-    this.copyMode = false,
     this.writeExif = true,
     this.skipExtras = false,
     this.guessFromName = true,
@@ -59,7 +58,6 @@ class ProcessingConfig {
   final String outputPath;
   final AlbumBehavior albumBehavior;
   final DateDivisionLevel dateDivision;
-  final bool copyMode;
   final bool writeExif;
   final bool skipExtras;
   final bool guessFromName;
@@ -103,7 +101,6 @@ class ProcessingConfig {
     final String? outputPath,
     final AlbumBehavior? albumBehavior,
     final DateDivisionLevel? dateDivision,
-    final bool? copyMode,
     final bool? writeExif,
     final bool? skipExtras,
     final bool? guessFromName,
@@ -118,7 +115,6 @@ class ProcessingConfig {
     outputPath: outputPath ?? this.outputPath,
     albumBehavior: albumBehavior ?? this.albumBehavior,
     dateDivision: dateDivision ?? this.dateDivision,
-    copyMode: copyMode ?? this.copyMode,
     writeExif: writeExif ?? this.writeExif,
     skipExtras: skipExtras ?? this.skipExtras,
     guessFromName: guessFromName ?? this.guessFromName,
@@ -147,12 +143,10 @@ class ProcessingConfig {
 /// ```
 class ProcessingConfigBuilder {
   ProcessingConfigBuilder._(this._inputPath, this._outputPath);
-
   final String _inputPath;
   final String _outputPath;
   AlbumBehavior _albumBehavior = AlbumBehavior.shortcut;
   DateDivisionLevel _dateDivision = DateDivisionLevel.none;
-  bool _copyMode = false;
   bool _writeExif = true;
   bool _skipExtras = false;
   bool _guessFromName = true;
@@ -171,11 +165,6 @@ class ProcessingConfigBuilder {
   /// Set date division level (none, year, month, day)
   set dateDivision(final DateDivisionLevel level) {
     _dateDivision = level;
-  }
-
-  /// Enable copy mode instead of move mode
-  set copyMode(final bool enable) {
-    _copyMode = enable;
   }
 
   /// Configure EXIF writing
@@ -247,7 +236,6 @@ class ProcessingConfigBuilder {
       outputPath: _outputPath,
       albumBehavior: _albumBehavior,
       dateDivision: _dateDivision,
-      copyMode: _copyMode,
       writeExif: _writeExif,
       skipExtras: _skipExtras,
       guessFromName: _guessFromName,

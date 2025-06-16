@@ -46,13 +46,11 @@ class ReverseShortcutMovingStrategy extends MediaEntityMovingStrategy {
         entity.dateTaken,
         context,
       );
-
       final stopwatch = Stopwatch()..start();
       try {
-        final movedFile = await _fileService.moveOrCopyFile(
+        final movedFile = await _fileService.moveFile(
           primaryFile,
           primaryAlbumDir,
-          copyMode: context.copyMode,
           dateTaken: entity.dateTaken,
         );
 
@@ -61,9 +59,7 @@ class ReverseShortcutMovingStrategy extends MediaEntityMovingStrategy {
           operation: MediaEntityMovingOperation(
             sourceFile: primaryFile,
             targetDirectory: primaryAlbumDir,
-            operationType: context.copyMode
-                ? MediaEntityOperationType.copy
-                : MediaEntityOperationType.move,
+            operationType: MediaEntityOperationType.move,
             mediaEntity: entity,
             albumKey: primaryAlbum,
           ),
@@ -169,9 +165,7 @@ class ReverseShortcutMovingStrategy extends MediaEntityMovingStrategy {
           operation: MediaEntityMovingOperation(
             sourceFile: primaryFile,
             targetDirectory: primaryAlbumDir,
-            operationType: context.copyMode
-                ? MediaEntityOperationType.copy
-                : MediaEntityOperationType.move,
+            operationType: MediaEntityOperationType.move,
             mediaEntity: entity,
             albumKey: primaryAlbum,
           ),
@@ -191,10 +185,9 @@ class ReverseShortcutMovingStrategy extends MediaEntityMovingStrategy {
 
       final stopwatch = Stopwatch()..start();
       try {
-        final movedFile = await _fileService.moveOrCopyFile(
+        final movedFile = await _fileService.moveFile(
           primaryFile,
           allPhotosDir,
-          copyMode: context.copyMode,
           dateTaken: entity.dateTaken,
         );
 
@@ -203,9 +196,7 @@ class ReverseShortcutMovingStrategy extends MediaEntityMovingStrategy {
           operation: MediaEntityMovingOperation(
             sourceFile: primaryFile,
             targetDirectory: allPhotosDir,
-            operationType: context.copyMode
-                ? MediaEntityOperationType.copy
-                : MediaEntityOperationType.move,
+            operationType: MediaEntityOperationType.move,
             mediaEntity: entity,
           ),
           resultFile: movedFile,
@@ -219,9 +210,7 @@ class ReverseShortcutMovingStrategy extends MediaEntityMovingStrategy {
           operation: MediaEntityMovingOperation(
             sourceFile: primaryFile,
             targetDirectory: allPhotosDir,
-            operationType: context.copyMode
-                ? MediaEntityOperationType.copy
-                : MediaEntityOperationType.move,
+            operationType: MediaEntityOperationType.move,
             mediaEntity: entity,
           ),
           errorMessage: 'Failed to move to ALL_PHOTOS: $e',

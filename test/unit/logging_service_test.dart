@@ -262,3 +262,6 @@ class TestClassWithLogging with LoggerMixin {
     logError('Something went wrong');
   }
 }
+
+
+

@@ -1,3 +1,40 @@
+## 4.1.0 - Copy Mode Removal for Enhanced Data Safety
+
+### 🛡️ **BREAKING CHANGE: Copy Mode Completely Removed**
+
+This release removes the `--copy` flag and all copy mode functionality to ensure **complete input directory safety** and eliminate data integrity issues.
+
+#### **Why This Change Was Made**
+- **Input Directory Protection**: Copy mode was modifying files in the input directory during extension fixing and filename sanitization, violating the principle of data safety
+- **Simplified Architecture**: Removes complex conditional logic that led to inconsistent behavior
+- **Clearer User Intent**: All operations now clearly move files from input to output, with no ambiguity
+- **Enhanced Reliability**: Eliminates edge cases where input files could be modified unexpectedly
+
+#### **Breaking Changes**
+- **❌ Removed**: `--copy` command line flag
+- **❌ Removed**: `copyMode` from all configuration APIs
+- **❌ Removed**: Copy-related conditional logic throughout codebase
+- **✅ New Behavior**: All files are **always moved** from input to output directory
+
+#### **Migration Guide**
+- **Before**: `gpth --input source --output dest --copy`
+- **After**: `gpth --input source --output dest` (copy flag no longer needed or supported)
+- **Result**: Files will be moved (not copied) from source to destination
+- **Behavior**: Files are relocated from input to output directory with metadata processing applied
+
+#### **Technical Implementation**
+- **FileOperationService**: Simplified to move-only operations with cross-device copy+delete fallback
+- **Moving Strategies**: All strategies now use consistent move semantics
+- **Album Strategies**: Duplicate copy strategy still creates copies in album folders when needed
+- **Configuration System**: Streamlined without copy mode complexity
+
+#### **Benefits**
+- **⚡ Better Performance**: Simplified logic reduces overhead
+- **🧹 Cleaner Codebase**: Removed 400+ lines of conditional copy logic
+- **🎯 Clearer Semantics**: Move operations are explicit and predictable
+
+---
+
 ## 4.0.9-Xentraxx - Major Architecture Refactor
 
 ### 🏗️ **Complete Architecture Overhaul**
