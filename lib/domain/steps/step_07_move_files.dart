@@ -64,21 +64,11 @@ import '../services/file_operations/moving/moving_context_model.dart';
 /// - **Unknown Dates**: Files without date information go to special folders
 /// - **Date Conflicts**: Uses date accuracy to resolve conflicts between sources
 ///
-/// ## File Operation Modes
+/// ## Move Operations
 ///
-/// ### Copy Mode
-/// - **Operation**: Creates copies of files in output location
-/// - **Source Preservation**: Original takeout structure remains intact
-/// - **Disk Usage**: Requires double the space during processing
-/// - **Safety**: Safest option as original files are preserved
-/// - **Use Case**: When original takeout should be kept as backup
-///
-/// ### Move Mode (Default)
-/// - **Operation**: Moves files from source to destination
-/// - **Source Modification**: Original takeout structure is modified
-/// - **Disk Usage**: No additional space required beyond final organization
-/// - **Performance**: Faster than copy mode for large collections
-/// - **Use Case**: When original takeout can be safely modified
+/// All files are moved from the source takeout directory to the organized output
+/// structure. This ensures input directory safety while applying the chosen
+/// organization strategy.
 ///
 /// ## Advanced Features
 ///

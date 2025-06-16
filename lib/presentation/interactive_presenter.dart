@@ -733,9 +733,6 @@ class InteractivePresenter with LoggerMixin {
         if (data['processedCount'] != null) {
           print('   Files processed: ${data['processedCount']}');
         }
-        if (data['copyMode'] != null) {
-          print('   Operation mode: ${data['copyMode'] ? 'Copy' : 'Move'}');
-        }
         if (data['albumBehavior'] != null) {
           print('   Album behavior: ${data['albumBehavior']}');
         }

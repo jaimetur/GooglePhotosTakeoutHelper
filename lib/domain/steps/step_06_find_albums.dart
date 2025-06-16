@@ -76,8 +76,8 @@ import '../models/pipeline_step_model.dart';
 ///
 /// ### Duplicate-Copy Mode Preparation
 /// - **Multi-Location Tracking**: Maintains all file location information
-/// - **Copy Source Identification**: Identifies which files to copy where
-/// - **Album Structure Mapping**: Maps album organization for replication
+/// - **Copy Source Identification**: Identifies which files need album copies
+/// - **Album Structure Mapping**: Maps album organization for file duplication
 ///
 /// ### JSON Mode Preparation
 /// - **Album Membership Tracking**: Records which albums contain each file

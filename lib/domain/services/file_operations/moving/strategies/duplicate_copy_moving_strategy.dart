@@ -125,6 +125,6 @@ class DuplicateCopyMovingStrategy extends MediaEntityMovingStrategy {
 
   @override
   void validateContext(final MovingContext context) {
-    // No special validation needed for duplicate-copy mode
+    // No special validation needed for duplicate-copy strategy
   }
 }

@@ -119,7 +119,6 @@ class InteractiveConfigurationService {
   DiskSpaceRequirement calculateDiskSpaceRequirement({
     required final List<File> zipFiles,
     required final AlbumBehavior albumBehavior,
-    required final bool copyMode,
   }) {
     int totalZipSize = 0;
     for (final zip in zipFiles) {
@@ -127,16 +126,15 @@ class InteractiveConfigurationService {
     }
 
     // Estimate extraction space (typically 1.2x compressed size)
-    final extractionSpace = (totalZipSize * 1.2).round();
-
-    // Estimate output space based on album behavior
+    final extractionSpace = (totalZipSize * 1.2)
+        .round(); // Estimate output space based on album behavior
     double outputMultiplier;
     switch (albumBehavior) {
       case AlbumBehavior.shortcut:
       case AlbumBehavior.reverseShortcut:
       case AlbumBehavior.json:
       case AlbumBehavior.nothing:
-        outputMultiplier = copyMode ? 1.0 : 0.0; // No extra space for move mode
+        outputMultiplier = 0.0; // Move mode - no extra space needed
         break;
       case AlbumBehavior.duplicateCopy:
         outputMultiplier = 2.0; // Albums duplicate files
