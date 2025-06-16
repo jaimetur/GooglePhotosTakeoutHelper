@@ -4,6 +4,11 @@
 
 This release represents a fundamental restructuring of the codebase following **Clean Architecture** principles, providing better maintainability, testability, and performance.
 
+#### **Tl;dr**
+
+- fix extenstion flag changed to `--fix-extensions=<mode>`
+- Improved performance.
+
 #### **Domain-Driven Design Implementation**
 - **Reorganized codebase into distinct layers**: Domain, Infrastructure, and Presentation
 - **Introduced service-oriented architecture** with dependency injection container
