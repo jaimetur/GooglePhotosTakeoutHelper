@@ -254,8 +254,8 @@ class DiscoverMediaStep extends ProcessingStep {
 
   /// Get media files from a directory, respecting extension fixing configuration
   Stream<File> _getMediaFiles(
-    Directory directory,
-    ProcessingContext context,
+    final Directory directory,
+    final ProcessingContext context,
   ) async* {
     if (context.config.extensionFixing == ExtensionFixingMode.none) {
       // When extension fixing is disabled, be more lenient about file detection

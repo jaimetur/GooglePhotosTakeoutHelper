@@ -548,16 +548,115 @@ void main() {
             .where((final file) => file.path.endsWith('.jpg'))
             .cast<File>()
             .toList();
-
         expect(
           outputFiles.length,
           greaterThan(0),
           reason: 'Should have JPEG files with EXIF data',
         );
 
-        // TODO: Add actual EXIF reading validation here
-        // This would require ExifTool integration or EXIF reading library
-        // to verify that EXIF data was correctly written
+        // Validate EXIF data was correctly written
+        final serviceContainer = ServiceContainer.instance;
+        expect(
+          serviceContainer.exifTool,
+          isNotNull,
+          reason: 'ExifTool should be available for EXIF validation',
+        );
+
+        for (final outputFile in outputFiles) {
+          final exifData = await serviceContainer.exifTool!.readExifData(
+            outputFile,
+          );
+
+          // Verify basic EXIF structure exists
+          expect(
+            exifData,
+            isNotEmpty,
+            reason: 'Output file ${outputFile.path} should have EXIF data',
+          );
+
+          // Check for essential EXIF fields that should be preserved/written
+          if (outputFile.path.contains('with_exif')) {
+            // Files with original EXIF should preserve camera information
+            expect(
+              exifData.containsKey('Make') ||
+                  exifData.containsKey('Model') ||
+                  exifData.containsKey('DateTimeOriginal') ||
+                  exifData.containsKey('ExifImageWidth') ||
+                  exifData.containsKey('ExifImageHeight'),
+              isTrue,
+              reason: 'File with original EXIF should preserve camera metadata',
+            );
+          }
+
+          // Check GPS data was written from JSON metadata
+          if (exifData.containsKey('GPSLatitude') &&
+              exifData.containsKey('GPSLongitude')) {
+            final latitude = exifData['GPSLatitude'];
+            final longitude = exifData['GPSLongitude'];
+
+            // Validate GPS coordinates are reasonable values
+            expect(
+              latitude,
+              isA<num>(),
+              reason: 'GPS Latitude should be numeric',
+            );
+            expect(
+              longitude,
+              isA<num>(),
+              reason: 'GPS Longitude should be numeric',
+            );
+
+            // Check if coordinates match expected values from JSON
+            if (outputFile.path.contains('with_exif')) {
+              // Expected: latitude: 37.7749, longitude: -122.4194
+              expect((latitude as num).abs(), closeTo(37.7749, 0.1));
+              expect((longitude as num).abs(), closeTo(122.4194, 0.1));
+            } else if (outputFile.path.contains('without_exif')) {
+              // Expected: latitude: 40.7128, longitude: -74.0060
+              expect((latitude as num).abs(), closeTo(40.7128, 0.1));
+              expect((longitude as num).abs(), closeTo(74.0060, 0.1));
+            }
+          } // Verify DateTime was written from JSON timestamp (1672531200 = 2023-01-01 00:00:00 UTC)
+          if (exifData.containsKey('DateTimeOriginal') ||
+              exifData.containsKey('DateTime')) {
+            final dateTime =
+                exifData['DateTimeOriginal'] ?? exifData['DateTime'];
+            expect(
+              dateTime,
+              isNotNull,
+              reason: 'DateTime should be set from JSON metadata',
+            );
+
+            // Check if it's in proper EXIF DateTime format and contains expected date
+            if (dateTime is String) {
+              expect(
+                dateTime.trim().isNotEmpty,
+                isTrue,
+                reason:
+                    'DateTime should not be empty when set from JSON metadata',
+              );
+
+              // Verify it follows EXIF DateTime format (YYYY:MM:DD HH:MM:SS)
+              final exifDatePattern = RegExp(
+                r'^\d{4}:\d{2}:\d{2} \d{2}:\d{2}:\d{2}$',
+              );
+              expect(
+                exifDatePattern.hasMatch(dateTime.trim()),
+                isTrue,
+                reason:
+                    'DateTime should be in EXIF format (YYYY:MM:DD HH:MM:SS), got: "$dateTime"',
+              ); // For files processed with JSON metadata, verify reasonable date range
+              // (Could be either original date from test image or date from JSON)
+              final year = int.tryParse(dateTime.substring(0, 4));
+              expect(
+                year != null && year >= 2020 && year <= 2025,
+                isTrue,
+                reason:
+                    'DateTime year should be reasonable (2020-2025), got: "$dateTime"',
+              );
+            }
+          }
+        }
       });
       test('File content integrity validation', () async {
         final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
