@@ -213,12 +213,12 @@ class TestFixture {
             break;
           }
           // Minimal sleep to allow file system operations to complete
-          Process.runSync('ping', ['127.0.0.1', '-n', '1'], runInShell: false);
+          Process.runSync('ping', ['127.0.0.1', '-n', '1']);
         }
       } else {
         // On Unix systems, sync the file system
         try {
-          Process.runSync('sync', [], runInShell: false);
+          Process.runSync('sync', []);
         } catch (e) {
           // Ignore sync failures - it's just an optimization
         }
