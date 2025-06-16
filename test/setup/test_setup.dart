@@ -61,11 +61,27 @@ class TestFixture {
   /// Clean up all created files and directories
   Future<void> tearDown() async {
     // Wait longer to ensure all file operations have completed
-    await Future.delayed(const Duration(milliseconds: 50));
+    await Future.delayed(const Duration(milliseconds: 100));
 
     // Force garbage collection to help release file handles
     if (Platform.isWindows) {
       // On Windows, give extra time for file handles to be released
+      // and for any external processes (like ExifTool) to finish
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      // Try to close any lingering file handles by forcing a GC
+      try {
+        // Trigger garbage collection
+        final List<List<int>> temp = [];
+        for (int i = 0; i < 100; i++) {
+          temp.add(List<int>.filled(1000, i));
+        }
+        temp.clear();
+      } catch (e) {
+        // Ignore GC errors
+      }
+
+      // Additional wait for Windows file system to release handles
       await Future.delayed(const Duration(milliseconds: 50));
     }
 
@@ -173,6 +189,51 @@ class TestFixture {
     }
   }
 
+  /// Ensures a file is fully available and accessible to external processes
+  ///
+  /// This helps prevent race conditions where files are created but not yet
+  /// visible to other processes or tools like ExifTool
+  void _ensureFileAvailable(final File file) {
+    // Force file system sync and validate file accessibility
+    try {
+      // Multiple approaches to ensure file is committed to disk
+      file.statSync(); // Force file system stat call
+
+      if (Platform.isWindows) {
+        // On Windows, verify the file is readable by opening and closing it
+        // This forces Windows to flush file buffers and make it available
+        final handle = file.openSync();
+        handle.closeSync();
+
+        // Small delay to allow file system to fully commit the file
+        // This is especially important on Windows with antivirus scanners
+        final stopwatch = Stopwatch()..start();
+        while (stopwatch.elapsedMilliseconds < 100) {
+          if (file.existsSync() && file.lengthSync() > 0) {
+            break;
+          }
+          // Minimal sleep to allow file system operations to complete
+          Process.runSync('ping', ['127.0.0.1', '-n', '1'], runInShell: false);
+        }
+      } else {
+        // On Unix systems, sync the file system
+        try {
+          Process.runSync('sync', [], runInShell: false);
+        } catch (e) {
+          // Ignore sync failures - it's just an optimization
+        }
+      }
+
+      // Final validation - ensure file exists and has content
+      if (!file.existsSync()) {
+        throw StateError('File ${file.path} was created but is not accessible');
+      }
+    } catch (e) {
+      print('Warning: File availability check failed for ${file.path}: $e');
+      // Continue anyway - the file might still work
+    }
+  }
+
   /// Create a test image file with EXIF data
   File createImageWithExif(final String name) {
     final file = File(p.join(basePath, name));
@@ -185,11 +246,7 @@ class TestFixture {
     _createdEntities.add(file);
 
     // Ensure file is fully committed to disk before returning
-    if (Platform.isWindows) {
-      // On Windows, add a small delay to ensure file handle is released
-      // and file is visible to other processes
-      file.statSync(); // Force file system sync
-    }
+    _ensureFileAvailable(file);
 
     return file;
   }
@@ -204,6 +261,7 @@ class TestFixture {
       flush: true,
     );
     _createdEntities.add(file);
+    _ensureFileAvailable(file);
     return file;
   }
 
@@ -216,11 +274,7 @@ class TestFixture {
     _createdEntities.add(file);
 
     // Ensure file is fully committed to disk before returning
-    if (Platform.isWindows) {
-      // On Windows, add a small delay to ensure file handle is released
-      // and file is visible to other processes
-      file.statSync(); // Force file system sync
-    }
+    _ensureFileAvailable(file);
 
     return file;
   }
@@ -273,6 +327,7 @@ class TestFixture {
       flush: true,
     );
     _createdEntities.add(file);
+    _ensureFileAvailable(file);
     return file;
   }
 
@@ -297,6 +352,7 @@ class TestFixture {
       flush: true,
     );
     _createdEntities.add(file);
+    _ensureFileAvailable(file);
     return file;
   }
 
@@ -318,6 +374,7 @@ class TestFixture {
       flush: true,
     );
     _createdEntities.add(file);
+    _ensureFileAvailable(file);
     return file;
   }
 
@@ -339,11 +396,7 @@ class TestFixture {
     _createdEntities.add(file);
 
     // Ensure file is fully committed to disk before returning
-    if (Platform.isWindows) {
-      // On Windows, add a small delay to ensure file handle is released
-      // and file is visible to other processes
-      file.statSync(); // Force file system sync
-    }
+    _ensureFileAvailable(file);
 
     return file;
   }
@@ -394,6 +447,7 @@ class TestFixture {
     // Write the buffer to the file
     file.writeAsBytesSync(buffer, flush: true);
     _createdEntities.add(file);
+    _ensureFileAvailable(file);
     return file;
   }
 }
@@ -532,6 +586,17 @@ Future<void> generateRealisticDataset({
         photoFile.writeAsBytesSync(uniqueBytes, flush: true);
       }
       createdEntities.add(photoFile);
+
+      // Ensure photo file is available before creating JSON
+      photoFile.statSync(); // Force file system sync
+      if (Platform.isWindows) {
+        // Small delay to ensure file is visible to other processes
+        final stopwatch = Stopwatch()..start();
+        while (stopwatch.elapsedMilliseconds < 50 && !photoFile.existsSync()) {
+          // Wait for file to become available
+        }
+      }
+
       createdPhotos.add(filename); // Create JSON metadata file
       final jsonFile = File('$photoPath.json');
       jsonFile.writeAsStringSync(
