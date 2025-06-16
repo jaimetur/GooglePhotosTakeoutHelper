@@ -2,6 +2,7 @@ name: Bug Report
 description: Report a bug or problem with the project. All fields are required.
 title: "[Bug] <short description of the problem>"
 labels: [bug]
+assignees: [Xentraxx]
 
 body:
   - type: markdown
@@ -30,8 +31,8 @@ body:
     attributes:
       label: Is Exiftool installed?
       options:
-        - Yes
-        - No
+        - "Yes"
+        - "No"
     validations:
       required: true
 
