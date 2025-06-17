@@ -44,6 +44,7 @@ class ExifToolService {
     } catch (_) {
       binDir = null;
     } // Try to also get the location of the main script (may not be reliable in compiled mode)
+    // ignore: unnecessary_nullable_for_final_variable_declarations
     final String? scriptPath = Platform.script.toFilePath();
     final String? scriptDir = (scriptPath != null && scriptPath.isNotEmpty)
         ? File(scriptPath).parent.path
