@@ -133,9 +133,16 @@ class MediaEntityCollection with LoggerMixin {
 
     logInfo('[Step 5/8] Starting EXIF data writing for ${_media.length} files');
 
+    // Check if ExifTool is available before proceeding
+    final exifTool = ServiceContainer.instance.exifTool;
+    if (exifTool == null) {
+      logWarning('ExifTool not available, skipping EXIF data writing');
+      return {'coordinatesWritten': 0, 'dateTimesWritten': 0};
+    }
+
     for (int i = 0; i < _media.length; i++) {
       final mediaEntity = _media[i];
-      final exifWriter = ExifWriterService(ServiceContainer.instance.exifTool!);
+      final exifWriter = ExifWriterService(exifTool);
 
       // Write GPS coordinates to EXIF if available
       try {

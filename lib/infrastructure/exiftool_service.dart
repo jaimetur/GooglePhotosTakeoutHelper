@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
+
 /// Infrastructure service for ExifTool external process management
 class ExifToolService {
   /// Constructor for dependency injection
@@ -23,21 +25,86 @@ class ExifToolService {
     // Common ExifTool executable names
     final exiftoolNames = isWindows
         ? ['exiftool.exe', 'exiftool']
-        : ['exiftool'];
-
-    // Check if ExifTool is in PATH
+        : ['exiftool']; // Check if ExifTool is in PATH first
     for (final name in exiftoolNames) {
       try {
         final result = await Process.run(name, ['-ver']);
         if (result.exitCode == 0) {
+          print('ExifTool found in PATH: $name');
           return ExifToolService(name);
         }
       } catch (e) {
         // Continue to next option
       }
+    } // Get the directory where the current executable (e.g., gpth.exe) resides
+    String? binDir;
+    try {
+      binDir = File(Platform.resolvedExecutable).parent.path;
+      print('Binary directory: $binDir');
+    } catch (_) {
+      binDir = null;
+    } // Try to also get the location of the main script (may not be reliable in compiled mode)
+    final String? scriptPath = Platform.script.toFilePath();
+    final String? scriptDir = (scriptPath != null && scriptPath.isNotEmpty)
+        ? File(scriptPath).parent.path
+        : null;
+    if (scriptDir != null) {
+      print('Script directory: $scriptDir');
     }
 
-    // If not found in PATH, check common installation directories
+    // Collect possible directories where exiftool might be located
+    // This restores the v4.0.8 behavior for relative path searches
+    final List<String?> candidateDirs = [
+      binDir, // Same directory as gpth.exe
+      scriptDir, // Same directory as main.dart or main script
+      if (binDir != null)
+        p.join(
+          binDir,
+          'exif_tool',
+        ), // subfolder "exif_tool" under executable directory
+      if (scriptDir != null)
+        p.join(
+          scriptDir,
+          'exif_tool',
+        ), // subfolder "exif_tool" under script directory
+      Directory.current.path, // Current working directory
+      p.join(
+        Directory.current.path,
+        'exif_tool',
+      ), // exif_tool under current working directory
+      if (scriptDir != null)
+        p.dirname(
+          scriptDir,
+        ), // One level above script directory (requested in issue #39)
+      if (binDir != null)
+        p.dirname(binDir), // One level above executable directory
+      if (binDir != null)
+        p.join(
+          p.dirname(binDir),
+          'exif_tool',
+        ), // exif_tool one level above executable directory
+    ];
+
+    // Try each candidate directory and return if exiftool is found
+    for (final dir in candidateDirs) {
+      if (dir == null || dir.isEmpty) continue;
+
+      for (final exeName in exiftoolNames) {
+        final exiftoolFile = File(p.join(dir, exeName));
+        if (await exiftoolFile.exists()) {
+          try {
+            final result = await Process.run(exiftoolFile.path, ['-ver']);
+            if (result.exitCode == 0) {
+              return ExifToolService(exiftoolFile.path);
+            }
+          } catch (e) {
+            // Continue to next option
+          }
+        }
+      }
+    }
+
+    // If not found in relative paths, check common installation directories
     final commonPaths = isWindows
         ? [
             r'C:\Program Files\exiftool\exiftool.exe',

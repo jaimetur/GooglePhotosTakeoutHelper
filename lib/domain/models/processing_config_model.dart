@@ -86,16 +86,29 @@ class ProcessingConfig {
       extensionFixing != ExtensionFixingMode.solo;
 
   /// Returns the list of date extractors based on configuration
-  List<DateTimeExtractor> get dateExtractors => [
-    jsonDateTimeExtractor,
-    (final File f) => ExifDateExtractor(ServiceContainer.instance.exifTool!)
-        .exifDateTimeExtractor(
+  List<DateTimeExtractor> get dateExtractors {
+    final extractors = <DateTimeExtractor>[jsonDateTimeExtractor];
+
+    // Only add EXIF extractor if ExifTool is available
+    final exifTool = ServiceContainer.instance.exifTool;
+    if (exifTool != null) {
+      extractors.add(
+        (final File f) => ExifDateExtractor(exifTool).exifDateTimeExtractor(
           f,
           globalConfig: ServiceContainer.instance.globalConfig,
         ),
-    if (guessFromName) guessExtractor,
-    (final File f) => jsonDateTimeExtractor(f, tryhard: true),
-  ];
+      );
+    }
+
+    if (guessFromName) {
+      extractors.add(guessExtractor);
+    }
+
+    extractors.add((final File f) => jsonDateTimeExtractor(f, tryhard: true));
+
+    return extractors;
+  }
+
   ProcessingConfig copyWith({
     final String? inputPath,
     final String? outputPath,
