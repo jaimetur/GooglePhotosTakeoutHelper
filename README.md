@@ -52,8 +52,7 @@ The automatic ZIP processing is recommended for most users as it:
 - Ensures proper file merging across multiple ZIP files
 - Automatically cleans up temporary files
 
-The biggest downside is, that you need way more free disk space.
-If this is an issue, choose manual extraction.
+The biggest downside is, that you need the processing power to extract on the device you run gpth. If this is an issue, choose manual extraction.
 
 #### Option B: Manual Extraction (Traditional)
 1. Unzip all files manually
@@ -62,7 +61,7 @@ If this is an issue, choose manual extraction.
 
 <img width="75%" alt="Unzip image tutorial" src="https://user-images.githubusercontent.com/40139196/229361367-b9803ab9-2724-4ddf-9af5-4df507e02dfe.png">
 
-**⚠️ Keep the original ZIPs as backup!**
+**⚠️ Note that the files will be moved from the input folder during processing, so keep the original ZIPs as backup!**
 
 ### 3. Install Prerequisites
 
