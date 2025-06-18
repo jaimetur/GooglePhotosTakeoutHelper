@@ -33,6 +33,12 @@ This release removes the `--copy` flag and all copy mode functionality to ensure
 - **🧹 Cleaner Codebase**: Removed 400+ lines of conditional copy logic
 - **🎯 Clearer Semantics**: Move operations are explicit and predictable
 
+### 🛡️ **BREAKING CHANGE: fix extension flag renamed**
+
+- **Consolidated extension fixing flags** into unified `--fix-extensions=<mode>` option
+  - **Before**: `--fix-extensions`, `--fix-extensions-non-jpeg`, `--fix-extensions-solo-mode`
+  - **After**: `--fix-extensions=<mode>` with `none`, `standard`, `conservative`, `solo` modes
+
 ### 🏗️ **Complete Architecture Overhaul**
 
 This release represents a fundamental restructuring of the codebase following **Clean Architecture** principles, providing better maintainability, testability, and performance.
@@ -71,13 +77,6 @@ This release represents a fundamental restructuring of the codebase following **
 - **Optimized directory scanning** (50% fewer I/O operations)
 - **Parallel file moving operations** (40-50% performance improvement)
 - **Smart duplicate detection** with memory-efficient algorithms
-
-### 🔧 **Enhanced Extension Fixing**
-
-#### **Breaking Changes**
-- **Consolidated extension fixing flags** into unified `--fix-extensions=<mode>` option
-  - **Before**: `--fix-extensions`, `--fix-extensions-non-jpeg`, `--fix-extensions-solo-mode`
-  - **After**: `--fix-extensions=<mode>` with `none`, `standard`, `conservative`, `solo` modes
 
 #### **Intelligent Extension Correction**
 - **MIME type validation** with file header detection
