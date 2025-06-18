@@ -1,4 +1,4 @@
-## 4.1.0 - Copy Mode Removal for Enhanced Data Safety
+## 4.0.9-Xentraxx - Major Architecture Refactor
 
 ### 🛡️ **BREAKING CHANGE: Copy Mode Completely Removed**
 
@@ -32,10 +32,6 @@ This release removes the `--copy` flag and all copy mode functionality to ensure
 - **⚡ Better Performance**: Simplified logic reduces overhead
 - **🧹 Cleaner Codebase**: Removed 400+ lines of conditional copy logic
 - **🎯 Clearer Semantics**: Move operations are explicit and predictable
-
----
-
-## 4.0.9-Xentraxx - Major Architecture Refactor
 
 ### 🏗️ **Complete Architecture Overhaul**
 
