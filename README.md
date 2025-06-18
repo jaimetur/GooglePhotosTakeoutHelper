@@ -31,7 +31,7 @@ When you export photos from Google Photos using [Google Takeout](https://takeout
 
 ### 1. Get Your Photos from Google Takeout
 
-1. Go to [Google Takeout](https://takeout.google.com/)
+1. Go to [Google Takeout](https://takeout.google.com/takeout/custom/photos)
 2. Deselect all, then select only **Google Photos**
 3. Download all ZIP files
 
