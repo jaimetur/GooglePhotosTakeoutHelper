@@ -55,7 +55,6 @@ import 'dart:io';
 import 'package:gpth/domain/entities/media_entity.dart';
 import 'package:gpth/domain/models/media_entity_collection.dart';
 import 'package:gpth/domain/services/core/service_container.dart';
-import 'package:gpth/domain/services/media/duplicate_detection_service.dart';
 import 'package:test/test.dart';
 
 import '../setup/test_setup.dart';
@@ -375,7 +374,8 @@ void main() {
           MediaEntity.single(file: file2),
           MediaEntity.single(file: file3),
         ]);
-        final duplicateService = DuplicateDetectionService();
+        final duplicateService =
+            ServiceContainer.instance.duplicateDetectionService;
         final grouped = await duplicateService.groupIdentical(
           collection.entities.toList(),
         );

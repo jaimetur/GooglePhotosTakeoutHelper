@@ -4,16 +4,17 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 
+import '../core/logging_service.dart';
+
 /// Optimized service for calculating media file hashes and sizes with intelligent caching
 ///
 /// Uses streaming for large files to reduce memory usage and provides
 /// improved concurrency control for better performance. Now includes
 /// hash caching to avoid recalculating hashes for previously processed files.
-class MediaHashService {
+class MediaHashService with LoggerMixin {
   // 50MB
-
   /// Creates a new instance of MediaHashService
-  const MediaHashService({this.maxCacheSize = 10000});
+  MediaHashService({this.maxCacheSize = 10000});
 
   /// Maximum number of entries to keep in cache
   final int maxCacheSize;
@@ -315,7 +316,7 @@ class MediaHashService {
     while (_hashCache.length >= maxCacheSize) {
       final oldestKey = _hashCache.keys.first;
       _hashCache.remove(oldestKey);
-      print('Evicting cache entry for key: $oldestKey');
+      logDebug('Evicting cache entry for key: $oldestKey');
     }
 
     _hashCache[cacheKey] = _CacheEntry(hash: hash, size: size);

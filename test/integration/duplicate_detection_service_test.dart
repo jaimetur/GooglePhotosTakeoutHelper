@@ -7,6 +7,7 @@ library;
 import 'dart:io';
 
 import 'package:gpth/domain/entities/media_entity.dart';
+import 'package:gpth/domain/services/core/logging_service.dart';
 import 'package:gpth/domain/services/media/duplicate_detection_service.dart';
 import 'package:gpth/domain/services/media/media_hash_service.dart';
 import 'package:gpth/domain/value_objects/date_accuracy.dart';
@@ -349,6 +350,22 @@ class MockMediaHashService implements MediaHashService {
 
   @override
   int get maxCacheSize => 1000;
+
+  // LoggerMixin implementation stubs for testing
+  @override
+  late LoggingService logger = LoggingService();
+
+  @override
+  void logInfo(final String message, {final bool forcePrint = false}) {}
+
+  @override
+  void logWarning(final String message, {final bool forcePrint = false}) {}
+
+  @override
+  void logError(final String message, {final bool forcePrint = false}) {}
+
+  @override
+  void logDebug(final String message, {final bool forcePrint = false}) {}
 
   void mockFileSize(final File file, final int size) {
     _fileSizes[file] = size;

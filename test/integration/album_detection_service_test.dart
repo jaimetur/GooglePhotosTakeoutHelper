@@ -6,6 +6,7 @@ library;
 import 'dart:io';
 
 import 'package:gpth/domain/entities/media_entity.dart';
+import 'package:gpth/domain/services/core/service_container.dart';
 import 'package:gpth/domain/services/media/album_relationship_service.dart';
 import 'package:test/test.dart';
 
@@ -15,15 +16,21 @@ void main() {
   group('AlbumDetectionService', () {
     late AlbumRelationshipService service;
     late TestFixture fixture;
-
     setUp(() async {
-      service = AlbumRelationshipService();
+      // Reset and initialize ServiceContainer with default logging
+      await ServiceContainer.reset();
+      await ServiceContainer.instance.initialize();
+
+      // Get the service from the container to ensure shared logging
+      service = ServiceContainer.instance.albumRelationshipService;
       fixture = TestFixture();
       await fixture.setUp();
     });
 
     tearDown(() async {
       await fixture.tearDown();
+      // Clean up ServiceContainer after each test
+      await ServiceContainer.reset();
     });
 
     group('Album Detection and Merging', () {

@@ -13,7 +13,7 @@ import 'media_hash_service.dart';
 class DuplicateDetectionService with LoggerMixin {
   /// Creates a new instance of DuplicateDetectionService
   DuplicateDetectionService({final MediaHashService? hashService})
-    : _hashService = hashService ?? const MediaHashService();
+    : _hashService = hashService ?? MediaHashService();
 
   final MediaHashService _hashService;
 

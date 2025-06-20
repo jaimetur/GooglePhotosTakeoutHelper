@@ -14,9 +14,8 @@ void main() {
   group('MediaHashService', () {
     late MediaHashService service;
     late TestFixture fixture;
-
     setUp(() async {
-      service = const MediaHashService();
+      service = MediaHashService();
       fixture = TestFixture();
       await fixture.setUp();
     });

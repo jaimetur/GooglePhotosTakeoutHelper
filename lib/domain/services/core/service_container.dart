@@ -2,9 +2,11 @@ import '../../../infrastructure/consolidated_disk_space_service.dart';
 import '../../../infrastructure/exiftool_service.dart';
 import '../media/album_relationship_service.dart';
 import '../media/duplicate_detection_service.dart';
+import '../media/media_hash_service.dart';
 import '../user_interaction/user_interaction_service.dart';
 import 'formatting_service.dart';
 import 'global_config_service.dart';
+import 'logging_service.dart';
 
 /// Service container for dependency injection
 ///
@@ -14,6 +16,7 @@ class ServiceContainer {
   ServiceContainer._();
   // Use nullable fields instead of late final to allow re-initialization
   GlobalConfigService? _globalConfig;
+  LoggingService? _loggingService;
   FormattingService? _utilityService;
   ConsolidatedDiskSpaceService? _diskSpaceService;
   ConsolidatedInteractiveService? _interactiveService;
@@ -39,6 +42,15 @@ class ServiceContainer {
       );
     }
     return _globalConfig!;
+  }
+
+  LoggingService get loggingService {
+    if (_loggingService == null) {
+      throw StateError(
+        'ServiceContainer not initialized. Call initialize() first.',
+      );
+    }
+    return _loggingService!;
   }
 
   FormattingService get utilityService {
@@ -87,10 +99,15 @@ class ServiceContainer {
   }
 
   /// Initialize all services
-  Future<void> initialize() async {
+  Future<void> initialize({final LoggingService? loggingService}) async {
     // Prevent concurrent initialization attempts
-    if (_isInitialized) {
-      return; // Already initialized, no-op
+    if (_isInitialized && loggingService == null) {
+      return; // Already initialized and no new logger provided, no-op
+    }
+
+    // If a new logger is provided, we need to reinitialize
+    if (_isInitialized && loggingService != null) {
+      await dispose(); // Clean up existing services first
     }
 
     // Set flag early to prevent race conditions
@@ -98,17 +115,21 @@ class ServiceContainer {
 
     // Initialize core services first
     _globalConfig = GlobalConfigService();
+    _loggingService = loggingService ?? LoggingService();
     _utilityService = const FormattingService();
-    _diskSpaceService = ConsolidatedDiskSpaceService();
-
-    // Initialize media processing services
-    _duplicateDetectionService = DuplicateDetectionService();
-    _albumRelationshipService = AlbumRelationshipService();
+    _diskSpaceService =
+        ConsolidatedDiskSpaceService(); // Initialize media processing services with shared logging
+    final mediaHashService = MediaHashService()..logger = _loggingService!;
+    _duplicateDetectionService = DuplicateDetectionService(
+      hashService: mediaHashService,
+    )..logger = _loggingService!;
+    _albumRelationshipService = AlbumRelationshipService()
+      ..logger = _loggingService!;
 
     // Initialize interactive service with dependencies
     _interactiveService = ConsolidatedInteractiveService(
       globalConfig: _globalConfig!,
-    );
+    )..logger = _loggingService!;
 
     // Try to find and initialize ExifTool
     exifTool = await ExifToolService.find();
@@ -118,6 +139,9 @@ class ServiceContainer {
     } else {
       _globalConfig!.exifToolInstalled = false;
     }
+
+    // Initialize logging service
+    _loggingService = LoggingService();
 
     _isInitialized = true;
   }
@@ -130,6 +154,7 @@ class ServiceContainer {
     } // Reset initialization state
     _isInitialized = false;
     _globalConfig = null;
+    _loggingService = null;
     _utilityService = null;
     _diskSpaceService = null;
     _interactiveService = null;

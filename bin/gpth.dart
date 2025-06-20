@@ -69,7 +69,6 @@ import 'package:path/path.dart' as p;
 Future<void> main(final List<String> arguments) async {
   // Initialize logger early with default settings
   _logger = LoggingService();
-
   try {
     // Initialize ServiceContainer early to support interactive mode during argument parsing
     await ServiceContainer.instance.initialize();
@@ -78,8 +77,13 @@ Future<void> main(final List<String> arguments) async {
     final config = await _parseArguments(arguments);
     if (config == null) {
       return; // Help was shown or other early exit
-    } // Update logger with correct verbosity
+    }
+
+    // Update logger with correct verbosity and reinitialize services with it
     _logger = LoggingService(isVerbose: config.verbose);
+
+    // Reinitialize ServiceContainer with the properly configured logger
+    await ServiceContainer.instance.initialize(loggingService: _logger);
 
     // Configure dependencies with the parsed config
     await _configureDependencies(config);
