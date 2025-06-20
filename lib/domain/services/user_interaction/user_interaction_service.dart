@@ -216,13 +216,11 @@ class ConsolidatedInteractiveService with LoggerMixin {
     while (true) {
       final input = await readUserInput();
       switch (input) {
-        case 'y':
-        case 'yes':
+        case '1':
         case '':
           await _presenter.showUserSelection(input, 'yes, write EXIF data');
           return true;
-        case 'n':
-        case 'no':
+        case '2':
           await _presenter.showUserSelection(
             input,
             'no, don\'t write EXIF data',
