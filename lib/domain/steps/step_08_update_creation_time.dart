@@ -1,4 +1,10 @@
+import 'dart:async';
+import 'dart:ffi';
 import 'dart:io';
+
+import 'package:ffi/ffi.dart';
+import 'package:win32/win32.dart';
+
 import '../models/pipeline_step_model.dart';
 
 /// Step 8: Update creation times (Windows only)
@@ -164,24 +170,166 @@ class UpdateCreationTimeStep extends ProcessingStep {
   ///
   /// Returns the number of files processed
   Future<int> _updateCreationTimeRecursively(final Directory directory) async {
-    int count = 0;
+    // Collect all files first to show progress
+    final List<File> allFiles = [];
     await for (final entity in directory.list(recursive: true)) {
       if (entity is File) {
-        try {
-          // On Windows, we can use PowerShell to update creation time
-          final result = await Process.run('powershell', [
-            '-Command',
-            '(Get-Item "${entity.path}").CreationTime = (Get-Item "${entity.path}").LastWriteTime',
-          ]);
-          if (result.exitCode == 0) {
-            count++;
-          }
-        } catch (e) {
-          // Continue with other files if one fails
-          print('Failed to update creation time for ${entity.path}: $e');
-        }
+        allFiles.add(entity);
       }
     }
-    return count;
+
+    if (allFiles.isEmpty) {
+      print('No files found to update creation times');
+      return 0;
+    }
+
+    print('Found ${allFiles.length} files to update creation times...');
+
+    int successCount = 0;
+    int errorCount = 0;
+
+    // Process files with progress reporting
+    for (int i = 0; i < allFiles.length; i++) {
+      final File file = allFiles[i];
+
+      // Show progress every 100 files
+      if (i % 100 == 0) {
+        print('Processing file ${i + 1} of ${allFiles.length}...');
+      }
+
+      try {
+        if (await _updateFileCreationTimeWin32(file)) {
+          successCount++;
+        } else {
+          errorCount++;
+        }
+      } catch (e) {
+        errorCount++;
+        if (errorCount <= 10) {
+          // Only show first 10 errors to avoid spam
+          print('Failed to update creation time for ${file.path}: $e');
+        }
+      }
+
+      // Early exit if too many errors (prevents infinite retry scenarios)
+      if (errorCount > 100) {
+        print(
+          '⚠️  Too many errors ($errorCount), stopping creation time updates',
+        );
+        break;
+      }
+    }
+
+    if (errorCount > 0) {
+      print('⚠️  Failed to update creation time for $errorCount files');
+    }
+
+    return successCount;
+  }
+
+  /// Updates creation time for a single file using Win32 API
+  ///
+  /// Returns true if successful, false otherwise
+  Future<bool> _updateFileCreationTimeWin32(final File file) async {
+    if (!Platform.isWindows) return false;
+
+    return _updateFileCreationTimeSync(file.path);
+  }
+
+  /// Synchronous Win32 creation time update
+  bool _updateFileCreationTimeSync(final String filePath) {
+    try {
+      return using((final Arena arena) {
+        // Convert path to wide string for Win32 API
+        final Pointer<Utf16> pathPtr = filePath.toNativeUtf16(allocator: arena);
+
+        // Open file handle with write access to attributes
+        final int fileHandle = CreateFile(
+          pathPtr,
+          FILE_WRITE_ATTRIBUTES,
+          FILE_SHARE_READ | FILE_SHARE_WRITE,
+          nullptr,
+          OPEN_EXISTING,
+          FILE_ATTRIBUTE_NORMAL,
+          NULL,
+        );
+
+        if (fileHandle == INVALID_HANDLE_VALUE) {
+          return false; // Could not open file
+        }
+
+        try {
+          // Get current file times
+          final Pointer<FILETIME> creationTime = arena<FILETIME>();
+          final Pointer<FILETIME> accessTime = arena<FILETIME>();
+          final Pointer<FILETIME> writeTime = arena<FILETIME>();
+
+          // Use the Kernel32 API functions from win32 package
+          final kernel32 = DynamicLibrary.open('kernel32.dll');
+          final getFileTimeFunction = kernel32
+              .lookupFunction<
+                Int32 Function(
+                  IntPtr,
+                  Pointer<FILETIME>,
+                  Pointer<FILETIME>,
+                  Pointer<FILETIME>,
+                ),
+                int Function(
+                  int,
+                  Pointer<FILETIME>,
+                  Pointer<FILETIME>,
+                  Pointer<FILETIME>,
+                )
+              >('GetFileTime');
+
+          final setFileTimeFunction = kernel32
+              .lookupFunction<
+                Int32 Function(
+                  IntPtr,
+                  Pointer<FILETIME>,
+                  Pointer<FILETIME>,
+                  Pointer<FILETIME>,
+                ),
+                int Function(
+                  int,
+                  Pointer<FILETIME>,
+                  Pointer<FILETIME>,
+                  Pointer<FILETIME>,
+                )
+              >('SetFileTime');
+
+          final bool getTimesSuccess =
+              getFileTimeFunction(
+                fileHandle,
+                creationTime,
+                accessTime,
+                writeTime,
+              ) !=
+              FALSE;
+
+          if (!getTimesSuccess) {
+            return false;
+          }
+
+          // Set creation time to match write time (last modified time)
+          final bool setTimeSuccess =
+              setFileTimeFunction(
+                fileHandle,
+                writeTime, // Set creation time to write time
+                accessTime, // Keep access time unchanged
+                writeTime, // Keep write time unchanged
+              ) !=
+              FALSE;
+
+          return setTimeSuccess;
+        } finally {
+          // Always close the file handle
+          CloseHandle(fileHandle);
+        }
+      });
+    } catch (e) {
+      // Catch any FFI-related exceptions
+      return false;
+    }
   }
 }

@@ -77,6 +77,7 @@ This release represents a fundamental restructuring of the codebase following **
 - **Optimized directory scanning** (50% fewer I/O operations)
 - **Parallel file moving operations** (40-50% performance improvement)
 - **Smart duplicate detection** with memory-efficient algorithms
+- **Native Win32 creation time updates** - Replaced PowerShell with direct Win32 FFI calls (10-100x faster)
 
 #### **Intelligent Extension Correction**
 - **MIME type validation** with file header detection
