@@ -12,4 +12,4 @@ export '../domain/services/metadata/json_metadata_matcher_service.dart';
 // Application constants
 export 'constants.dart';
 // Extensions used by services
-export 'extensions/extensions.dart';
+export 'extensions/file_extensions.dart';
