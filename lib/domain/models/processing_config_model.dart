@@ -92,16 +92,15 @@ class ProcessingConfig {
   List<DateTimeExtractor> get dateExtractors {
     final extractors = <DateTimeExtractor>[jsonDateTimeExtractor];
 
-    // Only add EXIF extractor if ExifTool is available
+    // Always add EXIF extractor - it can work without ExifTool for many formats using native extraction
+    // ExifTool can be null, but ExifDateExtractor handles this gracefully by using native extraction
     final exifTool = ServiceContainer.instance.exifTool;
-    if (exifTool != null) {
-      extractors.add(
-        (final File f) => ExifDateExtractor(exifTool).exifDateTimeExtractor(
-          f,
-          globalConfig: ServiceContainer.instance.globalConfig,
-        ),
-      );
-    }
+    extractors.add(
+      (final File f) => ExifDateExtractor(exifTool).exifDateTimeExtractor(
+        f,
+        globalConfig: ServiceContainer.instance.globalConfig,
+      ),
+    );
 
     if (guessFromName) {
       extractors.add(guessExtractor);

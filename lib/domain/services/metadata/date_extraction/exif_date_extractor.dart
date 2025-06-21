@@ -16,8 +16,8 @@ class ExifDateExtractor with LoggerMixin {
   /// Creates a new instance of ExifDateExtractor
   ExifDateExtractor(this.exiftool);
 
-  /// The ExifTool service instance
-  final ExifToolService exiftool;
+  /// The ExifTool service instance (can be null if ExifTool is not available)
+  final ExifToolService? exiftool;
 
   /// DateTime from exif data *potentially* hidden within a [file]
   ///
@@ -137,8 +137,13 @@ class ExifDateExtractor with LoggerMixin {
   /// [file] File to extract DateTime from
   /// Returns parsed DateTime or null if extraction fails
   Future<DateTime?> _exifToolExtractor(final File file) async {
+    // Return null if ExifTool is not available
+    if (exiftool == null) {
+      return null;
+    }
+
     try {
-      final tags = await exiftool.readExifData(file);
+      final tags = await exiftool!.readExifData(file);
       final dynamic datetimeValue =
           tags['DateTimeOriginal'] ??
           tags['MediaCreateDate'] ??
