@@ -8,6 +8,7 @@ void main() {
       const result = ProcessingResult(
         totalProcessingTime: Duration(minutes: 5),
         stepTimings: {'step1': Duration(seconds: 30)},
+        stepResults: [],
         mediaProcessed: 100,
         duplicatesRemoved: 5,
         extrasSkipped: 10,
@@ -35,11 +36,11 @@ void main() {
       expect(result.isSuccess, isTrue);
       expect(result.error, isNull);
     });
-
     test('should create successful result by default', () {
       const result = ProcessingResult(
         totalProcessingTime: Duration.zero,
         stepTimings: {},
+        stepResults: [],
         mediaProcessed: 0,
         duplicatesRemoved: 0,
         extrasSkipped: 0,
@@ -77,6 +78,7 @@ void main() {
         const result = ProcessingResult(
           totalProcessingTime: Duration(minutes: 5),
           stepTimings: {},
+          stepResults: [],
           mediaProcessed: 100,
           duplicatesRemoved: 5,
           extrasSkipped: 10,
@@ -115,6 +117,7 @@ void main() {
         const result = ProcessingResult(
           totalProcessingTime: Duration(minutes: 2),
           stepTimings: {},
+          stepResults: [],
           mediaProcessed: 0,
           duplicatesRemoved: 0,
           extrasSkipped: 0,
@@ -148,6 +151,7 @@ void main() {
         const result = ProcessingResult(
           totalProcessingTime: Duration.zero,
           stepTimings: {},
+          stepResults: [],
           mediaProcessed: 0,
           duplicatesRemoved: 0,
           extrasSkipped: 0,
@@ -178,10 +182,10 @@ void main() {
           'Move Files': const Duration(seconds: 60),
           'Update Creation Time': const Duration(seconds: 5),
         };
-
         final result = ProcessingResult(
           totalProcessingTime: const Duration(minutes: 4),
           stepTimings: stepTimings,
+          stepResults: [],
           mediaProcessed: 100,
           duplicatesRemoved: 0,
           extrasSkipped: 0,
@@ -202,11 +206,11 @@ void main() {
           equals(const Duration(seconds: 60)),
         );
       });
-
       test('should handle empty step timings', () {
         const result = ProcessingResult(
           totalProcessingTime: Duration(minutes: 1),
           stepTimings: {},
+          stepResults: [],
           mediaProcessed: 0,
           duplicatesRemoved: 0,
           extrasSkipped: 0,
@@ -230,10 +234,10 @@ void main() {
           DateTimeExtractionMethod.jsonTryHard: 5,
           DateTimeExtractionMethod.none: 0,
         };
-
         final result = ProcessingResult(
           totalProcessingTime: const Duration(minutes: 3),
           stepTimings: {},
+          stepResults: [],
           mediaProcessed: 100,
           duplicatesRemoved: 0,
           extrasSkipped: 0,
@@ -267,6 +271,7 @@ void main() {
           totalProcessingTime: Duration(minutes: 1),
           stepTimings: {},
           mediaProcessed: 0,
+          stepResults: [],
           duplicatesRemoved: 0,
           extrasSkipped: 0,
           extensionsFixed: 0,
@@ -293,6 +298,7 @@ void main() {
           stepTimings: {},
           mediaProcessed: 0,
           duplicatesRemoved: 0,
+          stepResults: [],
           extrasSkipped: 0,
           extensionsFixed: 0,
           coordinatesWrittenToExif: 0,
@@ -312,6 +318,7 @@ void main() {
           mediaProcessed: 999999,
           duplicatesRemoved: 100000,
           extrasSkipped: 50000,
+          stepResults: [],
           extensionsFixed: 25000,
           coordinatesWrittenToExif: 800000,
           dateTimesWrittenToExif: 900000,
@@ -331,6 +338,7 @@ void main() {
           totalProcessingTime: Duration(minutes: 5),
           stepTimings: {},
           mediaProcessed: 100,
+          stepResults: [],
           duplicatesRemoved: -1, // This shouldn't happen in practice
           extrasSkipped: 0,
           extensionsFixed: 0,

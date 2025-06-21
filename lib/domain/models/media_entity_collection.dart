@@ -1,9 +1,13 @@
+import 'dart:io';
+
+import '../../infrastructure/exiftool_service.dart';
 import '../entities/media_entity.dart';
 import '../services/core/logging_service.dart';
 import '../services/core/service_container.dart';
 import '../services/metadata/date_extraction/json_date_extractor.dart';
 import '../services/metadata/exif_writer_service.dart';
 import '../value_objects/date_time_extraction_method.dart';
+import 'performance_config_model.dart';
 
 /// Modern domain model representing a collection of media entities
 ///
@@ -127,11 +131,9 @@ class MediaEntityCollection with LoggerMixin {
   /// and coordinate data, tracking success statistics.
   Future<Map<String, int>> writeExifData({
     final void Function(int current, int total)? onProgress,
+    final PerformanceConfig? performanceConfig,
   }) async {
-    var coordinatesWritten = 0;
-    var dateTimesWritten = 0;
-
-    logInfo('[Step 5/8] Starting EXIF data writing for ${_media.length} files');
+    final config = performanceConfig ?? PerformanceConfig.balanced;
 
     // Check if ExifTool is available before proceeding
     final exifTool = ServiceContainer.instance.exifTool;
@@ -139,6 +141,23 @@ class MediaEntityCollection with LoggerMixin {
       logWarning('ExifTool not available, skipping EXIF data writing');
       return {'coordinatesWritten': 0, 'dateTimesWritten': 0};
     }
+
+    logInfo('[Step 5/8] Starting EXIF data writing for ${_media.length} files');
+
+    if (config.enableParallelProcessing && _media.length > 10) {
+      return _writeExifDataParallel(onProgress, config, exifTool);
+    } else {
+      return _writeExifDataSequential(onProgress, exifTool);
+    }
+  }
+
+  /// Sequential EXIF writing (original implementation)
+  Future<Map<String, int>> _writeExifDataSequential(
+    final void Function(int current, int total)? onProgress,
+    final ExifToolService exifTool,
+  ) async {
+    var coordinatesWritten = 0;
+    var dateTimesWritten = 0;
 
     for (int i = 0; i < _media.length; i++) {
       final mediaEntity = _media[i];
@@ -148,8 +167,6 @@ class MediaEntityCollection with LoggerMixin {
       try {
         final coordinates = await jsonCoordinatesExtractor(
           mediaEntity.files.firstFile,
-          // ignore: avoid_redundant_argument_values
-          tryhard: false,
         );
         if (coordinates != null) {
           final success = await exifWriter.writeGpsToExif(
@@ -165,7 +182,9 @@ class MediaEntityCollection with LoggerMixin {
         logWarning(
           'Failed to extract/write GPS coordinates for ${mediaEntity.files.firstFile.path}: $e',
         );
-      } // Write date/time to EXIF if available and not already from EXIF
+      }
+
+      // Write date/time to EXIF if available and not already from EXIF
       if (mediaEntity.dateTaken != null &&
           mediaEntity.dateTimeExtractionMethod !=
               DateTimeExtractionMethod.exif &&
@@ -191,6 +210,108 @@ class MediaEntityCollection with LoggerMixin {
     }
 
     // Log final statistics similar to canonical implementation
+    if (coordinatesWritten > 0) {
+      logInfo(
+        '$coordinatesWritten files got their coordinates set in EXIF data (from json)',
+      );
+    }
+    if (dateTimesWritten > 0) {
+      logInfo('$dateTimesWritten got their DateTime set in EXIF data');
+    }
+
+    return {
+      'coordinatesWritten': coordinatesWritten,
+      'dateTimesWritten': dateTimesWritten,
+    };
+  }
+
+  /// Parallel EXIF writing for improved performance
+  Future<Map<String, int>> _writeExifDataParallel(
+    final void Function(int current, int total)? onProgress,
+    final PerformanceConfig config,
+    final ExifToolService exifTool,
+  ) async {
+    logInfo('[Step 5/8] Using parallel EXIF writing for improved performance');
+
+    var coordinatesWritten = 0;
+    var dateTimesWritten = 0;
+    var completed = 0;
+
+    // Calculate optimal concurrency
+    final maxConcurrency =
+        config.maxConcurrentOperations ??
+        (Platform.numberOfProcessors * 2).clamp(2, 8);
+
+    // Process files in parallel batches using existing ExifWriterService
+    for (int i = 0; i < _media.length; i += maxConcurrency) {
+      final batch = _media.skip(i).take(maxConcurrency);
+
+      final futures = batch.map((final mediaEntity) async {
+        final exifWriter = ExifWriterService(exifTool);
+        var gpsWritten = false;
+        var dateTimeWritten = false;
+
+        // Write GPS coordinates to EXIF if available
+        try {
+          final coordinates = await jsonCoordinatesExtractor(
+            mediaEntity.files.firstFile,
+          );
+          if (coordinates != null) {
+            final success = await exifWriter.writeGpsToExif(
+              coordinates,
+              mediaEntity.files.firstFile,
+              ServiceContainer.instance.globalConfig,
+            );
+            if (success) {
+              gpsWritten = true;
+            }
+          }
+        } catch (e) {
+          logWarning(
+            'Failed to extract/write GPS coordinates for ${mediaEntity.files.firstFile.path}: $e',
+          );
+        }
+
+        // Write date/time to EXIF if available and not already from EXIF
+        if (mediaEntity.dateTaken != null &&
+            mediaEntity.dateTimeExtractionMethod !=
+                DateTimeExtractionMethod.exif &&
+            mediaEntity.dateTimeExtractionMethod !=
+                DateTimeExtractionMethod.none) {
+          try {
+            final success = await exifWriter.writeDateTimeToExif(
+              mediaEntity.dateTaken!,
+              mediaEntity.files.firstFile,
+              ServiceContainer.instance.globalConfig,
+            );
+            if (success) {
+              dateTimeWritten = true;
+            }
+          } catch (e) {
+            logWarning(
+              'Failed to write DateTime to EXIF for ${mediaEntity.files.firstFile.path}: $e',
+            );
+          }
+        }
+
+        return {'gps': gpsWritten, 'dateTime': dateTimeWritten};
+      });
+
+      // Wait for all futures in this batch to complete
+      final results = await Future.wait(futures);
+
+      // Update counters
+      for (final result in results) {
+        if (result['gps'] == true) coordinatesWritten++;
+        if (result['dateTime'] == true) dateTimesWritten++;
+        completed++;
+      }
+
+      // Report progress
+      onProgress?.call(completed, _media.length);
+    }
+
+    // Log final statistics
     if (coordinatesWritten > 0) {
       logInfo(
         '$coordinatesWritten files got their coordinates set in EXIF data (from json)',

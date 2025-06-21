@@ -1,4 +1,5 @@
 import '../value_objects/date_time_extraction_method.dart';
+import 'pipeline_step_model.dart';
 
 /// Domain model representing the results and statistics of a complete GPTH processing run
 ///
@@ -16,6 +17,7 @@ class ProcessingResult {
     required this.dateTimesWrittenToExif,
     required this.creationTimesUpdated,
     required this.extractionMethodStats,
+    required this.stepResults,
     this.isSuccess = true,
     this.error,
   });
@@ -25,6 +27,7 @@ class ProcessingResult {
     : this(
         totalProcessingTime: Duration.zero,
         stepTimings: {},
+        stepResults: [],
         mediaProcessed: 0,
         duplicatesRemoved: 0,
         extrasSkipped: 0,
@@ -36,9 +39,9 @@ class ProcessingResult {
         isSuccess: false,
         error: error,
       );
-
   final Duration totalProcessingTime;
   final Map<String, Duration> stepTimings;
+  final List<StepResult> stepResults;
   final int mediaProcessed;
   final int duplicatesRemoved;
   final int extrasSkipped;
@@ -157,10 +160,10 @@ class ProcessingResultBuilder {
     final totalTime = _startTime != null
         ? DateTime.now().difference(_startTime!)
         : Duration.zero;
-
     return ProcessingResult(
       totalProcessingTime: totalTime,
       stepTimings: Map.unmodifiable(_stepTimings),
+      stepResults: [], // Not used in builder pattern
       mediaProcessed: _mediaProcessed,
       duplicatesRemoved: _duplicatesRemoved,
       extrasSkipped: _extrasSkipped,

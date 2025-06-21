@@ -215,12 +215,11 @@ class ProcessingPipeline {
 
       // Display detailed step results
       await interactiveService!.showStepResults(stepResults, stepTimings);
-    }
-
-    // Create comprehensive result
+    } // Create comprehensive result
     return ProcessingResult(
       totalProcessingTime: totalProcessingTime,
       stepTimings: stepTimings,
+      stepResults: stepResults,
       mediaProcessed: mediaCollection.length,
       duplicatesRemoved: duplicatesRemoved,
       extrasSkipped: extrasSkipped,

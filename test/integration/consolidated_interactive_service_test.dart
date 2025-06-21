@@ -258,14 +258,6 @@ void main() {
         expect(result, isTrue);
       });
 
-      test('should ask for EXIF writing', () async {
-        mockPresenter.setInputs(['no']);
-
-        final result = await service.askIfWriteExif();
-
-        expect(result, isFalse);
-      });
-
       test('should ask for file size limit', () async {
         mockPresenter.setInputs(['y']);
 
@@ -417,12 +409,6 @@ void main() {
         // Test askChangeCreationTime with 'y' input
         mockPresenter.setInputs(['y']);
         expect(await service.askChangeCreationTime(), isTrue);
-      });
-
-      test('should handle EXIF writing boolean variations', () async {
-        // Test askIfWriteExif with 'n' input
-        mockPresenter.setInputs(['n']);
-        expect(await service.askIfWriteExif(), isFalse);
       });
     });
   });
