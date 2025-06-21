@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -33,36 +32,6 @@ class ExifWriterService with LoggerMixin {
       return true;
     } catch (e) {
       logError('Failed to write EXIF data to ${file.path}: $e');
-      return false;
-    }
-  }
-
-  /// Writes EXIF data to a file and its associated JSON file
-  ///
-  /// [file] File to write EXIF data to
-  /// [jsonFile] Associated JSON file to update
-  /// [exifData] Map of EXIF tags and values to write
-  /// Returns true if successful
-  Future<bool> writeExifDataWithJson(
-    final File file,
-    final File jsonFile,
-    final Map<String, dynamic> exifData,
-  ) async {
-    try {
-      // Write EXIF data to the media file
-      await _exifTool.writeExifData(file, exifData);
-
-      // Update the JSON file with the same data
-      final jsonData = await jsonFile.readAsString();
-      final Map<String, dynamic> jsonMap = jsonDecode(jsonData);
-      jsonMap.addAll(exifData);
-      await jsonFile.writeAsString(jsonEncode(jsonMap));
-
-      return true;
-    } catch (e) {
-      logError(
-        'Failed to write EXIF data to ${file.path} and ${jsonFile.path}: $e',
-      );
       return false;
     }
   }

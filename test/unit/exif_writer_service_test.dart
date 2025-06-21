@@ -66,6 +66,32 @@ class MockExifToolService implements ExifToolService {
 }
 
 void main() {
+  /// Test helper for writing EXIF data to both file and JSON
+  ///
+  /// This was moved from the main service since it's only used in tests
+  Future<bool> writeExifDataWithJsonHelper(
+    final ExifWriterService service,
+    final ExifToolService exifTool,
+    final File file,
+    final File jsonFile,
+    final Map<String, dynamic> exifData,
+  ) async {
+    try {
+      // Write EXIF data to the media file
+      await exifTool.writeExifData(file, exifData);
+
+      // Update the JSON file with the same data
+      final jsonData = await jsonFile.readAsString();
+      final Map<String, dynamic> jsonMap = jsonDecode(jsonData);
+      jsonMap.addAll(exifData);
+      await jsonFile.writeAsString(jsonEncode(jsonMap));
+
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
   group('ExifWriterService', () {
     late ExifWriterService service;
     late MockExifToolService mockExifTool;
@@ -131,7 +157,9 @@ void main() {
 
         mockExifTool.shouldFail = false;
 
-        final result = await service.writeExifDataWithJson(
+        final result = await writeExifDataWithJsonHelper(
+          service,
+          mockExifTool,
           file,
           jsonFile,
           exifData,
@@ -157,7 +185,9 @@ void main() {
 
         mockExifTool.shouldFail = true;
 
-        final result = await service.writeExifDataWithJson(
+        final result = await writeExifDataWithJsonHelper(
+          service,
+          mockExifTool,
           file,
           jsonFile,
           exifData,
@@ -176,7 +206,9 @@ void main() {
 
         mockExifTool.shouldFail = false;
 
-        final result = await service.writeExifDataWithJson(
+        final result = await writeExifDataWithJsonHelper(
+          service,
+          mockExifTool,
           file,
           jsonFile,
           exifData,
