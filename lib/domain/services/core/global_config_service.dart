@@ -17,18 +17,10 @@ class GlobalConfigService {
   /// Whether ExifTool is available and installed
   bool exifToolInstalled = false;
 
-  /// Extension fixing mode
-  ExtensionFixingMode extensionFixing = ExtensionFixingMode.none;
-
-  /// Whether extension fixing is enabled (not none mode)
-  bool get extensionFixingEnabled =>
-      extensionFixing != ExtensionFixingMode.none;
-
   /// Initializes configuration from processing config
   void initializeFrom(final ProcessingConfig config) {
     isVerbose = config.verbose;
     enforceMaxFileSize = config.limitFileSize;
-    extensionFixing = config.extensionFixing;
     // exifToolInstalled is set separately by ExifTool detection
   }
 
@@ -37,6 +29,5 @@ class GlobalConfigService {
     isVerbose = false;
     enforceMaxFileSize = false;
     exifToolInstalled = false;
-    extensionFixing = ExtensionFixingMode.none;
   }
 }
