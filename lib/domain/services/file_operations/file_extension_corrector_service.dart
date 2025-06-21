@@ -123,19 +123,79 @@ class FileExtensionCorrectorService with LoggerMixin {
 
     // Find and rename associated JSON file
     final File? jsonFile = await _findJsonFile(file);
-
     try {
+      // Store original paths for verification
+      final String originalFilePath = file.path;
+      final String? originalJsonPath = jsonFile?.path;
+
       // Rename the media file
-      await file.rename(newFilePath);
+      final File renamedFile = await file.rename(newFilePath);
+
+      // Verify the rename was successful
+      if (!await renamedFile.exists()) {
+        logError(
+          'Renamed file does not exist after rename operation: $newFilePath',
+        );
+        return false;
+      }
+
+      // Verify the original file was actually removed
+      if (await File(originalFilePath).exists()) {
+        logError(
+          'Original file still exists after rename operation. This indicates a failed rename: $originalFilePath',
+        );
+        // Try to clean up by deleting the original file if the new file exists
+        try {
+          await File(originalFilePath).delete();
+          logWarning(
+            'Manually deleted original file after failed rename: $originalFilePath',
+          );
+        } catch (deleteError) {
+          logError(
+            'Failed to delete original file after rename failure: $deleteError',
+          );
+          return false;
+        }
+      }
 
       // Rename the JSON file if it exists
       if (jsonFile != null && jsonFile.existsSync()) {
         final String jsonNewPath = '$newFilePath.json';
-        await jsonFile.rename(jsonNewPath);
+        try {
+          final File renamedJsonFile = await jsonFile.rename(jsonNewPath);
+
+          // Verify JSON rename was successful
+          if (!await renamedJsonFile.exists()) {
+            logWarning(
+              'Renamed JSON file does not exist after rename operation: $jsonNewPath',
+            );
+          }
+
+          // Verify original JSON file was removed
+          if (originalJsonPath != null &&
+              await File(originalJsonPath).exists()) {
+            logWarning(
+              'Original JSON file still exists after rename. Attempting manual cleanup: $originalJsonPath',
+            );
+            try {
+              await File(originalJsonPath).delete();
+              logInfo(
+                'Successfully cleaned up original JSON file: $originalJsonPath',
+              );
+            } catch (deleteError) {
+              logWarning('Failed to delete original JSON file: $deleteError');
+            }
+          }
+        } catch (jsonRenameError) {
+          logWarning(
+            'Failed to rename JSON file ${jsonFile.path}: $jsonRenameError',
+          );
+          // Don't fail the entire operation if JSON rename fails
+        }
       }
 
       logInfo(
-        'Fixed extension: ${p.basename(file.path)} -> ${p.basename(newFilePath)}',
+        'Fixed extension: ${p.basename(originalFilePath)} -> ${p.basename(newFilePath)}',
       );
       return true;
     } catch (e) {
