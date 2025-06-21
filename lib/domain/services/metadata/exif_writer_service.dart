@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -37,36 +36,6 @@ class ExifWriterService with LoggerMixin {
     }
   }
 
-  /// Writes EXIF data to a file and its associated JSON file
-  ///
-  /// [file] File to write EXIF data to
-  /// [jsonFile] Associated JSON file to update
-  /// [exifData] Map of EXIF tags and values to write
-  /// Returns true if successful
-  Future<bool> writeExifDataWithJson(
-    final File file,
-    final File jsonFile,
-    final Map<String, dynamic> exifData,
-  ) async {
-    try {
-      // Write EXIF data to the media file
-      await _exifTool.writeExifData(file, exifData);
-
-      // Update the JSON file with the same data
-      final jsonData = await jsonFile.readAsString();
-      final Map<String, dynamic> jsonMap = jsonDecode(jsonData);
-      jsonMap.addAll(exifData);
-      await jsonFile.writeAsString(jsonEncode(jsonMap));
-
-      return true;
-    } catch (e) {
-      logError(
-        'Failed to write EXIF data to ${file.path} and ${jsonFile.path}: $e',
-      );
-      return false;
-    }
-  }
-
   /// Writes DateTime to EXIF metadata
   ///
   /// This method attempts to write DateTime information to a file's EXIF data.
@@ -82,20 +51,28 @@ class ExifWriterService with LoggerMixin {
     final File file,
     final GlobalConfigService globalConfig,
   ) async {
-    final List<int> headerBytes = await file.openRead(0, 128).first;
-    final String? mimeTypeFromHeader = lookupMimeType(
-      file.path,
-      headerBytes: headerBytes,
-    );
-    final String? mimeTypeFromExtension = lookupMimeType(
-      file.path,
-    ); // Check if the file already has a DateTime in its EXIF data
+    // Check if the file already has a DateTime in its EXIF data
     if (await ExifDateExtractor(
           _exifTool,
         ).exifDateTimeExtractor(file, globalConfig: globalConfig) !=
         null) {
       // File already has DateTime, skip writing
       return false;
+    }
+
+    // Optimize MIME type detection based on extension fixing status
+    final String? mimeTypeFromHeader;
+    final String? mimeTypeFromExtension;
+
+    if (globalConfig.extensionFixingEnabled) {
+      // Extensions have been fixed, so we can trust the extension
+      mimeTypeFromExtension = lookupMimeType(file.path);
+      mimeTypeFromHeader = mimeTypeFromExtension; // They should match now
+    } else {
+      // Need to read file header to determine actual type
+      final List<int> headerBytes = await file.openRead(0, 128).first;
+      mimeTypeFromHeader = lookupMimeType(file.path, headerBytes: headerBytes);
+      mimeTypeFromExtension = lookupMimeType(file.path);
     }
     if (globalConfig.exifToolInstalled) {
       // Try native Dart implementation for JPEG files first (faster)
@@ -108,7 +85,8 @@ class ExifWriterService with LoggerMixin {
           )) {
         return true;
       }
-      if (mimeTypeFromExtension != mimeTypeFromHeader &&
+      if (!globalConfig.extensionFixingEnabled &&
+          mimeTypeFromExtension != mimeTypeFromHeader &&
           mimeTypeFromHeader != 'image/tiff') {
         logError(
           "DateWriter - File has a wrong extension indicating '$mimeTypeFromExtension' but actually it is '$mimeTypeFromHeader'.\n"
@@ -166,14 +144,21 @@ class ExifWriterService with LoggerMixin {
     final File file,
     final GlobalConfigService globalConfig,
   ) async {
-    final List<int> headerBytes = await file.openRead(0, 128).first;
-    final String? mimeTypeFromHeader = lookupMimeType(
-      file.path,
-      headerBytes: headerBytes,
-    );
+    // Optimize MIME type detection based on extension fixing status
+    final String? mimeTypeFromHeader;
+    final String? mimeTypeFromExtension;
 
+    if (globalConfig.extensionFixingEnabled) {
+      // Extensions have been fixed, so we can trust the extension
+      mimeTypeFromExtension = lookupMimeType(file.path);
+      mimeTypeFromHeader = mimeTypeFromExtension; // They should match now
+    } else {
+      // Need to read file header to determine actual type
+      final List<int> headerBytes = await file.openRead(0, 128).first;
+      mimeTypeFromHeader = lookupMimeType(file.path, headerBytes: headerBytes);
+      mimeTypeFromExtension = lookupMimeType(file.path);
+    }
     if (globalConfig.exifToolInstalled) {
-      final String? mimeTypeFromExtension = lookupMimeType(file.path);
       // Try native way for JPEG files first
       if (mimeTypeFromHeader == 'image/jpeg' &&
           await _noExifGPSWriter(
@@ -184,7 +169,8 @@ class ExifWriterService with LoggerMixin {
           )) {
         return true;
       }
-      if (mimeTypeFromExtension != mimeTypeFromHeader) {
+      if (!globalConfig.extensionFixingEnabled &&
+          mimeTypeFromExtension != mimeTypeFromHeader) {
         logError(
           "GPSWriter - File has a wrong extension indicating '$mimeTypeFromExtension' but actually it is '$mimeTypeFromHeader'.\n"
           'ExifTool would fail, skipping. You may want to run GPTH with --fix-extensions.\n ${file.path}',

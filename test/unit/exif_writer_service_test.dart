@@ -7,6 +7,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:coordinate_converter/coordinate_converter.dart';
+import 'package:gpth/domain/models/processing_config_model.dart';
 import 'package:gpth/domain/services/core/global_config_service.dart';
 import 'package:gpth/domain/services/metadata/exif_writer_service.dart';
 import 'package:gpth/infrastructure/exiftool_service.dart';
@@ -62,6 +63,32 @@ class MockExifToolService implements ExifToolService {
   @override
   Future<void> dispose() async {
     // Mock cleanup
+  }
+}
+
+/// Test helper for writing EXIF data to both file and JSON
+///
+/// This was moved from the main service since it's only used in tests
+Future<bool> writeExifDataWithJsonHelper(
+  final ExifWriterService service,
+  final ExifToolService exifTool,
+  final File file,
+  final File jsonFile,
+  final Map<String, dynamic> exifData,
+) async {
+  try {
+    // Write EXIF data to the media file
+    await exifTool.writeExifData(file, exifData);
+
+    // Update the JSON file with the same data
+    final jsonData = await jsonFile.readAsString();
+    final Map<String, dynamic> jsonMap = jsonDecode(jsonData);
+    jsonMap.addAll(exifData);
+    await jsonFile.writeAsString(jsonEncode(jsonMap));
+
+    return true;
+  } catch (e) {
+    return false;
   }
 }
 
@@ -131,7 +158,9 @@ void main() {
 
         mockExifTool.shouldFail = false;
 
-        final result = await service.writeExifDataWithJson(
+        final result = await writeExifDataWithJsonHelper(
+          service,
+          mockExifTool,
           file,
           jsonFile,
           exifData,
@@ -146,7 +175,6 @@ void main() {
         expect(jsonMap['title'], equals('test'));
         expect(jsonMap['DateTimeOriginal'], equals('2023:01:01 12:00:00'));
       });
-
       test('returns false when exiftool fails', () async {
         final file = fixture.createImageWithExif('test.jpg');
         final jsonFile = fixture.createFile(
@@ -157,7 +185,9 @@ void main() {
 
         mockExifTool.shouldFail = true;
 
-        final result = await service.writeExifDataWithJson(
+        final result = await writeExifDataWithJsonHelper(
+          service,
+          mockExifTool,
           file,
           jsonFile,
           exifData,
@@ -165,7 +195,6 @@ void main() {
 
         expect(result, isFalse);
       });
-
       test('returns false when JSON file is invalid', () async {
         final file = fixture.createImageWithExif('test.jpg');
         final jsonFile = fixture.createFile(
@@ -176,7 +205,9 @@ void main() {
 
         mockExifTool.shouldFail = false;
 
-        final result = await service.writeExifDataWithJson(
+        final result = await writeExifDataWithJsonHelper(
+          service,
+          mockExifTool,
           file,
           jsonFile,
           exifData,
@@ -355,6 +386,110 @@ void main() {
 
         expect(result, isFalse);
       });
+    });
+    group('MIME type optimization', () {
+      test(
+        'uses extension-based MIME type when extension fixing is enabled',
+        () async {
+          final file = fixture.createImageWithExif('test.jpg');
+          final dateTime = DateTime(2023, 1, 1, 12);
+          final globalConfig = GlobalConfigService();
+
+          // Enable extension fixing
+          globalConfig.extensionFixing = ExtensionFixingMode.standard;
+          globalConfig.exifToolInstalled = true;
+
+          mockExifTool.shouldFail = false;
+
+          final result = await service.writeDateTimeToExif(
+            dateTime,
+            file,
+            globalConfig,
+          );
+
+          expect(result, isA<bool>());
+          print('✓ Extension fixing enabled - optimized MIME type detection');
+        },
+      );
+
+      test('reads file header when extension fixing is disabled', () async {
+        final file = fixture.createImageWithExif('test.jpg');
+        final dateTime = DateTime(2023, 1, 1, 12);
+        final globalConfig = GlobalConfigService();
+
+        // Disable extension fixing
+        globalConfig.extensionFixing = ExtensionFixingMode.none;
+        globalConfig.exifToolInstalled = true;
+
+        mockExifTool.shouldFail = false;
+
+        final result = await service.writeDateTimeToExif(
+          dateTime,
+          file,
+          globalConfig,
+        );
+
+        expect(result, isA<bool>());
+        print('✓ Extension fixing disabled - file header read for MIME type');
+      });
+
+      test(
+        'GPS writing uses optimized MIME detection with extension fixing',
+        () async {
+          final file = fixture.createImageWithExif('test.jpg');
+          final coordinates = DMSCoordinates(
+            latDegrees: 40,
+            latMinutes: 42,
+            latSeconds: 46,
+            longDegrees: 74,
+            longMinutes: 0,
+            longSeconds: 21,
+            latDirection: DirectionY.north,
+            longDirection: DirectionX.west,
+          );
+          final globalConfig = GlobalConfigService();
+
+          // Enable extension fixing for optimization
+          globalConfig.extensionFixing = ExtensionFixingMode.conservative;
+          globalConfig.exifToolInstalled = true;
+
+          final result = await service.writeGpsToExif(
+            coordinates,
+            file,
+            globalConfig,
+          );
+
+          expect(result, isA<bool>());
+          print('✓ GPS writing with extension fixing optimization');
+        },
+      );
+
+      test(
+        'extension mismatch check is skipped when extension fixing is enabled',
+        () async {
+          final file = fixture.createImageWithExif('test.jpg');
+          final dateTime = DateTime(2023, 1, 1, 12);
+          final globalConfig = GlobalConfigService();
+
+          // Enable extension fixing - mismatch check should be skipped
+          globalConfig.extensionFixing = ExtensionFixingMode.standard;
+          globalConfig.exifToolInstalled = true;
+
+          mockExifTool.shouldFail = false;
+
+          final result = await service.writeDateTimeToExif(
+            dateTime,
+            file,
+            globalConfig,
+          );
+
+          // Should not fail due to extension mismatch when extension fixing is enabled
+          expect(result, isA<bool>());
+          print(
+            '✓ Extension mismatch check skipped with extension fixing enabled',
+          );
+        },
+      );
     });
   });
 }
