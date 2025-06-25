@@ -68,6 +68,7 @@ class ExifDateExtractor with LoggerMixin {
       'image/x-canon-crw',
       'image/x-nikon-nef',
       'image/x-nikon-nrw',
+      'image/x-panasonic-rw2',
       'image/x-fuji-raf',
       'image/x-adobe-dng',
       'image/x-raw',
