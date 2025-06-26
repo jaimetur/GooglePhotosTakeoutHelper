@@ -45,7 +45,7 @@ class ShortcutService {
     );
     if (Platform.isWindows) {
       // Use the Windows shortcut service
-      const service = WindowsShortcutService();
+      final service = WindowsShortcutService();
       await service.createShortcut(linkFile.path, sourceFile.absolute.path);
       return linkFile;
     } else {

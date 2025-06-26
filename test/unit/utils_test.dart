@@ -205,7 +205,7 @@ void main() {
           if (Platform.isWindows) {
             final targetFile = fixture.createFile('target.txt', [1, 2, 3]);
             final shortcutPath = '${fixture.basePath}/shortcut.lnk';
-            const windowsShortcutService = WindowsShortcutService();
+            final windowsShortcutService = WindowsShortcutService();
 
             // Ensure target file exists before creating shortcut
             expect(targetFile.existsSync(), isTrue);

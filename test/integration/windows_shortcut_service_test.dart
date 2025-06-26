@@ -9,7 +9,7 @@ void main() {
     late Directory tempDir;
 
     setUp(() async {
-      shortcutService = const WindowsShortcutService();
+      shortcutService = WindowsShortcutService();
       tempDir = await Directory.systemTemp.createTemp('shortcut_test');
     });
 

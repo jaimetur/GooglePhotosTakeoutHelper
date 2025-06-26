@@ -6,13 +6,15 @@ import 'package:ffi/ffi.dart';
 import 'package:path/path.dart' as p;
 import 'package:win32/win32.dart';
 
+import '../domain/services/core/logging_service.dart';
+
 /// Service for creating Windows .lnk shortcut files
 ///
 /// Extracted from utils.dart to isolate Windows-specific shortcut creation
 /// logic and provide better testability and maintainability.
-class WindowsShortcutService {
+class WindowsShortcutService with LoggerMixin {
   /// Creates a new instance of WindowsShortcutService
-  const WindowsShortcutService();
+  WindowsShortcutService();
 
   /// Cached GUIDs for performance (avoid repeated parsing)
   static const String _clsidShellLinkString =
@@ -53,7 +55,9 @@ class WindowsShortcutService {
       await _createShortcutNative(shortcutPath, absoluteTargetPath);
       return;
     } catch (e) {
-      print('Native shortcut creation failed, falling back to PowerShell: $e');
+      logDebug(
+        'Native shortcut creation failed, falling back to PowerShell: $e',
+      );
     }
 
     // Fallback to PowerShell
@@ -185,7 +189,7 @@ class WindowsShortcutService {
           hr = shellLink.setWorkingDirectory(workingDirPtr);
           if (FAILED(hr)) {
             // Non-critical error, continue
-            print(
+            logDebug(
               'Warning: Failed to set working directory: 0x${hr.toRadixString(16)}',
             );
           }
@@ -211,7 +215,7 @@ class WindowsShortcutService {
         // Save the shortcut with optimized retry logic
         _saveShortcutOptimized(persistFile, shortcutPath, arena);
 
-        print('Successfully created native Windows shortcut: $shortcutPath');
+        logDebug('Successfully created native Windows shortcut: $shortcutPath');
       } catch (e) {
         // Clean exception handling - cleanup happens in finally
         rethrow;
@@ -225,7 +229,7 @@ class WindowsShortcutService {
         try {
           CoUninitialize();
         } catch (e) {
-          print('Warning: Failed to uninitialize COM: $e');
+          logDebug('Warning: Failed to uninitialize COM: $e');
         }
       }
     });
@@ -242,7 +246,7 @@ class WindowsShortcutService {
     try {
       releaseFunc();
     } catch (e) {
-      print('Warning: Failed to release $interfaceName: $e');
+      logDebug('Warning: Failed to release $interfaceName: $e');
     }
   }
 
@@ -343,13 +347,13 @@ class WindowsShortcutService {
         ]);
 
         if (res.exitCode == 0) {
-          print('Successfully created PowerShell shortcut: $shortcutPath');
+          logDebug('Successfully created PowerShell shortcut: $shortcutPath');
           return; // Success
         }
 
         // Check if shortcut was created despite error code (sometimes happens)
         if (File(shortcutPath).existsSync()) {
-          print(
+          logDebug(
             'PowerShell shortcut created despite error code: $shortcutPath',
           );
           return;
@@ -362,7 +366,7 @@ class WindowsShortcutService {
         }
 
         // Log retry attempt
-        print(
+        logDebug(
           'PowerShell shortcut creation attempt $attempt failed, retrying: ${res.stderr}',
         );
 
@@ -375,7 +379,7 @@ class WindowsShortcutService {
           );
         }
 
-        print(
+        logDebug(
           'PowerShell shortcut creation attempt $attempt threw exception, retrying: $e',
         );
         await Future.delayed(retryDelay);
