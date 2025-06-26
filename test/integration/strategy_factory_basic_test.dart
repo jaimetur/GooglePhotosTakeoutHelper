@@ -4,8 +4,8 @@ library;
 import 'package:gpth/domain/models/processing_config_model.dart';
 import 'package:gpth/domain/services/file_operations/moving/file_operation_service.dart';
 import 'package:gpth/domain/services/file_operations/moving/path_generator_service.dart';
-import 'package:gpth/domain/services/file_operations/moving/shortcut_service.dart';
 import 'package:gpth/domain/services/file_operations/moving/strategies/media_entity_moving_strategy_factory.dart';
+import 'package:gpth/domain/services/file_operations/moving/symlink_service.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -13,12 +13,12 @@ void main() {
     test('factory creates all strategy types without errors', () {
       final fileService = FileOperationService();
       final pathService = PathGeneratorService();
-      final shortcutService = ShortcutService();
+      final symlinkService = SymlinkService();
 
       final factory = MediaEntityMovingStrategyFactory(
         fileService,
         pathService,
-        shortcutService,
+        symlinkService,
       );
 
       // Test all album behaviors can be created
@@ -37,12 +37,12 @@ void main() {
     test('strategy properties are correct', () {
       final fileService = FileOperationService();
       final pathService = PathGeneratorService();
-      final shortcutService = ShortcutService();
+      final symlinkService = SymlinkService();
 
       final factory = MediaEntityMovingStrategyFactory(
         fileService,
         pathService,
-        shortcutService,
+        symlinkService,
       );
 
       // Shortcut strategy

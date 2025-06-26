@@ -59,7 +59,7 @@ class MovingOperation {
 }
 
 /// Types of moving operations
-enum MovingOperationType { move, createShortcut, createReverseShortcut }
+enum MovingOperationType { move, createSymlink, createReverseSymlink }
 
 /// Result of a moving operation
 class MovingResult {

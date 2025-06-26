@@ -2,7 +2,7 @@ import '../../../../entities/media_entity.dart';
 import '../file_operation_service.dart';
 import '../moving_context_model.dart';
 import '../path_generator_service.dart';
-import '../shortcut_service.dart';
+import '../symlink_service.dart';
 import 'media_entity_moving_strategy.dart';
 
 /// Reverse shortcut moving strategy implementation
@@ -13,12 +13,12 @@ class ReverseShortcutMovingStrategy extends MediaEntityMovingStrategy {
   const ReverseShortcutMovingStrategy(
     this._fileService,
     this._pathService,
-    this._shortcutService,
+    this._symlinkService,
   );
 
   final FileOperationService _fileService;
   final PathGeneratorService _pathService;
-  final ShortcutService _shortcutService;
+  final SymlinkService _symlinkService;
 
   @override
   String get name => 'Reverse Shortcut';
@@ -78,7 +78,7 @@ class ReverseShortcutMovingStrategy extends MediaEntityMovingStrategy {
 
         final shortcutStopwatch = Stopwatch()..start();
         try {
-          final shortcutFile = await _shortcutService.createShortcut(
+          final shortcutFile = await _symlinkService.createSymlink(
             allPhotosDir,
             movedFile,
           );
@@ -88,7 +88,7 @@ class ReverseShortcutMovingStrategy extends MediaEntityMovingStrategy {
             operation: MediaEntityMovingOperation(
               sourceFile: movedFile,
               targetDirectory: allPhotosDir,
-              operationType: MediaEntityOperationType.createReverseShortcut,
+              operationType: MediaEntityOperationType.createReverseSymlink,
               mediaEntity: entity,
             ),
             resultFile: shortcutFile,
@@ -102,7 +102,7 @@ class ReverseShortcutMovingStrategy extends MediaEntityMovingStrategy {
             operation: MediaEntityMovingOperation(
               sourceFile: movedFile,
               targetDirectory: allPhotosDir,
-              operationType: MediaEntityOperationType.createReverseShortcut,
+              operationType: MediaEntityOperationType.createReverseSymlink,
               mediaEntity: entity,
             ),
             errorMessage: 'Failed to create reverse shortcut: $e',
@@ -123,7 +123,7 @@ class ReverseShortcutMovingStrategy extends MediaEntityMovingStrategy {
 
           final albumShortcutStopwatch = Stopwatch()..start();
           try {
-            final albumShortcutFile = await _shortcutService.createShortcut(
+            final albumShortcutFile = await _symlinkService.createSymlink(
               albumDir,
               movedFile,
             );
@@ -133,7 +133,7 @@ class ReverseShortcutMovingStrategy extends MediaEntityMovingStrategy {
               operation: MediaEntityMovingOperation(
                 sourceFile: movedFile,
                 targetDirectory: albumDir,
-                operationType: MediaEntityOperationType.createShortcut,
+                operationType: MediaEntityOperationType.createSymlink,
                 mediaEntity: entity,
                 albumKey: albumName,
               ),
@@ -148,7 +148,7 @@ class ReverseShortcutMovingStrategy extends MediaEntityMovingStrategy {
               operation: MediaEntityMovingOperation(
                 sourceFile: movedFile,
                 targetDirectory: albumDir,
-                operationType: MediaEntityOperationType.createShortcut,
+                operationType: MediaEntityOperationType.createSymlink,
                 mediaEntity: entity,
                 albumKey: albumName,
               ),

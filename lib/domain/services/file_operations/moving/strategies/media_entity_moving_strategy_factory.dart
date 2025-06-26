@@ -1,7 +1,7 @@
 import '../../../../models/processing_config_model.dart';
 import '../file_operation_service.dart';
 import '../path_generator_service.dart';
-import '../shortcut_service.dart';
+import '../symlink_service.dart';
 import 'duplicate_copy_moving_strategy.dart';
 import 'json_moving_strategy.dart';
 import 'media_entity_moving_strategy.dart';
@@ -17,12 +17,12 @@ class MediaEntityMovingStrategyFactory {
   const MediaEntityMovingStrategyFactory(
     this._fileService,
     this._pathService,
-    this._shortcutService,
+    this._symlinkService,
   );
   // Dependencies for creating strategy implementations
   final FileOperationService _fileService;
   final PathGeneratorService _pathService;
-  final ShortcutService _shortcutService;
+  final SymlinkService _symlinkService;
 
   /// Creates the appropriate strategy for the given album behavior
   MediaEntityMovingStrategy createStrategy(final AlbumBehavior albumBehavior) {
@@ -31,7 +31,7 @@ class MediaEntityMovingStrategyFactory {
         return ShortcutMovingStrategy(
           _fileService,
           _pathService,
-          _shortcutService,
+          _symlinkService,
         );
       case AlbumBehavior.duplicateCopy:
         return DuplicateCopyMovingStrategy(_fileService, _pathService);
@@ -39,7 +39,7 @@ class MediaEntityMovingStrategyFactory {
         return ReverseShortcutMovingStrategy(
           _fileService,
           _pathService,
-          _shortcutService,
+          _symlinkService,
         );
       case AlbumBehavior.json:
         return JsonMovingStrategy(_fileService, _pathService);

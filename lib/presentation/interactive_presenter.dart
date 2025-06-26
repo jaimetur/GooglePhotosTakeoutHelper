@@ -34,9 +34,9 @@ class InteractivePresenter with LoggerMixin {
   /// Album options with descriptions for user selection
   static const Map<String, String> albumOptions = <String, String>{
     'shortcut':
-        '[Recommended] Album folders with shortcuts/symlinks to \n'
-        'original photos. \nRecommended as it will take the least space, but \n'
-        'may not be portable when moving across systems/computes/phones etc\n',
+        '[Recommended] Album folders with symlinks to \n'
+        'original photos. \nRecommended as it will take the least space and \n'
+        'provides better compatibility with cloud services and file type detection\n',
     'duplicate-copy':
         'Album folders with photos copied into them. \n'
         'This will work across all systems, but may take wayyy more space!!\n',
@@ -263,15 +263,11 @@ class InteractivePresenter with LoggerMixin {
   /// Prompts user to select album behavior
   Future<void> promptForAlbumBehavior() async {
     print('What should be done with albums?');
+    print('[1] shortcut: [Recommended] Album folders with symlinks to');
     print(
-      '[1] shortcut: [Recommended] Album folders with shortcuts/symlinks to',
+      '    original photos. Recommended as it provides better compatibility',
     );
-    print(
-      '    original photos. Recommended as it will take the least space, but',
-    );
-    print(
-      '    may not be portable when moving across systems/computers/phones etc',
-    );
+    print('    with cloud services and takes the least space');
     print('');
     print('[2] duplicate-copy: Album folders with photos copied into them.');
     print(

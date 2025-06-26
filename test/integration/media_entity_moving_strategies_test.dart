@@ -15,7 +15,6 @@ import 'package:gpth/domain/services/core/service_container.dart';
 import 'package:gpth/domain/services/file_operations/moving/file_operation_service.dart';
 import 'package:gpth/domain/services/file_operations/moving/moving_context_model.dart';
 import 'package:gpth/domain/services/file_operations/moving/path_generator_service.dart';
-import 'package:gpth/domain/services/file_operations/moving/shortcut_service.dart';
 import 'package:gpth/domain/services/file_operations/moving/strategies/duplicate_copy_moving_strategy.dart';
 import 'package:gpth/domain/services/file_operations/moving/strategies/json_moving_strategy.dart';
 import 'package:gpth/domain/services/file_operations/moving/strategies/media_entity_moving_strategy.dart';
@@ -23,6 +22,7 @@ import 'package:gpth/domain/services/file_operations/moving/strategies/media_ent
 import 'package:gpth/domain/services/file_operations/moving/strategies/nothing_moving_strategy.dart';
 import 'package:gpth/domain/services/file_operations/moving/strategies/reverse_shortcut_moving_strategy.dart';
 import 'package:gpth/domain/services/file_operations/moving/strategies/shortcut_moving_strategy.dart';
+import 'package:gpth/domain/services/file_operations/moving/symlink_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
@@ -33,7 +33,7 @@ void main() {
     late TestFixture fixture;
     late FileOperationService fileService;
     late PathGeneratorService pathService;
-    late ShortcutService shortcutService;
+    late SymlinkService symlinkService;
     late Directory outputDir;
     late MovingContext context;
     setUp(() async {
@@ -45,7 +45,7 @@ void main() {
 
       fileService = FileOperationService();
       pathService = PathGeneratorService();
-      shortcutService = ShortcutService();
+      symlinkService = SymlinkService();
 
       outputDir = fixture.createDirectory('output');
       context = MovingContext(
@@ -67,7 +67,7 @@ void main() {
         factory = MediaEntityMovingStrategyFactory(
           fileService,
           pathService,
-          shortcutService,
+          symlinkService,
         );
       });
 
@@ -119,7 +119,7 @@ void main() {
         strategy = ShortcutMovingStrategy(
           fileService,
           pathService,
-          shortcutService,
+          symlinkService,
         );
       });
 
@@ -147,7 +147,7 @@ void main() {
         expect(results[1].success, isTrue);
         expect(
           results[1].operation.operationType,
-          equals(MediaEntityOperationType.createShortcut),
+          equals(MediaEntityOperationType.createSymlink),
         );
 
         // Verify file was moved to ALL_PHOTOS
@@ -344,7 +344,7 @@ void main() {
         final factory = MediaEntityMovingStrategyFactory(
           fileService,
           pathService,
-          shortcutService,
+          symlinkService,
         );
 
         for (final behavior in AlbumBehavior.values) {
@@ -361,7 +361,7 @@ void main() {
         final strategy = ShortcutMovingStrategy(
           fileService,
           pathService,
-          shortcutService,
+          symlinkService,
         );
 
         final nonExistentFile = File('${fixture.basePath}/nonexistent.jpg');

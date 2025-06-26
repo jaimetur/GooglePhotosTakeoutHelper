@@ -119,21 +119,16 @@ void main() {
           reason: 'Should create emoji album directories',
         );
 
-        // Verify shortcuts are created properly on Windows
-        if (Platform.isWindows) {
-          final shortcuts = await Directory(outputPath)
-              .list(recursive: true)
-              .where(
-                (final entity) =>
-                    entity is File && entity.path.endsWith('.lnk'),
-              )
-              .toList();
-          expect(
-            shortcuts.length,
-            greaterThan(0),
-            reason: 'Should create Windows shortcuts',
-          );
-        }
+        // Verify symlinks are created properly
+        final symlinks = await Directory(outputPath)
+            .list(recursive: true)
+            .where((final entity) => entity is Link)
+            .toList();
+        expect(
+          symlinks.length,
+          greaterThan(0),
+          reason: 'Should create symlinks in album folders',
+        );
       });
 
       test(
@@ -175,55 +170,40 @@ void main() {
             reason: 'Should have album directories',
           );
 
-          // Check that album directories contain actual files, not shortcuts
+          // Check that album directories contain symlinks, not actual files (reverse-shortcut mode)
           for (final albumDir in albumDirs) {
-            final albumFiles = await albumDir
+            final albumSymlinks = await albumDir
                 .list()
                 .where(
                   (final entity) =>
-                      entity is File &&
-                      !entity.path.endsWith('.lnk') &&
+                      entity is Link &&
                       (entity.path.endsWith('.jpg') ||
                           entity.path.endsWith('.png')),
                 )
                 .toList();
-            if (albumFiles.isNotEmpty) {
+            if (albumSymlinks.isNotEmpty) {
               expect(
-                albumFiles.length,
+                albumSymlinks.length,
                 greaterThan(0),
                 reason:
-                    'Album ${p.basename(albumDir.path)} should contain actual files',
+                    'Album ${p.basename(albumDir.path)} should contain symlinks in reverse-shortcut mode',
               );
             }
           }
 
-          // Verify ALL_PHOTOS has shortcuts pointing to album files
+          // Verify ALL_PHOTOS has symlinks pointing to album files (reverse-shortcut mode)
           final allPhotosDir = Directory(p.join(outputPath, 'ALL_PHOTOS'));
           if (await allPhotosDir.exists()) {
-            if (Platform.isWindows) {
-              final shortcuts = await allPhotosDir
-                  .list()
-                  .where(
-                    (final entity) =>
-                        entity is File && entity.path.endsWith('.lnk'),
-                  )
-                  .toList();
-              expect(
-                shortcuts.length,
-                greaterThan(0),
-                reason: 'ALL_PHOTOS should contain shortcuts',
-              );
-            } else {
-              final symlinks = await allPhotosDir
-                  .list()
-                  .where((final entity) => entity is Link)
-                  .toList();
-              expect(
-                symlinks.length,
-                greaterThan(0),
-                reason: 'ALL_PHOTOS should contain symlinks',
-              );
-            }
+            final symlinks = await allPhotosDir
+                .list()
+                .where((final entity) => entity is Link)
+                .toList();
+            expect(
+              symlinks.length,
+              greaterThan(0),
+              reason:
+                  'ALL_PHOTOS should contain symlinks in reverse-shortcut mode',
+            );
           }
         },
       );
@@ -1179,7 +1159,7 @@ void main() {
     });
 
     group('Cross-Platform Compatibility', () {
-      test('creates platform-appropriate shortcuts/symlinks', () async {
+      test('creates platform-appropriate symlinks', () async {
         final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
           takeoutPath,
         );
@@ -1203,26 +1183,13 @@ void main() {
           outputPath,
         ).list(recursive: true).toList();
 
-        if (Platform.isWindows) {
-          // Should create .lnk files on Windows
-          final shortcuts = outputContents
-              .whereType<File>()
-              .where((final file) => file.path.endsWith('.lnk'))
-              .toList();
-          expect(
-            shortcuts.length,
-            greaterThan(0),
-            reason: 'Should create Windows shortcuts',
-          );
-        } else {
-          // Should create symlinks on Unix systems
-          final symlinks = outputContents.whereType<Link>().toList();
-          expect(
-            symlinks.length,
-            greaterThan(0),
-            reason: 'Should create Unix symlinks',
-          );
-        }
+        // Should create symlinks on all platforms (including Windows)
+        final symlinks = outputContents.whereType<Link>().toList();
+        expect(
+          symlinks.length,
+          greaterThan(0),
+          reason: 'Should create symlinks on all platforms',
+        );
       });
     });
   });

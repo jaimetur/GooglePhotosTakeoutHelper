@@ -47,10 +47,10 @@ void main() {
     });
 
     group('Album options content validation', () {
-      test('shortcut option should mention shortcuts/symlinks', () {
+      test('shortcut option should mention symlinks', () {
         final shortcutDescription =
             InteractivePresenter.albumOptions['shortcut']!;
-        expect(shortcutDescription.toLowerCase(), contains('shortcut'));
+        expect(shortcutDescription.toLowerCase(), contains('symlinks'));
         expect(shortcutDescription.toLowerCase(), contains('recommend'));
       });
 

@@ -5,9 +5,9 @@ import '../../../models/media_entity_collection.dart';
 import 'file_operation_service.dart';
 import 'moving_context_model.dart';
 import 'path_generator_service.dart';
-import 'shortcut_service.dart';
 import 'strategies/media_entity_moving_strategy.dart';
 import 'strategies/media_entity_moving_strategy_factory.dart';
+import 'symlink_service.dart';
 
 /// Modern media moving service using immutable MediaEntity
 ///
@@ -19,18 +19,18 @@ class MediaEntityMovingService {
     : _strategyFactory = MediaEntityMovingStrategyFactory(
         FileOperationService(),
         PathGeneratorService(),
-        ShortcutService(),
+        SymlinkService(),
       );
 
   /// Custom constructor for dependency injection (useful for testing)
   MediaEntityMovingService.withDependencies({
     required final FileOperationService fileService,
     required final PathGeneratorService pathService,
-    required final ShortcutService shortcutService,
+    required final SymlinkService symlinkService,
   }) : _strategyFactory = MediaEntityMovingStrategyFactory(
          fileService,
          pathService,
-         shortcutService,
+         symlinkService,
        );
 
   final MediaEntityMovingStrategyFactory _strategyFactory;

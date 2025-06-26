@@ -662,14 +662,20 @@ void main() {
         reason: 'ALL_PHOTOS directory should exist',
       );
 
-      // Get list of output files
-      final outputFiles = await outputDir
-          .list(recursive: true)
+      // Get list of output files (only counting actual moved files in ALL_PHOTOS)
+      // In shortcut/symlink mode, album directories contain symlinks, not actual files
+      final allPhotosDirectory = Directory(p.join(outputPath, 'ALL_PHOTOS'));
+      final outputFiles = await allPhotosDirectory
+          .list()
           .where(
             (final entity) => entity is File && entity.path.endsWith('.jpg'),
           )
           .cast<File>()
           .toList();
+
+      print(
+        '[DEBUG] Output files in ALL_PHOTOS (actual moved files): ${outputFiles.length}',
+      );
 
       expect(
         outputFiles.length,
@@ -810,9 +816,11 @@ void main() {
               'In move mode, only album-only files should remain in input directory. '
               'These files exist only in album folders and are preserved to prevent data loss. '
               'Expected ${albumOnlyFiles.length} album-only files, found ${inputFilesAfter.length} total remaining files.',
-        ); // Verify output files were created
-        final outputFiles = await outputDir
-            .list(recursive: true)
+        ); // Verify output files were created (only count actual moved files in ALL_PHOTOS)
+        // In shortcut/symlink mode, album directories contain symlinks, not actual files
+        final allPhotosDirectory = Directory(p.join(outputPath, 'ALL_PHOTOS'));
+        final outputFiles = await allPhotosDirectory
+            .list()
             .where(
               (final entity) => entity is File && entity.path.endsWith('.jpg'),
             )

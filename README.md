@@ -100,19 +100,20 @@ The biggest downside is, that you need the processing power to extract on the de
 GPTH offers several ways to handle your Google Photos albums:
 
 ### 🔗 Shortcut (Recommended)
-**What it does:** Creates shortcuts/symlinks from album folders to files in `ALL_PHOTOS`. The original files are moved to `ALL_PHOTOS`, and shortcuts are created in album folders.
+**What it does:** Creates symbolic links from album folders to files in `ALL_PHOTOS`. The original files are moved to `ALL_PHOTOS`, and symlinks are created in album folders.
 
 **Advantages:**
 - Saves maximum disk space (no duplicate files)
 - Maintains album organization
 - Fast processing
+- Better compatibility with cloud services and file type detection
+- Works across all platforms (Windows, Mac, Linux)
 
 **Disadvantages:**
-- Shortcuts may break when moving folders between systems
-- Not all applications support shortcuts/symlinks
-- Windows shortcuts (.lnk files) don't work on Mac/Linux
+- Requires symbolic link support (most modern systems support this)
+- Some older applications may not follow symlinks properly
 
-**Best for:** Most users who want space efficiency and plan to keep photos on the same system.
+**Best for:** Most users who want space efficiency and better compatibility with modern applications and cloud services.
 
 ### 📁 Duplicate Copy
 **What it does:** Creates actual file copies in both `ALL_PHOTOS` and album folders. Each photo appears as a separate physical file in every location.

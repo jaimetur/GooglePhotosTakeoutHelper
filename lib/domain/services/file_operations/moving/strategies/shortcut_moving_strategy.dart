@@ -2,7 +2,7 @@ import '../../../../entities/media_entity.dart';
 import '../file_operation_service.dart';
 import '../moving_context_model.dart';
 import '../path_generator_service.dart';
-import '../shortcut_service.dart';
+import '../symlink_service.dart';
 import 'media_entity_moving_strategy.dart';
 
 /// Shortcut moving strategy implementation
@@ -13,12 +13,12 @@ class ShortcutMovingStrategy extends MediaEntityMovingStrategy {
   const ShortcutMovingStrategy(
     this._fileService,
     this._pathService,
-    this._shortcutService,
+    this._symlinkService,
   );
 
   final FileOperationService _fileService;
   final PathGeneratorService _pathService;
-  final ShortcutService _shortcutService;
+  final SymlinkService _symlinkService;
 
   @override
   String get name => 'Shortcut';
@@ -73,7 +73,7 @@ class ShortcutMovingStrategy extends MediaEntityMovingStrategy {
         );
         final shortcutStopwatch = Stopwatch()..start();
         try {
-          final shortcutFile = await _shortcutService.createShortcut(
+          final shortcutFile = await _symlinkService.createSymlink(
             albumDir,
             movedFile,
           );
@@ -83,7 +83,7 @@ class ShortcutMovingStrategy extends MediaEntityMovingStrategy {
             operation: MediaEntityMovingOperation(
               sourceFile: movedFile,
               targetDirectory: albumDir,
-              operationType: MediaEntityOperationType.createShortcut,
+              operationType: MediaEntityOperationType.createSymlink,
               mediaEntity: entity,
               albumKey: albumName,
             ),
@@ -98,7 +98,7 @@ class ShortcutMovingStrategy extends MediaEntityMovingStrategy {
             operation: MediaEntityMovingOperation(
               sourceFile: movedFile,
               targetDirectory: albumDir,
-              operationType: MediaEntityOperationType.createShortcut,
+              operationType: MediaEntityOperationType.createSymlink,
               mediaEntity: entity,
               albumKey: albumName,
             ),

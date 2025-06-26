@@ -67,7 +67,7 @@ import 'package:gpth/domain/services/core/formatting_service.dart';
 import 'package:gpth/domain/services/core/logging_service.dart';
 import 'package:gpth/domain/services/core/service_container.dart';
 import 'package:gpth/infrastructure/platform_service.dart';
-import 'package:gpth/infrastructure/windows_shortcut_service.dart';
+import 'package:gpth/infrastructure/windows_symlink_service.dart';
 import 'package:gpth/shared/extensions/file_extensions.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
@@ -198,26 +198,26 @@ void main() {
     });
 
     group('Platform-specific Operations', () {
-      /// Should handle Windows shortcuts (Windows only test).
+      /// Should handle Windows symlinks (Windows only test).
       test(
-        'WindowsShortcutService handles Windows shortcuts',
+        'WindowsSymlinkService handles Windows symlinks',
         () async {
           if (Platform.isWindows) {
             final targetFile = fixture.createFile('target.txt', [1, 2, 3]);
-            final shortcutPath = '${fixture.basePath}/shortcut.lnk';
-            final windowsShortcutService = WindowsShortcutService();
+            final symlinkPath = '${fixture.basePath}/symlink';
+            final windowsSymlinkService = WindowsSymlinkService();
 
-            // Ensure target file exists before creating shortcut
+            // Ensure target file exists before creating symlink
             expect(targetFile.existsSync(), isTrue);
 
             // Should not throw and should complete successfully
-            await windowsShortcutService.createShortcut(
-              shortcutPath,
+            await windowsSymlinkService.createSymlink(
+              symlinkPath,
               targetFile.path,
             );
 
-            // Verify shortcut was created
-            expect(File(shortcutPath).existsSync(), isTrue);
+            // Verify symlink was created
+            expect(File(symlinkPath).existsSync(), isTrue);
           }
         },
         skip: !Platform.isWindows ? 'Windows only test' : null,

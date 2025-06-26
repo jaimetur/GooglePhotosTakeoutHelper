@@ -100,7 +100,7 @@ lib/
 ├── infrastructure/       # External service integrations
 │   ├── exiftool_service.dart
 │   ├── platform_service.dart
-│   └── windows_shortcut_service.dart
+│   └── windows_symlink_service.dart
 ├── presentation/         # User interface and interaction
 │   └── interactive_presenter.dart
 └── shared/              # Shared utilities and constants

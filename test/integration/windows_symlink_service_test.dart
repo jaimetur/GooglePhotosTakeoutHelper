@@ -1,16 +1,16 @@
 import 'dart:io';
 
-import 'package:gpth/infrastructure/windows_shortcut_service.dart';
+import 'package:gpth/infrastructure/windows_symlink_service.dart';
 import 'package:test/test.dart';
 
 void main() {
-  group('WindowsShortcutService', () {
-    late WindowsShortcutService shortcutService;
+  group('WindowsSymlinkService', () {
+    late WindowsSymlinkService symlinkService;
     late Directory tempDir;
 
     setUp(() async {
-      shortcutService = WindowsShortcutService();
-      tempDir = await Directory.systemTemp.createTemp('shortcut_test');
+      symlinkService = WindowsSymlinkService();
+      tempDir = await Directory.systemTemp.createTemp('symlink_test');
     });
 
     tearDown(() async {
@@ -19,13 +19,13 @@ void main() {
       }
     });
 
-    test('should create WindowsShortcutService instance', () {
-      expect(shortcutService, isA<WindowsShortcutService>());
+    test('should create WindowsSymlinkService instance', () {
+      expect(symlinkService, isA<WindowsSymlinkService>());
     });
 
     group('Windows platform tests', () {
       test(
-        'should create shortcut to existing file',
+        'should create symlink to existing file',
         () async {
           if (!Platform.isWindows) return;
 
@@ -33,23 +33,23 @@ void main() {
           final targetFile = File('${tempDir.path}/target.txt');
           await targetFile.writeAsString('Test content');
 
-          final shortcutPath = '${tempDir.path}/shortcut.lnk';
+          final symlinkPath = '${tempDir.path}/symlink';
 
-          await shortcutService.createShortcut(shortcutPath, targetFile.path);
+          await symlinkService.createSymlink(symlinkPath, targetFile.path);
 
-          // Verify shortcut was created
-          final shortcutFile = File(shortcutPath);
-          expect(await shortcutFile.exists(), isTrue);
+          // Verify symlink was created
+          final symlinkLink = Link(symlinkPath);
+          expect(await symlinkLink.exists(), isTrue);
 
-          // Basic validation that it's a .lnk file (should have LNK header)
-          final bytes = await shortcutFile.readAsBytes();
-          expect(bytes.length, greaterThan(0));
+          // Basic validation that it's a symlink (should be a valid link)
+          final targetPath = await symlinkLink.target();
+          expect(targetPath, isNotEmpty);
         },
         skip: !Platform.isWindows ? 'Windows-only test' : null,
       );
 
       test(
-        'should create shortcut to existing directory',
+        'should create symlink to existing directory',
         () async {
           if (!Platform.isWindows) return;
 
@@ -57,13 +57,13 @@ void main() {
           final targetDir = Directory('${tempDir.path}/target_folder');
           await targetDir.create();
 
-          final shortcutPath = '${tempDir.path}/folder_shortcut.lnk';
+          final symlinkPath = '${tempDir.path}/folder_symlink';
 
-          await shortcutService.createShortcut(shortcutPath, targetDir.path);
+          await symlinkService.createSymlink(symlinkPath, targetDir.path);
 
-          // Verify shortcut was created
-          final shortcutFile = File(shortcutPath);
-          expect(await shortcutFile.exists(), isTrue);
+          // Verify symlink was created
+          final symlinkLink = Link(symlinkPath);
+          expect(await symlinkLink.exists(), isTrue);
         },
         skip: !Platform.isWindows ? 'Windows-only test' : null,
       );
@@ -77,16 +77,16 @@ void main() {
           final targetFile = File('${tempDir.path}/absolute_target.txt');
           await targetFile.writeAsString('Test content');
 
-          final shortcutPath = '${tempDir.path}/absolute_shortcut.lnk';
+          final symlinkPath = '${tempDir.path}/absolute_symlink';
 
-          await shortcutService.createShortcut(
-            shortcutPath,
+          await symlinkService.createSymlink(
+            symlinkPath,
             targetFile.absolute.path,
           );
 
-          // Verify shortcut was created
-          final shortcutFile = File(shortcutPath);
-          expect(await shortcutFile.exists(), isTrue);
+          // Verify symlink was created
+          final symlinkLink = Link(symlinkPath);
+          expect(await symlinkLink.exists(), isTrue);
         },
         skip: !Platform.isWindows ? 'Windows-only test' : null,
       );
@@ -100,21 +100,21 @@ void main() {
           final targetFile = File('${tempDir.path}/relative_target.txt');
           await targetFile.writeAsString('Test content');
 
-          final shortcutPath = '${tempDir.path}/relative_shortcut.lnk';
+          final symlinkPath = '${tempDir.path}/relative_symlink';
 
           // Use relative path from temp directory
           final originalDir = Directory.current;
           Directory.current = tempDir;
 
           try {
-            await shortcutService.createShortcut(
-              shortcutPath,
+            await symlinkService.createSymlink(
+              symlinkPath,
               'relative_target.txt',
             );
 
-            // Verify shortcut was created
-            final shortcutFile = File(shortcutPath);
-            expect(await shortcutFile.exists(), isTrue);
+            // Verify symlink was created
+            final symlinkLink = Link(symlinkPath);
+            expect(await symlinkLink.exists(), isTrue);
           } finally {
             Directory.current = originalDir;
           }
@@ -131,14 +131,14 @@ void main() {
           final targetFile = File('${tempDir.path}/target.txt');
           await targetFile.writeAsString('Test content');
 
-          // Create shortcut in nested directory that doesn't exist
-          final shortcutPath = '${tempDir.path}/nested/folder/shortcut.lnk';
+          // Create symlink in nested directory that doesn't exist
+          final symlinkPath = '${tempDir.path}/nested/folder/symlink';
 
-          await shortcutService.createShortcut(shortcutPath, targetFile.path);
+          await symlinkService.createSymlink(symlinkPath, targetFile.path);
 
-          // Verify shortcut was created and parent directories exist
-          final shortcutFile = File(shortcutPath);
-          expect(await shortcutFile.exists(), isTrue);
+          // Verify symlink was created and parent directories exist
+          final symlinkLink = Link(symlinkPath);
+          expect(await symlinkLink.exists(), isTrue);
           expect(
             await Directory('${tempDir.path}/nested/folder').exists(),
             isTrue,
@@ -158,13 +158,13 @@ void main() {
           );
           await targetFile.writeAsString('Test content');
 
-          final shortcutPath = '${tempDir.path}/shortcut with spaces.lnk';
+          final symlinkPath = '${tempDir.path}/symlink with spaces';
 
-          await shortcutService.createShortcut(shortcutPath, targetFile.path);
+          await symlinkService.createSymlink(symlinkPath, targetFile.path);
 
-          // Verify shortcut was created
-          final shortcutFile = File(shortcutPath);
-          expect(await shortcutFile.exists(), isTrue);
+          // Verify symlink was created
+          final symlinkLink = Link(symlinkPath);
+          expect(await symlinkLink.exists(), isTrue);
         },
         skip: !Platform.isWindows ? 'Windows-only test' : null,
       );
@@ -175,11 +175,10 @@ void main() {
           if (!Platform.isWindows) return;
 
           final nonExistentTarget = '${tempDir.path}/does_not_exist.txt';
-          final shortcutPath = '${tempDir.path}/shortcut.lnk';
+          final symlinkPath = '${tempDir.path}/symlink';
 
           expect(
-            () =>
-                shortcutService.createShortcut(shortcutPath, nonExistentTarget),
+            () => symlinkService.createSymlink(symlinkPath, nonExistentTarget),
             throwsA(isA<Exception>()),
           );
         },
@@ -187,7 +186,7 @@ void main() {
       );
 
       test(
-        'should overwrite existing shortcut',
+        'should overwrite existing symlink',
         () async {
           if (!Platform.isWindows) return;
 
@@ -198,15 +197,15 @@ void main() {
           final targetFile2 = File('${tempDir.path}/target2.txt');
           await targetFile2.writeAsString('Target 2');
 
-          final shortcutPath = '${tempDir.path}/shortcut.lnk';
+          final symlinkPath = '${tempDir.path}/symlink';
 
-          // Create first shortcut
-          await shortcutService.createShortcut(shortcutPath, targetFile1.path);
-          expect(await File(shortcutPath).exists(), isTrue);
+          // Create first symlink
+          await symlinkService.createSymlink(symlinkPath, targetFile1.path);
+          expect(await Link(symlinkPath).exists(), isTrue);
 
-          // Create second shortcut with same path (should overwrite)
-          await shortcutService.createShortcut(shortcutPath, targetFile2.path);
-          expect(await File(shortcutPath).exists(), isTrue);
+          // Create second symlink with same path (should overwrite)
+          await symlinkService.createSymlink(symlinkPath, targetFile2.path);
+          expect(await Link(symlinkPath).exists(), isTrue);
         },
         skip: !Platform.isWindows ? 'Windows-only test' : null,
       );
@@ -220,19 +219,19 @@ void main() {
           final targetFile = File('${tempDir.path}/target.txt');
           await targetFile.writeAsString('Test content');
 
-          // Create a long path for the shortcut
+          // Create a long path for the symlink
           final longPath = List.generate(
             5,
             (final i) => 'very_long_folder_name_$i',
           ).join('/');
-          final shortcutPath = '${tempDir.path}/$longPath/shortcut.lnk';
+          final symlinkPath = '${tempDir.path}/$longPath/symlink';
 
           try {
-            await shortcutService.createShortcut(shortcutPath, targetFile.path);
+            await symlinkService.createSymlink(symlinkPath, targetFile.path);
 
-            // Verify shortcut was created
-            final shortcutFile = File(shortcutPath);
-            expect(await shortcutFile.exists(), isTrue);
+            // Verify symlink was created
+            final symlinkLink = Link(symlinkPath);
+            expect(await symlinkLink.exists(), isTrue);
           } catch (e) {
             // Long paths might fail on some systems, which is acceptable
             expect(e, isA<Exception>());
@@ -251,10 +250,10 @@ void main() {
           final targetFile = File('${tempDir.path}/target.txt');
           await targetFile.writeAsString('Test content');
 
-          final shortcutPath = '${tempDir.path}/shortcut.lnk';
+          final symlinkPath = '${tempDir.path}/symlink';
 
           expect(
-            () => shortcutService.createShortcut(shortcutPath, targetFile.path),
+            () => symlinkService.createSymlink(symlinkPath, targetFile.path),
             throwsA(isA<UnsupportedError>()),
           );
         },
@@ -268,7 +267,7 @@ void main() {
         if (!Platform.isWindows) return;
 
         expect(
-          () => shortcutService.createShortcut('', ''),
+          () => symlinkService.createSymlink('', ''),
           throwsA(isA<Exception>()),
         );
       },
@@ -276,28 +275,22 @@ void main() {
     );
 
     test(
-      'should validate shortcut path extension',
+      'should validate symlink path extension',
       () async {
         if (!Platform.isWindows) return;
 
         final targetFile = File('${tempDir.path}/target.txt');
         await targetFile.writeAsString('Test content');
 
-        // Test with .lnk extension
-        final validShortcutPath = '${tempDir.path}/shortcut.lnk';
-        await shortcutService.createShortcut(
-          validShortcutPath,
-          targetFile.path,
-        );
-        expect(await File(validShortcutPath).exists(), isTrue);
+        // Test with  extension
+        final validsymlinkPath = '${tempDir.path}/symlink';
+        await symlinkService.createSymlink(validsymlinkPath, targetFile.path);
+        expect(await File(validsymlinkPath).exists(), isTrue);
 
-        // Test without .lnk extension (should still work - service might add it)
-        final noExtShortcutPath = '${tempDir.path}/shortcut_no_ext';
+        // Test without  extension (should still work - service might add it)
+        final noExtsymlinkPath = '${tempDir.path}/symlink_no_ext';
         try {
-          await shortcutService.createShortcut(
-            noExtShortcutPath,
-            targetFile.path,
-          );
+          await symlinkService.createSymlink(noExtsymlinkPath, targetFile.path);
           // Either it works as-is or the service handles it appropriately
           expect(true, isTrue); // Test that it doesn't crash
         } catch (e) {

@@ -80,8 +80,8 @@ class MediaEntityMovingOperation {
 enum MediaEntityOperationType {
   move,
   copy,
-  createShortcut,
-  createReverseShortcut,
+  createSymlink,
+  createReverseSymlink,
   createJsonReference,
 }
 
