@@ -119,11 +119,34 @@ void main() {
           reason: 'Should create emoji album directories',
         );
 
-        // Verify symlinks are created properly
-        final symlinks = await Directory(outputPath)
-            .list(recursive: true)
-            .where((final entity) => entity is Link)
-            .toList();
+        // Verify symlinks are created properly (using proper cross-platform detection)
+        final allEntities = await Directory(
+          outputPath,
+        ).list(recursive: true).toList();
+        final symlinks = <FileSystemEntity>[];
+        for (final entity in allEntities) {
+          // Check if the entity is a symlink by resolving its path
+          try {
+            if (await entity.exists()) {
+              final resolvedPath = await File(
+                entity.path,
+              ).resolveSymbolicLinks();
+              if (resolvedPath != entity.path) {
+                symlinks.add(entity);
+              }
+            }
+          } catch (e) {
+            // Fallback to Dart's stat method if resolution fails
+            try {
+              final stat = await entity.stat();
+              if (stat.type == FileSystemEntityType.link) {
+                symlinks.add(entity);
+              }
+            } catch (e) {
+              // Ignore entities that can't be stat'ed
+            }
+          }
+        }
         expect(
           symlinks.length,
           greaterThan(0),
@@ -172,15 +195,19 @@ void main() {
 
           // Check that album directories contain symlinks, not actual files (reverse-shortcut mode)
           for (final albumDir in albumDirs) {
-            final albumSymlinks = await albumDir
-                .list()
-                .where(
-                  (final entity) =>
-                      entity is Link &&
-                      (entity.path.endsWith('.jpg') ||
-                          entity.path.endsWith('.png')),
-                )
-                .toList();
+            final albumEntities = await albumDir.list().toList();
+            final albumSymlinks = <FileSystemEntity>[];
+
+            for (final entity in albumEntities) {
+              if (entity.path.endsWith('.jpg') ||
+                  entity.path.endsWith('.png')) {
+                final stat = await entity.stat();
+                if (stat.type == FileSystemEntityType.link) {
+                  albumSymlinks.add(entity);
+                }
+              }
+            }
+
             if (albumSymlinks.isNotEmpty) {
               expect(
                 albumSymlinks.length,
@@ -194,10 +221,31 @@ void main() {
           // Verify ALL_PHOTOS has symlinks pointing to album files (reverse-shortcut mode)
           final allPhotosDir = Directory(p.join(outputPath, 'ALL_PHOTOS'));
           if (await allPhotosDir.exists()) {
-            final symlinks = await allPhotosDir
-                .list()
-                .where((final entity) => entity is Link)
-                .toList();
+            final allEntities = await allPhotosDir.list().toList();
+            final symlinks = <FileSystemEntity>[];
+            for (final entity in allEntities) {
+              // Check if the entity is a symlink by resolving its path
+              try {
+                if (await entity.exists()) {
+                  final resolvedPath = await File(
+                    entity.path,
+                  ).resolveSymbolicLinks();
+                  if (resolvedPath != entity.path) {
+                    symlinks.add(entity);
+                  }
+                }
+              } catch (e) {
+                // Fallback to Dart's stat method if resolution fails
+                try {
+                  final stat = await entity.stat();
+                  if (stat.type == FileSystemEntityType.link) {
+                    symlinks.add(entity);
+                  }
+                } catch (e) {
+                  // Ignore entities that can't be stat'ed
+                }
+              }
+            }
             expect(
               symlinks.length,
               greaterThan(0),
@@ -1183,8 +1231,66 @@ void main() {
           outputPath,
         ).list(recursive: true).toList();
 
+        // Debug: Check what's in the output
+        print('[DEBUG] Total entities: ${outputContents.length}');
+        final files = outputContents.whereType<File>().length;
+        final dirs = outputContents.whereType<Directory>().length;
+        print('[DEBUG] Files: $files, Directories: $dirs');
+
+        // Check ALL_PHOTOS specifically
+        final allPhotosDir = Directory(p.join(outputPath, 'ALL_PHOTOS'));
+        if (await allPhotosDir.exists()) {
+          final allPhotosFiles = await allPhotosDir.list().toList();
+          print('[DEBUG] ALL_PHOTOS has ${allPhotosFiles.length} items');
+        }
+
+        // Check album directories
+        final albumDirs = outputContents
+            .whereType<Directory>()
+            .where((final dir) => !p.basename(dir.path).contains('ALL_PHOTOS'))
+            .toList();
+        print('[DEBUG] Album directories: ${albumDirs.length}');
+        for (final albumDir in albumDirs.take(3)) {
+          final albumFiles = await albumDir.list().toList();
+          print(
+            '[DEBUG] ${p.basename(albumDir.path)}: ${albumFiles.length} items',
+          );
+
+          // Check first few files in this album
+          final albumFilesList = albumFiles.whereType<File>().take(3).toList();
+          for (final file in albumFilesList) {
+            final stat = await file.stat();
+            final basename = p.basename(file.path);
+            print('[DEBUG]   - $basename (${stat.type})');
+          }
+        }
+
         // Should create symlinks on all platforms (including Windows)
-        final symlinks = outputContents.whereType<Link>().toList();
+        final symlinks = <FileSystemEntity>[];
+        for (final entity in outputContents) {
+          // Check if the entity is a symlink by resolving its path
+          try {
+            if (await entity.exists()) {
+              final resolvedPath = await File(
+                entity.path,
+              ).resolveSymbolicLinks();
+              if (resolvedPath != entity.path) {
+                symlinks.add(entity);
+              }
+            }
+          } catch (e) {
+            // Fallback to Dart's stat method if resolution fails
+            try {
+              final stat = await entity.stat();
+              if (stat.type == FileSystemEntityType.link) {
+                symlinks.add(entity);
+              }
+            } catch (e) {
+              // Ignore entities that can't be stat'ed
+            }
+          }
+        }
+        print('[DEBUG] Found ${symlinks.length} symlinks');
         expect(
           symlinks.length,
           greaterThan(0),
