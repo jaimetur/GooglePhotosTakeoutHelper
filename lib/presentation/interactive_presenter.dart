@@ -322,8 +322,8 @@ class InteractivePresenter with LoggerMixin {
       'extensions. Do you want to change them to .mp4 '
       'for better compatibility?',
     );
-    print('[1] (default) - no, keep original extension');
-    print('[2] - yes, change extension to .mp4');
+    print('[1] - yes, change extension to .mp4');
+    print('[2] (default) - no, keep original extension');
     print('(Type 1 or 2, or press enter for default):');
     if (enableSleep) await _sleep(1);
   }
