@@ -61,15 +61,26 @@ class AlbumRelationshipService with LoggerMixin {
     final groups = <String, List<MediaEntity>>{};
 
     for (final entity in mediaList) {
-      // Use file size and MD5 content hash for reliable duplicate detection
-      final size = await entity.primaryFile.length();
-      final content = await entity.primaryFile.readAsBytes();
+      try {
+        // Use file size and MD5 content hash for reliable duplicate detection
+        final size = await entity.primaryFile.length();
+        final content = await entity.primaryFile.readAsBytes();
 
-      // Use MD5 hash for consistent content-based grouping
-      final digest = md5.convert(content);
-      final contentKey = '${size}_$digest';
+        // Use MD5 hash for consistent content-based grouping
+        final digest = md5.convert(content);
+        final contentKey = '${size}_$digest';
 
-      groups.putIfAbsent(contentKey, () => []).add(entity);
+        groups.putIfAbsent(contentKey, () => []).add(entity);
+      } catch (e) {
+        logWarning(
+          'Skipping file during album detection due to error: ${entity.primaryFile.path} - $e',
+        );
+        // Add the entity to a special group for unprocessable files
+        // This ensures it's still included in the final results
+        groups
+            .putIfAbsent('unprocessable_${entity.primaryFile.path}', () => [])
+            .add(entity);
+      }
     }
 
     return groups;
