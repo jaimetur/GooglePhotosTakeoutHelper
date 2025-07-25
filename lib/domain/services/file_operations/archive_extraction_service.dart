@@ -32,6 +32,7 @@ class ZipExtractionService {
   /// - Prevents path traversal attacks (Zip Slip vulnerability)
   /// - Graceful error handling with user-friendly messages
   /// - Continues processing remaining ZIPs if individual extractions fail
+  /// - Memory-efficient streaming extraction for large files
   ///
   /// [zips] List of ZIP files to extract
   /// [dir] Target directory for extraction (will be created if needed)
@@ -55,6 +56,32 @@ class ZipExtractionService {
 
     await _presenter.showUnzipStartMessage();
 
+    // Pre-check for very large files and warn user
+    var hasLargeFiles = false;
+    var totalSize = 0;
+    for (final File zip in zips) {
+      if (await zip.exists()) {
+        final size = await zip.length();
+        totalSize += size;
+        if (size > 10 * 1024 * 1024 * 1024) {
+          // > 10GB
+          hasLargeFiles = true;
+        }
+      }
+    }
+
+    if (hasLargeFiles) {
+      _logger.warning('⚠️  LARGE FILE WARNING');
+      _logger.warning('Some ZIP files are very large (>10GB).');
+      _logger.warning('Total size: ${totalSize ~/ (1024 * 1024 * 1024)}GB');
+      _logger.warning('This may cause memory issues during extraction.');
+      _logger.warning('');
+      _logger.warning('If extraction fails with memory errors:');
+      _logger.warning('1. Extract ZIP files manually');
+      _logger.warning('2. Run GPTH on the extracted folder instead');
+      _logger.warning('');
+    }
+
     for (final File zip in zips) {
       await _presenter.showUnzipProgress(p.basename(zip.path));
 
@@ -66,6 +93,14 @@ class ZipExtractionService {
         final int zipSize = await zip.length();
         if (zipSize == 0) {
           throw FileSystemException('ZIP file is empty', zip.path);
+        }
+
+        // Log file size for large files
+        if (zipSize > 1024 * 1024 * 1024) {
+          // > 1GB
+          _logger.info(
+            'Processing large ZIP file: ${p.basename(zip.path)} (${zipSize ~/ (1024 * 1024)}MB)',
+          );
         }
 
         // Extract with safety checks
@@ -94,11 +129,38 @@ class ZipExtractionService {
           _logger.warning('Continuing with remaining ZIP files...');
         }
       } catch (e) {
-        try {
-          _handleExtractionError(zip, e);
-        } catch (extractionError) {
-          _logger.warning('Failed to extract ${p.basename(zip.path)}: $e');
+        // Handle memory exhaustion specifically
+        final errorMessage = e.toString().toLowerCase();
+        if (errorMessage.contains('exhausted heap') ||
+            errorMessage.contains('out of memory') ||
+            errorMessage.contains('cannot allocate')) {
+          _logger.error('');
+          _logger.error('❌ MEMORY EXHAUSTION ERROR');
+          _logger.error('ZIP file too large: ${p.basename(zip.path)}');
+          _logger.error(
+            'Available memory insufficient for processing this file.',
+          );
+          _logger.error('');
+          _logger.error('🔧 SOLUTIONS:');
+          _logger.error(
+            '1. Extract ZIP files manually using your system tools',
+          );
+          _logger.error('2. Use smaller ZIP files (split large exports)');
+          _logger.error('3. Run GPTH on the manually extracted folder');
+          _logger.error('4. Increase available memory and try again');
+          _logger.error('');
+          _logger.error('Manual extraction guide:');
+          _logger.error(
+            'https://github.com/Xentraxx/GooglePhotosTakeoutHelper#manual-extraction',
+          );
           _logger.warning('Continuing with remaining ZIP files...');
+        } else {
+          try {
+            _handleExtractionError(zip, e);
+          } catch (extractionError) {
+            _logger.warning('Failed to extract ${p.basename(zip.path)}: $e');
+            _logger.warning('Continuing with remaining ZIP files...');
+          }
         }
       }
     }
@@ -110,6 +172,7 @@ class ZipExtractionService {
   ///
   /// This internal helper function performs the actual extraction while
   /// preventing common security vulnerabilities and handling encoding issues.
+  /// Uses streaming extraction to handle large ZIP files without exhausting memory.
   ///
   /// [zip] The ZIP file to extract
   /// [destinationDir] The target directory for extraction
@@ -117,6 +180,44 @@ class ZipExtractionService {
     final File zip,
     final Directory destinationDir,
   ) async {
+    // Use extractFileToDisk for memory-efficient streaming extraction
+    // This avoids loading the entire ZIP file into memory at once
+    try {
+      await extractFileToDisk(zip.path, destinationDir.path);
+    } catch (e) {
+      // If streaming extraction fails, fall back to the original method
+      // but with better error handling for large files
+      _logger.warning(
+        'Streaming extraction failed, attempting fallback method: $e',
+      );
+      await _extractZipFallback(zip, destinationDir);
+    }
+  }
+
+  /// Fallback extraction method for when streaming fails
+  ///
+  /// This method uses the original approach but with better memory management
+  /// and size checks to prevent heap exhaustion.
+  Future<void> _extractZipFallback(
+    final File zip,
+    final Directory destinationDir,
+  ) async {
+    // Check file size before attempting to load into memory
+    final int zipSize = await zip.length();
+    const int maxMemorySize = 2 * 1024 * 1024 * 1024; // 2GB limit
+
+    if (zipSize > maxMemorySize) {
+      throw Exception(
+        'ZIP file too large for memory extraction: ${zipSize ~/ (1024 * 1024)}MB. '
+        'Maximum supported size: ${maxMemorySize ~/ (1024 * 1024)}MB. '
+        'Please extract manually or use smaller ZIP files.',
+      );
+    }
+
+    _logger.info(
+      'Using fallback extraction for ${p.basename(zip.path)} (${zipSize ~/ (1024 * 1024)}MB)',
+    );
+
     final Archive archive = ZipDecoder().decodeBytes(await zip.readAsBytes());
 
     for (final ArchiveFile file in archive) {
