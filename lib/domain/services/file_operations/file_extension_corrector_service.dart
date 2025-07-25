@@ -121,87 +121,11 @@ class FileExtensionCorrectorService with LoggerMixin {
       return false;
     }
 
-    // Find and rename associated JSON file
+    // Find associated JSON file before any renaming
     final File? jsonFile = await _findJsonFile(file);
-    try {
-      // Store original paths for verification
-      final String originalFilePath = file.path;
-      final String? originalJsonPath = jsonFile?.path;
 
-      // Rename the media file
-      final File renamedFile = await file.rename(newFilePath);
-
-      // Verify the rename was successful
-      if (!await renamedFile.exists()) {
-        logError(
-          'Renamed file does not exist after rename operation: $newFilePath',
-        );
-        return false;
-      }
-
-      // Verify the original file was actually removed
-      if (await File(originalFilePath).exists()) {
-        logError(
-          'Original file still exists after rename operation. This indicates a failed rename: $originalFilePath',
-        );
-        // Try to clean up by deleting the original file if the new file exists
-        try {
-          await File(originalFilePath).delete();
-          logWarning(
-            'Manually deleted original file after failed rename: $originalFilePath',
-          );
-        } catch (deleteError) {
-          logError(
-            'Failed to delete original file after rename failure: $deleteError',
-          );
-          return false;
-        }
-      }
-
-      // Rename the JSON file if it exists
-      if (jsonFile != null && jsonFile.existsSync()) {
-        final String jsonNewPath = '$newFilePath.json';
-        try {
-          final File renamedJsonFile = await jsonFile.rename(jsonNewPath);
-
-          // Verify JSON rename was successful
-          if (!await renamedJsonFile.exists()) {
-            logWarning(
-              'Renamed JSON file does not exist after rename operation: $jsonNewPath',
-            );
-          }
-
-          // Verify original JSON file was removed
-          if (originalJsonPath != null &&
-              await File(originalJsonPath).exists()) {
-            logWarning(
-              'Original JSON file still exists after rename. Attempting manual cleanup: $originalJsonPath',
-            );
-            try {
-              await File(originalJsonPath).delete();
-              logInfo(
-                'Successfully cleaned up original JSON file: $originalJsonPath',
-              );
-            } catch (deleteError) {
-              logWarning('Failed to delete original JSON file: $deleteError');
-            }
-          }
-        } catch (jsonRenameError) {
-          logWarning(
-            'Failed to rename JSON file ${jsonFile.path}: $jsonRenameError',
-          );
-          // Don't fail the entire operation if JSON rename fails
-        }
-      }
-
-      logInfo(
-        'Fixed extension: ${p.basename(originalFilePath)} -> ${p.basename(newFilePath)}',
-      );
-      return true;
-    } catch (e) {
-      logError('Failed to rename file ${file.path}: $e');
-      return false;
-    }
+    // Perform atomic rename operation
+    return _performAtomicRename(file, newFilePath, jsonFile);
   }
 
   /// Finds the JSON metadata file associated with a media file
@@ -233,4 +157,139 @@ class FileExtensionCorrectorService with LoggerMixin {
   /// Returns the preferred file extension for a given MIME type
   String? _getPreferredExtension(final String mimeType) =>
       _mimeTypeService.getPreferredExtension(mimeType);
+
+  /// Performs atomic rename of both media file and its JSON metadata file
+  ///
+  /// Either both files are renamed successfully, or both operations are rolled back
+  /// to maintain consistency between media files and their metadata.
+  Future<bool> _performAtomicRename(
+    final File mediaFile,
+    final String newMediaPath,
+    final File? jsonFile,
+  ) async {
+    final String originalMediaPath = mediaFile.path;
+    final String? originalJsonPath = jsonFile?.path;
+    final String? newJsonPath = jsonFile != null ? '$newMediaPath.json' : null;
+
+    // Check if JSON target already exists
+    if (newJsonPath != null && await File(newJsonPath).exists()) {
+      logWarning(
+        'Skipped fixing extension because target JSON file already exists: $newJsonPath',
+      );
+      return false;
+    }
+
+    File? renamedMediaFile;
+    File? renamedJsonFile;
+
+    try {
+      // Step 1: Rename the media file
+      renamedMediaFile = await mediaFile.rename(newMediaPath);
+
+      // Verify media file rename was successful
+      if (!await renamedMediaFile.exists()) {
+        throw Exception(
+          'Media file does not exist after rename: $newMediaPath',
+        );
+      }
+
+      // Step 2: Rename the JSON file if it exists
+      if (jsonFile != null && newJsonPath != null) {
+        if (await jsonFile.exists()) {
+          renamedJsonFile = await jsonFile.rename(newJsonPath);
+
+          // Verify JSON file rename was successful
+          if (!await renamedJsonFile.exists()) {
+            throw Exception(
+              'JSON file does not exist after rename: $newJsonPath',
+            );
+          }
+        }
+      }
+
+      // Step 3: Verify cleanup of original files
+      await _verifyOriginalFilesRemoved(originalMediaPath, originalJsonPath);
+
+      logInfo(
+        'Fixed extension: ${p.basename(originalMediaPath)} -> ${p.basename(newMediaPath)}',
+      );
+      return true;
+    } catch (e) {
+      // Rollback: Attempt to restore original state
+      logError('Extension fixing failed, attempting rollback: $e');
+      await _rollbackAtomicRename(
+        originalMediaPath,
+        originalJsonPath,
+        renamedMediaFile,
+        renamedJsonFile,
+      );
+      return false;
+    }
+  }
+
+  /// Attempts to rollback a failed atomic rename operation
+  Future<void> _rollbackAtomicRename(
+    final String originalMediaPath,
+    final String? originalJsonPath,
+    final File? renamedMediaFile,
+    final File? renamedJsonFile,
+  ) async {
+    try {
+      // Rollback JSON file rename if it was attempted
+      if (renamedJsonFile != null && originalJsonPath != null) {
+        if (await renamedJsonFile.exists()) {
+          await renamedJsonFile.rename(originalJsonPath);
+          logInfo('Rolled back JSON file rename: $originalJsonPath');
+        }
+      }
+
+      // Rollback media file rename
+      if (renamedMediaFile != null) {
+        if (await renamedMediaFile.exists()) {
+          await renamedMediaFile.rename(originalMediaPath);
+          logInfo('Rolled back media file rename: $originalMediaPath');
+        }
+      }
+    } catch (rollbackError) {
+      logError(
+        'Failed to rollback atomic rename operation. Manual cleanup may be required. '
+        'Original media: $originalMediaPath, Original JSON: $originalJsonPath. Error: $rollbackError',
+      );
+    }
+  }
+
+  /// Verifies that original files were properly removed after rename
+  Future<void> _verifyOriginalFilesRemoved(
+    final String originalMediaPath,
+    final String? originalJsonPath,
+  ) async {
+    // Check if original media file still exists
+    if (await File(originalMediaPath).exists()) {
+      logWarning(
+        'Original media file still exists after rename. Attempting manual cleanup: $originalMediaPath',
+      );
+      try {
+        await File(originalMediaPath).delete();
+        logInfo('Manually cleaned up original media file: $originalMediaPath');
+      } catch (deleteError) {
+        throw Exception('Failed to delete original media file: $deleteError');
+      }
+    }
+
+    // Check if original JSON file still exists
+    if (originalJsonPath != null && await File(originalJsonPath).exists()) {
+      logWarning(
+        'Original JSON file still exists after rename. Attempting manual cleanup: $originalJsonPath',
+      );
+      try {
+        await File(originalJsonPath).delete();
+        logInfo(
+          'Successfully cleaned up original JSON file: $originalJsonPath',
+        );
+      } catch (deleteError) {
+        logWarning('Failed to delete original JSON file: $deleteError');
+        // Don't throw here as this is less critical than media file consistency
+      }
+    }
+  }
 }
