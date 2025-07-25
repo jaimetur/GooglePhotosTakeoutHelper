@@ -22,7 +22,7 @@ class PerformanceConfig {
 
   /// Maximum number of concurrent operations
   ///
-  /// If null, defaults to Platform.numberOfProcessors * 2
+  /// If null, defaults to ConcurrencyManager().standard (CPU cores * 8)
   /// Increase for faster systems, decrease if experiencing memory issues
   final int? maxConcurrentOperations;
 

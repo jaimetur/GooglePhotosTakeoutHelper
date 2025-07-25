@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:ffi/ffi.dart';
 import 'package:win32/win32.dart';
 
+import '../shared/concurrency_manager.dart';
+
 /// Service for platform-specific operations and disk space detection
 ///
 /// Extracted from utils.dart to isolate platform-specific code
@@ -122,14 +124,5 @@ class PlatformService {
   bool get isLinux => Platform.isLinux;
 
   /// Gets the optimal number of concurrent operations for this platform
-  int getOptimalConcurrency() {
-    final cores = getProcessorCount();
-
-    // Conservative multiplier based on platform
-    if (Platform.isWindows) {
-      return cores * 2; // Windows handles concurrent I/O well
-    } else {
-      return cores + 1; // More conservative for Unix-like systems
-    }
-  }
+  int getOptimalConcurrency() => ConcurrencyManager().platformOptimized;
 }

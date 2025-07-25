@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import '../../../infrastructure/platform_service.dart';
+import '../../../shared/concurrency_manager.dart';
 import '../../entities/media_entity.dart';
 import '../core/logging_service.dart';
 
@@ -11,12 +11,11 @@ import '../core/logging_service.dart';
 /// album organization purposes.
 class ContentGroupingService with LoggerMixin {
   /// Creates a new content grouping service
-  ContentGroupingService() : _platformService = const PlatformService();
-
-  final PlatformService _platformService;
+  ContentGroupingService();
 
   /// Maximum number of concurrent operations to prevent system overload
-  int get _maxConcurrency => _platformService.getOptimalConcurrency();
+  int get _maxConcurrency =>
+      ConcurrencyManager().getConcurrencyForOperation('duplicate');
 
   /// Groups media entities by their content (size and hash)
   ///

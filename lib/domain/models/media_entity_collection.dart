@@ -1,6 +1,5 @@
-import 'dart:io';
-
 import '../../infrastructure/exiftool_service.dart';
+import '../../shared/concurrency_manager.dart';
 import '../entities/media_entity.dart';
 import '../services/core/logging_service.dart';
 import '../services/core/service_container.dart';
@@ -241,7 +240,7 @@ class MediaEntityCollection with LoggerMixin {
     // Calculate optimal concurrency
     final maxConcurrency =
         config.maxConcurrentOperations ??
-        (Platform.numberOfProcessors * 2).clamp(2, 8);
+        ConcurrencyManager().getConcurrencyForOperation('exif');
 
     // Process files in parallel batches using existing ExifWriterService
     for (int i = 0; i < _media.length; i += maxConcurrency) {

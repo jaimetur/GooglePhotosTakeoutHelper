@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import '../domain/services/core/logging_service.dart';
+import '../shared/concurrency_manager.dart';
 
 /// Consolidated service for all disk space operations across different platforms
 ///
@@ -29,25 +30,7 @@ class ConsolidatedDiskSpaceService with LoggerMixin {
   bool get isLinux => Platform.isLinux;
 
   /// Gets the optimal concurrency level for the current platform
-  int getOptimalConcurrency() {
-    // Get processor count, fallback to 4 if detection fails
-    final processorCount = Platform.numberOfProcessors;
-
-    if (processorCount <= 0) {
-      return 4; // Reasonable default
-    }
-
-    // Use processor count but cap at reasonable limits
-    if (processorCount <= 2) {
-      return processorCount;
-    } else if (processorCount <= 4) {
-      return processorCount;
-    } else if (processorCount <= 8) {
-      return processorCount - 1; // Leave one core free
-    } else {
-      return 8; // Cap at 8 for very high core counts
-    }
-  }
+  int getOptimalConcurrency() => ConcurrencyManager().diskOptimized;
 
   // ============================================================================
   // DISK SPACE OPERATIONS

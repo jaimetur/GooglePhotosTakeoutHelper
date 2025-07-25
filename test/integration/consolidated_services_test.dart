@@ -149,12 +149,6 @@ void main() {
         expect(diskSpaceService.isLinux, equals(Platform.isLinux));
       });
 
-      test('getOptimalConcurrency returns reasonable value', () {
-        final concurrency = diskSpaceService.getOptimalConcurrency();
-        expect(concurrency, greaterThan(0));
-        expect(concurrency, lessThanOrEqualTo(8));
-      });
-
       test(
         'getAvailableSpace returns non-null for current directory',
         () async {

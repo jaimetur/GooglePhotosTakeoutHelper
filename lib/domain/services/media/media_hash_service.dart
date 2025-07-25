@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 
+import '../../../shared/concurrency_manager.dart';
 import '../core/logging_service.dart';
 
 /// Optimized service for calculating media file hashes and sizes with intelligent caching
@@ -203,7 +204,9 @@ class MediaHashService with LoggerMixin {
     final List<File> files, {
     final int? maxConcurrency,
   }) async {
-    final concurrency = maxConcurrency ?? (Platform.numberOfProcessors * 2);
+    final concurrency =
+        maxConcurrency ??
+        ConcurrencyManager().getConcurrencyForOperation('hash');
     final results = <String, String>{};
     final semaphore = _Semaphore(concurrency);
 
@@ -278,7 +281,9 @@ class MediaHashService with LoggerMixin {
     final List<File> files, {
     final int? maxConcurrency,
   }) async {
-    final concurrency = maxConcurrency ?? (Platform.numberOfProcessors * 2);
+    final concurrency =
+        maxConcurrency ??
+        ConcurrencyManager().getConcurrencyForOperation('hash');
     final semaphore = _Semaphore(concurrency);
 
     final futures = files.map((final file) async {

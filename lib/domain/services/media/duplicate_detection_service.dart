@@ -1,4 +1,4 @@
-import 'dart:io';
+import '../../../shared/concurrency_manager.dart';
 import '../../entities/media_entity.dart';
 import '../core/logging_service.dart';
 import 'media_hash_service.dart';
@@ -22,32 +22,17 @@ class DuplicateDetectionService with LoggerMixin {
   static const int _maxPerformanceHistory = 10;
 
   /// Base concurrency multiplier based on CPU cores
-  static int get baseConcurrency => Platform.numberOfProcessors;
+  static int get baseConcurrency => ConcurrencyManager().cpuCoreCount;
 
   /// Adaptive concurrency based on recent performance
-  int get adaptiveConcurrency {
-    if (_recentPerformanceMetrics.isEmpty) {
-      return baseConcurrency * 2; // Start with conservative default
-    }
-
-    final avgPerformance =
-        _recentPerformanceMetrics.reduce((final a, final b) => a + b) /
-        _recentPerformanceMetrics.length;
-
-    // Scale concurrency based on performance
-    // Good performance (high files/sec) = increase concurrency
-    // Poor performance (low files/sec) = decrease concurrency
-    if (avgPerformance > 10.0) {
-      return (baseConcurrency * 3).clamp(4, 16);
-    } else if (avgPerformance > 5.0) {
-      return (baseConcurrency * 2).clamp(2, 12);
-    } else {
-      return baseConcurrency.clamp(1, 8);
-    }
-  }
+  int get adaptiveConcurrency => ConcurrencyManager().getAdaptiveConcurrency(
+    _recentPerformanceMetrics,
+    baseLevel: ConcurrencyManager().conservative,
+  );
 
   /// Maximum number of concurrent operations to prevent overwhelming the system
-  static int get maxConcurrency => Platform.numberOfProcessors * 2;
+  static int get maxConcurrency =>
+      ConcurrencyManager().getConcurrencyForOperation('duplicate');
 
   /// Records performance metric for adaptive optimization
   void _recordPerformance(final int filesProcessed, final Duration elapsed) {

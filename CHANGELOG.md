@@ -3,6 +3,22 @@
 ### ✨ **New Features**
 
 - **Added folder year date extraction strategy** - New fallback date extractor that extracts year from parent folder names like "Photos from 2005" when other extraction methods fail (Issue #28)
+- **Centralized concurrency management** - Introduced `ConcurrencyManager` for consistent concurrency calculations across all services, eliminating hardcoded multipliers scattered throughout the codebase
+
+### 🚀 **Performance Improvements**
+
+- **Significantly increased parallelization** - Changed CPU concurrency multiplier from ×2 to ×8 for most operations, dramatically improving performance on multi-core systems
+- **Removed concurrency caps** - Eliminated `.clamp()` limits that were artificially restricting parallelization on high-core systems
+- **Platform-optimized concurrency**:
+  - **Linux**: Improved from `CPU cores + 1` to `CPU cores × 8` (massive improvement for Linux users)
+  - **macOS**: Improved from `CPU cores + 1` to `CPU cores × 6` 
+  - **Windows**: Maintained at `CPU cores × 8` (already optimized)
+- **Operation-specific concurrency tuning**:
+  - **Hash operations**: `CPU cores × 8` (CPU + I/O intensive)
+  - **EXIF/Metadata**: `CPU cores × 6` (I/O optimized for modern SSDs)
+  - **Duplicate detection**: `CPU cores × 6` (memory intensive, conservative)
+  - **Network operations**: `CPU cores × 16` (high for I/O waiting)
+- **Adaptive concurrency scaling** - Dynamic performance-based concurrency adjustment that scales up to ×24 for high-performance scenarios
 
 ### 🐛 **Bug Fixes**
 
