@@ -1,5 +1,9 @@
 ## 4.1.0-Xentraxx - Bug Fixes and Performance Improvements
 
+### ✨ **New Features**
+
+- **Added folder year date extraction strategy** - New fallback date extractor that extracts year from parent folder names like "Photos from 2005" when other extraction methods fail (Issue #28)
+
 ### 🐛 **Bug Fixes**
 
 - **Fixed memory exhaustion during ZIP extraction** - Implemented streaming extraction to handle large ZIP files without running out of memory

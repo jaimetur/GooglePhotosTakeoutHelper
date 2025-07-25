@@ -64,6 +64,7 @@ class MediaEntityCollection with LoggerMixin {
       DateTimeExtractionMethod.guess, // Filename guess extractor (if enabled)
       DateTimeExtractionMethod
           .jsonTryHard, // JSON tryhard extractor (last resort)
+      DateTimeExtractionMethod.folderYear, // Folder year extractor (fallback)
     ];
 
     for (int i = 0; i < _media.length; i++) {

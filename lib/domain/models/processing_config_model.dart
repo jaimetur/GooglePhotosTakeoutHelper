@@ -108,6 +108,9 @@ class ProcessingConfig {
 
     extractors.add((final File f) => jsonDateTimeExtractor(f, tryhard: true));
 
+    // Add folder year extractor as final fallback
+    extractors.add(folderYearExtractor);
+
     return extractors;
   }
 

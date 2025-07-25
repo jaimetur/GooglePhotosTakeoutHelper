@@ -309,6 +309,7 @@ GPTH uses multiple methods to determine correct photo dates:
 2. **EXIF data** from photo files
 3. **Filename patterns** (Screenshot_20190919-053857.jpg, etc.)
 4. **Aggressive matching** for difficult cases
+5. **Folder year extraction** (Photos from 2005 → January 1, 2005)
 
 ### 🔍 Duplicate Detection
 Removes identical files using content hashing, keeping the best copy (shortest filename, most metadata).
