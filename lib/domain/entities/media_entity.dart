@@ -16,6 +16,7 @@ class MediaEntity {
     this.dateTaken,
     this.dateAccuracy,
     this.dateTimeExtractionMethod,
+    this.partnershared = false,
   });
 
   /// Creates a media entity with a single file
@@ -24,11 +25,13 @@ class MediaEntity {
     final DateTime? dateTaken,
     final DateAccuracy? dateAccuracy,
     final DateTimeExtractionMethod? dateTimeExtractionMethod,
+    final bool partnershared = false,
   }) => MediaEntity(
     files: MediaFilesCollection.single(file),
     dateTaken: dateTaken,
     dateAccuracy: dateAccuracy,
     dateTimeExtractionMethod: dateTimeExtractionMethod,
+    partnershared: partnershared,
   );
 
   /// Creates a media entity from a legacy map structure
@@ -37,6 +40,7 @@ class MediaEntity {
     final DateTime? dateTaken,
     final int? dateTakenAccuracy,
     final DateTimeExtractionMethod? dateTimeExtractionMethod,
+    final bool partnershared = false,
   }) => MediaEntity(
     files: MediaFilesCollection.fromMap(files),
     dateTaken: dateTaken,
@@ -44,6 +48,7 @@ class MediaEntity {
         ? DateAccuracy.fromInt(dateTakenAccuracy)
         : null,
     dateTimeExtractionMethod: dateTimeExtractionMethod,
+    partnershared: partnershared,
   );
 
   /// Collection of files associated with this media
@@ -57,6 +62,9 @@ class MediaEntity {
 
   /// Method used to extract the date/time
   final DateTimeExtractionMethod? dateTimeExtractionMethod;
+
+  /// Whether this media was shared by a partner (from Google Photos partner sharing)
+  final bool partnershared;
 
   /// Gets the primary file for this media
   File get primaryFile => files.firstFile;
@@ -79,6 +87,7 @@ class MediaEntity {
     dateTaken: dateTaken,
     dateAccuracy: dateAccuracy,
     dateTimeExtractionMethod: dateTimeExtractionMethod,
+    partnershared: partnershared,
   );
 
   /// Creates a new media entity with multiple additional files
@@ -88,6 +97,7 @@ class MediaEntity {
         dateTaken: dateTaken,
         dateAccuracy: dateAccuracy,
         dateTimeExtractionMethod: dateTimeExtractionMethod,
+        partnershared: partnershared,
       );
 
   /// Creates a new media entity with updated date information
@@ -101,6 +111,7 @@ class MediaEntity {
     dateAccuracy: dateAccuracy ?? this.dateAccuracy,
     dateTimeExtractionMethod:
         dateTimeExtractionMethod ?? this.dateTimeExtractionMethod,
+    partnershared: partnershared,
   );
 
   /// Creates a new media entity without a specific album association
@@ -109,6 +120,7 @@ class MediaEntity {
     dateTaken: dateTaken,
     dateAccuracy: dateAccuracy,
     dateTimeExtractionMethod: dateTimeExtractionMethod,
+    partnershared: partnershared,
   );
 
   /// Merges this media entity with another, taking the better date accuracy
@@ -154,6 +166,7 @@ class MediaEntity {
       dateTaken: bestDate,
       dateAccuracy: bestAccuracy,
       dateTimeExtractionMethod: bestMethod,
+      partnershared: partnershared || other.partnershared,
     );
   }
 
@@ -164,12 +177,18 @@ class MediaEntity {
         other.files == files &&
         other.dateTaken == dateTaken &&
         other.dateAccuracy == dateAccuracy &&
-        other.dateTimeExtractionMethod == dateTimeExtractionMethod;
+        other.dateTimeExtractionMethod == dateTimeExtractionMethod &&
+        other.partnershared == partnershared;
   }
 
   @override
-  int get hashCode =>
-      Object.hash(files, dateTaken, dateAccuracy, dateTimeExtractionMethod);
+  int get hashCode => Object.hash(
+    files,
+    dateTaken,
+    dateAccuracy,
+    dateTimeExtractionMethod,
+    partnershared,
+  );
 
   @override
   String toString() {
@@ -177,6 +196,7 @@ class MediaEntity {
     final accuracyInfo = dateAccuracy != null
         ? ' (${dateAccuracy!.description})'
         : '';
-    return 'MediaEntity(${primaryFile.path}$dateInfo$accuracyInfo, albums: ${albumNames.length})';
+    final partnerInfo = partnershared ? ', partnershared: true' : '';
+    return 'MediaEntity(${primaryFile.path}$dateInfo$accuracyInfo, albums: ${albumNames.length}$partnerInfo)';
   }
 }

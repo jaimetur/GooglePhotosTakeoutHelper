@@ -258,6 +258,7 @@ class MoveFilesStep extends ProcessingStep {
           dateTaken: mediaEntity.dateTaken,
           dateAccuracy: mediaEntity.dateAccuracy,
           dateTimeExtractionMethod: mediaEntity.dateTimeExtractionMethod,
+          partnershared: mediaEntity.partnershared,
         );
         updatedEntities.add(updatedEntity);
       } else {

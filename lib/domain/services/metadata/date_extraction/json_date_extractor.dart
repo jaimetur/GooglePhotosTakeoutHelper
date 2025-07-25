@@ -76,3 +76,38 @@ Future<DMSCoordinates?> jsonCoordinatesExtractor(
     return null;
   }
 }
+
+/// Extracts partner sharing information from the JSON file
+///
+/// Returns true if the media was shared by a partner (has googlePhotoOrigin.fromPartnerSharing),
+/// false otherwise (including for personal uploads with mobileUpload or other origins)
+Future<bool> jsonPartnerSharingExtractor(
+  final File file, {
+  final bool tryhard = false,
+}) async {
+  final File? jsonFile = await jsonForFile(file, tryhard: tryhard);
+  if (jsonFile == null) return false;
+  try {
+    final dynamic data = jsonDecode(await jsonFile.readAsString());
+
+    // Check if googlePhotoOrigin exists and has fromPartnerSharing
+    final dynamic googlePhotoOrigin = data['googlePhotoOrigin'];
+    if (googlePhotoOrigin != null &&
+        googlePhotoOrigin is Map<String, dynamic>) {
+      return googlePhotoOrigin.containsKey('fromPartnerSharing');
+    }
+
+    return false;
+  } on FormatException catch (_) {
+    // this is when json is bad
+    return false;
+  } on FileSystemException catch (_) {
+    // this happens for issue #143
+    // "Failed to decode data using encoding 'utf-8'"
+    // maybe this will self-fix when dart itself support more encodings
+    return false;
+  } on NoSuchMethodError catch (_) {
+    // this is when tags like googlePhotoOrigin aren't there
+    return false;
+  }
+}

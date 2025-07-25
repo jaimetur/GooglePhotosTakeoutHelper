@@ -7,6 +7,7 @@ import '../../shared/extensions/file_extensions.dart';
 import '../entities/media_entity.dart';
 import '../models/pipeline_step_model.dart';
 import '../models/processing_config_model.dart';
+import '../services/metadata/date_extraction/json_date_extractor.dart';
 import '../services/processing/edited_version_detector_service.dart';
 import '../services/processing/takeout_folder_classifier_service.dart';
 
@@ -202,8 +203,14 @@ class DiscoverMediaStep extends ProcessingStep {
         print('Scanning year folder: ${p.basename(yearDir.path)}');
       }
       await for (final mediaFile in _getMediaFiles(yearDir, context)) {
+        // Extract partner sharing information from JSON
+        final isPartnerShared = await jsonPartnerSharingExtractor(mediaFile);
+
         context.mediaCollection.add(
-          MediaEntity.fromMap(files: {null: mediaFile}),
+          MediaEntity.fromMap(
+            files: {null: mediaFile},
+            partnershared: isPartnerShared,
+          ),
         );
         yearFolderFiles++;
       }
@@ -214,8 +221,14 @@ class DiscoverMediaStep extends ProcessingStep {
         print('Scanning album folder: $albumName');
       }
       await for (final mediaFile in _getMediaFiles(albumDir, context)) {
+        // Extract partner sharing information from JSON
+        final isPartnerShared = await jsonPartnerSharingExtractor(mediaFile);
+
         context.mediaCollection.add(
-          MediaEntity.fromMap(files: {albumName: mediaFile}),
+          MediaEntity.fromMap(
+            files: {albumName: mediaFile},
+            partnershared: isPartnerShared,
+          ),
         );
         albumFolderFiles++;
       }
