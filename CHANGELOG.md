@@ -1,3 +1,12 @@
+## 4.1.0-Xentraxx - Bug Fixes and Performance Improvements
+
+### 🐛 **Bug Fixes**
+
+- **Fixed memory exhaustion during ZIP extraction** - Implemented streaming extraction to handle large ZIP files without running out of memory
+- **Fixed atomic file operations** - Changed to atomic file rename operations to resolve situations where only the json was renamed in file extension correction (Issue #60)
+- **Fixed album relationship processing** - Improved album relationship service to handle edge cases properly (Issue #61)
+- **Fixed interactive presenter display** - Corrected display issue in interactive mode (Issue #62)
+
 ## 4.0.9-Xentraxx - Major Architecture Refactor
 
 ### 🛡️ **BREAKING CHANGE: Copy Mode Completely Removed**
