@@ -4,8 +4,10 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../domain/services/core/logging_service.dart';
+
 /// Infrastructure service for ExifTool external process management
-class ExifToolService {
+class ExifToolService with LoggerMixin {
   /// Constructor for dependency injection
   ExifToolService(this.exiftoolPath);
 
@@ -205,16 +207,18 @@ class ExifToolService {
     try {
       final result = await Process.run(exiftoolPath, args);
       if (result.exitCode != 0) {
-        print('ExifTool command failed with exit code ${result.exitCode}');
-        print('Command: $exiftoolPath ${args.join(' ')}');
-        print('Error output: ${result.stderr}');
+        logger.error(
+          'ExifTool command failed with exit code ${result.exitCode}',
+        );
+        logger.error('Command: $exiftoolPath ${args.join(' ')}');
+        logger.error('Error output: ${result.stderr}');
         throw Exception(
           'ExifTool command failed with exit code ${result.exitCode}: ${result.stderr}',
         );
       }
       return result.stdout.toString();
     } catch (e) {
-      print('ExifTool one-shot execution failed: $e');
+      logger.error('ExifTool one-shot execution failed: $e');
       rethrow;
     }
   }

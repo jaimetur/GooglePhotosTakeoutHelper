@@ -137,6 +137,7 @@ class ServiceContainer {
       showDiscoveryMessage: !isReinitialization,
     );
     if (exifTool != null) {
+      exifTool!.logger = _loggingService!;
       await exifTool!.startPersistentProcess();
       _globalConfig!.exifToolInstalled = true;
     } else {
