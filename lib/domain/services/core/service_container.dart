@@ -132,7 +132,10 @@ class ServiceContainer {
     )..logger = _loggingService!;
 
     // Try to find and initialize ExifTool
-    exifTool = await ExifToolService.find();
+    final isReinitialization = loggingService != null;
+    exifTool = await ExifToolService.find(
+      showDiscoveryMessage: !isReinitialization,
+    );
     if (exifTool != null) {
       await exifTool!.startPersistentProcess();
       _globalConfig!.exifToolInstalled = true;

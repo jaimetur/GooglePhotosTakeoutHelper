@@ -19,7 +19,9 @@ class ExifToolService {
   bool _isStarting = false;
 
   /// Factory method to find and create ExifTool service
-  static Future<ExifToolService?> find() async {
+  static Future<ExifToolService?> find({
+    final bool showDiscoveryMessage = true,
+  }) async {
     final isWindows = Platform.isWindows;
 
     // Common ExifTool executable names
@@ -30,7 +32,9 @@ class ExifToolService {
       try {
         final result = await Process.run(name, ['-ver']);
         if (result.exitCode == 0) {
-          print('ExifTool found in PATH: $name');
+          if (showDiscoveryMessage) {
+            print('ExifTool found in PATH: $name');
+          }
           return ExifToolService(name);
         }
       } catch (e) {
@@ -325,7 +329,7 @@ class ExifToolService {
         await _persistentProcess!.stdin.flush();
         await _persistentProcess!.stdin.close();
 
-        final exitCode = await _persistentProcess!.exitCode.timeout(
+        await _persistentProcess!.exitCode.timeout(
           const Duration(seconds: 5),
           onTimeout: () {
             _persistentProcess!.kill();
@@ -333,7 +337,7 @@ class ExifToolService {
           },
         );
 
-        print('ExifTool process exited with code $exitCode');
+        // ExifTool process cleanup completed
       } catch (e) {
         print('Error disposing ExifTool process: $e');
         _persistentProcess!.kill();
