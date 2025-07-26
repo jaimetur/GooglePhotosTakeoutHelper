@@ -151,7 +151,7 @@ class ExifDateExtractor with LoggerMixin {
       if (datetime.startsWith('0000:00:00') ||
           datetime.startsWith('0000-00-00')) {
         logInfo(
-          "ExifTool returned invalid date '${datetime}' for ${file.path}. Skipping EXIF date extraction.",
+          "ExifTool returned invalid date '$datetime' for ${file.path}. Skipping EXIF date extraction.",
         );
         return null;
       }
