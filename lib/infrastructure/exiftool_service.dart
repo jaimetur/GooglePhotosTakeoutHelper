@@ -35,7 +35,8 @@ class ExifToolService with LoggerMixin {
         final result = await Process.run(name, ['-ver']);
         if (result.exitCode == 0) {
           if (showDiscoveryMessage) {
-            print('ExifTool found in PATH: $name');
+            final version = result.stdout.toString().trim();
+            print('ExifTool found in PATH: $name (version $version)');
           }
           return ExifToolService(name);
         }
@@ -102,6 +103,12 @@ class ExifToolService with LoggerMixin {
           try {
             final result = await Process.run(exiftoolFile.path, ['-ver']);
             if (result.exitCode == 0) {
+              if (showDiscoveryMessage) {
+                final version = result.stdout.toString().trim();
+                print(
+                  'ExifTool found: ${exiftoolFile.path} (version $version)',
+                );
+              }
               return ExifToolService(exiftoolFile.path);
             }
           } catch (e) {
@@ -129,6 +136,10 @@ class ExifToolService with LoggerMixin {
         try {
           final result = await Process.run(path, ['-ver']);
           if (result.exitCode == 0) {
+            if (showDiscoveryMessage) {
+              final version = result.stdout.toString().trim();
+              print('ExifTool found: $path (version $version)');
+            }
             return ExifToolService(path);
           }
         } catch (e) {

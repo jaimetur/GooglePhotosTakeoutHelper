@@ -9,6 +9,7 @@
   - Preserves album relationships for partner shared media
 - **Added folder year date extraction strategy** - New fallback date extractor that extracts year from parent folder names like "Photos from 2005" when other extraction methods fail (Issue #28)
 - **Centralized concurrency management** - Introduced `ConcurrencyManager` for consistent concurrency calculations across all services, eliminating hardcoded multipliers scattered throughout the codebase
+- **Displaying version of Exiftool when found** - Instead of just displaying that Exif tool was found, we display the version now as well.
 
 ### 🚀 **Performance Improvements**
 
