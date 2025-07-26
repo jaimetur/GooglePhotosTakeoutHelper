@@ -311,8 +311,9 @@ class ExifToolService with LoggerMixin {
           e.toString().contains('file format not supported') ||
           e.toString().contains("Can't currently write RIFF AVI files") ||
           e.toString().contains('AVI files')) {
-        print(
+        logInfo(
           'ExifTool does not support writing to this file format: ${file.path}',
+          forcePrint: true,
         );
         return; // Return normally instead of throwing
       }
