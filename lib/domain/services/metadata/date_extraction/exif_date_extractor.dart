@@ -8,6 +8,7 @@ import 'package:mime/mime.dart';
 
 import '../../../../infrastructure/exiftool_service.dart';
 import '../../../../shared/constants.dart';
+import '../../../../shared/constants/exif_constants.dart';
 import '../../core/global_config_service.dart';
 import '../../core/logging_service.dart';
 
@@ -55,31 +56,9 @@ class ExifDateExtractor with LoggerMixin {
 
     //We use the native way for all supported mimeTypes of exif_reader for speed and performance. We trust the list at https://pub.dev/packages/exif_reader
     //We also know that the mimeTypes for RAW can never happen because the lookupMimeType() does not support them. However, leaving there in here for now cause they don't hurt.
-    final supportedNativeMimeTypes = {
-      'image/jpeg',
-      'image/tiff',
-      'image/heic',
-      'image/png',
-      'image/webp',
-      'image/jxl',
-      'image/x-sony-arw',
-      'image/x-canon-cr2',
-      'image/x-canon-cr3',
-      'image/x-canon-crw',
-      'image/x-nikon-nef',
-      'image/x-nikon-nrw',
-      'image/x-panasonic-rw2',
-      'image/x-fuji-raf',
-      'image/x-adobe-dng',
-      'image/x-raw',
-      'image/tiff-fx',
-      'image/x-portable-anymap',
-    };
 
     DateTime?
-    result; //this variable should be filled. That's the goal from here on.
-
-    // For video files, we should use exiftool directly
+    result; //this variable should be filled. That's the goal from here on.    // For video files, we should use exiftool directly
     if (mimeType?.startsWith('video/') == true) {
       if (globalConfig.exifToolInstalled) {
         result = await _exifToolExtractor(file);
@@ -93,14 +72,18 @@ class ExifDateExtractor with LoggerMixin {
       return null;
     }
 
-    if (supportedNativeMimeTypes.contains(mimeType)) {
+    if (supportedNativeExifMimeTypes.contains(mimeType)) {
       result = await _nativeExif_readerExtractor(file);
       if (result != null) {
         return result;
       } else {
         //If we end up here, we have a mimeType which should be supported by exif_reader, but the read failed regardless.
-        //Most probably the file does not contain any DateTime in exif. So we return null.
-        return null;
+        logWarning(
+          'Native exif_reader failed to extract DateTime from ${file.path} with MIME type $mimeType. '
+          'This format should be supported by exif_reader library. If you see this warning frequently, '
+          'please create an issue on GitHub. Falling back to ExifTool if available.',
+        );
+        // Continue to ExifTool fallback instead of returning null
       }
     }
     //At this point either we didn't do anything because the mimeType is unknown (null) or not supported by the native method.

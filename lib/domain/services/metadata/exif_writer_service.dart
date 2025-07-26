@@ -9,14 +9,17 @@ import 'package:mime/mime.dart';
 import '../../../infrastructure/exiftool_service.dart';
 import '../core/global_config_service.dart';
 import '../core/logging_service.dart';
+import 'coordinate_extraction/exif_coordinate_extractor.dart';
 import 'date_extraction/exif_date_extractor.dart';
 
 /// Service for writing EXIF data to media files
 class ExifWriterService with LoggerMixin {
   /// Creates a new EXIF writer service
-  ExifWriterService(this._exifTool);
+  ExifWriterService(this._exifTool)
+    : _coordinateExtractor = ExifCoordinateExtractor(_exifTool);
 
   final ExifToolService _exifTool;
+  final ExifCoordinateExtractor _coordinateExtractor;
 
   /// Writes EXIF data to a file
   ///
@@ -170,11 +173,11 @@ class ExifWriterService with LoggerMixin {
         return false;
       }
 
-      // Check if the file already has EXIF data
-      final Map<String, dynamic> coordinatesMap = await _exifTool.readExifData(
-        file,
-      );
+      // Check if the file already has EXIF GPS coordinates using optimized method
+      final Map<String, dynamic>? coordinatesMap = await _coordinateExtractor
+          .extractGPSCoordinates(file, globalConfig: globalConfig);
       final bool filehasExifCoordinates =
+          coordinatesMap != null &&
           coordinatesMap['GPSLatitude'] != null &&
           coordinatesMap['GPSLongitude'] != null;
       if (!filehasExifCoordinates) {
