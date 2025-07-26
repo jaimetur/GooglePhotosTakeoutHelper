@@ -61,6 +61,9 @@ void main() {
       await ServiceContainer.reset();
 
       await fixture.tearDown();
+
+      // Clean up any leftover fixture directories from helper functions
+      await cleanupAllFixtures();
     });
     test('should process realistic dataset with default settings', () async {
       // Resolve the takeout path to the actual Google Photos directory

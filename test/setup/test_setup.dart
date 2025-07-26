@@ -837,3 +837,65 @@ Future<void> generateRealisticDataset({
   print('${(exifRatio * 100).round()}% of photos have EXIF data');
   print('Total files created: ${createdEntities.length}');
 }
+
+/// Clean up all leftover fixture directories
+///
+/// This function finds and removes any leftover fixture directories that
+/// might have been created by tests but not properly cleaned up.
+/// Should be called periodically to maintain test environment cleanliness.
+Future<void> cleanupAllFixtures() async {
+  final testDir = Directory('test');
+  if (!await testDir.exists()) return;
+
+  final generatedDir = Directory(p.join(testDir.path, 'generated'));
+  if (!await generatedDir.exists()) return;
+
+  print('Cleaning up leftover fixture directories...');
+
+  try {
+    final contents = await generatedDir.list().toList();
+    final fixtureDirectories = contents
+        .whereType<Directory>()
+        .where((dir) => p.basename(dir.path).startsWith('fixture_'))
+        .toList();
+
+    if (fixtureDirectories.isEmpty) {
+      print('No leftover fixtures found.');
+      return;
+    }
+
+    print('Found ${fixtureDirectories.length} leftover fixture directories');
+
+    for (final fixtureDir in fixtureDirectories) {
+      try {
+        print('Cleaning up: ${p.basename(fixtureDir.path)}');
+        await fixtureDir.delete(recursive: true);
+      } catch (e) {
+        print('Warning: Failed to delete ${fixtureDir.path}: $e');
+        // Try force deletion as fallback
+        try {
+          if (Platform.isWindows) {
+            await Process.run('rmdir', ['/s', '/q', fixtureDir.path]);
+          } else {
+            await Process.run('rm', ['-rf', fixtureDir.path]);
+          }
+        } catch (e2) {
+          print(
+            'Warning: Force deletion also failed for ${fixtureDir.path}: $e2',
+          );
+        }
+      }
+    }
+
+    // If the generated directory is now empty, remove it too
+    final remainingContents = await generatedDir.list().toList();
+    if (remainingContents.isEmpty) {
+      await generatedDir.delete();
+      print('Removed empty generated directory');
+    }
+
+    print('Fixture cleanup completed.');
+  } catch (e) {
+    print('Warning: Error during fixture cleanup: $e');
+  }
+}

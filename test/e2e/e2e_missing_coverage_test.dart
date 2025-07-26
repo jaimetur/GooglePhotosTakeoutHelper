@@ -34,8 +34,13 @@ void main() {
       await ServiceContainer.instance.initialize();
       fixture = TestFixture();
       await fixture.setUp();
+    });
 
-      // Generate comprehensive test dataset
+    setUp(() async {
+      pipeline = const ProcessingPipeline();
+
+      // Generate a fresh realistic dataset for each test to ensure test isolation
+      // This prevents tests from interfering with each other when they move/modify files
       takeoutPath = await fixture.generateRealisticTakeoutDataset(
         yearSpan: 3,
         albumCount: 4,
@@ -44,13 +49,11 @@ void main() {
         exifRatio: 0.7,
       );
 
-      outputPath = p.join(fixture.basePath, 'output');
-    });
+      // Create unique output path for each test
+      final timestamp = DateTime.now().microsecondsSinceEpoch.toString();
+      outputPath = p.join(fixture.basePath, 'output_$timestamp');
 
-    setUp(() async {
-      pipeline = const ProcessingPipeline();
-
-      // Clean output for each test
+      // Ensure clean output directory for each test
       final outputDir = Directory(outputPath);
       if (await outputDir.exists()) {
         await outputDir.delete(recursive: true);
@@ -59,9 +62,13 @@ void main() {
     });
 
     tearDownAll(() async {
+      // Clean up ServiceContainer first to release file handles
       await ServiceContainer.instance.dispose();
       await ServiceContainer.reset();
       await fixture.tearDown();
+
+      // Clean up any leftover fixture directories from helper functions
+      await cleanupAllFixtures();
     });
 
     group('Untested Flags - skipExtras', () {

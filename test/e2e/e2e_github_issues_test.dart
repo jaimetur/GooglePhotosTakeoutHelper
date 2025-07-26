@@ -43,8 +43,13 @@ void main() {
       await ServiceContainer.instance.initialize();
       fixture = TestFixture();
       await fixture.setUp();
+    });
 
-      // Generate comprehensive test dataset
+    setUp(() async {
+      pipeline = const ProcessingPipeline();
+
+      // Generate a fresh realistic dataset for each test to ensure test isolation
+      // This prevents tests from interfering with each other when they move/modify files
       takeoutPath = await fixture.generateRealisticTakeoutDataset(
         yearSpan: 5,
         albumCount: 8,
@@ -53,13 +58,11 @@ void main() {
         exifRatio: 0.8,
       );
 
-      outputPath = p.join(fixture.basePath, 'output');
-    });
+      // Create unique output path for each test
+      final timestamp = DateTime.now().microsecondsSinceEpoch.toString();
+      outputPath = p.join(fixture.basePath, 'output_$timestamp');
 
-    setUp(() async {
-      pipeline = const ProcessingPipeline();
-
-      // Clean output for each test
+      // Ensure clean output directory for each test
       final outputDir = Directory(outputPath);
       if (await outputDir.exists()) {
         await outputDir.delete(recursive: true);
@@ -68,15 +71,19 @@ void main() {
     });
 
     tearDownAll(() async {
+      // Clean up ServiceContainer first to release file handles
       await ServiceContainer.instance.dispose();
       await ServiceContainer.reset();
       await fixture.tearDown();
+
+      // Clean up any leftover fixture directories from helper functions
+      await cleanupAllFixtures();
     });
 
     group('Album Processing Modes - Issues #261, #248, #390', () {
       test('shortcut mode handles emoji folder names (Issue #389)', () async {
         // Create test data with emoji folder names
-        final emojiTakeoutPath = await _createEmojiAlbumTestData();
+        final emojiTakeoutPath = await _createEmojiAlbumTestData(fixture);
 
         final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
           emojiTakeoutPath,
@@ -529,7 +536,7 @@ void main() {
     group('File Format Support - Issues #180, #271, #324, #381', () {
       test('handles Motion Photo files (.MP, .MV)', () async {
         // Create test Motion Photo files
-        final motionPhotoTakeout = await _createMotionPhotoTestData();
+        final motionPhotoTakeout = await _createMotionPhotoTestData(fixture);
         final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
           motionPhotoTakeout,
         );
@@ -1303,11 +1310,12 @@ void main() {
 
 // Helper methods to create specific test scenarios
 
-Future<String> _createEmojiAlbumTestData() async {
-  final fixture = TestFixture();
-  await fixture.setUp();
+Future<String> _createEmojiAlbumTestData(TestFixture fixture) async {
+  // Create a subdirectory within the existing fixture for emoji test data
+  final timestamp = DateTime.now().microsecondsSinceEpoch.toString();
+  final emojiTestDir = fixture.createDirectory('emoji_test_$timestamp');
 
-  final takeoutDir = fixture.createDirectory('Takeout');
+  final takeoutDir = fixture.createDirectory('${emojiTestDir.path}/Takeout');
   final googlePhotosDir = fixture.createDirectory(
     '${takeoutDir.path}/Google Photos',
   );
@@ -1361,11 +1369,12 @@ Future<String> _createEmojiAlbumTestData() async {
   return takeoutDir.path;
 }
 
-Future<String> _createMotionPhotoTestData() async {
-  final fixture = TestFixture();
-  await fixture.setUp();
+Future<String> _createMotionPhotoTestData(TestFixture fixture) async {
+  // Create a subdirectory within the existing fixture for motion photo test data
+  final timestamp = DateTime.now().microsecondsSinceEpoch.toString();
+  final motionTestDir = fixture.createDirectory('motion_test_$timestamp');
 
-  final takeoutDir = fixture.createDirectory('Takeout');
+  final takeoutDir = fixture.createDirectory('${motionTestDir.path}/Takeout');
   final googlePhotosDir = fixture.createDirectory(
     '${takeoutDir.path}/Google Photos',
   );
