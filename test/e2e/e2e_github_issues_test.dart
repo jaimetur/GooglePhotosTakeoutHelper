@@ -68,9 +68,9 @@ void main() {
     });
 
     tearDownAll(() async {
-      await fixture.tearDown();
       await ServiceContainer.instance.dispose();
       await ServiceContainer.reset();
+      await fixture.tearDown();
     });
 
     group('Album Processing Modes - Issues #261, #248, #390', () {

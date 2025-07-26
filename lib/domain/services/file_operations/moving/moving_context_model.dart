@@ -14,6 +14,7 @@ class MovingContext {
     required this.dateDivision,
     required this.albumBehavior,
     this.verbose = false,
+    this.dividePartnerShared = false,
   });
 
   /// Creates a MovingContext from ProcessingConfig
@@ -25,11 +26,13 @@ class MovingContext {
     dateDivision: config.dateDivision,
     albumBehavior: config.albumBehavior,
     verbose: config.verbose,
+    dividePartnerShared: config.dividePartnerShared,
   );
   final Directory outputDirectory;
   final DateDivisionLevel dateDivision;
   final AlbumBehavior albumBehavior;
   final bool verbose;
+  final bool dividePartnerShared;
 }
 
 /// Represents a single file moving operation

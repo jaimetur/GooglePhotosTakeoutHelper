@@ -216,6 +216,10 @@ ArgParser _createArgumentParser() => ArgParser()
   ..addFlag(
     'limit-filesize',
     help: 'Enforces 64MB file size limit for low RAM systems',
+  )
+  ..addFlag(
+    'divide-partner-shared',
+    help: 'Move partner shared media to separate folder (PARTNER_SHARED)',
   );
 
 /// **HELP TEXT DISPLAY**
@@ -352,6 +356,7 @@ Future<ProcessingConfig> _buildConfigFromArgs(final ArgResults res) async {
     if (res['transform-pixel-mp']) configBuilder.pixelTransformation = true;
     if (res['update-creation-time']) configBuilder.creationTimeUpdate = true;
     if (res['limit-filesize']) configBuilder.fileSizeLimit = true;
+    if (res['divide-partner-shared']) configBuilder.dividePartnerShared = true;
   }
   configBuilder.extensionFixing = extensionFixingMode;
 

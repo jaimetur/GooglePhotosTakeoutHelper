@@ -163,10 +163,9 @@ class MoveFilesStep extends ProcessingStep {
         total: context.mediaCollection.length,
         width: 50,
       ); // Create modern moving context
-      final movingContext = MovingContext(
-        outputDirectory: context.outputDirectory,
-        dateDivision: context.config.dateDivision,
-        albumBehavior: context.config.albumBehavior,
+      final movingContext = MovingContext.fromConfig(
+        context.config,
+        context.outputDirectory,
       );
       // Create the moving service
       final movingService = MediaEntityMovingService();

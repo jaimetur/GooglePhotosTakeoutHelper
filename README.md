@@ -223,6 +223,7 @@ gpth --input "/path/to/takeout" --output "/path/to/organized" --albums "shortcut
 | Argument | Description |
 |----------|-------------|
 | `--divide-to-dates` | Date-based folder structure for ALL_PHOTOS: `0`=one folder, `1`=by year, `2`=year/month, `3`=year/month/day (albums remain flattened) |
+| `--divide-partner-shared` | Separate partner shared media into a dedicated `PARTNER_SHARED` folder (works with date division) |
 | `--skip-extras` | Skip extra images like "-edited" versions |
 
 ### Metadata & Processing
@@ -313,6 +314,11 @@ gpth --input "~/Takeout" --output "~/Photos" --divide-to-dates 1
 gpth --input "~/Takeout" --output "~/Photos" --transform-pixel-mp --albums "duplicate-copy"
 ```
 
+**Separate partner shared media with date organization:**
+```bash
+gpth --input "~/Takeout" --output "~/Photos" --divide-partner-shared --divide-to-dates 1
+```
+
 **Fix dates in existing folder:**
 ```bash
 gpth --fix "~/existing-photos"
@@ -339,6 +345,18 @@ Extracts location data and timestamps from JSON files and writes them to media f
 - **HEIC/RAW support**: Handles modern camera formats
 - **Unicode filenames**: Properly handles international characters
 - **Large files**: Optional size limits for resource-constrained systems
+
+### 🤝 Partner Sharing Support
+Separates partner shared media from personal uploads for better organization:
+- **Automatic Detection**: Identifies partner shared photos from JSON metadata
+- **Separate Folders**: Moves partner shared media to `PARTNER_SHARED` folder
+- **Date Organization**: Applies same date division structure to partner shared content
+- **Album Compatibility**: Works with all album handling modes
+
+**Enable partner sharing separation:**
+```bash
+gpth --input "~/Takeout" --output "~/Photos" --divide-partner-shared
+```
 
 ### 📁 Flexible Organization
 - Multiple date-based folder structures

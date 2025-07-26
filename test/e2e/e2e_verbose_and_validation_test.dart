@@ -56,9 +56,9 @@ void main() {
     });
 
     tearDownAll(() async {
-      await fixture.tearDown();
       await ServiceContainer.instance.dispose();
       await ServiceContainer.reset();
+      await fixture.tearDown();
     });
 
     group('Verbose Flag Testing', () {

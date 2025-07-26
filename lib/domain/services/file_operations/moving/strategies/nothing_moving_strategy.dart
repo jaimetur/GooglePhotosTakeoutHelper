@@ -31,12 +31,13 @@ class NothingMovingStrategy extends MediaEntityMovingStrategy {
     // Move ALL files to ALL_PHOTOS, regardless of their source location
     // This ensures no data loss in move mode and provides transparent behavior
 
-    // Move file to ALL_PHOTOS
+    // Move file to ALL_PHOTOS (or PARTNER_SHARED)
     final primaryFile = entity.primaryFile;
     final allPhotosDir = _pathService.generateTargetDirectory(
-      null, // null = ALL_PHOTOS
+      null, // null = ALL_PHOTOS or PARTNER_SHARED
       entity.dateTaken,
       context,
+      isPartnerShared: entity.partnershared,
     );
     final stopwatch = Stopwatch()..start();
     try {

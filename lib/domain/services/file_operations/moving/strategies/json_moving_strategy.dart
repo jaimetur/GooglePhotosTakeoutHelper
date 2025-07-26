@@ -34,12 +34,13 @@ class JsonMovingStrategy extends MediaEntityMovingStrategy {
     final MediaEntity entity,
     final MovingContext context,
   ) async* {
-    // Move file to ALL_PHOTOS
+    // Move file to ALL_PHOTOS (or PARTNER_SHARED)
     final primaryFile = entity.primaryFile;
     final allPhotosDir = _pathService.generateTargetDirectory(
-      null, // null = ALL_PHOTOS
+      null, // null = ALL_PHOTOS or PARTNER_SHARED
       entity.dateTaken,
       context,
+      isPartnerShared: entity.partnershared,
     );
     final stopwatch = Stopwatch()..start();
     try {

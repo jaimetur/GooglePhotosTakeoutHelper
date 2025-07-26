@@ -49,6 +49,7 @@ class ProcessingConfig {
     this.verbose = false,
     this.isInteractiveMode = false,
     this.performanceConfig = PerformanceConfig.balanced,
+    this.dividePartnerShared = false,
   });
 
   /// Creates a builder for configuring ProcessingConfig
@@ -70,6 +71,7 @@ class ProcessingConfig {
   final bool verbose;
   final bool isInteractiveMode;
   final PerformanceConfig performanceConfig;
+  final bool dividePartnerShared;
 
   /// Validates the configuration and throws descriptive errors if invalid
   void validate() {
@@ -128,6 +130,7 @@ class ProcessingConfig {
     final bool? limitFileSize,
     final bool? verbose,
     final bool? isInteractiveMode,
+    final bool? dividePartnerShared,
   }) => ProcessingConfig(
     inputPath: inputPath ?? this.inputPath,
     outputPath: outputPath ?? this.outputPath,
@@ -142,6 +145,7 @@ class ProcessingConfig {
     limitFileSize: limitFileSize ?? this.limitFileSize,
     verbose: verbose ?? this.verbose,
     isInteractiveMode: isInteractiveMode ?? this.isInteractiveMode,
+    dividePartnerShared: dividePartnerShared ?? this.dividePartnerShared,
   );
 }
 
@@ -174,6 +178,7 @@ class ProcessingConfigBuilder {
   bool _limitFileSize = false;
   bool _verbose = false;
   bool _isInteractiveMode = false;
+  bool _dividePartnerShared = false;
 
   /// Set album behavior (shortcut, reverse-shortcut, duplicate-copy, json, nothing)
   set albumBehavior(final AlbumBehavior behavior) {
@@ -247,6 +252,11 @@ class ProcessingConfigBuilder {
     _isInteractiveMode = enable;
   }
 
+  /// Enable partner shared media separation
+  set dividePartnerShared(final bool enable) {
+    _dividePartnerShared = enable;
+  }
+
   /// Build the final ProcessingConfig instance
   ProcessingConfig build() {
     final config = ProcessingConfig(
@@ -263,6 +273,7 @@ class ProcessingConfigBuilder {
       limitFileSize: _limitFileSize,
       verbose: _verbose,
       isInteractiveMode: _isInteractiveMode,
+      dividePartnerShared: _dividePartnerShared,
     );
 
     // Validate the configuration before returning

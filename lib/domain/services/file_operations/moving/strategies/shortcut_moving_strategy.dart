@@ -36,12 +36,13 @@ class ShortcutMovingStrategy extends MediaEntityMovingStrategy {
   ) async* {
     final results = <MediaEntityMovingResult>[];
 
-    // Step 1: Move primary file to ALL_PHOTOS
+    // Step 1: Move primary file to ALL_PHOTOS (or PARTNER_SHARED)
     final primaryFile = entity.primaryFile;
     final allPhotosDir = _pathService.generateTargetDirectory(
-      null, // null = ALL_PHOTOS
+      null, // null = ALL_PHOTOS (or PARTNER_SHARED if partner shared)
       entity.dateTaken,
       context,
+      isPartnerShared: entity.partnershared,
     );
     final stopwatch = Stopwatch()..start();
     try {
@@ -70,6 +71,7 @@ class ShortcutMovingStrategy extends MediaEntityMovingStrategy {
           albumName,
           entity.dateTaken,
           context,
+          isPartnerShared: entity.partnershared,
         );
         final shortcutStopwatch = Stopwatch()..start();
         try {

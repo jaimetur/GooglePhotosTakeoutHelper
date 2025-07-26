@@ -56,11 +56,11 @@ void main() {
       await outputDir.create(recursive: true);
     });
     tearDownAll(() async {
-      await fixture.tearDown();
-
-      // Clean up ServiceContainer
+      // Clean up ServiceContainer first to release file handles
       await ServiceContainer.instance.dispose();
       await ServiceContainer.reset();
+
+      await fixture.tearDown();
     });
     test('should process realistic dataset with default settings', () async {
       // Resolve the takeout path to the actual Google Photos directory

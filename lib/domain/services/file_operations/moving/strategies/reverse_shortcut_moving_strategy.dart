@@ -45,6 +45,7 @@ class ReverseShortcutMovingStrategy extends MediaEntityMovingStrategy {
         primaryAlbum,
         entity.dateTaken,
         context,
+        isPartnerShared: entity.partnershared,
       );
       final stopwatch = Stopwatch()..start();
       try {
@@ -69,11 +70,12 @@ class ReverseShortcutMovingStrategy extends MediaEntityMovingStrategy {
         results.add(primaryResult);
         yield primaryResult;
 
-        // Step 2: Create shortcut in ALL_PHOTOS
+        // Step 2: Create shortcut in ALL_PHOTOS (or PARTNER_SHARED)
         final allPhotosDir = _pathService.generateTargetDirectory(
-          null, // null = ALL_PHOTOS
+          null, // null = ALL_PHOTOS or PARTNER_SHARED
           entity.dateTaken,
           context,
+          isPartnerShared: entity.partnershared,
         );
 
         final shortcutStopwatch = Stopwatch()..start();
@@ -119,6 +121,7 @@ class ReverseShortcutMovingStrategy extends MediaEntityMovingStrategy {
             albumName,
             entity.dateTaken,
             context,
+            isPartnerShared: entity.partnershared,
           );
 
           final albumShortcutStopwatch = Stopwatch()..start();
@@ -176,11 +179,12 @@ class ReverseShortcutMovingStrategy extends MediaEntityMovingStrategy {
         yield errorResult;
       }
     } else {
-      // No album associations, move to ALL_PHOTOS
+      // No album associations, move to ALL_PHOTOS (or PARTNER_SHARED)
       final allPhotosDir = _pathService.generateTargetDirectory(
         null,
         entity.dateTaken,
         context,
+        isPartnerShared: entity.partnershared,
       );
 
       final stopwatch = Stopwatch()..start();

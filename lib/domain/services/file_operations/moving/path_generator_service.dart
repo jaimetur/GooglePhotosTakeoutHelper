@@ -15,12 +15,29 @@ class PathGeneratorService {
   /// [albumKey] The album name (null for ALL_PHOTOS)
   /// [dateTaken] The date the photo was taken
   /// [context] The moving context with configuration
+  /// [isPartnerShared] Whether the media is from partner sharing
   /// Returns the target directory path
   Directory generateTargetDirectory(
     final String? albumKey,
     final DateTime? dateTaken,
-    final MovingContext context,
-  ) {
+    final MovingContext context, {
+    final bool isPartnerShared = false,
+  }) {
+    // If partner shared separation is enabled and this is partner shared media
+    if (context.dividePartnerShared && isPartnerShared) {
+      final String folderName = albumKey?.trim() ?? 'PARTNER_SHARED';
+
+      // Apply date division to partner shared folder if it's the main folder
+      final String dateFolder = albumKey == null
+          ? _generateDateFolder(dateTaken, context.dateDivision)
+          : '';
+
+      return Directory(
+        p.join(context.outputDirectory.path, folderName, dateFolder),
+      );
+    }
+
+    // Original logic for non-partner-shared media
     final String folderName = albumKey?.trim() ?? 'ALL_PHOTOS';
 
     // Only apply date division to ALL_PHOTOS, not to Albums
