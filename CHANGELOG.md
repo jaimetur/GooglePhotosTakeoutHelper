@@ -42,6 +42,8 @@
 - **Fixed interactive presenter display** - Corrected display issue in interactive mode (Issue #62)
 - **Fixed date division behavior for albums** - The `--divide-to-dates` flag now only applies to ALL_PHOTOS folder, leaving album folders flattened without date subfolders (Issue #55)
 - **Reaorganised ReadMe for a more intuitive structure** - First Installation, then prerequisites and then the quickstart.
+- **Step 8 now also uses a progress bar instead of simple print statements**
+- **Supressed some unnecessary ouput**
 
 ## 4.0.9-Xentraxx - Major Architecture Refactor
 
