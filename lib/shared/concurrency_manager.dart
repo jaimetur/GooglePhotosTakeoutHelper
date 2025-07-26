@@ -136,7 +136,8 @@ class ConcurrencyManager {
     switch (operationType.toLowerCase()) {
       case 'hash':
       case 'hashing':
-        return standard; // CPU + I/O intensive
+        return cpuCoreCount *
+            4; // Balanced for CPU + I/O workload (reduced from standard)
 
       case 'exif':
       case 'metadata':

@@ -14,7 +14,7 @@
   - **macOS**: Improved from `CPU cores + 1` to `CPU cores × 6` 
   - **Windows**: Maintained at `CPU cores × 8` (already optimized)
 - **Operation-specific concurrency tuning**:
-  - **Hash operations**: `CPU cores × 8` (CPU + I/O intensive)
+  - **Hash operations**: `CPU cores × 4` (balanced for CPU + I/O workload)
   - **EXIF/Metadata**: `CPU cores × 6` (I/O optimized for modern SSDs)
   - **Duplicate detection**: `CPU cores × 6` (memory intensive, conservative)
   - **Network operations**: `CPU cores × 16` (high for I/O waiting)
@@ -26,6 +26,8 @@
 - **Fixed atomic file operations** - Changed to atomic file rename operations to resolve situations where only the json was renamed in file extension correction (Issue #60)
 - **Fixed album relationship processing** - Improved album relationship service to handle edge cases properly (Issue #61)
 - **Fixed interactive presenter display** - Corrected display issue in interactive mode (Issue #62)
+- **Fixed date division behavior for albums** - The `--divide-to-dates` flag now only applies to ALL_PHOTOS folder, leaving album folders flattened without date subfolders (Issue #55)
+- **Reaorganised ReadMe for a more intuitive structure** - First Installation, then prerequisites and then the quickstart.
 
 ## 4.0.9-Xentraxx - Major Architecture Refactor
 
