@@ -1310,7 +1310,7 @@ void main() {
 
 // Helper methods to create specific test scenarios
 
-Future<String> _createEmojiAlbumTestData(TestFixture fixture) async {
+Future<String> _createEmojiAlbumTestData(final TestFixture fixture) async {
   // Create a subdirectory within the existing fixture for emoji test data
   final timestamp = DateTime.now().microsecondsSinceEpoch.toString();
   final emojiTestDir = fixture.createDirectory('emoji_test_$timestamp');
@@ -1369,7 +1369,7 @@ Future<String> _createEmojiAlbumTestData(TestFixture fixture) async {
   return takeoutDir.path;
 }
 
-Future<String> _createMotionPhotoTestData(TestFixture fixture) async {
+Future<String> _createMotionPhotoTestData(final TestFixture fixture) async {
   // Create a subdirectory within the existing fixture for motion photo test data
   final timestamp = DateTime.now().microsecondsSinceEpoch.toString();
   final motionTestDir = fixture.createDirectory('motion_test_$timestamp');

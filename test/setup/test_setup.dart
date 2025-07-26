@@ -856,7 +856,7 @@ Future<void> cleanupAllFixtures() async {
     final contents = await generatedDir.list().toList();
     final fixtureDirectories = contents
         .whereType<Directory>()
-        .where((dir) => p.basename(dir.path).startsWith('fixture_'))
+        .where((final dir) => p.basename(dir.path).startsWith('fixture_'))
         .toList();
 
     if (fixtureDirectories.isEmpty) {

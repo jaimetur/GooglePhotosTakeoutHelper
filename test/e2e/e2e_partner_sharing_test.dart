@@ -5,6 +5,8 @@
 /// 2. Date division integration with partner sharing
 /// 3. Disabled partner sharing preserving original behavior
 
+// ignore_for_file: avoid_redundant_argument_values
+
 library;
 
 import 'dart:convert';
@@ -32,7 +34,7 @@ void main() {
     setUp(() async {
       fixture = TestFixture();
       await fixture.setUp();
-      pipeline = ProcessingPipeline();
+      pipeline = const ProcessingPipeline();
 
       inputDir = Directory(p.join(fixture.basePath, 'input'));
       outputDir = Directory(p.join(fixture.basePath, 'output'));
