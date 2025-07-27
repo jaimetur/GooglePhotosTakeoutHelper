@@ -131,16 +131,11 @@ class ExifDateExtractor with LoggerMixin {
       final dynamic datetimeValue =
           tags['DateTimeOriginal'] ??
           tags['MediaCreateDate'] ??
-          tags['CreationDate'] ??
-          tags['TrackCreateDate'] ??
-          tags['CreateDate'] ??
-          tags['DateTimeDigitized'] ??
-          tags['GPSDateStamp'] ??
-          tags['DateTime'];
+          tags['CreationDate'];
 
       if (datetimeValue == null) {
         logWarning(
-          "Exiftool was not able to extract an acceptable DateTime for ${file.path}.\n\tThose Tags are accepted: 'DateTimeOriginal', 'MediaCreateDate', 'CreationDate','TrackCreateDate','. The file has those Tags: ${tags.toString()}",
+          "Exiftool was not able to extract an acceptable DateTime for ${file.path}.\n\tThose Tags are accepted: 'DateTimeOriginal', 'MediaCreateDate', 'CreationDate'. The file has those Tags: ${tags.toString()}",
         );
         return null;
       }
@@ -197,9 +192,9 @@ class ExifDateExtractor with LoggerMixin {
     final tags = await readExifFromBytes(bytes);
     String? datetime;
     // try if any of these exists
-    datetime ??= tags['Image DateTime']?.printable;
     datetime ??= tags['EXIF DateTimeOriginal']?.printable;
-    datetime ??= tags['EXIF DateTimeDigitized']?.printable;
+    datetime ??= tags['EXIF DateTime']?.printable;
+
     if (datetime == null || datetime.isEmpty) return null;
     // Normalize separators and parse
     datetime = datetime
