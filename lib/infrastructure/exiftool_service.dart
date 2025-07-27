@@ -313,7 +313,6 @@ class ExifToolService with LoggerMixin {
           e.toString().contains('AVI files')) {
         logInfo(
           'ExifTool does not support writing to this file format: ${file.path}',
-          forcePrint: true,
         );
         return; // Return normally instead of throwing
       }
