@@ -68,7 +68,7 @@ class ProcessingPipeline {
       const WriteExifStep(), // Step 5
       const FindAlbumsStep(), // Step 6
       const MoveFilesStep(), // Step 7
-      const UpdateCreationTimeStep(), // Step 8
+      UpdateCreationTimeStep(), // Step 8
     ];
 
     final stepResults = <StepResult>[];

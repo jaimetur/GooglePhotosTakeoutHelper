@@ -7,6 +7,7 @@ import 'package:ffi/ffi.dart';
 import 'package:win32/win32.dart';
 
 import '../models/pipeline_step_model.dart';
+import '../services/core/logging_service.dart';
 
 /// Step 8: Update creation times (Windows only)
 ///
@@ -93,8 +94,8 @@ import '../models/pipeline_step_model.dart';
 /// - **Administrator Rights**: May require elevated permissions for some files
 /// - **Security Descriptors**: Preserves file security information
 /// - **Audit Trails**: May generate file system audit events
-class UpdateCreationTimeStep extends ProcessingStep {
-  const UpdateCreationTimeStep() : super('Update Creation Time');
+class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
+  UpdateCreationTimeStep() : super('Update Creation Time');
 
   @override
   Future<StepResult> execute(final ProcessingContext context) async {
@@ -103,20 +104,24 @@ class UpdateCreationTimeStep extends ProcessingStep {
     try {
       if (!Platform.isWindows || !context.config.updateCreationTime) {
         final reason = !Platform.isWindows
-            ? 'not supported on this platform'
+            ? 'not supported on this platform (${Platform.operatingSystem})'
             : 'disabled in configuration';
-        print('\n[Step 8/8] Skipping creation time update ($reason).');
+
+        logInfo(
+          '\n[Step 8/8] Skipping creation time update ($reason).',
+          forcePrint: true,
+        );
 
         stopwatch.stop();
         return StepResult.success(
           stepName: name,
           duration: stopwatch.elapsed,
           data: {'updatedCount': 0, 'skipped': true},
-          message: 'Creation time update skipped',
+          message: 'Creation time update skipped: $reason',
         );
       }
       if (context.config.verbose) {
-        print('\n[Step 8/8] Updating creation times...');
+        logInfo('\n[Step 8/8] Updating creation times...', forcePrint: true);
       }
 
       int updatedCount = 0;
@@ -124,11 +129,10 @@ class UpdateCreationTimeStep extends ProcessingStep {
       // 1. Traverse the output directory and update creation times
       final outputDir = Directory(context.config.outputPath);
       if (!await outputDir.exists()) {
-        if (context.config.verbose) {
-          print(
-            'Output directory does not exist, skipping creation time update',
-          );
-        }
+        logInfo(
+          '\n[Step 8/8] Skipping creation time update (output directory not found: ${context.config.outputPath}).',
+          forcePrint: true,
+        );
 
         stopwatch.stop();
         return StepResult.success(
@@ -164,8 +168,23 @@ class UpdateCreationTimeStep extends ProcessingStep {
   }
 
   @override
-  bool shouldSkip(final ProcessingContext context) =>
-      !Platform.isWindows || !context.config.updateCreationTime;
+  bool shouldSkip(final ProcessingContext context) {
+    final shouldSkipStep =
+        !Platform.isWindows || !context.config.updateCreationTime;
+
+    if (shouldSkipStep) {
+      final reason = !Platform.isWindows
+          ? 'not supported on this platform (${Platform.operatingSystem})'
+          : 'disabled in configuration';
+
+      logInfo(
+        '\n[Step 8/8] Skipping creation time update ($reason).',
+        forcePrint: true,
+      );
+    }
+
+    return shouldSkipStep;
+  }
 
   /// Updates creation times recursively for all files in the directory
   ///
@@ -180,7 +199,10 @@ class UpdateCreationTimeStep extends ProcessingStep {
     }
 
     if (allFiles.isEmpty) {
-      print('No files found to update creation times');
+      logInfo(
+        '\n[Step 8/8] No files found to update creation times.',
+        forcePrint: true,
+      );
       return 0;
     }
 
