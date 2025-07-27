@@ -220,7 +220,7 @@ class InteractivePresenter with LoggerMixin {
   /// Prompts user to select output directory
   Future<void> promptForOutputDirectory() async {
     print(
-      'Select the output directory, where GPTH should move/copy your photos to.',
+      'Select the output directory, where GPTH should move your photos to.',
     );
     if (enableSleep) await _sleep(1);
   }
