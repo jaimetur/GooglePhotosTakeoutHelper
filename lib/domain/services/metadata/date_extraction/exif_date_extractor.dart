@@ -98,7 +98,7 @@ class ExifDateExtractor with LoggerMixin {
     //This logic below is only to give a tailored error message because if you get here, sorry, then result stayed empty and we just don't support the file type.
     if (mimeType == 'image/jpeg') {
       logWarning(
-        '${file.path} has a mimeType of $mimeType. However, could not read it with exif_reader. This means, the file is probably corrupt',
+        '${file.path} has a mimeType of $mimeType. However, could not read it with exif_reader. This means, the file is probably corrupt.',
       );
     } else if (globalConfig.exifToolInstalled) {
       logError(

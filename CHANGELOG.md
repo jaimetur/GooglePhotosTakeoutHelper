@@ -1,6 +1,12 @@
 ## 4.1.1-Xentraxx
 
-
+  - **changed exif tags to be utilized** - Before we used the following lists of tags in this exact order to find a date to set: 
+    - Exiftool reading: 'DateTimeOriginal', 'MediaCreateDate', 'CreationDate', 'TrackCreateDate', 'CreateDate', 'DateTimeDigitized', 'GPSDateStamp' and 'DateTime'.
+    - Native dart exif reading: 'Image DateTime', 'EXIF DateTimeOriginal', 'EXIF DateTimeDigitized'.
+  Some of those values are prone to deliver wrong dates (e.g. DateTimeDigitized) and the order did not completely make sense.
+  I therefore settled for those new tags in this order:
+    - Exiftool reading: 'DateTimeOriginal', 'MediaCreateDate', 'CreationDate'.
+    - Native dart exif reading: 'EXIF DateTimeOriginal', 'EXIF DateTime'.
 
 ## 4.1.0-Xentraxx - Bug Fixes and Performance Improvements
 
