@@ -20,7 +20,8 @@ jobs:
       - uses: dart-lang/setup-dart@v1.7.1
         with:
           sdk: ${{ matrix.sdk }}
-
+      - name: TruffleHog OSS
+        uses: trufflesecurity/trufflehog@v3.90.3
       - name: Install exiftool (Linux)
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y exiftool
