@@ -48,8 +48,11 @@ jobs:
   secret-scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: TruffleHog OSS
-        uses: trufflesecurity/trufflehog@v3.90.3
+      - name: Checkout code
+        uses: actions/checkout@v4
         with:
-          path: .
+          fetch-depth: 0
+      - name: Secret Scanning
+        uses: trufflesecurity/trufflehog@main
+        with:
+          extra_args: --results=verified,unknown
