@@ -213,7 +213,7 @@ gpth --input "/path/to/takeout" --output "/path/to/organized" --albums "shortcut
 
 | Argument | Description |
 |----------|-------------|
-| `--input`, `-i` | Input folder containing extracted Takeout |
+| `--input`, `-i` | Input folder containing extracted Takeout or your unextracted zip files |
 | `--output`, `-o` | Output folder for organized photos |
 | `--albums` | Album handling: `shortcut`, `duplicate-copy`, `reverse-shortcut`, `json`, `nothing` |
 | `--help`, `-h` | Show help and exit |
