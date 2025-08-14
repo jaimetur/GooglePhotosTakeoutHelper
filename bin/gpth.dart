@@ -105,6 +105,33 @@ Future<void> main(final List<String> arguments) async {
 /// Global logger instance
 late LoggingService _logger;
 
+/// Print a helpful message and exit with given code.
+/// Uses stderr and the logger when available. Optionally shows an interactive
+/// prompt before exit when `showInteractivePrompt` is true and INTERACTIVE
+/// environment variable is set.
+Never _exitWithMessage(
+  final int code,
+  final String message, {
+  final bool showInteractivePrompt = false,
+}) {
+  try {
+    stderr.writeln('[ERROR] $message');
+  } catch (_) {}
+  try {
+    // logger may not be set early in startup, guard against that
+    _logger.error(message);
+  } catch (_) {}
+
+  if (showInteractivePrompt && Platform.environment['INTERACTIVE'] == 'true') {
+    print(
+      '[gpth ${code != 0 ? 'quitted :(' : 'finished :)'} (code $code) - press enter to close]',
+    );
+    stdin.readLineSync();
+  }
+
+  exit(code);
+}
+
 /// **ARGUMENT PARSING & CONFIGURATION BUILDING**
 ///
 /// Converts raw command line arguments into a type-safe ProcessingConfig object.
@@ -141,7 +168,10 @@ Future<ProcessingConfig?> _parseArguments(final List<String> arguments) async {
     return await _buildConfigFromArgs(res);
   } on FormatException catch (e) {
     _logger.error('$e');
-    exit(2);
+    _exitWithMessage(
+      2,
+      'Argument parsing failed: ${e.toString()}. Run `gpth --help` for usage.',
+    );
   }
 }
 
@@ -486,7 +516,10 @@ Future<InputOutputPaths> _getInputOutputPaths(
         _logger.warning('');
         _logger.warning('Please restart the program with CLI options instead.');
         _logger.error('No input directory could be selected');
-        exit(2); // Use standard argument error exit code instead of 69
+        _exitWithMessage(
+          2,
+          'Interactive input directory selection failed. If you are running headless or on a NAS, run with CLI options: `gpth --input <path> --output <path>`',
+        );
       }
       print('');
       final out = await ServiceContainer.instance.interactiveService
@@ -498,21 +531,100 @@ Future<InputOutputPaths> _getInputOutputPaths(
     inputPath = inDir.path;
   }
 
+  // If running in non-interactive CLI mode and the provided input path
+  // points to a ZIP file or contains ZIP files, automatically extract them
+  // into a local `.gpth-unzipped` directory and use that as the input.
+  if (!isInteractiveMode && inputPath != null) {
+    try {
+      final provided = File(inputPath);
+      final Directory extractDir;
+      final List<File> zips = [];
+
+      if (await provided.exists() &&
+          provided.statSync().type == FileSystemEntityType.file &&
+          p.extension(provided.path).toLowerCase() == '.zip') {
+        // Single zip file provided as --input
+        zips.add(provided);
+        extractDir = Directory(
+          p.join(p.dirname(provided.path), '.gpth-unzipped'),
+        );
+      } else {
+        final providedDir = Directory(inputPath);
+        if (await providedDir.exists()) {
+          // Find zip files in directory (non-recursive)
+          for (final ent in providedDir.listSync()) {
+            if (ent is File && p.extension(ent.path).toLowerCase() == '.zip') {
+              zips.add(ent);
+            }
+          }
+        }
+        extractDir = Directory(p.join(inputPath, '.gpth-unzipped'));
+      }
+
+      if (zips.isNotEmpty) {
+        _logger.info(
+          'Detected ${zips.length} ZIP file(s) in input path - extracting before processing...',
+        );
+
+        // Compute rough required space and warn
+        var cumZipsSize = 0;
+        for (final z in zips) {
+          try {
+            cumZipsSize += z.lengthSync();
+          } catch (_) {}
+        }
+        final requiredSpace = (cumZipsSize * 2) + 256 * 1024 * 1024;
+        _logger.info(
+          'Estimated required temporary space for extraction: ${requiredSpace ~/ (1024 * 1024)} MB',
+        );
+
+        try {
+          await ServiceContainer.instance.interactiveService.extractAll(
+            zips,
+            extractDir,
+          );
+          inputPath = extractDir.path;
+          _logger.info(
+            'Extraction complete. Using extracted folder: $inputPath',
+          );
+        } catch (e) {
+          _logger.error('Automatic ZIP extraction failed: $e');
+          _exitWithMessage(
+            12,
+            'Automatic ZIP extraction failed: ${e.toString()}. Try extracting manually and run again with the extracted folder as --input.',
+          );
+        }
+      }
+    } catch (e) {
+      // Non-fatal: log and continue; failure here will be caught later by path resolution
+      _logger.warning('ZIP auto-detection/extraction encountered an error: $e');
+    }
+  }
+
   // Validate required paths
   if (inputPath == null) {
     _logger.error('No --input folder specified :/');
-    exit(10);
+    _exitWithMessage(
+      10,
+      'Missing required --input path. Provide --input <folder> or run interactive mode.',
+    );
   }
   if (outputPath == null) {
     _logger.error('No --output folder specified :/');
-    exit(10);
+    _exitWithMessage(
+      10,
+      'Missing required --output path. Provide --output <folder> or run interactive mode.',
+    );
   }
   // Resolve input path to Google Photos directory using the domain service
   try {
     inputPath = PathResolverService.resolveGooglePhotosPath(inputPath);
   } catch (e) {
     _logger.error('Path resolution failed: $e');
-    exit(12);
+    _exitWithMessage(
+      12,
+      'Could not resolve Google Photos directory from input path: ${e.toString()}. Make sure the folder contains a Takeout/Google Photos structure or pass the correct --input path.',
+    );
   }
 
   return InputOutputPaths(inputPath: inputPath, outputPath: outputPath);
@@ -609,7 +721,7 @@ Future<ProcessingResult> _executeProcessing(
   // Validate directories
   if (!await inputDir.exists()) {
     _logger.error('Input folder does not exist :/');
-    exit(11);
+    _exitWithMessage(11, 'Input folder does not exist: ${inputDir.path}');
   }
   // Handle output directory cleanup if needed
   if (await outputDir.exists() &&
