@@ -169,12 +169,27 @@ class ExifToolService with LoggerMixin {
       _outputSubscription = _persistentProcess!.stdout
           .transform(utf8.decoder)
           .transform(const LineSplitter())
-          .listen(_handleOutput);
+          .listen(
+            _handleOutput,
+            onError: (final Object e) {
+              // Log stream errors but don't let them crash the app
+              try {
+                logger.error('ExifTool stdout stream error: $e');
+              } catch (_) {}
+            },
+          );
 
       _errorSubscription = _persistentProcess!.stderr
           .transform(utf8.decoder)
           .transform(const LineSplitter())
-          .listen(_handleError);
+          .listen(
+            _handleError,
+            onError: (final Object e) {
+              try {
+                logger.error('ExifTool stderr stream error: $e');
+              } catch (_) {}
+            },
+          );
     } catch (e) {
       print('Failed to start ExifTool persistent process: $e');
       _persistentProcess = null;
@@ -333,29 +348,62 @@ class ExifToolService with LoggerMixin {
     _pendingCommands.clear();
     _commandOutputs.clear();
 
-    // Cancel subscriptions
-    await _outputSubscription?.cancel();
-    await _errorSubscription?.cancel();
+    // Cancel subscriptions and drop references so streams can't call back
+    try {
+      await _outputSubscription?.cancel();
+    } catch (e) {
+      // ignore
+    }
+    _outputSubscription = null;
+    try {
+      await _errorSubscription?.cancel();
+    } catch (e) {
+      // ignore
+    }
+    _errorSubscription = null;
 
     // Cleanup persistent process
     if (_persistentProcess != null) {
       try {
-        _persistentProcess!.stdin.write('-stay_open\nFalse\n');
-        await _persistentProcess!.stdin.flush();
-        await _persistentProcess!.stdin.close();
+        try {
+          _persistentProcess!.stdin.write('-stay_open\nFalse\n');
+          await _persistentProcess!.stdin.flush();
+          await _persistentProcess!.stdin.close();
+        } catch (e) {
+          // Writing/closing stdin may fail if the process already exited - log and continue
+          try {
+            print('Error writing/closing ExifTool stdin: $e');
+          } catch (_) {}
+        }
 
-        await _persistentProcess!.exitCode.timeout(
-          const Duration(seconds: 5),
-          onTimeout: () {
+        try {
+          await _persistentProcess!.exitCode.timeout(
+            const Duration(seconds: 5),
+            onTimeout: () {
+              try {
+                _persistentProcess!.kill();
+              } catch (_) {}
+              return -1;
+            },
+          );
+        } catch (e) {
+          // Reading exitCode can throw if the underlying socket was closed abruptly
+          try {
+            print('Error waiting for ExifTool exit code: $e');
+          } catch (_) {}
+          try {
             _persistentProcess!.kill();
-            return -1;
-          },
-        );
+          } catch (_) {}
+        }
 
         // ExifTool process cleanup completed
       } catch (e) {
-        print('Error disposing ExifTool process: $e');
-        _persistentProcess!.kill();
+        try {
+          print('Error disposing ExifTool process: $e');
+        } catch (_) {}
+        try {
+          _persistentProcess!.kill();
+        } catch (_) {}
       } finally {
         _persistentProcess = null;
       }
