@@ -239,7 +239,6 @@ class ExifDateExtractor with LoggerMixin {
       'EXIF EncodedDate': tags['EXIF EncodedDate']?.printable,
       'EXIF MetadataDate': tags['EXIF MetadataDate']?.printable,
       'EXIF ModifyDate': tags['EXIF ModifyDate']?.printable,
-      'EXIF FileModifyDate': tags['EXIF FileModifyDate']?.printable,
     };
 
     final List<_ParsedTag> parsedDates = <_ParsedTag>[];

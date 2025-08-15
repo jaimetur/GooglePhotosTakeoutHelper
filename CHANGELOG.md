@@ -6,9 +6,9 @@
     - Exiftool reading: 'DateTimeOriginal', 'MediaCreateDate', 'CreationDate', 'TrackCreateDate', 'CreateDate', 'DateTimeDigitized', 'GPSDateStamp' and 'DateTime'.
     - Native dart exif reading: 'Image DateTime', 'EXIF DateTimeOriginal', 'EXIF DateTimeDigitized'.
   Some of those values are prone to deliver wrong dates (e.g. DateTimeDigitized) and the order did not completely make sense.
-  I therefore settled for those new tags in this order:
-    - Exiftool reading: 'DateTimeOriginal', 'MediaCreateDate', 'CreationDate'.
-    - Native dart exif reading: 'EXIF DateTimeOriginal', 'EXIF DateTime'.
+  We therefore now read those tags and the the oldest DateTime we can find:
+    - Exiftool reading: 'DateTimeOriginal','DateTime','CreateDate','DateCreated','CreationDate','MediaCreateDate','TrackCreateDate','EncodedDate','MetadataDate','ModifyDate'.
+    - Native dart exif reading: same as above.
   - **Fixed typo in partner sharing** - Functionality was fundamentally broken due to a typo.
   - **Fixed small bug in interactive mode in the options of the limit filezise dialogue**
   - **Fixed unzipping through command line by automatically detecting if input directory contains zip files**
