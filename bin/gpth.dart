@@ -12,7 +12,42 @@ import 'package:gpth/domain/services/core/service_container.dart';
 import 'package:gpth/domain/services/user_interaction/path_resolver_service.dart';
 import 'package:gpth/presentation/interactive_presenter.dart';
 import 'package:gpth/shared/constants.dart';
+import 'package:gpth/shared/concurrency_manager.dart';
 import 'package:path/path.dart' as p;
+
+// Parses hidden test-only flags from argv and applies them to ConcurrencyManager.
+// Recognized flags (examples):
+//   --_test-standard-multiplier=2
+//   --_test-network-optimized-multiplier=8
+void _applyTestMultipliers(final List<String> args) {
+  final re = RegExp(r'^--_test-([a-z0-9-]+)=(\d+)\$', caseSensitive: false);
+  for (final arg in args) {
+    final m = re.firstMatch(arg);
+    if (m == null) continue;
+    final name = m.group(1)!.toLowerCase();
+    final val = int.parse(m.group(2)!);
+    switch (name) {
+      case 'standard-multiplier':
+        ConcurrencyManager.standardMultiplier = val;
+        break;
+      case 'high-performance-multiplier':
+        ConcurrencyManager.highPerformanceMultiplier = val;
+        break;
+      case 'conservative-multiplier':
+        ConcurrencyManager.conservativeMultiplier = val;
+        break;
+      case 'disk-optimized-multiplier':
+        ConcurrencyManager.diskOptimizedMultiplier = val;
+        break;
+      case 'network-optimized-multiplier':
+        ConcurrencyManager.networkOptimizedMultiplier = val;
+        break;
+      default:
+        // ignore unknown test flag
+        break;
+    }
+  }
+}
 
 /// ############################### GOOGLE PHOTOS TAKEOUT HELPER #############################
 ///
@@ -69,6 +104,9 @@ import 'package:path/path.dart' as p;
 Future<void> main(final List<String> arguments) async {
   // Initialize logger early with default settings
   _logger = LoggingService();
+  // Apply hidden test-only concurrency multiplier flags if present.
+  // Usage: --_test-standard-multiplier=2  (these flags are intentionally hidden)
+  _applyTestMultipliers(arguments);
   try {
     // Initialize ServiceContainer early to support interactive mode during argument parsing
     await ServiceContainer.instance.initialize();
