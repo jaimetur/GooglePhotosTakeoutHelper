@@ -8,6 +8,11 @@ import '../domain/services/core/logging_service.dart';
 class ConcurrencyManager {
   factory ConcurrencyManager() => _instance;
   const ConcurrencyManager._internal();
+
+  /// Logger used by ConcurrencyManager. Can be injected at startup to respect
+  /// the application's ProcessingConfig (verbosity/colors). Defaults to a
+  /// non-verbose logger to preserve previous behavior when not initialized.
+  static LoggingService logger = LoggingService();
   static const ConcurrencyManager _instance = ConcurrencyManager._internal();
 
   // ============================================================================
@@ -23,18 +28,18 @@ class ConcurrencyManager {
     return _cachedCpuCount!;
   }
 
-  /// Standard concurrency multiplier (changed from 2 to 8 as requested)
-  static int standardMultiplier = 8;
+  /// Standard concurrency multiplier
+  static int standardMultiplier = 4;
 
   /// High performance multiplier for intensive operations
-  static int highPerformanceMultiplier = 24;
+  static int highPerformanceMultiplier = 8;
 
   // Additional multipliers (modifiable for tests or CLI overrides)
-  static int conservativeMultiplier = 6;
+  static int conservativeMultiplier = 2;
 
-  static int diskOptimizedMultiplier = 6;
+  static int diskOptimizedMultiplier = 4;
 
-  static int networkOptimizedMultiplier = 16;
+  static int networkOptimizedMultiplier = 4;
 
   // ============================================================================
   // CONCURRENCY LEVELS
@@ -45,7 +50,7 @@ class ConcurrencyManager {
   int get standard {
     final val = cpuCoreCount * standardMultiplier;
     try {
-      LoggingService().info('Starting $val threads (standard concurrency)');
+      logger.info('Starting $val threads (standard concurrency)');
     } catch (_) {}
     return val;
   }
@@ -55,7 +60,7 @@ class ConcurrencyManager {
   int get conservative {
     final val = cpuCoreCount * conservativeMultiplier;
     try {
-      LoggingService().info('Starting $val threads (conservative concurrency)');
+      logger.info('Starting $val threads (conservative concurrency)');
     } catch (_) {}
     return val;
   }
@@ -65,9 +70,7 @@ class ConcurrencyManager {
   int get highPerformance {
     final val = cpuCoreCount * highPerformanceMultiplier;
     try {
-      LoggingService().info(
-        'Starting $val threads (highPerformance concurrency)',
-      );
+      logger.info('Starting $val threads (highPerformance concurrency)');
     } catch (_) {}
     return val;
   }
@@ -92,9 +95,7 @@ class ConcurrencyManager {
           cpuCoreCount * 4; // Conservative default for other Unix-like systems
     }
     try {
-      LoggingService().info(
-        'Starting $val threads (platformOptimized concurrency)',
-      );
+      logger.info('Starting $val threads (platformOptimized concurrency)');
     } catch (_) {}
     return val;
   }
@@ -104,9 +105,7 @@ class ConcurrencyManager {
   int get diskOptimized {
     final val = cpuCoreCount * diskOptimizedMultiplier;
     try {
-      LoggingService().info(
-        'Starting $val threads (diskOptimized concurrency)',
-      );
+      logger.info('Starting $val threads (diskOptimized concurrency)');
     } catch (_) {}
     return val;
   }
@@ -116,9 +115,7 @@ class ConcurrencyManager {
   int get networkOptimized {
     final val = cpuCoreCount * networkOptimizedMultiplier;
     try {
-      LoggingService().info(
-        'Starting $val threads (networkOptimized concurrency)',
-      );
+      logger.info('Starting $val threads (networkOptimized concurrency)');
     } catch (_) {}
     return val;
   }
@@ -199,7 +196,7 @@ class ConcurrencyManager {
             cpuCoreCount *
             4; // Balanced for CPU + I/O workload (reduced from standard)
         try {
-          LoggingService().info('Starting $hashVal threads (hash concurrency)');
+          logger.info('Starting $hashVal threads (hash concurrency)');
         } catch (_) {}
         return hashVal;
 
@@ -207,9 +204,7 @@ class ConcurrencyManager {
       case 'metadata':
         final val = diskOptimized; // Mostly I/O operations
         try {
-          LoggingService().info(
-            'Starting $val threads (exif/metadata concurrency)',
-          );
+          logger.info('Starting $val threads (exif/metadata concurrency)');
         } catch (_) {}
         return val;
 
@@ -217,7 +212,7 @@ class ConcurrencyManager {
       case 'comparison':
         final val = conservative; // Memory intensive
         try {
-          LoggingService().info(
+          logger.info(
             'Starting $val threads (duplicate/conparison concurrency)',
           );
         } catch (_) {}
@@ -228,7 +223,7 @@ class ConcurrencyManager {
       case 'upload':
         final val = networkOptimized; // Network I/O
         try {
-          LoggingService().info('Starting $val threads (network concurrency)');
+          logger.info('Starting $val threads (network concurrency)');
         } catch (_) {}
         return val;
 
@@ -238,18 +233,14 @@ class ConcurrencyManager {
       case 'move':
         final val = diskOptimized; // Disk I/O
         try {
-          LoggingService().info(
-            'Starting $val threads (disk/file concurrency)',
-          );
+          logger.info('Starting $val threads (disk/file concurrency)');
         } catch (_) {}
         return val;
 
       default:
         final val = standard; // Default to standard concurrency
         try {
-          LoggingService().info(
-            'Starting $val threads (default/standard concurrency)',
-          );
+          logger.info('Starting $val threads (default/standard concurrency)');
         } catch (_) {}
         return val;
     }

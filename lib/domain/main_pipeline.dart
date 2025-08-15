@@ -1,10 +1,12 @@
 import 'dart:io';
 
+import '../../shared/concurrency_manager.dart';
 import 'models/media_entity_collection.dart';
 import 'models/pipeline_step_model.dart';
 import 'models/processing_config_model.dart';
 import 'models/processing_result_model.dart';
 import 'services/core/formatting_service.dart';
+import 'services/core/logging_service.dart';
 import 'services/user_interaction/user_interaction_service.dart';
 import 'steps/step_01_fix_extensions.dart';
 import 'steps/step_02_discover_media.dart';
@@ -58,6 +60,9 @@ class ProcessingPipeline {
       inputDirectory: inputDirectory,
       outputDirectory: outputDirectory,
     );
+
+    // Configure concurrency manager logging to respect processing configuration
+    ConcurrencyManager.logger = LoggingService.fromConfig(context.config);
 
     // Define the 8 processing steps in fixed order
     final steps = [
