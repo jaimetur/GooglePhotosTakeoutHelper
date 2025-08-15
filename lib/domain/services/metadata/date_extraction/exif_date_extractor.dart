@@ -181,7 +181,6 @@ class ExifDateExtractor with LoggerMixin {
 
         final DateTime? parsed = DateTime.tryParse(datetime);
         if (parsed != null) {
-          // Normalize to UTC so the chosen oldest instant is comparable across time zones
           parsedDates.add(_ParsedTag(tag: key, dateTime: parsed));
         }
       }
@@ -273,7 +272,7 @@ class ExifDateExtractor with LoggerMixin {
 
       final DateTime? parsed = DateTime.tryParse(datetime);
       if (parsed != null) {
-        parsedDates.add(_ParsedTag(tag: key, dateTime: parsed.toUtc()));
+        parsedDates.add(_ParsedTag(tag: key, dateTime: parsed));
       }
     }
 
