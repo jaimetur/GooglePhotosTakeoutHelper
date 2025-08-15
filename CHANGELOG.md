@@ -13,7 +13,7 @@
 ### ✨ **New Features**
 
 - **Partner Sharing Support** - Added `--divide-partner-shared` flag to separate partner shared media from personal uploads into dedicated `PARTNER_SHARED` folder (Issue #56)
-  - Automatically detects partner shared photos from JSON metadata (`googlePhotoOrigin.fromPartnerSharing`)
+  - Automatically detects partner shared photos from JSON metadata (`googlePhotosOrigin.fromPartnerSharing`)
   - Creates separate folder structure while maintaining date division and album organization
   - Works with all album handling modes (shortcut, duplicate-copy, reverse-shortcut, json, nothing)
   - Preserves album relationships for partner shared media
