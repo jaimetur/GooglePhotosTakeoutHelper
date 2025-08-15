@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:gpth/domain/services/core/logging_service.dart';
+import '../domain/services/core/logging_service.dart';
 
 /// Centralized concurrency management for the entire application
 ///

@@ -11,8 +11,8 @@ import 'package:gpth/domain/services/core/logging_service.dart';
 import 'package:gpth/domain/services/core/service_container.dart';
 import 'package:gpth/domain/services/user_interaction/path_resolver_service.dart';
 import 'package:gpth/presentation/interactive_presenter.dart';
-import 'package:gpth/shared/constants.dart';
 import 'package:gpth/shared/concurrency_manager.dart';
+import 'package:gpth/shared/constants.dart';
 import 'package:path/path.dart' as p;
 
 // Parses hidden test-only flags from argv and applies them to ConcurrencyManager.
