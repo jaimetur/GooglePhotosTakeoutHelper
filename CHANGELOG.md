@@ -1,5 +1,7 @@
 ## 4.1.1-Xentraxx
 
+### 🐛 **Bug Fixes**
+
   - **changed exif tags to be utilized** - Before we used the following lists of tags in this exact order to find a date to set: 
     - Exiftool reading: 'DateTimeOriginal', 'MediaCreateDate', 'CreationDate', 'TrackCreateDate', 'CreateDate', 'DateTimeDigitized', 'GPSDateStamp' and 'DateTime'.
     - Native dart exif reading: 'Image DateTime', 'EXIF DateTimeOriginal', 'EXIF DateTimeDigitized'.
@@ -7,6 +9,13 @@
   I therefore settled for those new tags in this order:
     - Exiftool reading: 'DateTimeOriginal', 'MediaCreateDate', 'CreationDate'.
     - Native dart exif reading: 'EXIF DateTimeOriginal', 'EXIF DateTime'.
+  - **Fixed typo in partner sharing** - Functionality was fundamentally broken due to a typo.
+  - **Fixed small bug in interactive mode in the options of the limit filezise dialogue**
+  - **Fixed unzipping through command line by automatically detecting if input directory contains zip files**
+
+### 🚀 **Improvements**
+
+  - **Improved non-zero exit code quitting behaviour** - Now with nice descriptive error messages because I was tired of looking up what is responsible for a certain exit code.
 
 ## 4.1.0-Xentraxx - Bug Fixes and Performance Improvements
 
