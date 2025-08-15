@@ -1,6 +1,7 @@
 // ignore_for_file: non_constant_identifier_names
 
 import 'dart:io';
+import 'dart:math' as math;
 // 'dart:math' previously used for substring length guarding; no longer needed
 
 import 'package:exif_reader/exif_reader.dart';
@@ -15,9 +16,9 @@ import '../../core/logging_service.dart';
 // Helper struct to keep parsed DateTime along with source tag name
 // Kept private to this file.
 class _ParsedTag {
-  _ParsedTag({required this.tag, required this.dateTimeUtc});
+  _ParsedTag({required this.tag, required this.dateTime});
   final String tag;
-  final DateTime dateTimeUtc;
+  final DateTime dateTime;
 }
 
 /// Service for extracting dates from EXIF data
@@ -148,7 +149,6 @@ class ExifDateExtractor with LoggerMixin {
         'EncodedDate',
         'MetadataDate',
         'ModifyDate',
-        'FileModifyDate',
       ];
 
       final List<_ParsedTag> parsedDates = <_ParsedTag>[];
@@ -175,13 +175,14 @@ class ExifDateExtractor with LoggerMixin {
             .replaceAll('.', ':')
             .replaceAll('\\', ':')
             .replaceAll(': ', ':0')
+            .substring(0, math.min(datetime.length, 19))
             .replaceFirst(':', '-')
             .replaceFirst(':', '-');
 
         final DateTime? parsed = DateTime.tryParse(datetime);
         if (parsed != null) {
           // Normalize to UTC so the chosen oldest instant is comparable across time zones
-          parsedDates.add(_ParsedTag(tag: key, dateTimeUtc: parsed.toUtc()));
+          parsedDates.add(_ParsedTag(tag: key, dateTime: parsed));
         }
       }
 
@@ -193,11 +194,9 @@ class ExifDateExtractor with LoggerMixin {
       }
 
       // Choose the oldest (earliest) DateTime and remember the tag
-      parsedDates.sort(
-        (final a, final b) => a.dateTimeUtc.compareTo(b.dateTimeUtc),
-      );
+      parsedDates.sort((final a, final b) => a.dateTime.compareTo(b.dateTime));
       final _ParsedTag chosen = parsedDates.first;
-      final DateTime parsedDateTime = chosen.dateTimeUtc;
+      final DateTime parsedDateTime = chosen.dateTime;
 
       if (parsedDateTime == DateTime.parse('2036-01-01T23:59:59.000000Z')) {
         //we keep this for safety for this edge case: https://ffmpeg.org/pipermail/ffmpeg-user/2023-April/056265.html
@@ -268,22 +267,21 @@ class ExifDateExtractor with LoggerMixin {
           .replaceAll('.', ':')
           .replaceAll('\\', ':')
           .replaceAll(': ', ':0')
+          .substring(0, math.min(datetime.length, 19))
           .replaceFirst(':', '-')
           .replaceFirst(':', '-');
 
       final DateTime? parsed = DateTime.tryParse(datetime);
       if (parsed != null) {
-        parsedDates.add(_ParsedTag(tag: key, dateTimeUtc: parsed.toUtc()));
+        parsedDates.add(_ParsedTag(tag: key, dateTime: parsed.toUtc()));
       }
     }
 
     if (parsedDates.isEmpty) return null;
 
-    parsedDates.sort(
-      (final a, final b) => a.dateTimeUtc.compareTo(b.dateTimeUtc),
-    );
+    parsedDates.sort((final a, final b) => a.dateTime.compareTo(b.dateTime));
     final _ParsedTag chosen = parsedDates.first;
-    final DateTime parsedDateTime = chosen.dateTimeUtc;
+    final DateTime parsedDateTime = chosen.dateTime;
 
     if (parsedDateTime == DateTime.parse('2036-01-01T23:59:59.000000Z')) {
       //we keep this for safety for this edge case: https://ffmpeg.org/pipermail/ffmpeg-user/2023-April/056265.html
