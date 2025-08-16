@@ -32,7 +32,7 @@ class DuplicateDetectionService with LoggerMixin {
 
   /// Maximum number of concurrent operations to prevent overwhelming the system
   static int get maxConcurrency =>
-      ConcurrencyManager().getConcurrencyForOperation('duplicate');
+      ConcurrencyManager().concurrencyFor(ConcurrencyOperation.duplicate);
 
   /// Records performance metric for adaptive optimization
   void _recordPerformance(final int filesProcessed, final Duration elapsed) {

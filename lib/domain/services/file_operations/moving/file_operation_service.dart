@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../../../../shared/concurrency_manager.dart';
+import '../../../../shared/global_pools.dart';
 import '../../core/logging_service.dart';
 import '../../core/service_container.dart';
 
@@ -11,9 +13,7 @@ import '../../core/service_container.dart';
 /// This service provides efficient file operations with streaming for large files,
 /// proper concurrency control, and cross-platform optimizations.
 class FileOperationService with LoggerMixin {
-  static const int _maxConcurrentOperations = 4;
-
-  final _operationSemaphore = _Semaphore(_maxConcurrentOperations);
+  FileOperationService();
 
   /// Safely moves a file to the target location
   ///
@@ -64,29 +64,25 @@ class FileOperationService with LoggerMixin {
     final File sourceFile,
     final Directory targetDirectory, {
     final DateTime? dateTaken,
-  }) async {
-    await _operationSemaphore.acquire();
-    try {
-      // Ensure target directory exists
-      await targetDirectory.create(recursive: true);
+  }) async =>
+      GlobalPools.poolFor(ConcurrencyOperation.fileIO).withResource(() async {
+        // Ensure target directory exists
+        await targetDirectory.create(recursive: true);
 
-      final File targetFile = ServiceContainer.instance.utilityService
-          .findUniqueFileName(
-            File(p.join(targetDirectory.path, p.basename(sourceFile.path))),
-          );
+        final File targetFile = ServiceContainer.instance.utilityService
+            .findUniqueFileName(
+              File(p.join(targetDirectory.path, p.basename(sourceFile.path))),
+            );
 
-      final resultFile = await _moveFileOptimized(sourceFile, targetFile);
+        final resultFile = await _moveFileOptimized(sourceFile, targetFile);
 
-      // Set file timestamp if dateTaken is provided
-      if (dateTaken != null) {
-        await setFileTimestamp(resultFile, dateTaken);
-      }
+        // Set file timestamp if dateTaken is provided
+        if (dateTaken != null) {
+          await setFileTimestamp(resultFile, dateTaken);
+        }
 
-      return resultFile;
-    } finally {
-      _operationSemaphore.release();
-    }
-  }
+        return resultFile;
+      });
 
   /// Internal optimized file move implementation
   Future<File> _moveFileOptimized(
@@ -192,17 +188,12 @@ class FileOperationService with LoggerMixin {
 
   /// Batch create multiple directories with concurrency control
   Future<void> ensureDirectoriesExist(final List<Directory> directories) async {
-    final semaphore = _Semaphore(_maxConcurrentOperations);
-    final futures = directories.map((final dir) async {
-      await semaphore.acquire();
-      try {
-        await ensureDirectoryExists(dir);
-      } finally {
-        semaphore.release();
-      }
-    });
-
-    await Future.wait(futures);
+    final pool = GlobalPools.poolFor(ConcurrencyOperation.fileIO);
+    await Future.wait(
+      directories.map(
+        (final dir) => pool.withResource(() => ensureDirectoryExists(dir)),
+      ),
+    );
   }
 
   /// Batch file move operations with progress reporting
@@ -211,32 +202,31 @@ class FileOperationService with LoggerMixin {
     final void Function(int completed, int total)? onProgress,
   }) async {
     final results = <FileOperationResult>[];
-    final semaphore = _Semaphore(_maxConcurrentOperations);
+    final pool = GlobalPools.poolFor(ConcurrencyOperation.fileIO);
     int completed = 0;
 
-    final futures = operations.map((final op) async {
-      await semaphore.acquire();
-      try {
-        final result = await moveFileOptimized(op.source, op.target);
-        completed++;
-        onProgress?.call(completed, operations.length);
-        return FileOperationResult(
-          success: true,
-          sourceFile: op.source,
-          resultFile: result,
-        );
-      } catch (e) {
-        completed++;
-        onProgress?.call(completed, operations.length);
-        return FileOperationResult(
-          success: false,
-          sourceFile: op.source,
-          error: e.toString(),
-        );
-      } finally {
-        semaphore.release();
-      }
-    });
+    final futures = operations.map(
+      (final op) async => pool.withResource(() async {
+        try {
+          final result = await moveFileOptimized(op.source, op.target);
+          completed++;
+          onProgress?.call(completed, operations.length);
+          return FileOperationResult(
+            success: true,
+            sourceFile: op.source,
+            resultFile: result,
+          );
+        } catch (e) {
+          completed++;
+          onProgress?.call(completed, operations.length);
+          return FileOperationResult(
+            success: false,
+            sourceFile: op.source,
+            error: e.toString(),
+          );
+        }
+      }),
+    );
 
     results.addAll(await Future.wait(futures));
     return results;
@@ -269,35 +259,6 @@ class FileOperationService with LoggerMixin {
     }
 
     return resultFile;
-  }
-}
-
-/// Thread-safe semaphore for controlling concurrency
-class _Semaphore {
-  _Semaphore(this.maxCount) : _currentCount = maxCount;
-
-  final int maxCount;
-  int _currentCount;
-  final List<Completer<void>> _waitQueue = [];
-
-  Future<void> acquire() async {
-    if (_currentCount > 0) {
-      _currentCount--;
-      return;
-    }
-
-    final completer = Completer<void>();
-    _waitQueue.add(completer);
-    return completer.future;
-  }
-
-  void release() {
-    if (_waitQueue.isNotEmpty) {
-      final completer = _waitQueue.removeAt(0);
-      completer.complete();
-    } else {
-      _currentCount++;
-    }
   }
 }
 

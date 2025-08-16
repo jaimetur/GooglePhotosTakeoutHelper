@@ -6,7 +6,6 @@ import '../services/core/service_container.dart';
 import '../services/metadata/date_extraction/json_date_extractor.dart';
 import '../services/metadata/exif_writer_service.dart';
 import '../value_objects/date_time_extraction_method.dart';
-import 'performance_config_model.dart';
 
 /// Modern domain model representing a collection of media entities
 ///
@@ -131,10 +130,7 @@ class MediaEntityCollection with LoggerMixin {
   /// and coordinate data, tracking success statistics.
   Future<Map<String, int>> writeExifData({
     final void Function(int current, int total)? onProgress,
-    final PerformanceConfig? performanceConfig,
   }) async {
-    final config = performanceConfig ?? PerformanceConfig.balanced;
-
     // Check if ExifTool is available before proceeding
     final exifTool = ServiceContainer.instance.exifTool;
     if (exifTool == null) {
@@ -144,8 +140,9 @@ class MediaEntityCollection with LoggerMixin {
 
     logInfo('[Step 5/8] Starting EXIF data writing for ${_media.length} files');
 
-    if (config.enableParallelProcessing && _media.length > 10) {
-      return _writeExifDataParallel(onProgress, config, exifTool);
+    // Use parallel processing for larger collections
+    if (_media.length > 10) {
+      return _writeExifDataParallel(onProgress, exifTool);
     } else {
       return _writeExifDataSequential(onProgress, exifTool);
     }
@@ -228,7 +225,6 @@ class MediaEntityCollection with LoggerMixin {
   /// Parallel EXIF writing for improved performance
   Future<Map<String, int>> _writeExifDataParallel(
     final void Function(int current, int total)? onProgress,
-    final PerformanceConfig config,
     final ExifToolService exifTool,
   ) async {
     logInfo('[Step 5/8] Using parallel EXIF writing for improved performance');
@@ -238,9 +234,9 @@ class MediaEntityCollection with LoggerMixin {
     var completed = 0;
 
     // Calculate optimal concurrency
-    final maxConcurrency =
-        config.maxConcurrentOperations ??
-        ConcurrencyManager().getConcurrencyForOperation('exif');
+    final maxConcurrency = ConcurrencyManager().concurrencyFor(
+      ConcurrencyOperation.exif,
+    );
 
     // Process files in parallel batches using existing ExifWriterService
     for (int i = 0; i < _media.length; i += maxConcurrency) {

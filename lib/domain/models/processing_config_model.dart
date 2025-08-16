@@ -2,7 +2,6 @@ import 'dart:io';
 
 import '../services/core/service_container.dart';
 import '../services/metadata/date_extraction/date_extractor_service.dart';
-import 'performance_config_model.dart';
 
 /// Enum representing different extension fixing modes
 enum ExtensionFixingMode {
@@ -48,7 +47,6 @@ class ProcessingConfig {
     this.limitFileSize = false,
     this.verbose = false,
     this.isInteractiveMode = false,
-    this.performanceConfig = PerformanceConfig.balanced,
     this.dividePartnerShared = false,
   });
 
@@ -70,7 +68,6 @@ class ProcessingConfig {
   final bool limitFileSize;
   final bool verbose;
   final bool isInteractiveMode;
-  final PerformanceConfig performanceConfig;
   final bool dividePartnerShared;
 
   /// Validates the configuration and throws descriptive errors if invalid

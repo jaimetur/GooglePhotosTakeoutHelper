@@ -1,6 +1,16 @@
 import 'dart:io';
 import '../domain/services/core/logging_service.dart';
 
+/// Canonical operation types for concurrency decisions (Phase 1 enum introduction)
+enum ConcurrencyOperation {
+  hash,
+  exif,
+  duplicate,
+  fileIO,
+  moveCopy,
+  other, // fallback
+}
+
 /// Centralized concurrency management for the entire application
 ///
 /// This class provides consistent concurrency calculations across all services
@@ -28,18 +38,22 @@ class ConcurrencyManager {
     return _cachedCpuCount!;
   }
 
-  /// Standard concurrency multiplier
-  static int standardMultiplier = 3;
+  /// Concurrency multipliers (modifiable via [setMultipliers] for tests or CLI overrides)
+  static int _standardMultiplier = 3;
+  static int _conservativeMultiplier = 2;
+  static int _diskOptimizedMultiplier = 3;
 
-  /// High performance multiplier
-  static int highPerformanceMultiplier = 4;
-
-  // Additional multipliers (modifiable for tests or CLI overrides)
-  static int conservativeMultiplier = 2;
-
-  static int diskOptimizedMultiplier = 3;
-
-  static int networkOptimizedMultiplier = 3;
+  /// Update one or more concurrency multipliers atomically.
+  /// Passing null leaves the existing value unchanged.
+  static void setMultipliers({
+    final int? standard,
+    final int? conservative,
+    final int? diskOptimized,
+  }) {
+    if (standard != null) _standardMultiplier = standard;
+    if (conservative != null) _conservativeMultiplier = conservative;
+    if (diskOptimized != null) _diskOptimizedMultiplier = diskOptimized;
+  }
 
   // ============================================================================
   // CONCURRENCY LEVELS
@@ -47,7 +61,7 @@ class ConcurrencyManager {
 
   /// Standard concurrency level for most operations
   int get standard {
-    final val = cpuCoreCount * standardMultiplier;
+    final val = cpuCoreCount * _standardMultiplier;
     try {
       logger.info('Starting $val threads (standard concurrency)');
     } catch (_) {}
@@ -56,18 +70,9 @@ class ConcurrencyManager {
 
   /// Conservative concurrency for resource-intensive operations
   int get conservative {
-    final val = cpuCoreCount * conservativeMultiplier;
+    final val = cpuCoreCount * _conservativeMultiplier;
     try {
       logger.info('Starting $val threads (conservative concurrency)');
-    } catch (_) {}
-    return val;
-  }
-
-  /// High performance concurrency for fast operations
-  int get highPerformance {
-    final val = cpuCoreCount * highPerformanceMultiplier;
-    try {
-      logger.info('Starting $val threads (highPerformance concurrency)');
     } catch (_) {}
     return val;
   }
@@ -78,19 +83,19 @@ class ConcurrencyManager {
     if (Platform.isWindows) {
       val =
           cpuCoreCount *
-          standardMultiplier; // Windows handles concurrent I/O well
+          _standardMultiplier; // Windows handles concurrent I/O well
     } else if (Platform.isMacOS) {
       val =
           cpuCoreCount *
-          conservativeMultiplier; // macOS handles concurrency well, slightly more conservative
+          _conservativeMultiplier; // macOS handles concurrency well, slightly more conservative
     } else if (Platform.isLinux) {
       val =
           cpuCoreCount *
-          standardMultiplier; // Modern Linux handles concurrent I/O excellently
+          _standardMultiplier; // Modern Linux handles concurrent I/O excellently
     } else {
       val =
           cpuCoreCount *
-          conservativeMultiplier; // Conservative default for other Unix-like systems
+          _conservativeMultiplier; // Conservative default for other Unix-like systems
     }
     try {
       logger.info('Starting $val threads (platformOptimized concurrency)');
@@ -100,19 +105,9 @@ class ConcurrencyManager {
 
   /// Disk I/O optimized concurrency
   int get diskOptimized {
-    final val = cpuCoreCount * diskOptimizedMultiplier;
+    final val = cpuCoreCount * _diskOptimizedMultiplier;
     try {
       logger.info('Starting $val threads (diskOptimized concurrency)');
-    } catch (_) {}
-    return val;
-  }
-
-  /// Network I/O optimized concurrency
-  /// Can be higher since network operations are often waiting
-  int get networkOptimized {
-    final val = cpuCoreCount * networkOptimizedMultiplier;
-    try {
-      logger.info('Starting $val threads (networkOptimized concurrency)');
     } catch (_) {}
     return val;
   }
@@ -180,66 +175,40 @@ class ConcurrencyManager {
     return result;
   }
 
-  /// Gets concurrency for specific operation types
-  ///
-  /// [operationType] Type of operation (hash, exif, duplicate, etc.)
-  ///
-  /// Returns optimized concurrency for the operation type
-  int getConcurrencyForOperation(final String operationType) {
-    switch (operationType.toLowerCase()) {
-      case 'hash':
-      case 'hashing':
-        final hashVal =
-            cpuCoreCount *
-            4; // Balanced for CPU + I/O workload (reduced from standard)
-        try {
-          logger.info('Starting $hashVal threads (hash concurrency)');
-        } catch (_) {}
-        return hashVal;
-
-      case 'exif':
-      case 'metadata':
-        final val = diskOptimized; // Mostly I/O operations
-        try {
-          logger.info('Starting $val threads (exif/metadata concurrency)');
-        } catch (_) {}
+  /// New enum-based API (preferred)
+  int concurrencyFor(final ConcurrencyOperation op) {
+    switch (op) {
+      case ConcurrencyOperation.hash:
+        final val = cpuCoreCount * 4; // CPU heavy + I/O overlap
+        _logOnce('hash', val);
         return val;
-
-      case 'duplicate':
-      case 'comparison':
-        final val = conservative; // Memory intensive
-        try {
-          logger.info(
-            'Starting $val threads (duplicate/conparison concurrency)',
-          );
-        } catch (_) {}
+      case ConcurrencyOperation.exif:
+        final val = diskOptimized; // Mostly I/O bound
+        _logOnce('exif', val);
         return val;
-
-      case 'network':
-      case 'download':
-      case 'upload':
-        final val = networkOptimized; // Network I/O
-        try {
-          logger.info('Starting $val threads (network concurrency)');
-        } catch (_) {}
+      case ConcurrencyOperation.duplicate:
+        final val = conservative; // Memory intensive comparisons
+        _logOnce('duplicate', val);
         return val;
-
-      case 'disk':
-      case 'file':
-      case 'copy':
-      case 'move':
-        final val = diskOptimized; // Disk I/O
-        try {
-          logger.info('Starting $val threads (disk/file concurrency)');
-        } catch (_) {}
+      case ConcurrencyOperation.fileIO:
+      case ConcurrencyOperation.moveCopy:
+        final val = diskOptimized; // Disk/file operations
+        _logOnce('fileIO', val);
         return val;
-
-      default:
-        final val = standard; // Default to standard concurrency
-        try {
-          logger.info('Starting $val threads (default/standard concurrency)');
-        } catch (_) {}
+      case ConcurrencyOperation.other:
+        final val = standard;
+        _logOnce('default', val);
         return val;
+    }
+  }
+
+  // Basic once-per-key logging cache to cut noise
+  static final Set<String> _loggedKeys = <String>{};
+  void _logOnce(final String key, final int val) {
+    if (_loggedKeys.add(key)) {
+      try {
+        logger.info('Concurrency[$key]=$val');
+      } catch (_) {}
     }
   }
 
@@ -251,22 +220,4 @@ class ConcurrencyManager {
   void invalidateCache() {
     _cachedCpuCount = null;
   }
-
-  /// Gets system information for debugging/logging
-  Map<String, dynamic> getSystemInfo() => {
-    'cpuCores': cpuCoreCount,
-    'platform': Platform.operatingSystem,
-    'standardConcurrency': standard,
-    'conservativeConcurrency': conservative,
-    'highPerformanceConcurrency': highPerformance,
-    'platformOptimizedConcurrency': platformOptimized,
-    'diskOptimizedConcurrency': diskOptimized,
-    'networkOptimizedConcurrency': networkOptimized,
-  };
-}
-
-/// Extension methods for easy access to concurrency manager
-extension ConcurrencyExtensions on Object {
-  /// Quick access to the concurrency manager
-  ConcurrencyManager get concurrency => ConcurrencyManager();
 }

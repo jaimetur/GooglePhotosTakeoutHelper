@@ -15,7 +15,7 @@ class ContentGroupingService with LoggerMixin {
 
   /// Maximum number of concurrent operations to prevent system overload
   int get _maxConcurrency =>
-      ConcurrencyManager().getConcurrencyForOperation('duplicate');
+      ConcurrencyManager().concurrencyFor(ConcurrencyOperation.duplicate);
 
   /// Groups media entities by their content (size and hash)
   ///

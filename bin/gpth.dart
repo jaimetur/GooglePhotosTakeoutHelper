@@ -28,19 +28,13 @@ void _applyTestMultipliers(final List<String> args) {
     final val = int.parse(m.group(2)!);
     switch (name) {
       case 'standard-multiplier':
-        ConcurrencyManager.standardMultiplier = val;
-        break;
-      case 'high-performance-multiplier':
-        ConcurrencyManager.highPerformanceMultiplier = val;
+        ConcurrencyManager.setMultipliers(standard: val);
         break;
       case 'conservative-multiplier':
-        ConcurrencyManager.conservativeMultiplier = val;
+        ConcurrencyManager.setMultipliers(conservative: val);
         break;
       case 'disk-optimized-multiplier':
-        ConcurrencyManager.diskOptimizedMultiplier = val;
-        break;
-      case 'network-optimized-multiplier':
-        ConcurrencyManager.networkOptimizedMultiplier = val;
+        ConcurrencyManager.setMultipliers(diskOptimized: val);
         break;
       default:
         // ignore unknown test flag

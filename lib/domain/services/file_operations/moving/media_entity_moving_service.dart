@@ -1,6 +1,7 @@
 import 'dart:async';
-import 'dart:collection';
 
+import '../../../../shared/concurrency_manager.dart';
+import '../../../../shared/global_pools.dart';
 import '../../../models/media_entity_collection.dart';
 import 'file_operation_service.dart';
 import 'moving_context_model.dart';
@@ -103,9 +104,13 @@ class MediaEntityMovingService {
   Stream<int> moveMediaEntitiesParallel(
     final MediaEntityCollection entityCollection,
     final MovingContext context, {
-    final int maxConcurrent = 10,
+    int? maxConcurrent,
     final int batchSize = 100,
   }) async* {
+    // Derive sensible default if not provided
+    maxConcurrent ??= ConcurrencyManager()
+        .concurrencyFor(ConcurrencyOperation.moveCopy)
+        .clamp(4, 128);
     final strategy = _strategyFactory.createStrategy(context.albumBehavior);
     strategy.validateContext(context);
 
@@ -120,23 +125,19 @@ class MediaEntityMovingService {
 
       // Process batch with controlled concurrency
       final futures = <Future<List<MediaEntityMovingResult>>>[];
-      final semaphore = _Semaphore(maxConcurrent);
+      final pool = GlobalPools.poolFor(ConcurrencyOperation.moveCopy);
       for (final entity in batch) {
         futures.add(
-          semaphore.acquire().then((_) async {
-            try {
-              final results = <MediaEntityMovingResult>[];
-              // ignore: prefer_foreach
-              await for (final result in strategy.processMediaEntity(
-                entity,
-                context,
-              )) {
-                results.add(result);
-              }
-              return results;
-            } finally {
-              semaphore.release();
+          pool.withResource(() async {
+            final results = <MediaEntityMovingResult>[];
+            // ignore: prefer_foreach
+            await for (final result in strategy.processMediaEntity(
+              entity,
+              context,
+            )) {
+              results.add(result);
             }
+            return results;
           }),
         );
       }
@@ -205,31 +206,4 @@ class MediaEntityMovingService {
   }
 }
 
-/// Simple semaphore implementation for controlling concurrency
-class _Semaphore {
-  _Semaphore(this.maxCount) : _currentCount = maxCount;
-
-  final int maxCount;
-  int _currentCount;
-  final Queue<Completer<void>> _waitQueue = Queue<Completer<void>>();
-
-  Future<void> acquire() async {
-    if (_currentCount > 0) {
-      _currentCount--;
-      return;
-    }
-
-    final completer = Completer<void>();
-    _waitQueue.add(completer);
-    return completer.future;
-  }
-
-  void release() {
-    if (_waitQueue.isNotEmpty) {
-      final completer = _waitQueue.removeFirst();
-      completer.complete();
-    } else {
-      _currentCount++;
-    }
-  }
-}
+// Concurrency now managed via package:pool.

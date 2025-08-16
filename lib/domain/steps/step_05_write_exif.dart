@@ -180,7 +180,6 @@ class WriteExifStep extends ProcessingStep {
         width: 50,
       );
       final result = await context.mediaCollection.writeExifData(
-        performanceConfig: context.config.performanceConfig,
         onProgress: (final current, final total) {
           progressBar.update(current);
           if (current == total) {

@@ -5,7 +5,9 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 
 import '../../../shared/concurrency_manager.dart';
+import '../../../shared/global_pools.dart';
 import '../core/logging_service.dart';
+// pool package used indirectly via GlobalPools
 
 /// Optimized service for calculating media file hashes and sizes with intelligent caching
 ///
@@ -204,11 +206,8 @@ class MediaHashService with LoggerMixin {
     final List<File> files, {
     final int? maxConcurrency,
   }) async {
-    final concurrency =
-        maxConcurrency ??
-        ConcurrencyManager().getConcurrencyForOperation('hash');
     final results = <String, String>{};
-    final semaphore = _Semaphore(concurrency);
+    final pool = GlobalPools.poolFor(ConcurrencyOperation.hash);
 
     // Process in chunks to manage memory for large collections
     const chunkSize = 1000;
@@ -219,24 +218,22 @@ class MediaHashService with LoggerMixin {
     ) {
       final chunk = files.skip(chunkStart).take(chunkSize);
 
-      final futures = chunk.map((final file) async {
-        await semaphore.acquire();
-        try {
-          final hash = await calculateFileHash(file);
-          return MapEntry(file.path, hash);
-        } catch (e) {
-          print('Warning: Failed to calculate hash for ${file.path}: $e');
-          return null;
-        } finally {
-          semaphore.release();
-        }
-      });
+      final futures = chunk.map(
+        (final file) async => pool
+            .withResource(() async {
+              final hash = await calculateFileHash(file);
+              return MapEntry(file.path, hash);
+            })
+            .catchError((final e) {
+              print('Warning: Failed to calculate hash for ${file.path}: $e');
+              // Provide empty hash marker so map insert logic is uniform
+              return MapEntry(file.path, '');
+            }),
+      );
 
       final chunkResults = await Future.wait(futures);
       for (final result in chunkResults) {
-        if (result != null) {
-          results[result.key] = result.value;
-        }
+        results[result.key] = result.value;
       }
 
       // Report progress for large operations
@@ -281,28 +278,24 @@ class MediaHashService with LoggerMixin {
     final List<File> files, {
     final int? maxConcurrency,
   }) async {
-    final concurrency =
-        maxConcurrency ??
-        ConcurrencyManager().getConcurrencyForOperation('hash');
-    final semaphore = _Semaphore(concurrency);
+    final pool = GlobalPools.poolFor(ConcurrencyOperation.hash);
 
-    final futures = files.map((final file) async {
-      await semaphore.acquire();
-      try {
-        final result = await calculateHashAndSize(file);
-        return (
-          path: file.path,
-          hash: result.hash,
-          size: result.size,
-          success: true,
-        );
-      } catch (e) {
-        print('Warning: Failed to process ${file.path}: $e');
-        return (path: file.path, hash: '', size: 0, success: false);
-      } finally {
-        semaphore.release();
-      }
-    });
+    final futures = files.map(
+      (final file) async => pool
+          .withResource(() async {
+            final result = await calculateHashAndSize(file);
+            return (
+              path: file.path,
+              hash: result.hash,
+              size: result.size,
+              success: true,
+            );
+          })
+          .catchError((final e) {
+            print('Warning: Failed to process ${file.path}: $e');
+            return (path: file.path, hash: '', size: 0, success: false);
+          }),
+    );
 
     return Future.wait(futures);
   }
@@ -343,34 +336,7 @@ class MediaHashService with LoggerMixin {
   }
 }
 
-/// Thread-safe semaphore for controlling concurrency
-class _Semaphore {
-  _Semaphore(this.maxCount) : _currentCount = maxCount;
-
-  final int maxCount;
-  int _currentCount;
-  final List<Completer<void>> _waitQueue = [];
-
-  Future<void> acquire() async {
-    if (_currentCount > 0) {
-      _currentCount--;
-      return;
-    }
-
-    final completer = Completer<void>();
-    _waitQueue.add(completer);
-    return completer.future;
-  }
-
-  void release() {
-    if (_waitQueue.isNotEmpty) {
-      final completer = _waitQueue.removeAt(0);
-      completer.complete();
-    } else {
-      _currentCount++;
-    }
-  }
-}
+// Concurrency now managed via package:pool.
 
 /// Simple sink to collect hash digest
 class _HashSink implements Sink<Digest> {
