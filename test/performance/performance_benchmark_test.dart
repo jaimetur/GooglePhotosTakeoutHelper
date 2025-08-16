@@ -2,7 +2,7 @@
 ///
 /// This test suite measures the performance of key operations and provides
 /// baseline measurements for performance improvements.
-
+@Timeout(Duration(minutes: 25))
 library;
 
 import 'dart:io';
@@ -39,10 +39,10 @@ void main() {
 
       // Generate a large realistic dataset for performance testing
       takeoutPath = await fixture.generateRealisticTakeoutDataset(
-        yearSpan: 2,
-        albumCount: 3,
-        photosPerYear: 50, // More photos for meaningful benchmarks
-        albumOnlyPhotos: 10,
+        yearSpan: 10,
+        albumCount: 20,
+        photosPerYear: 25,
+        albumOnlyPhotos: 25,
         exifRatio: 0.8,
       );
 
