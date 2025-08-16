@@ -29,24 +29,23 @@ class ConcurrencyManager {
   }
 
   /// Standard concurrency multiplier
-  static int standardMultiplier = 4;
+  static int standardMultiplier = 3;
 
-  /// High performance multiplier for intensive operations
-  static int highPerformanceMultiplier = 8;
+  /// High performance multiplier
+  static int highPerformanceMultiplier = 4;
 
   // Additional multipliers (modifiable for tests or CLI overrides)
   static int conservativeMultiplier = 2;
 
-  static int diskOptimizedMultiplier = 4;
+  static int diskOptimizedMultiplier = 3;
 
-  static int networkOptimizedMultiplier = 4;
+  static int networkOptimizedMultiplier = 3;
 
   // ============================================================================
   // CONCURRENCY LEVELS
   // ============================================================================
 
   /// Standard concurrency level for most operations
-  /// Uses CPU cores * 8 (no caps)
   int get standard {
     final val = cpuCoreCount * standardMultiplier;
     try {
@@ -56,7 +55,6 @@ class ConcurrencyManager {
   }
 
   /// Conservative concurrency for resource-intensive operations
-  /// Uses CPU cores * 6 (increased from 4)
   int get conservative {
     final val = cpuCoreCount * conservativeMultiplier;
     try {
@@ -66,7 +64,6 @@ class ConcurrencyManager {
   }
 
   /// High performance concurrency for fast operations
-  /// Uses CPU cores * 24
   int get highPerformance {
     final val = cpuCoreCount * highPerformanceMultiplier;
     try {
@@ -92,7 +89,8 @@ class ConcurrencyManager {
           standardMultiplier; // Modern Linux handles concurrent I/O excellently
     } else {
       val =
-          cpuCoreCount * 4; // Conservative default for other Unix-like systems
+          cpuCoreCount *
+          conservativeMultiplier; // Conservative default for other Unix-like systems
     }
     try {
       logger.info('Starting $val threads (platformOptimized concurrency)');
@@ -101,7 +99,6 @@ class ConcurrencyManager {
   }
 
   /// Disk I/O optimized concurrency
-  /// Uses CPU cores * 6 (increased from 4 for modern SSDs)
   int get diskOptimized {
     final val = cpuCoreCount * diskOptimizedMultiplier;
     try {
