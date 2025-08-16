@@ -15,17 +15,24 @@ import 'package:gpth/shared/concurrency_manager.dart';
 import 'package:gpth/shared/constants.dart';
 import 'package:path/path.dart' as p;
 
-// Parses hidden test-only flags from argv and applies them to ConcurrencyManager.
-// Recognized flags (examples):
+// Parses hidden test-only flags from argv, applies them, and returns a list
+// with those flags removed so ArgParser won't choke on unknown options.
+// Supported examples:
 //   --_test-standard-multiplier=2
-//   --_test-network-optimized-multiplier=8
-void _applyTestMultipliers(final List<String> args) {
-  final re = RegExp(r'^--_test-([a-z0-9-]+)=(\d+)\$', caseSensitive: false);
+//   --_test-conservative-multiplier=4
+//   --_test-disk-optimized-multiplier=8
+List<String> _applyAndStripTestMultipliers(final List<String> args) {
+  final re = RegExp(r'^--_test-([a-z0-9-]+)=(\d+)$', caseSensitive: false);
+  final cleaned = <String>[];
   for (final arg in args) {
     final m = re.firstMatch(arg);
-    if (m == null) continue;
+    if (m == null) {
+      cleaned.add(arg);
+      continue;
+    }
     final name = m.group(1)!.toLowerCase();
-    final val = int.parse(m.group(2)!);
+    final val = int.tryParse(m.group(2)!);
+    if (val == null) continue; // silently ignore malformed
     switch (name) {
       case 'standard-multiplier':
         ConcurrencyManager.setMultipliers(standard: val);
@@ -37,10 +44,11 @@ void _applyTestMultipliers(final List<String> args) {
         ConcurrencyManager.setMultipliers(diskOptimized: val);
         break;
       default:
-        // ignore unknown test flag
+        // Unknown hidden flag -> ignore (do not forward to parser)
         break;
     }
   }
+  return cleaned;
 }
 
 /// ############################### GOOGLE PHOTOS TAKEOUT HELPER #############################
@@ -98,15 +106,14 @@ void _applyTestMultipliers(final List<String> args) {
 Future<void> main(final List<String> arguments) async {
   // Initialize logger early with default settings
   _logger = LoggingService();
-  // Apply hidden test-only concurrency multiplier flags if present.
-  // Usage: --_test-standard-multiplier=2  (these flags are intentionally hidden)
-  _applyTestMultipliers(arguments);
+  // Apply & strip hidden test-only concurrency multiplier flags before parsing normal args.
+  final parsedArguments = _applyAndStripTestMultipliers(arguments);
   try {
     // Initialize ServiceContainer early to support interactive mode during argument parsing
     await ServiceContainer.instance.initialize();
 
     // Parse command line arguments
-    final config = await _parseArguments(arguments);
+    final config = await _parseArguments(parsedArguments);
     if (config == null) {
       return; // Help was shown or other early exit
     }
