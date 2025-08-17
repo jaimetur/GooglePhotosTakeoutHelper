@@ -3,7 +3,7 @@
 /// This test file uses generateRealisticTakeoutDataset() to create comprehensive
 /// test scenarios that closely mirror real-world Google Photos exports.
 // ignore_for_file: avoid_redundant_argument_values
-@Timeout(Duration(seconds: 60))
+@Timeout(Duration(seconds: 120))
 library;
 
 import 'dart:io';

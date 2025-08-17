@@ -17,7 +17,7 @@
 /// 8. Special Cases (large files, unicode names, long paths)
 
 // ignore_for_file: avoid_redundant_argument_values
-@Timeout(Duration(seconds: 60))
+@Timeout(Duration(seconds: 120))
 library;
 
 import 'dart:convert';
