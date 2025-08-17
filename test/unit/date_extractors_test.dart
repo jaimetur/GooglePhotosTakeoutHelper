@@ -48,7 +48,7 @@ void main() {
         final jsonFile = fixture.createJsonWithDate('test.json', '1640960007');
         final result = await jsonDateTimeExtractor(jsonFile);
 
-        expect(result, DateTime.parse('2021-12-31 15:13:27.000'));
+        expect(result, DateTime.parse('2021-12-31 14:13:27.000Z'));
       });
 
       test('returns null for invalid JSON', () async {
