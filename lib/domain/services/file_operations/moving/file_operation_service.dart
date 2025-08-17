@@ -44,13 +44,29 @@ class FileOperationService with LoggerMixin {
 
       return resultFile;
     } on FileSystemException catch (e) {
-      // Handle cross-device move errors
-      if (e.osError?.errorCode == 18 || e.message.contains('cross-device')) {
-        throw FileOperationException(
-          'Cannot move files across different drives. '
-          'Please select an output location on the same drive as the input.',
-          originalException: e,
-        );
+      // Handle cross-device move errors (EXDEV on Unix = errorCode 18) with copy+delete fallback
+      final isCrossDevice =
+          e.osError?.errorCode == 18 || e.message.contains('cross-device');
+      if (isCrossDevice) {
+        try {
+          // Fallback: streaming copy then delete original
+          final fallbackFile = await _copyFileStreaming(sourceFile, targetFile);
+
+          await sourceFile.delete();
+
+          if (dateTaken != null) {
+            await setFileTimestamp(fallbackFile, dateTaken);
+          }
+          logDebug(
+            'Performed copy+delete fallback for cross-device move: ${sourceFile.path} -> ${fallbackFile.path}',
+          );
+          return fallbackFile;
+        } catch (fallbackError) {
+          throw FileOperationException(
+            'Cross-device move fallback failed for ${sourceFile.path}: $fallbackError',
+            originalException: e,
+          );
+        }
       }
       rethrow;
     }
