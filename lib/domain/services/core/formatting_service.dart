@@ -199,11 +199,18 @@ class FormattingService {
 
   /// Safely creates directory with error handling
   Future<bool> safeCreateDirectory(final Directory dir) async {
+    final path = dir.path;
+    // Guard against empty or whitespace-only paths which can behave
+    // inconsistently across platforms (macOS throws, Windows may resolve to cwd)
+    if (path.trim().isEmpty) {
+      printError('Failed to create directory: invalid empty path');
+      return false;
+    }
     try {
       await dir.create(recursive: true);
       return true;
     } catch (e) {
-      printError('Failed to create directory ${dir.path}: $e');
+      printError('Failed to create directory $path: $e');
       return false;
     }
   }

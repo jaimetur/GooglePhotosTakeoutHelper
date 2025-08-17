@@ -183,86 +183,8 @@ class MediaEntityCollection with LoggerMixin {
 
     logInfo('[Step 5/8] Starting EXIF data writing for ${_media.length} files');
 
-    // Use parallel processing for larger collections
-    if (_media.length > 10) {
-      return _writeExifDataParallel(onProgress, exifTool);
-    } else {
-      return _writeExifDataSequential(onProgress, exifTool);
-    }
-  }
-
-  /// Sequential EXIF writing (original implementation)
-  Future<Map<String, int>> _writeExifDataSequential(
-    final void Function(int current, int total)? onProgress,
-    final ExifToolService exifTool,
-  ) async {
-    var coordinatesWritten = 0;
-    var dateTimesWritten = 0;
-
-    for (int i = 0; i < _media.length; i++) {
-      final mediaEntity = _media[i];
-      final exifWriter = ExifWriterService(exifTool);
-
-      // Write GPS coordinates to EXIF if available
-      try {
-        final coordinates = await jsonCoordinatesExtractor(
-          mediaEntity.files.firstFile,
-        );
-        if (coordinates != null) {
-          final success = await exifWriter.writeGpsToExif(
-            coordinates,
-            mediaEntity.files.firstFile,
-            ServiceContainer.instance.globalConfig,
-          );
-          if (success) {
-            coordinatesWritten++;
-          }
-        }
-      } catch (e) {
-        logWarning(
-          'Failed to extract/write GPS coordinates for ${mediaEntity.files.firstFile.path}: $e',
-        );
-      }
-
-      // Write date/time to EXIF if available and not already from EXIF
-      if (mediaEntity.dateTaken != null &&
-          mediaEntity.dateTimeExtractionMethod !=
-              DateTimeExtractionMethod.exif &&
-          mediaEntity.dateTimeExtractionMethod !=
-              DateTimeExtractionMethod.none) {
-        try {
-          final success = await exifWriter.writeDateTimeToExif(
-            mediaEntity.dateTaken!,
-            mediaEntity.files.firstFile,
-            ServiceContainer.instance.globalConfig,
-          );
-          if (success) {
-            dateTimesWritten++;
-          }
-        } catch (e) {
-          logWarning(
-            'Failed to write DateTime to EXIF for ${mediaEntity.files.firstFile.path}: $e',
-          );
-        }
-      }
-
-      onProgress?.call(i + 1, _media.length);
-    }
-
-    // Log final statistics similar to canonical implementation
-    if (coordinatesWritten > 0) {
-      logInfo(
-        '$coordinatesWritten files got their coordinates set in EXIF data (from json)',
-      );
-    }
-    if (dateTimesWritten > 0) {
-      logInfo('$dateTimesWritten got their DateTime set in EXIF data');
-    }
-
-    return {
-      'coordinatesWritten': coordinatesWritten,
-      'dateTimesWritten': dateTimesWritten,
-    };
+    // Always use parallel processing for optimal performance
+    return _writeExifDataParallel(onProgress, exifTool);
   }
 
   /// Parallel EXIF writing for improved performance
