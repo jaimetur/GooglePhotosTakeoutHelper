@@ -13,7 +13,7 @@ Future<DateTime?> jsonDateTimeExtractor(
   try {
     final dynamic data = jsonDecode(await jsonFile.readAsString());
     final int epoch = int.parse(data['photoTakenTime']['timestamp'].toString());
-    return DateTime.fromMillisecondsSinceEpoch(epoch * 1000);
+    return DateTime.fromMillisecondsSinceEpoch(epoch * 1000, isUtc: true);
   } on FormatException catch (_) {
     // this is when json is bad
     return null;
