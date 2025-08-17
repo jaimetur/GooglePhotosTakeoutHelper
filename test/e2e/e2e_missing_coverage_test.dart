@@ -971,7 +971,8 @@ void main() {
             expect(
               dateTime?.startsWith('2023:'),
               isTrue,
-              reason: 'JSON date should have highest priority',
+              reason:
+                  'JSON priority failure for ${outputFile.path}\nExpected year: 2023 (from JSON)\nActual DateTimeOriginal: ${dateTime ?? 'null'}\nFull EXIF keys: ${exifData.keys.toList()}',
             );
           }
 
@@ -982,7 +983,7 @@ void main() {
               dateTime?.startsWith('2022:'),
               isTrue,
               reason:
-                  'EXIF date should have priority over filename when no JSON',
+                  'EXIF priority failure for ${outputFile.path}\nExpected year: 2022 (from EXIF)\nActual DateTimeOriginal: ${dateTime ?? 'null'}\nIf value starts with 2021 it indicates fallback to filename; check EXIF writing or extraction order.\nFull EXIF keys: ${exifData.keys.toList()}',
             );
           }
 
@@ -992,7 +993,8 @@ void main() {
             expect(
               dateTime?.startsWith('2021:'),
               isTrue,
-              reason: 'Filename date should be used as fallback',
+              reason:
+                  'Filename fallback failure for ${outputFile.path}\nExpected year: 2021 (from filename)\nActual DateTimeOriginal: ${dateTime ?? 'null'}\nEXIF keys present (should not include overriding JSON date): ${exifData.keys.toList()}',
             );
           }
         }

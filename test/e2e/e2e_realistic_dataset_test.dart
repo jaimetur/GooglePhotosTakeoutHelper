@@ -602,14 +602,17 @@ void main() {
       expect(
         outputFiles.length,
         greaterThan(50),
-        reason: 'Should process large number of files',
+        reason:
+            'Large dataset output size too small. Expected > 50 JPGs. Actual: ${outputFiles.length}\nFiles sample: ${outputFiles.take(10).map((f) => p.basename(f.path)).toList()}',
       );
 
-      // Performance should be reasonable (adjust threshold as needed)
+      // Performance should be reasonable; provide detailed diagnostics on failure
+      const thresholdMs = 60000; // 60s baseline
       expect(
-        stopwatch.elapsedMilliseconds,
-        lessThan(60000),
-        reason: 'Processing should complete within reasonable time',
+        stopwatch.elapsedMilliseconds < thresholdMs,
+        isTrue,
+        reason:
+            'Performance threshold exceeded. Elapsed: ${stopwatch.elapsedMilliseconds}ms (threshold: ${thresholdMs}ms)\nInput: $largeGooglePhotosPath\nOutput: $largeOutputPath\nProcessed JPG count: ${outputFiles.length}',
       );
     });
     test('should actually move files in move mode (move logic verification)', () async {
