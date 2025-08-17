@@ -603,7 +603,7 @@ void main() {
         outputFiles.length,
         greaterThan(50),
         reason:
-            'Large dataset output size too small. Expected > 50 JPGs. Actual: ${outputFiles.length}\nFiles sample: ${outputFiles.take(10).map((f) => p.basename(f.path)).toList()}',
+            'Large dataset output size too small. Expected > 50 JPGs. Actual: ${outputFiles.length}\nFiles sample: ${outputFiles.take(10).map((final f) => p.basename(f.path)).toList()}',
       );
 
       // Performance should be reasonable; provide detailed diagnostics on failure
