@@ -215,9 +215,33 @@ void main() {
 
     group('exitProgram', () {
       test('exits with specified code', () {
-        // Note: We can't actually test exit() since it would terminate the test
-        // This is more of a documentation of the expected behavior
-        expect(() => service.exitProgram(0), throwsA(isA<Never>()));
+        // Set up test override to prevent actual process termination
+        FormattingService.testExitOverride = (final code) {
+          // Override captures the exit code for verification
+        };
+
+        // Now exitProgram should throw _TestExitException with descriptive message
+        expect(
+          () => service.exitProgram(0),
+          throwsA(
+            allOf([
+              isA<Exception>(),
+              predicate<Exception>(
+                (final e) => e.toString().contains(
+                  'Program attempted to exit with code 0',
+                ),
+              ),
+              predicate<Exception>(
+                (final e) => e.toString().contains(
+                  'Check logs above for the specific cause',
+                ),
+              ),
+            ]),
+          ),
+        );
+
+        // Clean up override
+        FormattingService.testExitOverride = null;
       });
     });
     group('printError', () {

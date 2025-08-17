@@ -139,7 +139,7 @@ class ConsolidatedInteractiveService with LoggerMixin {
             input,
             'exit program to examine situation yourself',
           );
-          exit(0);
+          _utility.exitProgram(0);
         default:
           await _presenter.showInvalidAnswerError();
           continue;

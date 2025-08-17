@@ -148,17 +148,32 @@ late LoggingService _logger;
 /// Uses stderr and the logger when available. Optionally shows an interactive
 /// prompt before exit when `showInteractivePrompt` is true and INTERACTIVE
 /// environment variable is set.
+///
+/// Exit codes:
+/// - 0: Success
+/// - 1: General failure/processing error
+/// - 11: Input validation error (folder doesn't exist, etc.)
+/// - Other codes: Specific error conditions
 Never _exitWithMessage(
   final int code,
   final String message, {
   final bool showInteractivePrompt = false,
 }) {
+  final errorType = switch (code) {
+    0 => 'SUCCESS',
+    1 => 'PROCESSING_ERROR',
+    11 => 'INPUT_VALIDATION_ERROR',
+    _ => 'ERROR_CODE_$code',
+  };
+
+  final fullMessage = '[$errorType] $message';
+
   try {
-    stderr.writeln('[ERROR] $message');
+    stderr.writeln(fullMessage);
   } catch (_) {}
   try {
     // logger may not be set early in startup, guard against that
-    _logger.error(message);
+    _logger.error(fullMessage);
   } catch (_) {}
 
   if (showInteractivePrompt && Platform.environment['INTERACTIVE'] == 'true') {
@@ -920,5 +935,17 @@ void _showResults(
   );
   print('=' * barWidth);
 
-  exit(result.isSuccess ? 0 : 1);
+  // Final exit with descriptive message based on processing result
+  final exitCode = result.isSuccess ? 0 : 1;
+  final exitMessage = result.isSuccess
+      ? 'Processing completed successfully'
+      : 'Processing completed with errors - check logs above for details';
+
+  if (!result.isSuccess) {
+    stderr.writeln('[PROCESSING_RESULT] $exitMessage');
+  } else {
+    print('[SUCCESS] $exitMessage');
+  }
+
+  exit(exitCode);
 }
