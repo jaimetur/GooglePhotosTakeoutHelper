@@ -253,7 +253,9 @@ class ExifToolService with LoggerMixin {
 
   /// Read EXIF data from file
   Future<Map<String, dynamic>> readExifData(final File file) async {
-    final args = ['-j', '-n', file.path];
+    // Added -fast flag to speed up metadata reads
+    // TODO: -fast2 might skip some useful tags. Would need more testing.
+    final args = ['-fast', '-j', '-n', file.path];
     final output = await executeCommand(args);
 
     if (output.trim().isEmpty) {
