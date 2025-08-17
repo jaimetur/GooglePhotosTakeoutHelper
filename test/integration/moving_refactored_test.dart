@@ -164,43 +164,73 @@ void main() {
         expect(result.path, isNot(contains('2023')));
       });
 
-      test(
-        'generateTargetDirectory handles different date division levels',
-        () {
-          final date = DateTime(2023, 6, 15);
+      test('generateTargetDirectory handles different date division levels', () {
+        final date = DateTime(2023, 6, 15);
+        Directory result;
 
-          // Test year division
+        Directory gen(final DateDivisionLevel level) {
           context = MovingContext(
             outputDirectory: context.outputDirectory,
-            dateDivision: DateDivisionLevel.year,
+            dateDivision: level,
             albumBehavior: context.albumBehavior,
           );
-          var result = service.generateTargetDirectory(null, date, context);
-          expect(result.path, contains('2023'));
-          expect(result.path, isNot(contains('06')));
+          return service.generateTargetDirectory(null, date, context);
+        }
 
-          // Test month division
-          context = MovingContext(
-            outputDirectory: context.outputDirectory,
-            dateDivision: DateDivisionLevel.month,
-            albumBehavior: context.albumBehavior,
+        void expectComponents(
+          final Directory dir, {
+          required final int expectedLength,
+          required final List<String> expectedTail,
+          required final String label,
+        }) {
+          final rel = p.relative(dir.path, from: context.outputDirectory.path);
+          final comps = p.split(rel).where((final c) => c.isNotEmpty).toList();
+          expect(
+            comps.length,
+            expectedLength,
+            reason:
+                '$label: Expected $expectedLength path components after output root, got ${comps.length}: $comps (relative: $rel)'
+                    .trim(),
           );
-          result = service.generateTargetDirectory(null, date, context);
-          expect(result.path, contains('2023'));
-          expect(result.path, contains('06'));
+          for (int i = 0; i < expectedTail.length; i++) {
+            final expected = expectedTail[i];
+            final actual = comps[comps.length - expectedTail.length + i];
+            expect(
+              actual,
+              expected,
+              reason:
+                  '$label: Expected component "$expected" at position -${expectedTail.length - i} (full comps: $comps, rel: $rel)',
+            );
+          }
+        }
 
-          // Test day division
-          context = MovingContext(
-            outputDirectory: context.outputDirectory,
-            dateDivision: DateDivisionLevel.day,
-            albumBehavior: context.albumBehavior,
-          );
-          result = service.generateTargetDirectory(null, date, context);
-          expect(result.path, contains('2023'));
-          expect(result.path, contains('06'));
-          expect(result.path, contains('15'));
-        },
-      );
+        // Year division: output/ALL_PHOTOS/2023
+        result = gen(DateDivisionLevel.year);
+        expectComponents(
+          result,
+          expectedLength: 2,
+          expectedTail: ['ALL_PHOTOS', '2023'],
+          label: 'Year division',
+        );
+
+        // Month division: output/ALL_PHOTOS/2023/06
+        result = gen(DateDivisionLevel.month);
+        expectComponents(
+          result,
+          expectedLength: 3,
+          expectedTail: ['ALL_PHOTOS', '2023', '06'],
+          label: 'Month division',
+        );
+
+        // Day division: output/ALL_PHOTOS/2023/06/15
+        result = gen(DateDivisionLevel.day);
+        expectComponents(
+          result,
+          expectedLength: 4,
+          expectedTail: ['ALL_PHOTOS', '2023', '06', '15'],
+          label: 'Day division',
+        );
+      });
 
       test('generateTargetDirectory handles null date', () {
         final result = service.generateTargetDirectory(null, null, context);

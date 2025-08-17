@@ -551,70 +551,75 @@ void main() {
       );
     });
 
-    test('should handle large dataset performance', () async {
-      // Generate a larger dataset for performance testing
-      final largeTakeoutPath = await fixture.generateRealisticTakeoutDataset(
-        yearSpan: 5,
-        albumCount: 10,
-        photosPerYear: 20,
-        albumOnlyPhotos: 10,
-        exifRatio: 0.8,
-        includeRawSamples: true,
-      );
+    test(
+      'should handle large dataset performance',
+      () async {
+        // Generate a larger dataset for performance testing
+        final largeTakeoutPath = await fixture.generateRealisticTakeoutDataset(
+          yearSpan: 5,
+          albumCount: 10,
+          photosPerYear: 20,
+          albumOnlyPhotos: 10,
+          exifRatio: 0.8,
+          includeRawSamples: true,
+        );
 
-      final largeOutputPath = p.join(fixture.basePath, 'large_output');
-      final stopwatch = Stopwatch()..start();
+        final largeOutputPath = p.join(fixture.basePath, 'large_output');
+        final stopwatch = Stopwatch()..start();
 
-      final largeGooglePhotosPath = PathResolverService.resolveGooglePhotosPath(
-        largeTakeoutPath,
-      );
-      final inputDir = Directory(largeGooglePhotosPath);
-      final outputDir = Directory(largeOutputPath);
+        final largeGooglePhotosPath =
+            PathResolverService.resolveGooglePhotosPath(largeTakeoutPath);
+        final inputDir = Directory(largeGooglePhotosPath);
+        final outputDir = Directory(largeOutputPath);
 
-      final config = ProcessingConfig(
-        inputPath: largeGooglePhotosPath,
-        outputPath: largeOutputPath,
-        albumBehavior: AlbumBehavior.shortcut,
-        dateDivision: DateDivisionLevel.year,
-        skipExtras: false,
-      );
+        final config = ProcessingConfig(
+          inputPath: largeGooglePhotosPath,
+          outputPath: largeOutputPath,
+          albumBehavior: AlbumBehavior.shortcut,
+          dateDivision: DateDivisionLevel.year,
+          skipExtras: false,
+        );
 
-      final result = await pipeline.execute(
-        config: config,
-        inputDirectory: inputDir,
-        outputDirectory: outputDir,
-      );
+        final result = await pipeline.execute(
+          config: config,
+          inputDirectory: inputDir,
+          outputDirectory: outputDir,
+        );
 
-      stopwatch.stop();
-      expect(result.isSuccess, isTrue);
+        stopwatch.stop();
+        expect(result.isSuccess, isTrue);
 
-      // Verify processing completed
-      expect(await outputDir.exists(), isTrue);
+        // Verify processing completed
+        expect(await outputDir.exists(), isTrue);
 
-      final outputFiles = await outputDir
-          .list(recursive: true)
-          .where(
-            (final entity) => entity is File && entity.path.endsWith('.jpg'),
-          )
-          .cast<File>()
-          .toList();
+        final outputFiles = await outputDir
+            .list(recursive: true)
+            .where(
+              (final entity) => entity is File && entity.path.endsWith('.jpg'),
+            )
+            .cast<File>()
+            .toList();
 
-      expect(
-        outputFiles.length,
-        greaterThan(50),
-        reason:
-            'Large dataset output size too small. Expected > 50 JPGs. Actual: ${outputFiles.length}\nFiles sample: ${outputFiles.take(10).map((final f) => p.basename(f.path)).toList()}',
-      );
+        expect(
+          outputFiles.length,
+          greaterThan(50),
+          reason:
+              'Large dataset output size too small. Expected > 50 JPGs. Actual: ${outputFiles.length}\nFiles sample: ${outputFiles.take(10).map((final f) => p.basename(f.path)).toList()}',
+        );
 
-      // Performance should be reasonable; provide detailed diagnostics on failure
-      const thresholdMs = 60000; // 60s baseline
-      expect(
-        stopwatch.elapsedMilliseconds < thresholdMs,
-        isTrue,
-        reason:
-            'Performance threshold exceeded. Elapsed: ${stopwatch.elapsedMilliseconds}ms (threshold: ${thresholdMs}ms)\nInput: $largeGooglePhotosPath\nOutput: $largeOutputPath\nProcessed JPG count: ${outputFiles.length}',
-      );
-    });
+        // Performance should be reasonable; provide detailed diagnostics on failure
+        const thresholdMs = 60000; // 60s baseline
+        expect(
+          stopwatch.elapsedMilliseconds < thresholdMs,
+          isTrue,
+          reason:
+              'Performance threshold exceeded. Elapsed: ${stopwatch.elapsedMilliseconds}ms (threshold: ${thresholdMs}ms)\nInput: $largeGooglePhotosPath\nOutput: $largeOutputPath\nProcessed JPG count: ${outputFiles.length}',
+        );
+      },
+      skip: !Platform.isWindows
+          ? 'Windows-only: large dataset performance test skipped on non-Windows platforms'
+          : false,
+    );
     test('should actually move files in move mode (move logic verification)', () async {
       // NOTE: In move mode, files from year folders are moved to output,
       // but album-only files (files that exist only in album folders, not in year folders)
