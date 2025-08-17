@@ -57,7 +57,7 @@ class MediaEntityMovingService with LoggerMixin {
     final MovingContext context, {
     int? maxConcurrent,
     final int batchSize = 100,
-    void Function(MediaEntityMovingResult op)? onOperation,
+    final void Function(MediaEntityMovingResult op)? onOperation,
   }) async* {
     // Derive sensible default if not provided
     maxConcurrent ??= ConcurrencyManager()
