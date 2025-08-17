@@ -47,7 +47,9 @@ class ExifToolService with LoggerMixin {
     String? binDir;
     try {
       binDir = File(Platform.resolvedExecutable).parent.path;
-      print('Binary directory: $binDir');
+      if (showDiscoveryMessage) {
+        print('Binary directory: $binDir');
+      }
     } catch (_) {
       binDir = null;
     } // Try to also get the location of the main script (may not be reliable in compiled mode)
@@ -56,7 +58,7 @@ class ExifToolService with LoggerMixin {
     final String? scriptDir = (scriptPath != null && scriptPath.isNotEmpty)
         ? File(scriptPath).parent.path
         : null;
-    if (scriptDir != null) {
+    if (scriptDir != null && showDiscoveryMessage) {
       print('Script directory: $scriptDir');
     }
 

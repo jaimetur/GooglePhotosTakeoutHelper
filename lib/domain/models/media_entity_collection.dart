@@ -49,11 +49,13 @@ class MediaEntityCollection with LoggerMixin {
   ///
   /// This method applies date extraction algorithms to media entities that don't
   /// have dates, providing extraction method statistics.
+  /// Uses parallel processing with ConcurrencyManager for optimal performance.
   Future<Map<DateTimeExtractionMethod, int>> extractDates(
     final List<Future<DateTime?> Function(MediaEntity)> extractors, {
     final void Function(int current, int total)? onProgress,
   }) async {
     final extractionStats = <DateTimeExtractionMethod, int>{};
+    var completed = 0;
 
     // Map extractor index to extraction method for proper tracking
     final extractorMethods = [
@@ -65,20 +67,41 @@ class MediaEntityCollection with LoggerMixin {
       DateTimeExtractionMethod.folderYear, // Folder year extractor (fallback)
     ];
 
-    for (int i = 0; i < _media.length; i++) {
-      final mediaFile = _media[i];
-      DateTimeExtractionMethod? extractionMethod;
+    // Get optimal concurrency for EXIF operations using ConcurrencyManager
+    final maxConcurrency = ConcurrencyManager().concurrencyFor(
+      ConcurrencyOperation.exif,
+    );
 
-      // Skip if media already has a date
-      if (mediaFile.dateTaken != null) {
-        extractionMethod =
-            mediaFile.dateTimeExtractionMethod ?? DateTimeExtractionMethod.none;
-        logDebug(
-          'File already has date: ${mediaFile.primaryFile.path} (${extractionMethod.name})',
-        );
-      } else {
+    logInfo('Using parallel date extraction with concurrency: $maxConcurrency');
+
+    // Process files in parallel batches
+    for (int i = 0; i < _media.length; i += maxConcurrency) {
+      final batch = _media.skip(i).take(maxConcurrency).toList();
+      final batchStartIndex = i;
+
+      final futures = batch.asMap().entries.map((final entry) async {
+        final batchIndex = entry.key;
+        final mediaFile = entry.value;
+        final actualIndex = batchStartIndex + batchIndex;
+
+        DateTimeExtractionMethod? extractionMethod;
+
+        // Skip if media already has a date
+        if (mediaFile.dateTaken != null) {
+          extractionMethod =
+              mediaFile.dateTimeExtractionMethod ??
+              DateTimeExtractionMethod.none;
+          return {
+            'index': actualIndex,
+            'mediaFile': mediaFile,
+            'extractionMethod': extractionMethod,
+          };
+        }
+
         // Try each extractor in sequence until one succeeds
         bool dateFound = false;
+        MediaEntity updatedMediaFile = mediaFile;
+
         for (
           int extractorIndex = 0;
           extractorIndex < extractors.length;
@@ -93,7 +116,7 @@ class MediaEntityCollection with LoggerMixin {
                 ? extractorMethods[extractorIndex]
                 : DateTimeExtractionMethod.guess;
 
-            _media[i] = mediaFile.withDate(
+            updatedMediaFile = mediaFile.withDate(
               dateTaken: extractedDate,
               dateTimeExtractionMethod: extractionMethod,
             );
@@ -108,17 +131,35 @@ class MediaEntityCollection with LoggerMixin {
 
         if (!dateFound) {
           extractionMethod = DateTimeExtractionMethod.none;
-          _media[i] = mediaFile.withDate(
+          updatedMediaFile = mediaFile.withDate(
             dateTimeExtractionMethod: DateTimeExtractionMethod.none,
           );
           logInfo('No date found for ${mediaFile.primaryFile.path}');
         }
+
+        return {
+          'index': actualIndex,
+          'mediaFile': updatedMediaFile,
+          'extractionMethod': extractionMethod,
+        };
+      });
+
+      // Wait for all futures in this batch to complete
+      final results = await Future.wait(futures);
+
+      // Update the media list and statistics with results from this batch
+      for (final result in results) {
+        final index = result['index'] as int;
+        final updatedMediaFile = result['mediaFile'] as MediaEntity;
+        final method = result['extractionMethod'] as DateTimeExtractionMethod;
+
+        _media[index] = updatedMediaFile;
+        extractionStats[method] = (extractionStats[method] ?? 0) + 1;
+        completed++;
       }
 
-      extractionStats[extractionMethod!] =
-          (extractionStats[extractionMethod] ?? 0) + 1;
-
-      onProgress?.call(i + 1, _media.length);
+      // Report progress
+      onProgress?.call(completed, _media.length);
     }
 
     return extractionStats;

@@ -144,9 +144,6 @@ class ServiceContainer {
       _globalConfig!.exifToolInstalled = false;
     }
 
-    // Initialize logging service
-    _loggingService = LoggingService();
-
     _isInitialized = true;
   }
 
