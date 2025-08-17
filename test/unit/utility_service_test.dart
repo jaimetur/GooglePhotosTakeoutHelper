@@ -20,6 +20,12 @@ void main() {
       service = const FormattingService();
       fixture = TestFixture();
       await fixture.setUp();
+      // Sanity check: ensure fixture initialized a non-empty base path
+      expect(
+        fixture.basePath.isNotEmpty,
+        isTrue,
+        reason: 'TestFixture basePath should be initialized',
+      );
     });
 
     tearDown(() async {
@@ -207,12 +213,16 @@ void main() {
       });
 
       test('handles invalid path gracefully', () async {
-        // Use an invalid path that should fail
-        final dir = Directory('');
+        // Empty path should return false consistently across platforms
+        final emptyDir = Directory('');
+        final emptyResult = await service.safeCreateDirectory(emptyDir);
+        expect(emptyResult, isFalse);
 
-        final result = await service.safeCreateDirectory(dir);
-
-        expect(result, isFalse);
+        // Add a clearly invalid path that should also fail (contains null byte if supported)
+        // Using a character sequence unlikely to be valid on any platform
+        final invalidDir = Directory('\u0000invalid');
+        final invalidResult = await service.safeCreateDirectory(invalidDir);
+        expect(invalidResult, isFalse);
       });
     });
 

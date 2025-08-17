@@ -164,7 +164,7 @@ class FileSystemService {
   Future<bool> safeCreateDirectory(final Directory dir) async {
     final path = dir.path;
     if (path.trim().isEmpty) {
-      stderr.write('Failed to create directory: invalid empty path\n');
+      // Silent failure for empty path to keep cross-platform tests consistent
       return false;
     }
     try {

@@ -203,7 +203,7 @@ class FormattingService {
     // Guard against empty or whitespace-only paths which can behave
     // inconsistently across platforms (macOS throws, Windows may resolve to cwd)
     if (path.trim().isEmpty) {
-      printError('Failed to create directory: invalid empty path');
+      // Treat empty path as programmer error; return false consistently without noisy logging
       return false;
     }
     try {
