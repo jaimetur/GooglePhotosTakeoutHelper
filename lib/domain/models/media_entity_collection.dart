@@ -72,8 +72,6 @@ class MediaEntityCollection with LoggerMixin {
       ConcurrencyOperation.exif,
     );
 
-    logInfo('Using parallel date extraction with concurrency: $maxConcurrency');
-
     // Process files in parallel batches
     for (int i = 0; i < _media.length; i += maxConcurrency) {
       final batch = _media.skip(i).take(maxConcurrency).toList();

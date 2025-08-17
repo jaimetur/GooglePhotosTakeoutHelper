@@ -62,18 +62,12 @@ class ConcurrencyManager {
   /// Standard concurrency level for most operations
   int get standard {
     final val = cpuCoreCount * _standardMultiplier;
-    try {
-      logger.info('Starting $val threads (standard concurrency)');
-    } catch (_) {}
     return val;
   }
 
   /// Conservative concurrency for resource-intensive operations
   int get conservative {
     final val = cpuCoreCount * _conservativeMultiplier;
-    try {
-      logger.info('Starting $val threads (conservative concurrency)');
-    } catch (_) {}
     return val;
   }
 
@@ -97,18 +91,12 @@ class ConcurrencyManager {
           cpuCoreCount *
           _conservativeMultiplier; // Conservative default for other Unix-like systems
     }
-    try {
-      logger.info('Starting $val threads (platformOptimized concurrency)');
-    } catch (_) {}
     return val;
   }
 
   /// Disk I/O optimized concurrency
   int get diskOptimized {
     final val = cpuCoreCount * _diskOptimizedMultiplier;
-    try {
-      logger.info('Starting $val threads (diskOptimized concurrency)');
-    } catch (_) {}
     return val;
   }
 
@@ -207,7 +195,7 @@ class ConcurrencyManager {
   void _logOnce(final String key, final int val) {
     if (_loggedKeys.add(key)) {
       try {
-        logger.info('Concurrency[$key]=$val');
+        logger.info('Starting $val threads ($key concurrency)');
       } catch (_) {}
     }
   }
