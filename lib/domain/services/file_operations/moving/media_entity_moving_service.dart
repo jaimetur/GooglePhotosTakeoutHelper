@@ -37,72 +37,14 @@ class MediaEntityMovingService with LoggerMixin {
 
   final MediaEntityMovingStrategyFactory _strategyFactory;
 
-  /// Moves media entities according to the provided context
+  /// Moves media entities according to the provided context using parallel processing
   ///
   /// [entityCollection] Collection of media entities to process
   /// [context] Configuration and context for the moving operations
+  /// [maxConcurrent] Maximum number of concurrent operations (optional)
+  /// [batchSize] Number of entities to process in each batch
   /// Returns a stream of progress updates (number of files processed)
   Stream<int> moveMediaEntities(
-    final MediaEntityCollection entityCollection,
-    final MovingContext context,
-  ) async* {
-    // Create the appropriate strategy for the album behavior
-    final strategy = _strategyFactory.createStrategy(context.albumBehavior);
-
-    // Validate the context for this strategy
-    strategy.validateContext(context);
-
-    int processedCount = 0;
-    final List<MediaEntityMovingResult> allResults = [];
-
-    // Process each media entity
-    for (final entity in entityCollection.entities) {
-      await for (final result in strategy.processMediaEntity(entity, context)) {
-        allResults.add(result);
-
-        if (!result.success && context.verbose) {
-          _logError(result);
-        } else if (context.verbose) {
-          _logResult(result);
-        }
-      }
-
-      processedCount++;
-      yield processedCount;
-    }
-
-    // Perform any finalization steps
-    try {
-      final finalizationResults = await strategy.finalize(
-        context,
-        entityCollection.entities.toList(),
-      );
-      allResults.addAll(finalizationResults);
-
-      for (final result in finalizationResults) {
-        if (!result.success && context.verbose) {
-          _logError(result);
-        } else if (context.verbose) {
-          _logResult(result);
-        }
-      }
-    } catch (e) {
-      if (context.verbose) {
-        print('[Error] Strategy finalization failed: $e');
-      }
-    }
-
-    // Print summary if verbose
-    if (context.verbose) {
-      _printSummary(allResults, strategy);
-    }
-  }
-
-  /// High-performance parallel media moving with batched operations
-  ///
-  /// Processes multiple media entities concurrently to dramatically improve
-  /// throughput for large collections while preventing system overload
-  Stream<int> moveMediaEntitiesParallel(
     final MediaEntityCollection entityCollection,
     final MovingContext context, {
     int? maxConcurrent,
@@ -161,25 +103,6 @@ class MediaEntityMovingService with LoggerMixin {
     if (context.verbose) {
       _printSummary(allResults, strategy);
     }
-  }
-
-  void _logResult(final MediaEntityMovingResult result) {
-    final operation = result.operation;
-    final status = result.success ? 'SUCCESS' : 'FAILED';
-    print(
-      '[${operation.operationType.name.toUpperCase()}] $status: ${operation.sourceFile.path}',
-    );
-
-    if (result.resultFile != null) {
-      print('  → ${result.resultFile!.path}');
-    }
-  }
-
-  void _logError(final MediaEntityMovingResult result) {
-    print(
-      '[Error] Failed to process ${result.operation.sourceFile.path}: '
-      '${result.errorMessage}',
-    );
   }
 
   void _printSummary(
