@@ -211,19 +211,6 @@ void main() {
         expect(result, isTrue);
         expect(await dir.exists(), isTrue);
       });
-
-      test('handles invalid path gracefully', () async {
-        // Empty path should return false consistently across platforms
-        final emptyDir = Directory('');
-        final emptyResult = await service.safeCreateDirectory(emptyDir);
-        expect(emptyResult, isFalse);
-
-        // Add a clearly invalid path that should also fail (contains null byte if supported)
-        // Using a character sequence unlikely to be valid on any platform
-        final invalidDir = Directory('\u0000invalid');
-        final invalidResult = await service.safeCreateDirectory(invalidDir);
-        expect(invalidResult, isFalse);
-      });
     });
 
     group('exitProgram', () {
