@@ -82,21 +82,27 @@ class ExifDateExtractor with LoggerMixin {
     }
 
     if (supportedNativeExifMimeTypes.contains(mimeType)) {
+      // Try native extraction first for supported formats
       result = await _nativeExif_readerExtractor(file);
       if (result != null) {
         return result;
-      } else {
-        //If we end up here, we have a mimeType which should be supported by exif_reader, but the read failed regardless.
+      }
+      // If native extraction failed, fall back to ExifTool as safety net
+      if (globalConfig.exifToolInstalled) {
         logWarning(
           'Native exif_reader failed to extract DateTime from ${file.path} with MIME type $mimeType. '
           'This format should be supported by exif_reader library. If you see this warning frequently, '
           'please create an issue on GitHub. Falling back to ExifTool if available.',
         );
-        // Continue to ExifTool fallback instead of returning null
+        result = await _exifToolExtractor(file);
+        if (result != null) {
+          return result;
+        }
       }
+      // Both native and ExifTool failed for a supported format
+      return null;
     }
-    //At this point either we didn't do anything because the mimeType is unknown (null) or not supported by the native method.
-    //Anyway, there is nothing else to do than to try it with exiftool now. exiftool is the last resort *sing* in any case due to performance.  if ((mimeType == null || !supportedNativeMimeTypes.contains(mimeType)) &&
+    // For unsupported formats or unknown MIME types, use ExifTool directly
     if (globalConfig.exifToolInstalled) {
       result = await _exifToolExtractor(file);
       if (result != null) {
