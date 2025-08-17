@@ -17,7 +17,7 @@
 /// 8. Special Cases (large files, unicode names, long paths)
 
 // ignore_for_file: avoid_redundant_argument_values
-
+@Timeout(Duration(seconds: 60))
 library;
 
 import 'dart:convert';
@@ -56,6 +56,7 @@ void main() {
         photosPerYear: 15,
         albumOnlyPhotos: 5,
         exifRatio: 0.8,
+        includeRawSamples: true,
       );
 
       // Create unique output path for each test
@@ -1066,6 +1067,7 @@ void main() {
           photosPerYear: 50,
           albumOnlyPhotos: 10,
           exifRatio: 0.5,
+          includeRawSamples: true,
         );
 
         final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(

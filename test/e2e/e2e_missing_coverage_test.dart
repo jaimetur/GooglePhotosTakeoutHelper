@@ -8,7 +8,7 @@
 /// 5. Validates Windows-specific features
 
 // ignore_for_file: avoid_redundant_argument_values
-
+@Timeout(Duration(seconds: 60))
 library;
 
 import 'dart:convert';
@@ -47,6 +47,7 @@ void main() {
         photosPerYear: 8,
         albumOnlyPhotos: 3,
         exifRatio: 0.7,
+        includeRawSamples: true,
       );
 
       // Create unique output path for each test

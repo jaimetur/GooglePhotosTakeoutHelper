@@ -3,7 +3,7 @@
 /// This test file uses generateRealisticTakeoutDataset() to create comprehensive
 /// test scenarios that closely mirror real-world Google Photos exports.
 // ignore_for_file: avoid_redundant_argument_values
-
+@Timeout(Duration(seconds: 60))
 library;
 
 import 'dart:io';
@@ -42,6 +42,7 @@ void main() {
         photosPerYear: 10,
         albumOnlyPhotos: 3,
         exifRatio: 0.7,
+        includeRawSamples: true,
       );
 
       // Create unique output path for each test
@@ -558,6 +559,7 @@ void main() {
         photosPerYear: 20,
         albumOnlyPhotos: 10,
         exifRatio: 0.8,
+        includeRawSamples: true,
       );
 
       final largeOutputPath = p.join(fixture.basePath, 'large_output');

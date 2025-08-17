@@ -31,3 +31,4 @@ dependencies:
 dev_dependencies:
   lints: ^6.0.0
   test: ^1.25.15
+  http: ^1.2.2

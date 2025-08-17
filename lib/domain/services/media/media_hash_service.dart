@@ -231,7 +231,10 @@ class MediaHashService with LoggerMixin {
 
       final chunkResults = await Future.wait(futures);
       for (final result in chunkResults) {
-        results[result.key] = result.value;
+        // Only include successful (non-empty) hashes. Empty string signals a failure.
+        if (result.value.isNotEmpty) {
+          results[result.key] = result.value;
+        }
       }
 
       // Report progress for large operations

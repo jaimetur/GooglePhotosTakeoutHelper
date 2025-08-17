@@ -1,6 +1,7 @@
 // ignore_for_file: non_constant_identifier_names
 
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:exif_reader/exif_reader.dart';
 import 'package:mime/mime.dart';
@@ -99,9 +100,16 @@ class ExifCoordinateExtractor with LoggerMixin {
     final File file,
   ) async {
     try {
-      final bytes = await file.readAsBytes();
-      // this returns empty {} if file doesn't have exif so don't worry
-      final tags = await readExifFromBytes(bytes);
+      // Read only the first 64KB which should contain EXIF APP1/APP2 segments.
+      const int exifScanWindow = 64 * 1024; // 64KB
+      final int fileLength = await file.length();
+      final int end = fileLength < exifScanWindow ? fileLength : exifScanWindow;
+      final bytesBuilder = BytesBuilder(copy: false);
+      // ignore: prefer_foreach
+      await for (final chunk in file.openRead(0, end)) {
+        bytesBuilder.add(chunk);
+      }
+      final tags = await readExifFromBytes(bytesBuilder.takeBytes());
 
       // Look for GPS coordinates in EXIF data
       final latitude = tags['GPS GPSLatitude']?.printable;
@@ -117,7 +125,6 @@ class ExifCoordinateExtractor with LoggerMixin {
           'GPSLongitudeRef': longRef,
         };
       }
-
       return null;
     } catch (e) {
       // If native extraction fails, return null to allow fallback to ExifTool

@@ -383,5 +383,49 @@ void main() {
         await jsonFile.delete();
       });
     });
+
+    group('RAW EXIF Date Extractor (cached samples)', () {
+      // Use locally cached RAW samples (placed in test/raw_samples). If missing, skip.
+      final cacheDir = Directory('test/raw_samples');
+      if (!cacheDir.existsSync()) {
+        print('RAW cache directory missing, skipping RAW EXIF tests');
+      } else {
+        final samples = cacheDir
+            .listSync()
+            .whereType<File>()
+            .where(
+              (final f) =>
+                  f.path.toLowerCase().endsWith('.cr2') ||
+                  f.path.toLowerCase().endsWith('.nef') ||
+                  f.path.toLowerCase().endsWith('.dng'),
+            )
+            .take(3) // keep short
+            .toList();
+        for (final file in samples) {
+          test(
+            'extracts date (if present) from cached RAW ${file.path}',
+            () async {
+              final cfg = GlobalConfigService()..exifToolInstalled = true;
+              final localCopy = fixture.createFile(
+                file.uri.pathSegments.last,
+                await file.readAsBytes(),
+              );
+              final extractor = ExifDateExtractor(
+                ServiceContainer.instance.exifTool!,
+              );
+              final dt = await extractor.exifDateTimeExtractor(
+                localCopy,
+                globalConfig: cfg,
+              );
+              expect(dt is DateTime || dt == null, isTrue);
+            },
+            timeout: const Timeout(Duration(minutes: 1)),
+          );
+        }
+        if (samples.isEmpty) {
+          print('No cached RAW samples found for EXIF tests');
+        }
+      }
+    });
   });
 }

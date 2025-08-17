@@ -2,6 +2,8 @@
 
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:typed_data';
+
 // 'dart:math' previously used for substring length guarding; no longer needed
 
 import 'package:exif_reader/exif_reader.dart';
@@ -230,9 +232,17 @@ class ExifDateExtractor with LoggerMixin {
   /// [file] File to extract DateTime from
   /// Returns parsed DateTime or null if extraction fails
   Future<DateTime?> _nativeExif_readerExtractor(final File file) async {
-    final bytes = await file.readAsBytes();
-    // this returns empty {} if file doesn't have exif so don't worry
-    final tags = await readExifFromBytes(bytes);
+    // Read only the first 64KB similar to coordinate extractor to reduce memory pressure.
+    const int exifScanWindow = 64 * 1024; // 64KB
+    final int fileLength = await file.length();
+    final int end = fileLength < exifScanWindow ? fileLength : exifScanWindow;
+    final bytesBuilder = BytesBuilder(copy: false);
+    // ignore: prefer_foreach
+    await for (final chunk in file.openRead(0, end)) {
+      bytesBuilder.add(chunk);
+    }
+    // This returns empty {} if file doesn't have exif so don't worry
+    final tags = await readExifFromBytes(bytesBuilder.takeBytes());
 
     final Map<String, String?> candidateTags = {
       'EXIF DateTimeOriginal': tags['EXIF DateTimeOriginal']?.printable,
