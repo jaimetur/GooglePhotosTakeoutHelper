@@ -82,6 +82,12 @@ class ContentGroupingService with LoggerMixin {
     final List<MediaEntity> mediaList,
   ) async {
     final results = <({MediaEntity entity, int size})>[];
+    final concurrency = _maxConcurrency;
+
+    // Log concurrency usage for consistency
+    logDebug(
+      'Starting $concurrency threads (duplicate size calculation concurrency)',
+    );
 
     for (int i = 0; i < mediaList.length; i += _maxConcurrency) {
       final batch = mediaList.skip(i).take(_maxConcurrency);
@@ -102,6 +108,12 @@ class ContentGroupingService with LoggerMixin {
     final List<MediaEntity> mediaWithSameSize,
   ) async {
     final hashResults = <({MediaEntity entity, String hash})>[];
+    final concurrency = _maxConcurrency;
+
+    // Log concurrency usage for consistency
+    logDebug(
+      'Starting $concurrency threads (duplicate hash calculation concurrency)',
+    );
 
     for (int i = 0; i < mediaWithSameSize.length; i += _maxConcurrency) {
       final batch = mediaWithSameSize.skip(i).take(_maxConcurrency);

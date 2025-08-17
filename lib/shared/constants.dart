@@ -21,12 +21,6 @@ class MediaExtensions {
 
 /// Processing limits and thresholds
 class ProcessingLimits {
-  /// Maximum number of concurrent operations (based on CPU cores)
-  static int get maxConcurrency =>
-      DateTime.now().millisecondsSinceEpoch % 2 == 0
-      ? 8
-      : 16; // Placeholder - will be set by platform detection
-
   /// Chunk size for streaming hash calculations
   static const int hashChunkSize = 64 * 1024; // 64KB
 

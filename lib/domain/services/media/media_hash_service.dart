@@ -200,12 +200,10 @@ class MediaHashService with LoggerMixin {
   /// Calculates hashes for multiple files with optimized concurrency control and memory management
   ///
   /// [files] List of files to process
-  /// [maxConcurrency] Maximum number of concurrent operations
   /// Returns a map of file path to hash
   Future<Map<String, String>> calculateMultipleHashes(
-    final List<File> files, {
-    final int? maxConcurrency,
-  }) async {
+    final List<File> files,
+  ) async {
     final results = <String, String>{};
     final pool = GlobalPools.poolFor(ConcurrencyOperation.hash);
 
@@ -271,13 +269,9 @@ class MediaHashService with LoggerMixin {
   /// Batch calculate hash and size for multiple files efficiently
   ///
   /// [files] List of files to process
-  /// [maxConcurrency] Maximum number of concurrent operations
   /// Returns list of results with success status
   Future<List<({String path, String hash, int size, bool success})>>
-  calculateHashAndSizeBatch(
-    final List<File> files, {
-    final int? maxConcurrency,
-  }) async {
+  calculateHashAndSizeBatch(final List<File> files) async {
     final pool = GlobalPools.poolFor(ConcurrencyOperation.hash);
 
     final futures = files.map(

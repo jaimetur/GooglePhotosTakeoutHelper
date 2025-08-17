@@ -3,6 +3,7 @@ import 'dart:async';
 import '../../../../shared/concurrency_manager.dart';
 import '../../../../shared/global_pools.dart';
 import '../../../models/media_entity_collection.dart';
+import '../../core/logging_service.dart';
 import 'file_operation_service.dart';
 import 'moving_context_model.dart';
 import 'path_generator_service.dart';
@@ -15,7 +16,7 @@ import 'symlink_service.dart';
 /// This service coordinates all the moving logic components and provides
 /// a clean interface for moving media files according to configuration.
 /// Uses MediaEntity exclusively for better performance and immutability.
-class MediaEntityMovingService {
+class MediaEntityMovingService with LoggerMixin {
   MediaEntityMovingService()
     : _strategyFactory = MediaEntityMovingStrategyFactory(
         FileOperationService(),
@@ -111,6 +112,7 @@ class MediaEntityMovingService {
     maxConcurrent ??= ConcurrencyManager()
         .concurrencyFor(ConcurrencyOperation.moveCopy)
         .clamp(4, 128);
+    logDebug('Starting $maxConcurrent threads (move/copy concurrency)');
     final strategy = _strategyFactory.createStrategy(context.albumBehavior);
     strategy.validateContext(context);
 

@@ -195,7 +195,7 @@ class ConcurrencyManager {
   void _logOnce(final String key, final int val) {
     if (_loggedKeys.add(key)) {
       try {
-        logger.info('Starting $val threads ($key concurrency)');
+        logger.debug('Starting $val threads ($key concurrency)');
       } catch (_) {}
     }
   }

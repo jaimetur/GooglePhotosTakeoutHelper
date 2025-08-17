@@ -72,6 +72,10 @@ class MediaEntityCollection with LoggerMixin {
       ConcurrencyOperation.exif,
     );
 
+    logDebug(
+      'Starting $maxConcurrency threads (exif date extraction concurrency)',
+    );
+
     // Process files in parallel batches
     for (int i = 0; i < _media.length; i += maxConcurrency) {
       final batch = _media.skip(i).take(maxConcurrency).toList();
@@ -266,8 +270,6 @@ class MediaEntityCollection with LoggerMixin {
     final void Function(int current, int total)? onProgress,
     final ExifToolService exifTool,
   ) async {
-    logInfo('[Step 5/8] Using parallel EXIF writing for improved performance');
-
     var coordinatesWritten = 0;
     var dateTimesWritten = 0;
     var completed = 0;
@@ -276,6 +278,8 @@ class MediaEntityCollection with LoggerMixin {
     final maxConcurrency = ConcurrencyManager().concurrencyFor(
       ConcurrencyOperation.exif,
     );
+
+    logDebug('Starting $maxConcurrency threads (exif write concurrency)');
 
     // Process files in parallel batches using existing ExifWriterService
     for (int i = 0; i < _media.length; i += maxConcurrency) {

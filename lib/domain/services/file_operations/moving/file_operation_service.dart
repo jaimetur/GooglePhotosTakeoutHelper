@@ -189,6 +189,12 @@ class FileOperationService with LoggerMixin {
   /// Batch create multiple directories with concurrency control
   Future<void> ensureDirectoriesExist(final List<Directory> directories) async {
     final pool = GlobalPools.poolFor(ConcurrencyOperation.fileIO);
+    final concurrency = ConcurrencyManager().concurrencyFor(
+      ConcurrencyOperation.fileIO,
+    );
+    logDebug(
+      'Starting $concurrency threads (fileIO directory ensure concurrency)',
+    );
     await Future.wait(
       directories.map(
         (final dir) => pool.withResource(() => ensureDirectoryExists(dir)),
@@ -203,6 +209,10 @@ class FileOperationService with LoggerMixin {
   }) async {
     final results = <FileOperationResult>[];
     final pool = GlobalPools.poolFor(ConcurrencyOperation.fileIO);
+    final concurrency = ConcurrencyManager().concurrencyFor(
+      ConcurrencyOperation.fileIO,
+    );
+    logDebug('Starting $concurrency threads (fileIO move concurrency)');
     int completed = 0;
 
     final futures = operations.map(

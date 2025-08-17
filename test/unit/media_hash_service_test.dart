@@ -156,10 +156,7 @@ void main() {
           (final i) => fixture.createImageWithExif('test$i.jpg'),
         );
 
-        final results = await service.calculateMultipleHashes(
-          files,
-          maxConcurrency: 2,
-        );
+        final results = await service.calculateMultipleHashes(files);
 
         expect(results, hasLength(5));
         for (final file in files) {

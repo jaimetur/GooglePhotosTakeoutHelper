@@ -77,6 +77,10 @@ class DuplicateDetectionService with LoggerMixin {
     final batchSize = (adaptiveConcurrency * 1.5)
         .round(); // Use adaptive concurrency
 
+    logDebug(
+      'Starting $batchSize threads (duplicate size batching concurrency)',
+    );
+
     for (int i = 0; i < mediaList.length; i += batchSize) {
       final batch = mediaList.skip(i).take(batchSize);
       final futures = batch.map((final media) async {
@@ -131,6 +135,10 @@ class DuplicateDetectionService with LoggerMixin {
         final mediaWithSameSize =
             sameSize.value; // Use adaptive batch size for hash calculation
         final hashBatchSize = adaptiveConcurrency;
+
+        logDebug(
+          'Starting $hashBatchSize threads (duplicate hash batching concurrency)',
+        );
 
         for (int i = 0; i < mediaWithSameSize.length; i += hashBatchSize) {
           final batch = mediaWithSameSize.skip(i).take(hashBatchSize);
