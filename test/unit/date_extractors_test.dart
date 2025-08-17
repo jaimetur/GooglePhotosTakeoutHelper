@@ -48,6 +48,7 @@ void main() {
         final jsonFile = fixture.createJsonWithDate('test.json', '1640960007');
         final result = await jsonDateTimeExtractor(jsonFile);
 
+        // Expect strict UTC (jsonDateTimeExtractor returns isUtc DateTime)
         expect(result, DateTime.parse('2021-12-31 14:13:27.000Z'));
       });
 

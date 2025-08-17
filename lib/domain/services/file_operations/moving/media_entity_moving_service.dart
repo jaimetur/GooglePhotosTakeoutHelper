@@ -39,11 +39,19 @@ class MediaEntityMovingService with LoggerMixin {
 
   /// Moves media entities according to the provided context using parallel processing
   ///
+  /// Progress Semantics CHANGE (entity-level):
+  ///   The returned stream now reports the NUMBER OF ENTITIES processed, not
+  ///   the number of low-level file operations (move + symlink + duplicate, etc.).
+  ///   Each MediaEntity contributes +1 to the progress count regardless of how
+  ///   many underlying operations its strategy performs. This provides a
+  ///   stable, cross-platform progress metric (Windows symlink limitations
+  ///   previously caused inconsistent counts).
+  ///
   /// [entityCollection] Collection of media entities to process
   /// [context] Configuration and context for the moving operations
   /// [maxConcurrent] Maximum number of concurrent operations (optional)
   /// [batchSize] Number of entities to process in each batch
-  /// Returns a stream of progress updates (number of files processed)
+  /// Returns a stream of progress updates (number of entities processed)
   Stream<int> moveMediaEntities(
     final MediaEntityCollection entityCollection,
     final MovingContext context, {
@@ -59,7 +67,7 @@ class MediaEntityMovingService with LoggerMixin {
     strategy.validateContext(context);
 
     final entities = entityCollection.entities.toList();
-    int processedCount = 0;
+    int processedCount = 0; // entity-level count
     final allResults = <MediaEntityMovingResult>[];
 
     // Process entities in batches to avoid overwhelming the system
@@ -88,12 +96,11 @@ class MediaEntityMovingService with LoggerMixin {
 
       // Wait for batch completion
       final batchResults = await Future.wait(futures);
-      for (final results in batchResults) {
-        allResults.addAll(results);
-        processedCount += results.length;
-      }
+      batchResults.forEach(allResults.addAll);
 
-      yield processedCount;
+      // Increment by number of entities in this batch (entity-level progress)
+      processedCount += batchResults.length;
+      yield processedCount; // entities processed so far
     }
 
     // Finalize
