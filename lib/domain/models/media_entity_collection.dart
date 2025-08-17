@@ -123,7 +123,7 @@ class MediaEntityCollection with LoggerMixin {
               dateTimeExtractionMethod: extractionMethod,
             );
 
-            logInfo(
+            logDebug(
               'Date extracted for ${mediaFile.primaryFile.path}: $extractedDate (method: ${extractionMethod.name})',
             );
             dateFound = true;
@@ -136,7 +136,7 @@ class MediaEntityCollection with LoggerMixin {
           updatedMediaFile = mediaFile.withDate(
             dateTimeExtractionMethod: DateTimeExtractionMethod.none,
           );
-          logInfo('No date found for ${mediaFile.primaryFile.path}');
+          logDebug('No date found for ${mediaFile.primaryFile.path}');
         }
 
         return {
@@ -426,9 +426,9 @@ class MediaEntityCollection with LoggerMixin {
         // Log which duplicates are being removed
         if (duplicatesToRemove.isNotEmpty) {
           final keptFile = group.first.primaryFile.path;
-          logInfo('Found ${group.length} identical files, keeping: $keptFile');
+          logDebug('Found ${group.length} identical files, keeping: $keptFile');
           for (final duplicate in duplicatesToRemove) {
-            logInfo('  Removing duplicate: ${duplicate.primaryFile.path}');
+            logDebug('  Removing duplicate: ${duplicate.primaryFile.path}');
           }
         }
 

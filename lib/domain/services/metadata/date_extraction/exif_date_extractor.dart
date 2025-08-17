@@ -168,7 +168,7 @@ class ExifDateExtractor with LoggerMixin {
         // Skip obviously invalid date patterns
         if (datetime.startsWith('0000:00:00') ||
             datetime.startsWith('0000-00-00')) {
-          logInfo(
+          logDebug(
             "ExifTool returned invalid date '$datetime' for ${file.path}. Skipping this tag.",
           );
           continue;
@@ -211,7 +211,7 @@ class ExifDateExtractor with LoggerMixin {
         return null;
       } else {
         //Successfully extracted DateTime; log which tag supplied it
-        logInfo(
+        logDebug(
           'ExifTool chose tag ${chosen.tag} with value $parsedDateTime for ${file.path}',
         );
         return parsedDateTime;
@@ -294,7 +294,7 @@ class ExifDateExtractor with LoggerMixin {
       );
       return null;
     } else {
-      logInfo(
+      logDebug(
         'exif_reader chose tag ${chosen.tag} with value $parsedDateTime for ${file.path}',
       );
       return parsedDateTime;

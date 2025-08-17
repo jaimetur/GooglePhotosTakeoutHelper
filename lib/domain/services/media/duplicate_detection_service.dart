@@ -257,9 +257,9 @@ class DuplicateDetectionService with LoggerMixin {
 
         if (duplicatesToRemove.isNotEmpty) {
           final keptFile = best.primaryFile.path;
-          logInfo('Found ${group.length} identical files, keeping: $keptFile');
+          logDebug('Found ${group.length} identical files, keeping: $keptFile');
           for (final duplicate in duplicatesToRemove) {
-            logInfo('  Removing duplicate: ${duplicate.primaryFile.path}');
+            logDebug('  Removing duplicate: ${duplicate.primaryFile.path}');
           }
         }
       }
