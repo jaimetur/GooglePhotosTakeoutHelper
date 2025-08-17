@@ -149,12 +149,16 @@ class TestFixture {
       final links = contents.whereType<Link>().toList();
       final subdirs = contents.whereType<Directory>().toList();
 
-      // Delete files and links
+      // Delete files and links (ignore individual failures, retry later)
       for (final file in files) {
-        await _safeDelete(file);
+        try {
+          await _safeDelete(file);
+        } catch (_) {}
       }
       for (final link in links) {
-        await _safeDelete(link);
+        try {
+          await _safeDelete(link);
+        } catch (_) {}
       }
 
       // Delete subdirectories recursively
@@ -163,13 +167,25 @@ class TestFixture {
       }
 
       // Finally delete the directory itself
-      await dir.delete();
+      try {
+        await dir.delete();
+      } on FileSystemException {
+        // Fallback: attempt a recursive delete (may clear hidden leftovers)
+        try {
+          await dir.delete(recursive: true);
+        } catch (_) {}
+      }
     } catch (e) {
       // If listing fails, try force deletion
       try {
         await dir.delete(recursive: true);
       } catch (e2) {
         // As last resort, try using platform-specific commands
+        await _forceDeleteDirectory(dir);
+      }
+    } finally {
+      // Final safety: if still exists, force remove with platform command
+      if (await dir.exists()) {
         await _forceDeleteDirectory(dir);
       }
     }
@@ -747,6 +763,19 @@ Future<void> generateRealisticDataset({
             flush: true,
           );
           createdEntities.add(jsonMeta);
+          // Ensure the RAW file and its JSON sidecar are fully visible to subsequent
+          // steps (mitigates intermittent PathNotFoundException on Linux CI runners).
+          try {
+            for (int attempt = 0; attempt < 5; attempt++) {
+              final exists = await target.exists();
+              final lenOk = exists ? await target.length() > 0 : false;
+              final sidecarExists = await jsonMeta.exists();
+              if (exists && lenOk && sidecarExists) break;
+              await Future.delayed(const Duration(milliseconds: 40));
+            }
+          } catch (_) {
+            // Swallow – best effort stabilization.
+          }
           rawIndex++;
         }
       }
