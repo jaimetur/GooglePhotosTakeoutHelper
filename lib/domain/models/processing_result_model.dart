@@ -18,6 +18,8 @@ class ProcessingResult {
     required this.creationTimesUpdated,
     required this.extractionMethodStats,
     required this.stepResults,
+    this.albumBehavior,
+    this.totalMoveOperations,
     this.isSuccess = true,
     this.error,
   });
@@ -52,6 +54,10 @@ class ProcessingResult {
   final Map<DateTimeExtractionMethod, int> extractionMethodStats;
   final bool isSuccess;
   final Exception? error;
+  // Album behavior used for the run (helps e2e validation)
+  final Object? albumBehavior; // kept loosely typed to avoid import cycle
+  // Total low-level move/copy/symlink operations performed (optional)
+  final int? totalMoveOperations;
 
   /// Returns a user-friendly summary of the processing results
   String get summary {
@@ -85,6 +91,15 @@ class ProcessingResult {
     if (creationTimesUpdated > 0) {
       buffer.writeln(
         '$creationTimesUpdated files had their CreationDate updated',
+      );
+    }
+
+    if (albumBehavior != null) {
+      buffer.writeln('Album behavior: $albumBehavior');
+    }
+    if (totalMoveOperations != null) {
+      buffer.writeln(
+        'File operations (move/copy/symlink/json): $totalMoveOperations',
       );
     }
 

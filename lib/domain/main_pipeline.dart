@@ -221,6 +221,15 @@ class ProcessingPipeline {
       // Display detailed step results
       await interactiveService!.showStepResults(stepResults, stepTimings);
     } // Create comprehensive result
+    // Extract low-level operation count from Move Files step if present
+    int? operationCount;
+    for (final r in stepResults) {
+      if (r.stepName == 'Move Files') {
+        final oc = r.data['operationCount'];
+        if (oc is int) operationCount = oc;
+      }
+    }
+
     return ProcessingResult(
       totalProcessingTime: totalProcessingTime,
       stepTimings: stepTimings,
@@ -233,6 +242,8 @@ class ProcessingPipeline {
       dateTimesWrittenToExif: dateTimesWrittenToExif,
       creationTimesUpdated: creationTimesUpdated,
       extractionMethodStats: extractionMethodStats,
+      albumBehavior: config.albumBehavior,
+      totalMoveOperations: operationCount,
       isSuccess: failedSteps == 0,
     );
   }

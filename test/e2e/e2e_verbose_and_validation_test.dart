@@ -304,18 +304,18 @@ void main() {
 
         // Verify JSON content
         final jsonContent = await albumJsonFile.readAsString();
-        final albumData = jsonDecode(jsonContent) as Map<String, dynamic>;
-        // We currently don't expose album count directly in ProcessingResult.
-        // The previous assertion compared duplicatesRemoved to album count which
-        // was brittle and broke once RAW samples increased duplicate counts.
-        // Instead validate the album JSON structure itself.
+        final root = jsonDecode(jsonContent) as Map<String, dynamic>;
+
+        // New structure: { "albums": { albumName: [files...] }, "metadata": {...} }
         expect(
-          albumData.keys,
-          isNotEmpty,
-          reason: 'Should contain at least one album',
+          root.containsKey('albums'),
+          isTrue,
+          reason: 'albums key should exist in JSON structure',
         );
-        // Each album entry should have a list/array of media references.
-        for (final entry in albumData.entries) {
+        final albums = root['albums'] as Map<String, dynamic>;
+        expect(albums, isNotEmpty, reason: 'Should contain at least one album');
+
+        for (final entry in albums.entries) {
           expect(
             entry.value,
             isA<List<dynamic>>(),

@@ -57,6 +57,7 @@ class MediaEntityMovingService with LoggerMixin {
     final MovingContext context, {
     int? maxConcurrent,
     final int batchSize = 100,
+    void Function(MediaEntityMovingResult op)? onOperation,
   }) async* {
     // Derive sensible default if not provided
     maxConcurrent ??= ConcurrencyManager()
@@ -88,6 +89,7 @@ class MediaEntityMovingService with LoggerMixin {
               context,
             )) {
               results.add(result);
+              if (onOperation != null) onOperation(result);
             }
             return results;
           }),
@@ -105,7 +107,10 @@ class MediaEntityMovingService with LoggerMixin {
 
     // Finalize
     final finalizationResults = await strategy.finalize(context, entities);
-    allResults.addAll(finalizationResults);
+    for (final r in finalizationResults) {
+      allResults.add(r);
+      if (onOperation != null) onOperation(r);
+    }
 
     if (context.verbose) {
       _printSummary(allResults, strategy);
