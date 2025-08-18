@@ -924,7 +924,7 @@ void _showResults(
   }
 
   final totalMinutes = result.totalProcessingTime.inMinutes;
-  print('In total the script took $totalMinutes minutes to complete');
+  print('In total GPTH took $totalMinutes minutes to complete');
 
   print('=' * barWidth);
 
