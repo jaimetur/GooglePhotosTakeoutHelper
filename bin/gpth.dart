@@ -926,13 +926,6 @@ void _showResults(
   final totalMinutes = result.totalProcessingTime.inMinutes;
   print('In total the script took $totalMinutes minutes to complete');
 
-  print(
-    "Last thing - I've spent *a ton* of time on this script - \n"
-    'if I saved your time and you want to say thanks, you can send me a tip:\n'
-    'https://www.paypal.me/TheLastGimbus\n'
-    'https://ko-fi.com/thelastgimbus\n'
-    'Thank you ❤',
-  );
   print('=' * barWidth);
 
   // Final exit with descriptive message based on processing result
