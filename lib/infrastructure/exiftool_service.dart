@@ -6,18 +6,21 @@ import 'package:path/path.dart' as p;
 
 import '../domain/services/core/logging_service.dart';
 
-/// ExifTool infrastructure service (4.2.2-style) with 4.2.1 discovery semantics
-/// for bin/script/parent directories.
-/// 
+/// ExifTool infrastructure service (4.2.2-style) with 4.2.1/4.2.2 discovery
+/// semantics for bin/script/parent directories, plus batch helpers.
+///
 /// Highlights:
 /// - Discovery:
 ///   * PATH first
-///   * 4.2.1-style relative search (bin dir, script dir, their `exif_tool/`, cwd, parent dirs)
-///   * which/where
-///   * common install paths (+ Windows `exiftool(-k).exe`)
+///   * Relative search around binary/script/parents (same as 4.2.1/4.2.2)
+///   * which/where fallback
+///   * common install paths (+ Windows exiftool(-k).exe)
 /// - Execution:
-///   * One-shot by default (as in 4.2.1)
+///   * One-shot by default (compatible with 4.2.1 behavior)
 ///   * Optional persistent process with tokenized responses (faster on bulk)
+/// - Batch write helpers:
+///   * writeExifDataBatchSameTags: same tag set to many files
+///   * writeExifDataBatchPerFile: different tag sets per file (uses persistent)
 class ExifToolService with LoggerMixin {
   ExifToolService(this.exiftoolPath);
 
@@ -34,7 +37,7 @@ class ExifToolService with LoggerMixin {
   bool _starting = false;
   bool _disposed = false;
 
-  // Enable extra discovery logs by setting env GPTH_EXIFTOOL_DEBUG=1
+  // Debug discovery via GPTH_EXIFTOOL_DEBUG=1
   static bool get _debugDiscovery =>
       (Platform.environment['GPTH_EXIFTOOL_DEBUG'] ?? '') == '1';
   static void _d(String m) {
@@ -44,7 +47,7 @@ class ExifToolService with LoggerMixin {
     }
   }
 
-  // ── Discovery (keeps 4.2.1 relative search exactly as-is) ──────────────────
+  // ── Discovery (keeps 4.2.1/4.2.2 relative search order) ────────────────────
   static Future<ExifToolService?> find({
     bool showDiscoveryMessage = true,
   }) async {
@@ -53,7 +56,7 @@ class ExifToolService with LoggerMixin {
         ? <String>['exiftool.exe', 'exiftool', 'exiftool(-k).exe']
         : <String>['exiftool'];
 
-    // 1) PATH first (exactly as 4.2.1 does)
+    // 1) PATH first
     for (final name in exiftoolNames) {
       try {
         final r = await Process.run(name, const ['-ver']);
@@ -67,7 +70,7 @@ class ExifToolService with LoggerMixin {
       } catch (_) {/* continue */}
     }
 
-    // 2) 4.2.1-style relative search (bin/script dirs, their exif_tool/, cwd, parents)
+    // 2) Relative search around the binary/script/parents
     String? binDir;
     try {
       binDir = File(Platform.resolvedExecutable).parent.path;
@@ -116,7 +119,7 @@ class ExifToolService with LoggerMixin {
       }
     }
 
-    // 3) which/where (extra robustness; harmless if absent)
+    // 3) which/where fallback
     final which = Platform.isWindows ? 'where' : 'which';
     try {
       final r = await Process.run(which, const ['exiftool']);
@@ -268,13 +271,11 @@ class ExifToolService with LoggerMixin {
 
   Future<void> dispose() async {
     _disposed = true;
-    // Finish pending requests
     for (final r in _pending.values.toList()) {
       r._complete('', 'Disposed');
     }
     _pending.clear();
 
-    // Stop process
     final p = _proc;
     _proc = null;
 
@@ -312,9 +313,8 @@ class ExifToolService with LoggerMixin {
     }
   }
 
-  // ── Public API (one-shot by default; persistent when desired) ──────────────
+  // ── Public API (one-shot by default; persistent optional) ──────────────────
 
-  /// Execute a command using a one-shot process (4.2.1 default behavior).
   Future<String> executeCommand(List<String> args) async {
     final res = await Process.run(exiftoolPath, args);
     if (res.exitCode != 0) {
@@ -328,7 +328,6 @@ class ExifToolService with LoggerMixin {
     return res.stdout.toString();
   }
 
-  /// Optionally execute via the persistent process (faster on bulk).
   Future<String> executeCommandPersistent(List<String> args) async {
     final resp = await _sendPersistent(args);
     if (resp.stderr.isNotEmpty &&
@@ -338,13 +337,13 @@ class ExifToolService with LoggerMixin {
     return resp.stdout;
   }
 
-  /// Reads EXIF as JSON. Uses one-shot by default (4.2.1 parity).
-  Future<Map<String, dynamic>> readExifData(File file,
-      {bool usePersistent = false}) async {
+  Future<Map<String, dynamic>> readExifData(
+    File file, {
+    bool usePersistent = false,
+  }) async {
     final args = <String>['-fast', '-j', '-n', file.path];
-    final output = usePersistent
-        ? await executeCommandPersistent(args)
-        : await executeCommand(args);
+    final output =
+        usePersistent ? await executeCommandPersistent(args) : await executeCommand(args);
 
     if (output.trim().isEmpty) {
       print('ExifTool returned empty output for file: ${file.path}');
@@ -356,7 +355,7 @@ class ExifToolService with LoggerMixin {
       if (json.isNotEmpty && json.first is Map) {
         final data = (json.first as Map).cast<String, dynamic>();
 
-        // Normalize GPS refs (same as 4.2.1)
+        // Normalize GPS refs
         final latRef = data['GPSLatitudeRef'];
         if (latRef == 'North') data['GPSLatitudeRef'] = 'N';
         if (latRef == 'South') data['GPSLatitudeRef'] = 'S';
@@ -375,21 +374,73 @@ class ExifToolService with LoggerMixin {
     }
   }
 
-  /// Writes tags. One-shot by default; can opt into persistent on bulk.
-  Future<void> writeExifData(File file, Map<String, dynamic> tags,
-      {bool usePersistent = false}) async {
+  Future<void> writeExifData(
+    File file,
+    Map<String, dynamic> tags, {
+    bool usePersistent = false,
+  }) async {
     if (tags.isEmpty) return;
     final args = <String>['-overwrite_original', ..._tagsToArgs(tags), file.path];
-    final output = usePersistent
-        ? await executeCommandPersistent(args)
-        : await executeCommand(args);
+    final out =
+        usePersistent ? await executeCommandPersistent(args) : await executeCommand(args);
 
-    if (output.contains('error') ||
-        output.contains('Error') ||
-        output.contains("weren't updated due to errors")) {
+    if (out.contains('error') ||
+        out.contains('Error') ||
+        out.contains("weren't updated due to errors")) {
       print('ExifTool may have encountered an error writing to ${file.path}');
-      print('Output: $output');
-      throw Exception('ExifTool failed to write metadata to ${file.path}: $output');
+      print('Output: $out');
+      throw Exception('ExifTool failed to write metadata to ${file.path}: $out');
+    }
+  }
+
+  /// Batch: write the SAME tag set to many files (split in chunks).
+  Future<void> writeExifDataBatchSameTags(
+    List<File> files,
+    Map<String, dynamic> tags, {
+    bool usePersistent = false,
+    int chunkSize = 64,
+  }) async {
+    if (files.isEmpty || tags.isEmpty) return;
+    for (int i = 0; i < files.length; i += chunkSize) {
+      final chunk = files.sublist(i, (i + chunkSize).clamp(0, files.length));
+      final args = <String>['-overwrite_original', ..._tagsToArgs(tags)];
+      args.addAll(chunk.map((f) => f.path));
+      final out = usePersistent
+          ? await executeCommandPersistent(args)
+          : await executeCommand(args);
+
+      if (out.contains('error') ||
+          out.contains('Error') ||
+          out.contains("weren't updated due to errors")) {
+        throw Exception('ExifTool batch (same tags) reported issues: $out');
+      }
+    }
+  }
+
+  /// Batch: write DIFFERENT tag sets per file (uses persistent channel).
+  Future<void> writeExifDataBatchPerFile(
+    Map<File, Map<String, dynamic>> perFileTags, {
+    int chunkSize = 32,
+  }) async {
+    if (perFileTags.isEmpty) return;
+    await startPersistentProcess();
+
+    final entries = perFileTags.entries.toList();
+    for (int i = 0; i < entries.length; i += chunkSize) {
+      final chunk = entries.sublist(i, (i + chunkSize).clamp(0, entries.length));
+
+      final args = <String>['-overwrite_original'];
+      for (final e in chunk) {
+        args.addAll(_tagsToArgs(e.value));
+        args.add(e.key.path);
+      }
+
+      final out = await executeCommandPersistent(args);
+      if (out.contains('error') ||
+          out.contains('Error') ||
+          out.contains("weren't updated due to errors")) {
+        throw Exception('ExifTool batch (per file) reported issues: $out');
+      }
     }
   }
 
@@ -400,7 +451,6 @@ class ExifToolService with LoggerMixin {
   }
 }
 
-// ── Internal request wrapper for persistent protocol ─────────────────────────
 class _Req {
   _Req(this.id);
   final int id;
