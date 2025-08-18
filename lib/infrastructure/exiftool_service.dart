@@ -4,19 +4,15 @@ import 'dart:io';
 
 import '../domain/services/core/logging_service.dart';
 
-/// ExifToolService: persistent process wrapper around `exiftool`
+/// Persistent ExifTool wrapper.
+/// Keeps a single `exiftool` process alive (-stay_open True) and multiplexes
+/// requests using a unique token printed via -echo3.
 ///
 /// Public API:
-///   - static Future<ExifToolService?> find([preferredOrConfig], {bool showDiscoveryMessage = true})
+///   - static Future<ExifToolService?> find({dynamic preferredOrConfig, bool showDiscoveryMessage = true})
 ///   - Future<void> startPersistentProcess()
 ///   - Future<Map<String, dynamic>> readExifData(File file)
 ///   - Future<void> writeExifData(File file, Map<String, dynamic> tags)
-///
-/// Notes:
-///  - Uses `-stay_open True` + `-@ -` to keep a single process alive.
-///  - Uses `-j -n` for reads (JSON + numeric/raw values).
-///  - Uses a unique token via `-echo3` to delimit responses.
-///  - One instance can be shared app-wide (e.g., via ServiceContainer).
 class ExifToolService with LoggerMixin {
   ExifToolService({
     this.exiftoolPath = 'exiftool',
@@ -37,271 +33,246 @@ class ExifToolService with LoggerMixin {
   final _pending = <int, _RequestCompleter>{};
   bool _starting = false;
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // Discovery expected by ServiceContainer
-  // ───────────────────────────────────────────────────────────────────────────
+  // ── Discovery used by ServiceContainer ─────────────────────────────────────
 
-  /// Flexible discovery method used by ServiceContainer.
-  ///
-  /// Supported call shapes:
-  ///   - ExifToolService.find()
-  ///   - ExifToolService.find('/custom/path/to/exiftool')
-  ///   - ExifToolService.find(configLikeObjectWithPath)
-  ///   - ExifToolService.find(showDiscoveryMessage: bool)
-  ///   - ExifToolService.find('/path/or/config', showDiscoveryMessage: bool)
-  static Future<ExifToolService?> find(
-  [dynamic maybePreferredOrConfig],
-  {bool showDiscoveryMessage = true},
-  ) async {
-  String? chosenPath;
+  /// Finds a usable exiftool binary. Supports:
+  ///   - preferredOrConfig: string path or config-like object exposing
+  ///       `exifToolPath` or `exiftoolPath`
+  ///   - showDiscoveryMessage: prints a one-liner when a path is found
+  static Future<ExifToolService?> find({
+    dynamic preferredOrConfig,
+    bool showDiscoveryMessage = true,
+  }) async {
+    String? chosenPath;
 
-  // 1) If a string is provided, treat it as a preferred binary path.
-  if (maybePreferredOrConfig is String && maybePreferredOrConfig.isNotEmpty) {
-  if (await _isExiftoolUsable(maybePreferredOrConfig)) {
-  chosenPath = maybePreferredOrConfig;
-  }
-  }
+    // 1) Preferred explicit path (string)
+    if (preferredOrConfig is String && preferredOrConfig.isNotEmpty) {
+      if (await _isExiftoolUsable(preferredOrConfig)) {
+        chosenPath = preferredOrConfig;
+      }
+    }
 
-  // 2) If a config-like object is provided, try to extract a path from it.
-  if (chosenPath == null && maybePreferredOrConfig != null) {
-  try {
-  final String? pathFromCfg =
-  _readPathFromConfigLikeObject(maybePreferredOrConfig);
-  if (pathFromCfg != null && await _isExiftoolUsable(pathFromCfg)) {
-  chosenPath = pathFromCfg;
-  }
-  } catch (_) {
-  // Ignore and continue with PATH probing.
-  }
-  }
+    // 2) Config-like object with exifToolPath / exiftoolPath
+    if (chosenPath == null && preferredOrConfig != null) {
+      try {
+        final p = _readPathFromConfigLikeObject(preferredOrConfig);
+        if (p != null && await _isExiftoolUsable(p)) {
+          chosenPath = p;
+        }
+      } catch (_) {
+        // ignore and try PATH
+      }
+    }
 
-  // 3) Try PATH.
-  if (chosenPath == null && await _isExiftoolUsable('exiftool')) {
-  chosenPath = 'exiftool';
-  }
+    // 3) PATH
+    if (chosenPath == null && await _isExiftoolUsable('exiftool')) {
+      chosenPath = 'exiftool';
+    }
 
-  // 4) Try a few common locations.
-  if (chosenPath == null) {
-  final commonCandidates = <String>[
-  '/usr/bin/exiftool',
-  '/usr/local/bin/exiftool',
-  r'C:\Windows\exiftool.exe',
-  r'C:\Program Files\exiftool\exiftool.exe',
-  ];
-  for (final c in commonCandidates) {
-  if (await _isExiftoolUsable(c)) {
-  chosenPath = c;
-  break;
-  }
-  }
-  }
+    // 4) Common locations
+    if (chosenPath == null) {
+      const common = <String>[
+        '/usr/bin/exiftool',
+        '/usr/local/bin/exiftool',
+        r'C:\Windows\exiftool.exe',
+        r'C:\Program Files\exiftool\exiftool.exe',
+      ];
+      for (final c in common) {
+        if (await _isExiftoolUsable(c)) {
+          chosenPath = c;
+          break;
+        }
+      }
+    }
 
-  if (chosenPath == null) return null;
+    if (chosenPath == null) return null;
 
-  if (showDiscoveryMessage) {
-  // Print via logger mixin for consistency with your logging.
-  ExifToolService().logInfo('Found exiftool at: $chosenPath', forcePrint: true);
+    if (showDiscoveryMessage) {
+      // Use logger mixin printing to stdout; no instance required.
+      // ignore: avoid_print
+      print('[INFO] Found exiftool at: $chosenPath');
+    }
+
+    return ExifToolService(exiftoolPath: chosenPath);
   }
 
-  return ExifToolService(exiftoolPath: chosenPath);
-  }
-
-  /// Explicit startup of the persistent process, kept for ServiceContainer compatibility.
-  /// If you do not call this, the process will be started lazily on the first operation.
+  /// Explicit startup (optional). Lazy-start happens on first request anyway.
   Future<void> startPersistentProcess() => _ensureStarted();
 
-  /// Attempt to read a candidate path from a config-like object:
-  ///   - cfg.exifToolPath
-  ///   - cfg.exiftoolPath
   static String? _readPathFromConfigLikeObject(dynamic cfg) {
-  try {
-  final dynamic p1 = (cfg as dynamic).exifToolPath;
-  if (p1 is String && p1.isNotEmpty) return p1;
-  } catch (_) {}
-  try {
-  final dynamic p2 = (cfg as dynamic).exiftoolPath;
-  if (p2 is String && p2.isNotEmpty) return p2;
-  } catch (_) {}
-  return null;
+    try {
+      final p1 = (cfg as dynamic).exifToolPath;
+      if (p1 is String && p1.isNotEmpty) return p1;
+    } catch (_) {}
+    try {
+      final p2 = (cfg as dynamic).exiftoolPath;
+      if (p2 is String && p2.isNotEmpty) return p2;
+    } catch (_) {}
+    return null;
   }
 
-  /// Checks whether exiftool at [path] can run (`exiftool -ver`).
   static Future<bool> _isExiftoolUsable(String path) async {
-  try {
-  final res = await Process.run(path, ['-ver']);
-  return res.exitCode == 0;
-  } catch (_) {
-  return false;
-  }
+    try {
+      final res = await Process.run(path, ['-ver']);
+      return res.exitCode == 0;
+    } catch (_) {
+      return false;
+    }
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // Persistent process lifecycle
-  // ───────────────────────────────────────────────────────────────────────────
+  // ── Persistent process lifecycle ───────────────────────────────────────────
 
   Future<void> _ensureStarted() async {
-  if (_proc != null) return;
-  if (_starting) {
-  // If another caller is already starting the process, wait until it's up.
-  while (_proc == null) {
-  await Future<void>.delayed(const Duration(milliseconds: 10));
-  }
-  return;
-  }
-  _starting = true;
-  try {
-  _proc = await Process.start(
-  exiftoolPath,
-  const ['-stay_open', 'True', '-@', '-'],
-  mode: ProcessStartMode.detachedWithStdio,
-  );
+    if (_proc != null) return;
+    if (_starting) {
+      while (_proc == null) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      return;
+    }
+    _starting = true;
+    try {
+      _proc = await Process.start(
+        exiftoolPath,
+        const ['-stay_open', 'True', '-@', '-'],
+        mode: ProcessStartMode.detachedWithStdio,
+      );
 
-  _stdoutSub = _proc!.stdout
-      .transform(utf8.decoder)
-      .transform(const LineSplitter())
-      .listen(_onStdoutLine, onDone: _onExited);
-  _stderrSub = _proc!.stderr
-      .transform(utf8.decoder)
-      .transform(const LineSplitter())
-      .listen(_onStderrLine, onDone: _onExited);
+      _stdoutSub = _proc!.stdout
+          .transform(utf8.decoder)
+          .transform(const LineSplitter())
+          .listen(_onStdoutLine, onDone: _onExited);
+      _stderrSub = _proc!.stderr
+          .transform(utf8.decoder)
+          .transform(const LineSplitter())
+          .listen(_onStderrLine, onDone: _onExited);
 
-  logDebug('ExifTool started in persistent mode.');
-  } catch (e) {
-  _proc = null;
-  logError('Failed to start exiftool: $e');
-  rethrow;
-  } finally {
-  _starting = false;
-  }
+      logDebug('ExifTool started in persistent mode.');
+    } catch (e) {
+      _proc = null;
+      logError('Failed to start exiftool: $e');
+      rethrow;
+    } finally {
+      _starting = false;
+    }
   }
 
   void _onStdoutLine(String line) {
-  // Each request ends with a unique token: ----GPTH-READY-<seq>----
-  if (line.startsWith('----GPTH-READY-')) {
-  final idStr = line.replaceAll(RegExp(r'[^0-9]'), '');
-  final id = int.tryParse(idStr);
-  if (id != null && _pending.containsKey(id)) {
-  final req = _pending.remove(id)!;
-  final out = _stdoutBuffer.toString();
-  _stdoutBuffer.clear();
-  final err = _stderrBuffer.toString();
-  _stderrBuffer.clear();
-  req.complete(out, err);
-  } else {
-  // Orphaned token: clear buffers to avoid cross-contamination.
-  _stdoutBuffer.clear();
-  _stderrBuffer.clear();
-  }
-  } else {
-  _stdoutBuffer.writeln(line);
-  }
+    // Response terminator: ----GPTH-READY-<seq>----
+    if (line.startsWith('----GPTH-READY-')) {
+      final idStr = line.replaceAll(RegExp(r'[^0-9]'), '');
+      final id = int.tryParse(idStr);
+      if (id != null && _pending.containsKey(id)) {
+        final req = _pending.remove(id)!;
+        final out = _stdoutBuffer.toString();
+        _stdoutBuffer.clear();
+        final err = _stderrBuffer.toString();
+        _stderrBuffer.clear();
+        req.complete(out, err);
+      } else {
+        _stdoutBuffer.clear();
+        _stderrBuffer.clear();
+      }
+    } else {
+      _stdoutBuffer.writeln(line);
+    }
   }
 
   void _onStderrLine(String line) {
-  _stderrBuffer.writeln(line);
+    _stderrBuffer.writeln(line);
   }
 
   void _onExited() {
-  logWarning('ExifTool process exited.');
-  _proc = null;
+    logWarning('ExifTool process exited.');
+    _proc = null;
   }
 
   Future<void> dispose() async {
-  if (_proc == null) return;
-  try {
-  _sendRaw(['-stay_open', 'False']);
-  } catch (_) {}
-  await _stdoutSub?.cancel();
-  await _stderrSub?.cancel();
-  _stdoutSub = null;
-  _stderrSub = null;
-  _proc = null;
+    if (_proc == null) return;
+    try {
+      _sendRaw(['-stay_open', 'False']);
+    } catch (_) {}
+    await _stdoutSub?.cancel();
+    await _stderrSub?.cancel();
+    _stdoutSub = null;
+    _stderrSub = null;
+    _proc = null;
   }
 
   Future<_Response> _send(List<String> args) async {
-  await _ensureStarted();
-  final id = ++_seq;
-  final c = _RequestCompleter(id);
-  _pending[id] = c;
+    await _ensureStarted();
+    final id = ++_seq;
+    final c = _RequestCompleter(id);
+    _pending[id] = c;
 
-  // We send: args + -echo3 <token> + -execute
-  final payload = <String>[
-  ...args,
-  '-echo3',
-  '----GPTH-READY-$id----',
-  '-execute',
-  ];
+    final payload = <String>[
+      ...args,
+      '-echo3',
+      '----GPTH-READY-$id----',
+      '-execute',
+    ];
 
-  _sendRaw(payload);
+    _sendRaw(payload);
 
-  return c.future.timeout(
-  const Duration(minutes: 2),
-  onTimeout: () {
-  _pending.remove(id);
-  return _Response('', 'Timeout waiting for exiftool');
-  },
-  );
+    return c.future.timeout(
+      const Duration(minutes: 2),
+      onTimeout: () {
+        _pending.remove(id);
+        return _Response('', 'Timeout waiting for exiftool');
+      },
+    );
   }
 
   void _sendRaw(List<String> lines) {
-  if (_proc == null) throw StateError('exiftool not started');
-  final sink = _proc!.stdin;
-  for (final l in lines) {
-  sink.writeln(l);
-  }
+    if (_proc == null) throw StateError('exiftool not started');
+    final sink = _proc!.stdin;
+    for (final l in lines) {
+      sink.writeln(l);
+    }
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // Public read/write API
-  // ───────────────────────────────────────────────────────────────────────────
+  // ── Public read/write API ──────────────────────────────────────────────────
 
-  /// Reads EXIF/metadata for [file] and returns a Map<String, dynamic>.
-  /// Uses `-j -n` for compact, parseable JSON with numeric/raw values.
+  /// Reads EXIF as Map<String, dynamic> using `-j -n`.
   Future<Map<String, dynamic>> readExifData(File file) async {
-  final args = <String>[
-  ...commonReadArgs,
-  file.path,
-  ];
-  final res = await _send(args);
-  if (res.stderr.isNotEmpty) {
-  // ExifTool often writes warnings to stderr; not necessarily a hard error.
-  logDebug('[exiftool stderr] ${res.stderr}');
-  }
-  try {
-  final json = jsonDecode(res.stdout);
-  if (json is List && json.isNotEmpty && json.first is Map) {
-  return (json.first as Map).cast<String, dynamic>();
-  }
-  } catch (e) {
-  logWarning('Failed to parse exiftool JSON for ${file.path}: $e');
-  }
-  return <String, dynamic>{};
+    final args = <String>[
+      ...commonReadArgs,
+      file.path,
+    ];
+    final res = await _send(args);
+    if (res.stderr.isNotEmpty) {
+      logDebug('[exiftool stderr] ${res.stderr}');
+    }
+    try {
+      final json = jsonDecode(res.stdout);
+      if (json is List && json.isNotEmpty && json.first is Map) {
+        return (json.first as Map).cast<String, dynamic>();
+      }
+    } catch (e) {
+      logWarning('Failed to parse exiftool JSON for ${file.path}: $e');
+    }
+    return <String, dynamic>{};
   }
 
-  /// Writes [tags] to [file] in a **single** exiftool invocation.
-  /// Example tags:
-  ///   {'DateTimeOriginal': '"2020:01:01 12:00:00"', 'GPSLatitude': '40.1', ...}
+  /// Writes tags in a single exiftool call.
+  /// Example: {'DateTimeOriginal': '"2020:01:01 12:00:00"', 'GPSLatitude': '40.1'}
   Future<void> writeExifData(File file, Map<String, dynamic> tags) async {
-  if (tags.isEmpty) return;
+    if (tags.isEmpty) return;
 
-  final args = <String>[
-  ...commonWriteArgs,
-  ...tags.entries.map((e) => '-${e.key}=${e.value}'),
-  file.path,
-  ];
+    final args = <String>[
+      ...commonWriteArgs,
+      ...tags.entries.map((e) => '-${e.key}=${e.value}'),
+      file.path,
+    ];
 
-  final res = await _send(args);
-  if (res.stderr.isNotEmpty) {
-  logDebug('[exiftool write stderr] ${res.stderr}');
-  }
-  // If exiftool encounters a hard error, it typically prints to stderr.
-  // We log stderr but do not throw to keep the caller logic simple.
+    final res = await _send(args);
+    if (res.stderr.isNotEmpty) {
+      logDebug('[exiftool write stderr] ${res.stderr}');
+    }
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Internal request/response helpers
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Internal helpers ─────────────────────────────────────────────────────────
 
 class _RequestCompleter {
   _RequestCompleter(this.id);
