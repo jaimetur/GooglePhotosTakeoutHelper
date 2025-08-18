@@ -15,7 +15,7 @@ import 'logging_service.dart';
 class ServiceContainer {
   ServiceContainer._();
 
-  // Use nullable fields instead of late final to allow re-initialization
+  // Use nullable fields to allow re-initialization if needed.
   GlobalConfigService? _globalConfig;
   LoggingService? _loggingService;
   FormattingService? _utilityService;
@@ -23,19 +23,22 @@ class ServiceContainer {
   ConsolidatedInteractiveService? _interactiveService;
   DuplicateDetectionService? _duplicateDetectionService;
   AlbumRelationshipService? _albumRelationshipService;
+
+  /// ExifTool service (may be null if not found)
   ExifToolService? exifTool;
 
   bool _isInitialized = false;
 
   static ServiceContainer? _instance;
 
-  /// Get the singleton service container
+  /// Singleton accessor
   static ServiceContainer get instance {
     _instance ??= ServiceContainer._();
     return _instance!;
   }
 
-  /// Getters with null checks
+  // ── Safe getters ───────────────────────────────────────────────────────────
+
   GlobalConfigService get globalConfig {
     if (_globalConfig == null) {
       throw StateError('ServiceContainer not initialized. Call initialize() first.');
@@ -85,21 +88,18 @@ class ServiceContainer {
     return _albumRelationshipService!;
   }
 
-  /// Initialize all services
-  ///
-  /// If [loggingService] is provided, we reinitialize to attach the new logger.
+  // ── Lifecycle ──────────────────────────────────────────────────────────────
+
+  /// Initialize all services and attempt to discover ExifTool.
   Future<void> initialize({final LoggingService? loggingService}) async {
-    // Prevent concurrent initialization attempts
-    if (_isInitialized && loggingService == null) {
-      return; // Already initialized and no new logger provided, no-op
-    }
+    // If already initialized and no new logger provided, no-op.
+    if (_isInitialized && loggingService == null) return;
 
-    // If a new logger is provided, we need to reinitialize cleanly
+    // If re-initializing with a new logger, clean up first.
     if (_isInitialized && loggingService != null) {
-      await dispose(); // Clean up existing services first
+      await dispose();
     }
 
-    // Set flag early to prevent race conditions
     _isInitialized = true;
 
     // Core services
@@ -108,49 +108,59 @@ class ServiceContainer {
     _utilityService = const FormattingService();
     _diskSpaceService = ConsolidatedDiskSpaceService();
 
-    // Media-related services with shared logger
+    // Media services
     final mediaHashService = MediaHashService()..logger = _loggingService!;
-    _duplicateDetectionService = DuplicateDetectionService(
-      hashService: mediaHashService,
-    )..logger = _loggingService!;
-    _albumRelationshipService = AlbumRelationshipService()..logger = _loggingService!;
+    _duplicateDetectionService =
+        DuplicateDetectionService(hashService: mediaHashService)
+          ..logger = _loggingService!;
+    _albumRelationshipService = AlbumRelationshipService()
+      ..logger = _loggingService!;
 
     // Interactive service
     _interactiveService = ConsolidatedInteractiveService(
       globalConfig: _globalConfig!,
     )..logger = _loggingService!;
 
-    // ── ExifTool discovery (restored behavior) ───────────────────────────────
-    // Pass the global config positionally (classic signature). If you don't
-    // keep the exifTool path in config, you can just call find() with no args.
-    try {
-      exifTool = await ExifToolService.find(_globalConfig);
-      if (exifTool != null) {
-        exifTool!.logger = _loggingService!;
-        await exifTool!.startPersistentProcess();
-        _globalConfig!.exifToolInstalled = true;
-        _loggingService!.info('ExifTool persistent process started.');
-      } else {
-        _globalConfig!.exifToolInstalled = false;
-        _loggingService!.warning('Exiftool not found! Continuing without EXIF support...');
-      }
-    } catch (e) {
-      _globalConfig!.exifToolInstalled = false;
-      _loggingService!.error('Failed to initialize ExifTool: $e');
-    }
+    // ── ExifTool discovery (named arg as required by current API) ────────────
+    final isReinitialization = loggingService != null;
+    exifTool = await ExifToolService.find(
+      showDiscoveryMessage: !isReinitialization,
+    );
 
-    _isInitialized = true;
+    if (exifTool != null) {
+      // Wire logger for richer diagnostics
+      exifTool!.logger = _loggingService!;
+
+      // Optional: start persistent process for better throughput in bulk ops.
+      // Your exiftool_service implements both one-shot and persistent paths.
+      try {
+        await exifTool!.startPersistentProcess();
+      } catch (e) {
+        // If persistent start fails, we still can use one-shot; log and continue.
+        _loggingService!.warning('Failed to start persistent ExifTool: $e');
+      }
+
+      _globalConfig!.exifToolInstalled = true;
+      _loggingService!.info('ExifTool initialized.');
+    } else {
+      _globalConfig!.exifToolInstalled = false;
+      _loggingService!
+          .warning('Exiftool not found! Continuing without EXIF support...');
+    }
   }
 
-  /// Dispose of all services and cleanup resources
+  /// Dispose services and release resources.
   Future<void> dispose() async {
+    // Dispose exiftool first to close processes/streams.
     if (exifTool != null) {
-      await exifTool!.dispose();
+      try {
+        await exifTool!.dispose();
+      } catch (_) {}
       exifTool = null;
     }
 
-    // Reset initialization state
     _isInitialized = false;
+
     _globalConfig = null;
     _loggingService = null;
     _utilityService = null;
@@ -160,7 +170,7 @@ class ServiceContainer {
     _albumRelationshipService = null;
   }
 
-  /// Reset the service container (primarily for testing)
+  /// Reset the container (useful for tests)
   static Future<void> reset() async {
     await _instance?.dispose();
     _instance = null;
