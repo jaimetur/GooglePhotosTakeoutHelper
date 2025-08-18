@@ -17,6 +17,15 @@ class GlobalConfigService {
   /// Whether ExifTool is available and installed
   bool exifToolInstalled = false;
 
+  // GlobalConfigService.dart  (add near other booleans)
+  // Speeds up by avoiding costly ExifTool fallback when native claims support.
+  final bool fallbackToExifToolOnNativeMiss = false;
+
+  // Speeds up Step 5: skip the "already has date?" pre-check for non-JPEGs.
+  // If you need strict "skip if already has date", leave false.
+  final bool skipPrecheckForNonJpegInWriter = false;
+
+
   /// Initializes configuration from processing config
   void initializeFrom(final ProcessingConfig config) {
     isVerbose = config.verbose;

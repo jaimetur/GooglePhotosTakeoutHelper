@@ -6,6 +6,9 @@ import '../services/core/service_container.dart';
 import '../services/metadata/date_extraction/json_date_extractor.dart';
 import '../services/metadata/exif_writer_service.dart';
 import '../value_objects/date_time_extraction_method.dart';
+// ⬇️ Asegúrate de tener visibles los extractores (si no ya importados por exif_writer_service)
+import '../services/metadata/date_extraction/exif_date_extractor.dart';
+import '../services/metadata/coordinate_extraction/exif_coordinate_extractor.dart';
 
 /// Modern domain model representing a collection of media entities
 ///
@@ -13,7 +16,7 @@ import '../value_objects/date_time_extraction_method.dart';
 /// throughout the processing pipeline, providing better type safety and performance.
 class MediaEntityCollection with LoggerMixin {
   MediaEntityCollection([final List<MediaEntity>? initialMedia])
-    : _media = initialMedia ?? [];
+      : _media = initialMedia ?? [];
 
   final List<MediaEntity> _media;
 
@@ -51,9 +54,9 @@ class MediaEntityCollection with LoggerMixin {
   /// have dates, providing extraction method statistics.
   /// Uses parallel processing with ConcurrencyManager for optimal performance.
   Future<Map<DateTimeExtractionMethod, int>> extractDates(
-    final List<Future<DateTime?> Function(MediaEntity)> extractors, {
-    final void Function(int current, int total)? onProgress,
-  }) async {
+      final List<Future<DateTime?> Function(MediaEntity)> extractors, {
+        final void Function(int current, int total)? onProgress,
+      }) async {
     final extractionStats = <DateTimeExtractionMethod, int>{};
     var completed = 0;
 
@@ -62,8 +65,7 @@ class MediaEntityCollection with LoggerMixin {
       DateTimeExtractionMethod.json, // JSON extractor (first priority)
       DateTimeExtractionMethod.exif, // EXIF extractor (second priority)
       DateTimeExtractionMethod.guess, // Filename guess extractor (if enabled)
-      DateTimeExtractionMethod
-          .jsonTryHard, // JSON tryhard extractor (last resort)
+      DateTimeExtractionMethod.jsonTryHard, // JSON tryhard extractor (last resort)
       DateTimeExtractionMethod.folderYear, // Folder year extractor (fallback)
     ];
 
@@ -72,9 +74,7 @@ class MediaEntityCollection with LoggerMixin {
       ConcurrencyOperation.exif,
     );
 
-    logDebug(
-      'Starting $maxConcurrency threads (exif date extraction concurrency)',
-    );
+    logDebug('Starting $maxConcurrency threads (exif date extraction concurrency)');
 
     // Process files in parallel batches
     for (int i = 0; i < _media.length; i += maxConcurrency) {
@@ -91,8 +91,7 @@ class MediaEntityCollection with LoggerMixin {
         // Skip if media already has a date
         if (mediaFile.dateTaken != null) {
           extractionMethod =
-              mediaFile.dateTimeExtractionMethod ??
-              DateTimeExtractionMethod.none;
+              mediaFile.dateTimeExtractionMethod ?? DateTimeExtractionMethod.none;
           return {
             'index': actualIndex,
             'mediaFile': mediaFile,
@@ -104,11 +103,7 @@ class MediaEntityCollection with LoggerMixin {
         bool dateFound = false;
         MediaEntity updatedMediaFile = mediaFile;
 
-        for (
-          int extractorIndex = 0;
-          extractorIndex < extractors.length;
-          extractorIndex++
-        ) {
+        for (int extractorIndex = 0; extractorIndex < extractors.length; extractorIndex++) {
           final extractor = extractors[extractorIndex];
           final extractedDate = await extractor(mediaFile);
 
@@ -189,9 +184,9 @@ class MediaEntityCollection with LoggerMixin {
 
   /// Parallel EXIF writing for improved performance
   Future<Map<String, int>> _writeExifDataParallel(
-    final void Function(int current, int total)? onProgress,
-    final ExifToolService exifTool,
-  ) async {
+      final void Function(int current, int total)? onProgress,
+      final ExifToolService exifTool,
+      ) async {
     var coordinatesWritten = 0;
     var dateTimesWritten = 0;
     var completed = 0;
@@ -235,10 +230,8 @@ class MediaEntityCollection with LoggerMixin {
 
         // Write date/time to EXIF if available and not already from EXIF
         if (mediaEntity.dateTaken != null &&
-            mediaEntity.dateTimeExtractionMethod !=
-                DateTimeExtractionMethod.exif &&
-            mediaEntity.dateTimeExtractionMethod !=
-                DateTimeExtractionMethod.none) {
+            mediaEntity.dateTimeExtractionMethod != DateTimeExtractionMethod.exif &&
+            mediaEntity.dateTimeExtractionMethod != DateTimeExtractionMethod.none) {
           try {
             final success = await exifWriter.writeDateTimeToExif(
               mediaEntity.dateTaken!,
@@ -282,6 +275,11 @@ class MediaEntityCollection with LoggerMixin {
       logInfo('$dateTimesWritten got their DateTime set in EXIF data');
     }
 
+    // ⬇️⬇️⬇️  Dump instrumentation from the extractors (una sola vez por lote)
+    ExifDateExtractor.dumpStats(reset: true, loggerMixin: this);
+    ExifCoordinateExtractor.dumpStats(reset: true, loggerMixin: this);
+    // ⬆️⬆️⬆️
+
     return {
       'coordinatesWritten': coordinatesWritten,
       'dateTimesWritten': dateTimesWritten,
@@ -297,8 +295,7 @@ class MediaEntityCollection with LoggerMixin {
   }) async {
     if (_media.isEmpty) return 0;
 
-    final duplicateService =
-        ServiceContainer.instance.duplicateDetectionService;
+    final duplicateService = ServiceContainer.instance.duplicateDetectionService;
     int removedCount = 0;
 
     // Group media by album association first to preserve cross-album duplicates
@@ -327,7 +324,9 @@ class MediaEntityCollection with LoggerMixin {
       for (final group in hashGroups.values) {
         if (group.length <= 1) {
           continue; // No duplicates in this group
-        } // Sort by best date extraction quality, then file name length
+        }
+
+        // Sort by best date extraction quality, then file name length
         group.sort((final MediaEntity a, final MediaEntity b) {
           // Prefer files with dates from better extraction methods
           final aAccuracy = a.dateAccuracy?.value ?? 999;
