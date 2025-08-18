@@ -13,34 +13,49 @@ import '../value_objects/date_time_extraction_method.dart';
 import 'package:intl/intl.dart';
 import 'package:mime/mime.dart';
 
-/// Modern domain model representing a collection of media entities.
+/// Modern domain model representing a collection of media entities
 ///
-/// Step 4 (READ EXIF / Date Extraction):
-///  - Uses extractor pipeline (JSON, EXIF, guess, ...).
-///  - Prints ExifDateExtractor instrumentation at the end.
-///
-/// Step 5 (EXIF Writer):
-///  - Native fast-path for JPEG.
-///  - Batched exiftool writes for non-JPEG (per-file tags via -@).
-///  - Prints ExifWriterService instrumentation at the end.
+/// This replaces MediaCollection to use the new immutable MediaEntity
+/// throughout the processing pipeline, providing better type safety and performance.
 class MediaEntityCollection with LoggerMixin {
   MediaEntityCollection([final List<MediaEntity>? initialMedia])
       : _media = initialMedia ?? [];
 
   final List<MediaEntity> _media;
 
+  /// Read-only access to the media list
   List<MediaEntity> get media => List.unmodifiable(_media);
+
+  /// Number of media items in the collection
   int get length => _media.length;
+
+  /// Whether the collection is empty
   bool get isEmpty => _media.isEmpty;
   bool get isNotEmpty => _media.isNotEmpty;
 
-  void add(final MediaEntity mediaEntity) => _media.add(mediaEntity);
-  void addAll(final Iterable<MediaEntity> mediaEntities) => _media.addAll(mediaEntities);
-  bool remove(final MediaEntity mediaEntity) => _media.remove(mediaEntity);
-  void clear() => _media.clear();
+  /// Add a single media entity to the collection
+  void add(final MediaEntity mediaEntity) {
+    _media.add(mediaEntity);
+  }
 
-  /// Step 4: Extract dates using configured extractors.
-  /// Prints a compact summary of EXIF read instrumentation at the end.
+  /// Add multiple media entities to the collection
+  void addAll(final Iterable<MediaEntity> mediaEntities) {
+    _media.addAll(mediaEntities);
+  }
+
+  /// Remove a media entity from the collection
+  bool remove(final MediaEntity mediaEntity) => _media.remove(mediaEntity);
+
+  /// Clear all media from the collection
+  void clear() {
+    _media.clear();
+  }
+
+  /// Extract dates from all media entities using configured date extractors
+  ///
+  /// This method applies date extraction algorithms to media entities that don't
+  /// have dates, providing extraction method statistics.
+  /// Uses parallel processing with ConcurrencyManager for optimal performance.
   Future<Map<DateTimeExtractionMethod, int>> extractDates(
     final List<Future<DateTime?> Function(MediaEntity)> extractors, {
     final void Function(int current, int total)? onProgress,
@@ -48,34 +63,41 @@ class MediaEntityCollection with LoggerMixin {
     final extractionStats = <DateTimeExtractionMethod, int>{};
     var completed = 0;
 
+    // Map extractor index to extraction method for proper tracking
     final extractorMethods = [
-      DateTimeExtractionMethod.json,       // 0
-      DateTimeExtractionMethod.exif,       // 1
-      DateTimeExtractionMethod.guess,      // 2
-      DateTimeExtractionMethod.jsonTryHard,// 3
-      DateTimeExtractionMethod.folderYear, // 4
+      DateTimeExtractionMethod.json, // JSON extractor (first priority)
+      DateTimeExtractionMethod.exif, // EXIF extractor (second priority)
+      DateTimeExtractionMethod.guess, // Filename guess extractor (if enabled)
+      DateTimeExtractionMethod.jsonTryHard, // JSON tryhard extractor (last resort)
+      DateTimeExtractionMethod.folderYear, // Folder year extractor (fallback)
     ];
 
+    // Get optimal concurrency for EXIF operations using ConcurrencyManager
     final maxConcurrency = ConcurrencyManager().concurrencyFor(
       ConcurrencyOperation.exif,
     );
 
-    logDebug('Starting $maxConcurrency threads (exif date extraction concurrency)');
+    logDebug(
+      'Starting $maxConcurrency threads (exif date extraction concurrency)',
+    );
 
+    // Process files in parallel batches
     for (int i = 0; i < _media.length; i += maxConcurrency) {
       final batch = _media.skip(i).take(maxConcurrency).toList();
       final batchStartIndex = i;
 
-      final futures = batch.asMap().entries.map((entry) async {
-        final idx = entry.key;
+      final futures = batch.asMap().entries.map((final entry) async {
+        final batchIndex = entry.key;
         final mediaFile = entry.value;
-        final actualIndex = batchStartIndex + idx;
+        final actualIndex = batchStartIndex + batchIndex;
 
         DateTimeExtractionMethod? extractionMethod;
 
+        // Skip if media already has a date
         if (mediaFile.dateTaken != null) {
           extractionMethod =
-              mediaFile.dateTimeExtractionMethod ?? DateTimeExtractionMethod.none;
+              mediaFile.dateTimeExtractionMethod ??
+                  DateTimeExtractionMethod.none;
           return {
             'index': actualIndex,
             'mediaFile': mediaFile,
@@ -83,13 +105,18 @@ class MediaEntityCollection with LoggerMixin {
           };
         }
 
+        // Try each extractor in sequence until one succeeds
         bool dateFound = false;
         MediaEntity updatedMediaFile = mediaFile;
 
-        for (int extractorIndex = 0; extractorIndex < extractors.length; extractorIndex++) {
+        for (int extractorIndex = 0;
+            extractorIndex < extractors.length;
+            extractorIndex++) {
           final extractor = extractors[extractorIndex];
           final extractedDate = await extractor(mediaFile);
+
           if (extractedDate != null) {
+            // Determine the correct extraction method based on extractor index
             extractionMethod = extractorIndex < extractorMethods.length
                 ? extractorMethods[extractorIndex]
                 : DateTimeExtractionMethod.guess;
@@ -122,7 +149,10 @@ class MediaEntityCollection with LoggerMixin {
         };
       });
 
+      // Wait for all futures in this batch to complete
       final results = await Future.wait(futures);
+
+      // Update the media list and statistics with results from this batch
       for (final result in results) {
         final index = result['index'] as int;
         final updatedMediaFile = result['mediaFile'] as MediaEntity;
@@ -130,20 +160,28 @@ class MediaEntityCollection with LoggerMixin {
 
         _media[index] = updatedMediaFile;
         extractionStats[method] = (extractionStats[method] ?? 0) + 1;
-        onProgress?.call(++completed, _media.length);
+        completed++;
       }
+
+      // Report progress
+      onProgress?.call(completed, _media.length);
     }
 
-    // Print READ-EXIF (Step 4) stats
+    // NEW (fast, tiny): print Step‑4 read stats (native vs exiftool, time & counts)
+    // You can call this after each step (or once at the end of the whole run).
     ExifDateExtractor.dumpStats(reset: true, loggerMixin: this);
 
     return extractionStats;
   }
 
-  /// Step 5: Write EXIF (optimized).
+  /// Write EXIF data to media files
+  ///
+  /// Updates EXIF metadata for media entities that have date/time information
+  /// and coordinate data, tracking success statistics.
   Future<Map<String, int>> writeExifData({
     final void Function(int current, int total)? onProgress,
   }) async {
+    // Check if ExifTool is available before proceeding
     final exifTool = ServiceContainer.instance.exifTool;
     if (exifTool == null) {
       logWarning('ExifTool not available, skipping EXIF data writing');
@@ -152,12 +190,16 @@ class MediaEntityCollection with LoggerMixin {
 
     logInfo('[Step 5/8] Starting EXIF data writing for ${_media.length} files');
 
+    // Always use parallel processing for optimal performance
     return _writeExifDataParallel(onProgress, exifTool);
   }
 
-  /// Parallel EXIF writing with:
-  ///  - Native JPEG write for speed.
-  ///  - Batched exiftool writes per chunk (-@) so each file can carry unique tags.
+  /// Parallel EXIF writing for improved performance
+  ///
+  /// Optimizations:
+  ///  - Reuse a single ExifWriterService per batch.
+  ///  - For non-JPEG files, combine DateTime + GPS in a single exiftool call.
+  ///  - Cache headerBytes and mime types per file in the closure.
   Future<Map<String, int>> _writeExifDataParallel(
     final void Function(int current, int total)? onProgress,
     final ExifToolService exifTool,
@@ -166,40 +208,42 @@ class MediaEntityCollection with LoggerMixin {
     var dateTimesWritten = 0;
     var completed = 0;
 
+    // Calculate optimal concurrency
     final maxConcurrency = ConcurrencyManager().concurrencyFor(
       ConcurrencyOperation.exif,
     );
+
     logDebug('Starting $maxConcurrency threads (exif write concurrency)');
 
+    // Reuse writer and coordinate extractor across the batch
     final exifWriter = ExifWriterService(exifTool);
     final coordExtractor = ExifCoordinateExtractor(exifTool);
     final globalConfig = ServiceContainer.instance.globalConfig;
 
+    // Process files in parallel batches using the existing writer
     for (int i = 0; i < _media.length; i += maxConcurrency) {
       final batch = _media.skip(i).take(maxConcurrency).toList();
 
-      // We will collect non-JPEG tags to write via a single -@ batch per chunk.
-      final perFileNonJpegTags = <File, Map<String, dynamic>>{};
-
-      final futures = batch.map((mediaEntity) async {
+      final futures = batch.map((final mediaEntity) async {
         final file = mediaEntity.files.firstFile;
 
-        // Cache MIME information
-        final headerBytes = await file.openRead(0, 128).first;
-        final mimeHeader = lookupMimeType(file.path, headerBytes: headerBytes);
-        final mimeExt = lookupMimeType(file.path);
+        // Cache MIME/header once
+        final List<int> headerBytes = await file.openRead(0, 128).first;
+        final String? mimeHeader =
+            lookupMimeType(file.path, headerBytes: headerBytes);
+        final String? mimeExt = lookupMimeType(file.path);
 
-        // Decide what we need to write
-        final needDate = mediaEntity.dateTaken != null &&
-            mediaEntity.dateTimeExtractionMethod != DateTimeExtractionMethod.exif &&
-            mediaEntity.dateTimeExtractionMethod != DateTimeExtractionMethod.none;
+        var gpsWritten = false;
+        var dateTimeWritten = false;
 
-        final coords = await jsonCoordinatesExtractor(file);
-        bool needGps = coords != null;
+        // Collect tags to write in a single exiftool call (for non-JPEG)
+        final Map<String, dynamic> tagsToWrite = {};
 
-        // If EXIF already has GPS, skip GPS write
-        if (needGps) {
-          try {
+        // 1) GPS from JSON if EXIF lacks it
+        try {
+          final coordinates = await jsonCoordinatesExtractor(file);
+          if (coordinates != null) {
+            // Check if EXIF already has GPS
             final existing = await coordExtractor.extractGPSCoordinates(
               file,
               globalConfig: globalConfig,
@@ -207,109 +251,122 @@ class MediaEntityCollection with LoggerMixin {
             final hasCoords = existing != null &&
                 existing['GPSLatitude'] != null &&
                 existing['GPSLongitude'] != null;
-            if (hasCoords) {
-              needGps = false;
+
+            if (!hasCoords) {
+              if (mimeHeader == 'image/jpeg') {
+                // Use native JPEG writer (fast path)
+                final ok = await exifWriter.writeGpsToExif(
+                  coordinates,
+                  file,
+                  globalConfig,
+                );
+                if (ok) gpsWritten = true;
+              } else {
+                // Defer to single exiftool call later
+                tagsToWrite['GPSLatitude'] =
+                    coordinates.toDD().latitude.toString();
+                tagsToWrite['GPSLongitude'] =
+                    coordinates.toDD().longitude.toString();
+                tagsToWrite['GPSLatitudeRef'] =
+                    coordinates.latDirection.abbreviation.toString();
+                tagsToWrite['GPSLongitudeRef'] =
+                    coordinates.longDirection.abbreviation.toString();
+              }
             }
-          } catch (_) {
-            // Best effort
+          }
+        } catch (e) {
+          logWarning(
+            'Failed to extract/write GPS coordinates for ${file.path}: $e',
+          );
+        }
+
+        // 2) DateTime if available and not originally from EXIF
+        if (mediaEntity.dateTaken != null &&
+            mediaEntity.dateTimeExtractionMethod !=
+                DateTimeExtractionMethod.exif &&
+            mediaEntity.dateTimeExtractionMethod !=
+                DateTimeExtractionMethod.none) {
+          if (mimeHeader == 'image/jpeg') {
+            // Native JPEG writer (fast path)
+            final ok = await exifWriter.writeDateTimeToExif(
+              mediaEntity.dateTaken!,
+              file,
+              globalConfig,
+            );
+            if (ok) dateTimeWritten = true;
+          } else {
+            final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
+            final String dt = exifFormat.format(mediaEntity.dateTaken!);
+            tagsToWrite['DateTimeOriginal'] = '"$dt"';
+            tagsToWrite['DateTimeDigitized'] = '"$dt"';
+            tagsToWrite['DateTime'] = '"$dt"';
           }
         }
 
-        // Native fast paths for JPEG
-        if (mimeHeader == 'image/jpeg') {
-          bool dtW = false;
-          bool gpsW = false;
-
-          if (needDate && needGps && coords != null) {
-            dtW = await exifWriter.writeDateTimeAndGpsNativeJpeg(
-              file,
-              mediaEntity.dateTaken!,
-              coords,
+        // 3) If there are pending tags for non-JPEG → one single exiftool call
+        if (tagsToWrite.isNotEmpty) {
+          // Avoid extension/content mismatch that would make exiftool fail
+          if (mimeExt != mimeHeader && mimeHeader != 'image/tiff') {
+            logError(
+              "EXIF Writer - File has a wrong extension indicating '$mimeExt' but actually is '$mimeHeader'.\n"
+              'ExifTool would fail on this file due to extension/content mismatch. Consider running GPTH with --fix-extensions.\n ${file.path}',
             );
-            gpsW = dtW;
-          } else if (needDate) {
-            dtW = await exifWriter.writeDateTimeNativeJpeg(
-              file,
-              mediaEntity.dateTaken!,
+          } else if (mimeExt == 'video/x-msvideo' ||
+              mimeHeader == 'video/x-msvideo') {
+            logWarning(
+              '[Step 5/8] Skipping AVI file - ExifTool cannot write to RIFF AVI format: ${file.path}',
             );
-          } else if (needGps && coords != null) {
-            gpsW = await exifWriter.writeGpsNativeJpeg(file, coords);
+          } else {
+            final ok = await exifWriter.writeTagsWithExifTool(
+              file,
+              tagsToWrite,
+            );
+            if (ok) {
+              if (tagsToWrite.keys.any((k) => k.startsWith('GPS'))) {
+                gpsWritten = true;
+              }
+              if (tagsToWrite.containsKey('DateTimeOriginal') ||
+                  tagsToWrite.containsKey('DateTime')) {
+                dateTimeWritten = true;
+              }
+              if (tagsToWrite.length >= 4 /* 3 date fields + gps or similar */) {
+                ExifWriterService.combinedTagWrites++;
+              }
+            }
           }
-
-          return {
-            'file': file,
-            'dtWritten': dtW,
-            'gpsWritten': gpsW,
-            'nonJpegTags': <String, dynamic>{},
-          };
         }
 
-        // For non-JPEG, prepare per-file tag map to be written in a single batched call.
-        final exiftoolWritable =
-            !(mimeExt != mimeHeader && mimeHeader != 'image/tiff') &&
-            !(mimeExt == 'video/x-msvideo' || mimeHeader == 'video/x-msvideo');
-
-        final tags = <String, dynamic>{};
-        if (needDate) {
-          tags.addAll(ExifWriterService.buildDateTags(mediaEntity.dateTaken!));
-        }
-        if (needGps && coords != null) {
-          tags.addAll(ExifWriterService.buildGpsTags(coords));
-        }
-
-        if (tags.isNotEmpty && exiftoolWritable) {
-          return {
-            'file': file,
-            'dtWritten': false,
-            'gpsWritten': false,
-            'nonJpegTags': tags,
-          };
-        }
-
-        return {
-          'file': file,
-          'dtWritten': false,
-          'gpsWritten': false,
-          'nonJpegTags': <String, dynamic>{},
-        };
+        return {'gps': gpsWritten, 'dateTime': dateTimeWritten};
       });
 
+      // Wait for all futures in this batch to complete
       final results = await Future.wait(futures);
 
-      // aggregate natives and collect non-Jpeg tags
-      for (final r in results) {
-        final file = r['file'] as File;
-        final tags = (r['nonJpegTags'] as Map<String, dynamic>);
-        if (tags.isNotEmpty) {
-          perFileNonJpegTags[file] = tags;
-        }
-        if (r['dtWritten'] == true) dateTimesWritten++;
-        if (r['gpsWritten'] == true) coordinatesWritten++;
+      // Update counters
+      for (final result in results) {
+        if (result['gps'] == true) coordinatesWritten++;
+        if (result['dateTime'] == true) dateTimesWritten++;
         completed++;
       }
 
-      // single exiftool -@ batch for this chunk
-      if (perFileNonJpegTags.isNotEmpty) {
-        try {
-          await exifWriter.writeExiftoolBatches(perFileNonJpegTags, chunkSize: 48);
-
-          // After a successful batch, we count how many had date or gps (totals only).
-          perFileNonJpegTags.forEach((_, tags) {
-            final hasDate = ExifWriterService.hasDateKeys(tags);
-            final hasGps = ExifWriterService.hasGpsKeys(tags);
-            if (hasDate) dateTimesWritten++;
-            if (hasGps) coordinatesWritten++;
-          });
-        } catch (e) {
-          logWarning('Batch EXIF write encountered issues: $e');
-        }
-      }
-
+      // Report progress
       onProgress?.call(completed, _media.length);
     }
 
-    // Print WRITE-EXIF (Step 5) stats
-    ExifWriterService.dumpWriterStatsDetailed(reset: false, logger: this);
+    // Log final statistics
+    if (coordinatesWritten > 0) {
+      logInfo(
+        '$coordinatesWritten files got their coordinates set in EXIF data (from json)',
+      );
+    }
+    if (dateTimesWritten > 0) {
+      logInfo('$dateTimesWritten got their DateTime set in EXIF data');
+    }
+
+    // The ExifWriterService already prints per-branch timings/counters when
+    // dumpWriterStats() is called from inside the writer (keep that call wherever you added it).
+    // If you want that here as well, just ensure ExifWriterService.dumpWriterStats(reset: true)
+    // is invoked from your Step 5 driver code after this method returns.
 
     return {
       'coordinatesWritten': coordinatesWritten,
@@ -317,104 +374,35 @@ class MediaEntityCollection with LoggerMixin {
     };
   }
 
-  /// Remove duplicates based on the duplicate detection service.
-  Future<int> removeDuplicates({
-    final void Function(int current, int total)? onProgress,
-  }) async {
-    if (_media.isEmpty) return 0;
-
-    final duplicateService = ServiceContainer.instance.duplicateDetectionService;
-    int removedCount = 0;
-
-    // Group media by album association to preserve cross-album duplicates.
-    final albumGroups = <String?, List<MediaEntity>>{};
-    for (final media in _media) {
-      final albumKey = media.files.getAlbumKey();
-      albumGroups.putIfAbsent(albumKey, () => []).add(media);
-    }
-
-    final entitiesToRemove = <MediaEntity>[];
-    int processed = 0;
-    final totalGroups = albumGroups.length;
-
-    for (final albumGroup in albumGroups.values) {
-      if (albumGroup.length <= 1) {
-        processed++;
-        onProgress?.call(processed, totalGroups);
-        continue;
-      }
-
-      final hashGroups = await duplicateService.groupIdentical(albumGroup);
-
-      for (final group in hashGroups.values) {
-        if (group.length <= 1) continue;
-
-        // Prefer best date extraction quality, then shorter file names
-        group.sort((a, b) {
-          final aAccuracy = a.dateAccuracy?.value ?? 999;
-          final bAccuracy = b.dateAccuracy?.value ?? 999;
-          if (aAccuracy != bAccuracy) {
-            return aAccuracy.compareTo(bAccuracy);
-          }
-          final aLen = a.files.firstFile.path.length;
-          final bLen = b.files.firstFile.path.length;
-          return aLen.compareTo(bLen);
-        });
-
-        final duplicatesToRemove = group.sublist(1);
-        if (duplicatesToRemove.isNotEmpty) {
-          final keptFile = group.first.primaryFile.path;
-          logDebug('Found ${group.length} identical files, keeping: $keptFile');
-          for (final dup in duplicatesToRemove) {
-            logDebug('  Removing duplicate: ${dup.primaryFile.path}');
-          }
-        }
-
-        entitiesToRemove.addAll(duplicatesToRemove);
-        removedCount += duplicatesToRemove.length;
-      }
-
-      processed++;
-      onProgress?.call(processed, totalGroups);
-    }
-
-    for (final entity in entitiesToRemove) {
-      _media.remove(entity);
-    }
-
-    return removedCount;
-  }
-
-  /// Find and merge album relationships in the collection.
-  Future<void> findAlbums({
-    final void Function(int processed, int total)? onProgress,
-  }) async {
-    final albumService = ServiceContainer.instance.albumRelationshipService;
-
-    final mediaCopy = List<MediaEntity>.from(_media);
-    final merged = await albumService.detectAndMergeAlbums(mediaCopy);
-
-    _media
-      ..clear()
-      ..addAll(merged);
-
-    onProgress?.call(_media.length, _media.length);
-  }
-
-  /// Optional statistics snapshot for UI/logging.
+  /// Get processing statistics for the collection
+  ///
+  /// Returns comprehensive statistics about the media collection including
+  /// file counts, date information, and extraction method distribution.
   ProcessingStatistics getStatistics() {
     var mediaWithDates = 0;
     var mediaWithAlbums = 0;
     var totalFiles = 0;
-    final distribution = <DateTimeExtractionMethod, int>{};
+    final extractionMethodDistribution = <DateTimeExtractionMethod, int>{};
 
-    for (final m in _media) {
-      if (m.dateTaken != null) mediaWithDates++;
-      if (m.files.hasAlbumFiles) mediaWithAlbums++;
-      totalFiles += m.files.files.length;
+    for (final mediaEntity in _media) {
+      // Count media with dates
+      if (mediaEntity.dateTaken != null) {
+        mediaWithDates++;
+      }
 
-      final method = m.dateTimeExtractionMethod ?? DateTimeExtractionMethod.none;
-      distribution[method] = (distribution[method] ?? 0) + 1;
+      // Count media with album associations
+      if (mediaEntity.files.hasAlbumFiles) {
+        mediaWithAlbums++;
+      }
+
+      // Count total files
+      totalFiles += mediaEntity.files.files.length;
+
+      // Track extraction method distribution
+      final method =
+          mediaEntity.dateTimeExtractionMethod ?? DateTimeExtractionMethod.none;
+      extractionMethodDistribution[method] =
+          (extractionMethodDistribution[method] ?? 0) + 1;
     }
 
     return ProcessingStatistics(
@@ -422,18 +410,23 @@ class MediaEntityCollection with LoggerMixin {
       mediaWithDates: mediaWithDates,
       mediaWithAlbums: mediaWithAlbums,
       totalFiles: totalFiles,
-      extractionMethodDistribution: distribution,
+      extractionMethodDistribution: extractionMethodDistribution,
     );
   }
 
-  // Basic accessors
+  /// Get media entities as an iterable for processing
   Iterable<MediaEntity> get entities => _media;
+
+  /// Access media entity by index
   MediaEntity operator [](final int index) => _media[index];
+
+  /// Set media entity at index
   void operator []=(final int index, final MediaEntity mediaEntity) {
     _media[index] = mediaEntity;
   }
 }
 
+/// Statistics about processed media collection
 class ProcessingStatistics {
   const ProcessingStatistics({
     required this.totalMedia,
