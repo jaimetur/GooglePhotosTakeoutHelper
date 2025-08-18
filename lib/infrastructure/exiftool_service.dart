@@ -2,415 +2,207 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:path/path.dart' as p;
-
 import '../domain/services/core/logging_service.dart';
 
-/// Infrastructure service for ExifTool external process management
+/// ExifToolService: proceso persistente con -stay_open True
+///
+/// API pública:
+///   - Future<Map<String, dynamic>> readExifData(File file)
+///   - Future<void> writeExifData(File file, Map<String, dynamic> tags)
+///
+/// Notas:
+///  - Usa -j (JSON) / -n (valores numéricos crudos)
+///  - Delimitamos respuestas con un token único vía `-echo3`
+///  - Un único proceso por instancia (puedes tener una global en ServiceContainer)
 class ExifToolService with LoggerMixin {
-  /// Constructor for dependency injection
-  ExifToolService(this.exiftoolPath);
+  ExifToolService({
+    this.exiftoolPath = 'exiftool',
+    this.commonReadArgs = const ['-j', '-n'],
+    this.commonWriteArgs = const ['-overwrite_original'],
+  });
 
-  final String exiftoolPath; // Persistent process management
-  Process? _persistentProcess;
-  StreamSubscription<String>? _outputSubscription;
-  StreamSubscription<String>? _errorSubscription;
-  final Map<int, Completer<String>> _pendingCommands = {};
-  final Map<int, String> _commandOutputs = {};
-  bool _isDisposed = false;
-  bool _isStarting = false;
+  final String exiftoolPath;
+  final List<String> commonReadArgs;
+  final List<String> commonWriteArgs;
 
-  /// Factory method to find and create ExifTool service
-  static Future<ExifToolService?> find({
-    final bool showDiscoveryMessage = true,
-  }) async {
-    final isWindows = Platform.isWindows;
+  Process? _proc;
+  StreamSubscription<String>? _stdoutSub;
+  StreamSubscription<String>? _stderrSub;
+  final _stdoutBuffer = StringBuffer();
+  final _stderrBuffer = StringBuffer();
+  int _seq = 0;
+  final _pending = <int, _RequestCompleter>{};
+  bool _starting = false;
 
-    // Common ExifTool executable names
-    final exiftoolNames = isWindows
-        ? ['exiftool.exe', 'exiftool']
-        : ['exiftool']; // Check if ExifTool is in PATH first
-    for (final name in exiftoolNames) {
-      try {
-        final result = await Process.run(name, ['-ver']);
-        if (result.exitCode == 0) {
-          if (showDiscoveryMessage) {
-            final version = result.stdout.toString().trim();
-            print('ExifTool found in PATH: $name (version $version)');
-          }
-          return ExifToolService(name);
-        }
-      } catch (e) {
-        // Continue to next option
+  Future<void> _ensureStarted() async {
+    if (_proc != null) return;
+    if (_starting) {
+      // Espera a que alguien más termine de arrancar
+      while (_proc == null) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
       }
-    } // Get the directory where the current executable (e.g., gpth.exe) resides
-    String? binDir;
+      return;
+    }
+    _starting = true;
     try {
-      binDir = File(Platform.resolvedExecutable).parent.path;
-      if (showDiscoveryMessage) {
-        print('Binary directory: $binDir');
-      }
-    } catch (_) {
-      binDir = null;
-    } // Try to also get the location of the main script (may not be reliable in compiled mode)
-    // ignore: unnecessary_nullable_for_final_variable_declarations
-    final String? scriptPath = Platform.script.toFilePath();
-    final String? scriptDir = (scriptPath != null && scriptPath.isNotEmpty)
-        ? File(scriptPath).parent.path
-        : null;
-    if (scriptDir != null && showDiscoveryMessage) {
-      print('Script directory: $scriptDir');
-    }
+      _proc = await Process.start(
+        exiftoolPath,
+        const ['-stay_open', 'True', '-@', '-'],
+        mode: ProcessStartMode.detachedWithStdio,
+      );
 
-    // Collect possible directories where exiftool might be located
-    // This restores the v4.0.8 behavior for relative path searches
-    final List<String?> candidateDirs = [
-      binDir, // Same directory as gpth.exe
-      scriptDir, // Same directory as main.dart or main script
-      if (binDir != null)
-        p.join(
-          binDir,
-          'exif_tool',
-        ), // subfolder "exif_tool" under executable directory
-      if (scriptDir != null)
-        p.join(
-          scriptDir,
-          'exif_tool',
-        ), // subfolder "exif_tool" under script directory
-      Directory.current.path, // Current working directory
-      p.join(
-        Directory.current.path,
-        'exif_tool',
-      ), // exif_tool under current working directory
-      if (scriptDir != null)
-        p.dirname(
-          scriptDir,
-        ), // One level above script directory (requested in issue #39)
-      if (binDir != null)
-        p.dirname(binDir), // One level above executable directory
-      if (binDir != null)
-        p.join(
-          p.dirname(binDir),
-          'exif_tool',
-        ), // exif_tool one level above executable directory
-    ];
-
-    // Try each candidate directory and return if exiftool is found
-    for (final dir in candidateDirs) {
-      if (dir == null || dir.isEmpty) continue;
-
-      for (final exeName in exiftoolNames) {
-        final exiftoolFile = File(p.join(dir, exeName));
-        if (await exiftoolFile.exists()) {
-          try {
-            final result = await Process.run(exiftoolFile.path, ['-ver']);
-            if (result.exitCode == 0) {
-              if (showDiscoveryMessage) {
-                final version = result.stdout.toString().trim();
-                print(
-                  'ExifTool found: ${exiftoolFile.path} (version $version)',
-                );
-              }
-              return ExifToolService(exiftoolFile.path);
-            }
-          } catch (e) {
-            // Continue to next option
-          }
-        }
-      }
-    }
-
-    // If not found in relative paths, check common installation directories
-    final commonPaths = isWindows
-        ? [
-            r'C:\Program Files\exiftool\exiftool.exe',
-            r'C:\Program Files (x86)\exiftool\exiftool.exe',
-            r'C:\exiftool\exiftool.exe',
-          ]
-        : [
-            '/usr/bin/exiftool',
-            '/usr/local/bin/exiftool',
-            '/opt/homebrew/bin/exiftool',
-          ];
-
-    for (final path in commonPaths) {
-      if (await File(path).exists()) {
-        try {
-          final result = await Process.run(path, ['-ver']);
-          if (result.exitCode == 0) {
-            if (showDiscoveryMessage) {
-              final version = result.stdout.toString().trim();
-              print('ExifTool found: $path (version $version)');
-            }
-            return ExifToolService(path);
-          }
-        } catch (e) {
-          // Continue to next option
-        }
-      }
-    }
-
-    return null;
-  }
-
-  /// Start persistent ExifTool process for better performance
-  Future<void> startPersistentProcess() async {
-    // Prevent concurrent start attempts
-    if (_persistentProcess != null || _isDisposed || _isStarting) return;
-
-    _isStarting = true;
-    try {
-      _persistentProcess = await Process.start(exiftoolPath, [
-        '-stay_open',
-        'True',
-        '-@',
-        '-',
-      ]);
-
-      // Set up output handling
-      _outputSubscription = _persistentProcess!.stdout
+      _stdoutSub = _proc!.stdout
           .transform(utf8.decoder)
           .transform(const LineSplitter())
-          .listen(
-            _handleOutput,
-            onError: (final Object e) {
-              // Log stream errors but don't let them crash the app
-              try {
-                logger.error('ExifTool stdout stream error: $e');
-              } catch (_) {}
-            },
-          );
-
-      _errorSubscription = _persistentProcess!.stderr
+          .listen(_onStdoutLine, onDone: _onExited);
+      _stderrSub = _proc!.stderr
           .transform(utf8.decoder)
           .transform(const LineSplitter())
-          .listen(
-            _handleError,
-            onError: (final Object e) {
-              try {
-                logger.error('ExifTool stderr stream error: $e');
-              } catch (_) {}
-            },
-          );
+          .listen(_onStderrLine, onDone: _onExited);
+
+      logDebug('ExifTool started in persistent mode.');
     } catch (e) {
-      print('Failed to start ExifTool persistent process: $e');
-      _persistentProcess = null;
+      _proc = null;
+      logError('Failed to start exiftool: $e');
+      rethrow;
     } finally {
-      _isStarting = false;
+      _starting = false;
     }
   }
 
-  /// Handle output from persistent process
-  void _handleOutput(final String line) {
-    if (line.startsWith('{ready}')) {
-      // Find the most recent pending command to complete
-      if (_pendingCommands.isNotEmpty) {
-        final commandId = _pendingCommands.keys.last;
-        final output = _commandOutputs[commandId] ?? '';
-        _pendingCommands[commandId]!.complete(output);
-        _pendingCommands.remove(commandId);
-        _commandOutputs.remove(commandId);
+  void _onStdoutLine(String line) {
+    // Rellenamos buffers y detectamos token de final
+    // Formato token: ----GPTH-READY-<seq>----
+    if (line.startsWith('----GPTH-READY-')) {
+      final idStr = line.replaceAll(RegExp(r'[^0-9]'), '');
+      final id = int.tryParse(idStr);
+      if (id != null && _pending.containsKey(id)) {
+        final req = _pending.remove(id)!;
+        final out = _stdoutBuffer.toString();
+        _stdoutBuffer.clear();
+        final err = _stderrBuffer.toString();
+        _stderrBuffer.clear();
+        req.complete(out, err);
+      } else {
+        // Orfano: limpiar buffers
+        _stdoutBuffer.clear();
+        _stderrBuffer.clear();
       }
     } else {
-      // Add output to the most recent command
-      if (_pendingCommands.isNotEmpty) {
-        final currentCommandId = _pendingCommands.keys.last;
-        _commandOutputs[currentCommandId] =
-            '${_commandOutputs[currentCommandId] ?? ''}$line\n';
-      }
+      _stdoutBuffer.writeln(line);
     }
   }
 
-  /// Handle error output from persistent process
-  void _handleError(final String line) {
-    print('ExifTool error: $line');
+  void _onStderrLine(String line) {
+    _stderrBuffer.writeln(line);
   }
 
-  /// Execute ExifTool command
-  Future<String> executeCommand(final List<String> args) async =>
-      _executeOneShot(args);
-
-  /// Execute ExifTool command as one-shot process
-  Future<String> _executeOneShot(final List<String> args) async {
-    try {
-      final result = await Process.run(exiftoolPath, args);
-      if (result.exitCode != 0) {
-        logger.error(
-          'ExifTool command failed with exit code ${result.exitCode}',
-        );
-        logger.error('Command: $exiftoolPath ${args.join(' ')}');
-        logger.error('Error output: ${result.stderr}');
-        throw Exception(
-          'ExifTool command failed with exit code ${result.exitCode}: ${result.stderr}',
-        );
-      }
-      return result.stdout.toString();
-    } catch (e) {
-      logger.error('ExifTool one-shot execution failed: $e');
-      rethrow;
-    }
+  void _onExited() {
+    logWarning('ExifTool process exited.');
+    _proc = null;
   }
 
-  /// Read EXIF data from file
-  Future<Map<String, dynamic>> readExifData(final File file) async {
-    // Added -fast flag to speed up metadata reads
-    // TODO: -fast2 might skip some useful tags. Would need more testing.
-    final args = ['-fast', '-j', '-n', file.path];
-    final output = await executeCommand(args);
-
-    if (output.trim().isEmpty) {
-      print('ExifTool returned empty output for file: ${file.path}');
-      return {};
-    }
-
-    try {
-      final List<dynamic> jsonList = jsonDecode(output);
-      if (jsonList.isNotEmpty && jsonList[0] is Map<String, dynamic>) {
-        final data = Map<String, dynamic>.from(jsonList[0]);
-
-        // Normalize GPS reference values
-        if (data.containsKey('GPSLatitudeRef')) {
-          final latRef = data['GPSLatitudeRef'];
-          if (latRef == 'North') {
-            data['GPSLatitudeRef'] = 'N';
-          } else if (latRef == 'South') {
-            data['GPSLatitudeRef'] = 'S';
-          }
-        }
-        if (data.containsKey('GPSLongitudeRef')) {
-          final lngRef = data['GPSLongitudeRef'];
-          if (lngRef == 'East') {
-            data['GPSLongitudeRef'] = 'E';
-          } else if (lngRef == 'West') {
-            data['GPSLongitudeRef'] = 'W';
-          }
-        }
-
-        return data;
-      }
-      return {};
-    } catch (e) {
-      print('Failed to parse ExifTool JSON output: $e');
-      print('Raw output was: "$output"');
-      return {};
-    }
-  }
-
-  /// Write EXIF data to file
-  Future<void> writeExifData(
-    final File file,
-    final Map<String, dynamic> exifData,
-  ) async {
-    if (exifData.isEmpty) return;
-
-    final args = <String>['-overwrite_original'];
-
-    // Add each EXIF tag as an argument
-    for (final entry in exifData.entries) {
-      args.add('-${entry.key}=${entry.value}');
-    }
-
-    args.add(file.path);
-
-    try {
-      final output = await executeCommand(args);
-
-      if (output.contains('error') ||
-          output.contains('Error') ||
-          output.contains("weren't updated due to errors")) {
-        print('ExifTool may have encountered an error writing to ${file.path}');
-        print('Output: $output');
-        throw Exception(
-          'ExifTool failed to write metadata to ${file.path}: $output',
-        );
-      }
-    } catch (e) {
-      // Handle unsupported file formats gracefully - don't throw for these
-      if (e.toString().contains('is not yet supported') ||
-          e.toString().contains('file format not supported') ||
-          e.toString().contains("Can't currently write RIFF AVI files") ||
-          e.toString().contains('AVI files')) {
-        logInfo(
-          'ExifTool does not support writing to this file format: ${file.path}',
-        );
-        return; // Return normally instead of throwing
-      }
-      // Re-throw other exceptions (like file not found)
-      rethrow;
-    }
-  }
-
-  /// Dispose of resources and cleanup
   Future<void> dispose() async {
-    if (_isDisposed) return;
-    _isDisposed = true;
-
-    // Cancel pending commands
-    for (final completer in _pendingCommands.values) {
-      completer.completeError('ExifTool service disposed');
-    }
-    _pendingCommands.clear();
-    _commandOutputs.clear();
-
-    // Cancel subscriptions and drop references so streams can't call back
+    if (_proc == null) return;
     try {
-      await _outputSubscription?.cancel();
-    } catch (e) {
-      // ignore
-    }
-    _outputSubscription = null;
-    try {
-      await _errorSubscription?.cancel();
-    } catch (e) {
-      // ignore
-    }
-    _errorSubscription = null;
+      _sendRaw(['-stay_open', 'False']);
+    } catch (_) {}
+    await _stdoutSub?.cancel();
+    await _stderrSub?.cancel();
+    _stdoutSub = null;
+    _stderrSub = null;
+    _proc = null;
+  }
 
-    // Cleanup persistent process
-    if (_persistentProcess != null) {
-      try {
-        try {
-          _persistentProcess!.stdin.write('-stay_open\nFalse\n');
-          await _persistentProcess!.stdin.flush();
-          await _persistentProcess!.stdin.close();
-        } catch (e) {
-          // Writing/closing stdin may fail if the process already exited - log and continue
-          try {
-            print('Error writing/closing ExifTool stdin: $e');
-          } catch (_) {}
-        }
+  Future<_Response> _send(List<String> args) async {
+    await _ensureStarted();
+    final id = ++_seq;
+    final c = _RequestCompleter(id);
+    _pending[id] = c;
 
-        try {
-          await _persistentProcess!.exitCode.timeout(
-            const Duration(seconds: 5),
-            onTimeout: () {
-              try {
-                _persistentProcess!.kill();
-              } catch (_) {}
-              return -1;
-            },
-          );
-        } catch (e) {
-          // Reading exitCode can throw if the underlying socket was closed abruptly
-          try {
-            print('Error waiting for ExifTool exit code: $e');
-          } catch (_) {}
-          try {
-            _persistentProcess!.kill();
-          } catch (_) {}
-        }
+    // Enviamos args + echo + execute
+    // echo3 escribe al STDOUT el token de listo.
+    final payload = <String>[
+      ...args,
+      '-echo3',
+      '----GPTH-READY-$id----',
+      '-execute',
+    ];
 
-        // ExifTool process cleanup completed
-      } catch (e) {
-        try {
-          print('Error disposing ExifTool process: $e');
-        } catch (_) {}
-        try {
-          _persistentProcess!.kill();
-        } catch (_) {}
-      } finally {
-        _persistentProcess = null;
-      }
+    _sendRaw(payload);
+
+    return c.future.timeout(
+      const Duration(minutes: 2),
+      onTimeout: () {
+        _pending.remove(id);
+        return _Response('', 'Timeout waiting for exiftool');
+      },
+    );
+  }
+
+  void _sendRaw(List<String> lines) {
+    if (_proc == null) throw StateError('exiftool not started');
+    final sink = _proc!.stdin;
+    for (final l in lines) {
+      sink.writeln(l);
     }
   }
+
+  /// Lee metadatos EXIF de un fichero y devuelve un Map<String, dynamic>
+  Future<Map<String, dynamic>> readExifData(File file) async {
+    final args = <String>[
+      ...commonReadArgs,
+      file.path,
+    ];
+    final res = await _send(args);
+    if (res.stderr.isNotEmpty) {
+      // ExifTool suele mandar warnings por stderr; no tratarlos como fallo duro.
+      logDebug('[exiftool stderr] ${res.stderr}');
+    }
+    try {
+      final json = jsonDecode(res.stdout);
+      if (json is List && json.isNotEmpty && json.first is Map) {
+        return (json.first as Map).cast<String, dynamic>();
+      }
+    } catch (e) {
+      // Algunos formatos no devuelven JSON limpio en ciertos casos.
+      logWarning('Failed to parse exiftool JSON for ${file.path}: $e');
+    }
+    return <String, dynamic>{};
+  }
+
+  /// Escribe tags con exiftool en UNA sola llamada.
+  /// Tags se pasa como {'DateTimeOriginal': '"2020:01:01 12:00:00"', 'GPSLatitude':'...'} etc.
+  Future<void> writeExifData(File file, Map<String, dynamic> tags) async {
+    if (tags.isEmpty) return;
+
+    final args = <String>[
+      ...commonWriteArgs,
+      // Convertimos tags → -TAG=VALUE
+      ...tags.entries.map((e) => '-${e.key}=${e.value}'),
+      file.path,
+    ];
+
+    final res = await _send(args);
+    if (res.stderr.isNotEmpty) {
+      logDebug('[exiftool write stderr] ${res.stderr}');
+    }
+    // exiftool devuelve texto libre; si algo crítico falla, suele salir por stderr.
+  }
+}
+
+class _RequestCompleter {
+  _RequestCompleter(this.id);
+  final int id;
+  final _c = Completer<_Response>();
+  Future<_Response> get future => _c.future;
+  void complete(String stdout, String stderr) {
+    if (!_c.isCompleted) _c.complete(_Response(stdout, stderr));
+  }
+}
+
+class _Response {
+  _Response(this.stdout, this.stderr);
+  final String stdout;
+  final String stderr;
 }
