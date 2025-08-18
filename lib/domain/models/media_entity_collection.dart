@@ -293,10 +293,10 @@ class MediaEntityCollection with LoggerMixin {
         try {
           await exifWriter.writeExiftoolBatches(perFileNonJpegTags, chunkSize: 48);
 
-          // After a successful batch, we count how many had date or gps (for totals only).
+          // After a successful batch, we count how many had date or gps (totals only).
           perFileNonJpegTags.forEach((_, tags) {
-            final hasDate = ExifWriterService._hasDateKeys(tags);
-            final hasGps = ExifWriterService._hasGpsKeys(tags);
+            final hasDate = ExifWriterService.hasDateKeys(tags);
+            final hasGps = ExifWriterService.hasGpsKeys(tags);
             if (hasDate) dateTimesWritten++;
             if (hasGps) coordinatesWritten++;
           });
@@ -316,8 +316,6 @@ class MediaEntityCollection with LoggerMixin {
       'dateTimesWritten': dateTimesWritten,
     };
   }
-
-  // ───────────────────────── Other collection operations ─────────────────────
 
   /// Remove duplicates based on the duplicate detection service.
   Future<int> removeDuplicates({

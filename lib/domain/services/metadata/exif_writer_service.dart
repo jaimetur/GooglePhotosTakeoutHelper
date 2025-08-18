@@ -9,8 +9,8 @@ import '../../../infrastructure/exiftool_service.dart';
 import '../core/logging_service.dart';
 
 /// Service for writing EXIF data to media files (fast native JPEG path + exiftool).
-/// This module also includes detailed instrumentation so you can see how much
-/// time each branch consumes (native vs exiftool, per tag category).
+/// Includes detailed instrumentation so you can see how much time each branch
+/// consumes (native vs exiftool, per tag category, and batched invocations).
 class ExifWriterService with LoggerMixin {
   ExifWriterService(this._exifTool);
 
@@ -90,7 +90,7 @@ class ExifWriterService with LoggerMixin {
     }
   }
 
-  // ───────────────────────── Static helpers (used by collection) ─────────────
+  // ───────────────────────── Static helpers (public) ─────────────────────────
 
   /// Build EXIF date tags map for exiftool.
   static Map<String, dynamic> buildDateTags(DateTime dt) {
@@ -101,7 +101,6 @@ class ExifWriterService with LoggerMixin {
       'DateTimeDigitized': s,
       'DateTime': s,
     };
-    // Note: Strings are quoted to preserve colons and spaces.
   }
 
   /// Build EXIF GPS tags map for exiftool.
@@ -114,20 +113,20 @@ class ExifWriterService with LoggerMixin {
     };
   }
 
-  /// Whether the tag map contains any EXIF date keys.
-  static bool _hasDateKeys(Map<String, dynamic> tags) =>
+  /// Public helper: whether the tag map contains any EXIF date keys.
+  static bool hasDateKeys(Map<String, dynamic> tags) =>
       tags.containsKey('DateTimeOriginal') ||
       tags.containsKey('DateTimeDigitized') ||
       tags.containsKey('DateTime');
 
-  /// Whether the tag map contains any EXIF GPS keys.
-  static bool _hasGpsKeys(Map<String, dynamic> tags) =>
+  /// Public helper: whether the tag map contains any EXIF GPS keys.
+  static bool hasGpsKeys(Map<String, dynamic> tags) =>
       tags.containsKey('GPSLatitude') ||
       tags.containsKey('GPSLongitude') ||
       tags.containsKey('GPSLatitudeRef') ||
       tags.containsKey('GPSLongitudeRef');
 
-  // ───────────────────────── Public API (compat) ─────────────────────────────
+  // ───────────────────────── Public API (compat one-shot) ────────────────────
 
   /// Generic "write EXIF" wrapper (one-shot). Mostly kept for compatibility.
   Future<bool> writeExifData(File file, Map<String, dynamic> exifData) async {
@@ -138,8 +137,8 @@ class ExifWriterService with LoggerMixin {
       sw.stop();
 
       // Attribute time into right buckets based on tags.
-      final hasDate = _hasDateKeys(exifData);
-      final hasGps = _hasGpsKeys(exifData);
+      final hasDate = hasDateKeys(exifData);
+      final hasGps = hasGpsKeys(exifData);
       if (hasDate && hasGps) {
         exiftoolCombinedCount++;
         exiftoolCombinedMs += sw.elapsedMilliseconds;
@@ -169,9 +168,7 @@ class ExifWriterService with LoggerMixin {
       try {
         exifData = decodeJpgExif(orig);
       } catch (e) {
-        logError(
-          '[Step 5/8] Failed to decode JPEG EXIF for ${file.path}: $e',
-        );
+        logError('[Step 5/8] Failed to decode JPEG EXIF for ${file.path}: $e');
         return false;
       }
       if (exifData == null || exifData.isEmpty) return false;
@@ -202,9 +199,7 @@ class ExifWriterService with LoggerMixin {
       try {
         exifData = decodeJpgExif(orig);
       } catch (e) {
-        logError(
-          '[Step 5/8] Failed to decode JPEG EXIF for ${file.path}: $e',
-        );
+        logError('[Step 5/8] Failed to decode JPEG EXIF for ${file.path}: $e');
         return false;
       }
       if (exifData == null || exifData.isEmpty) return false;
@@ -240,9 +235,7 @@ class ExifWriterService with LoggerMixin {
       try {
         exifData = decodeJpgExif(orig);
       } catch (e) {
-        logError(
-          '[Step 5/8] Failed to decode JPEG EXIF for ${file.path}: $e',
-        );
+        logError('[Step 5/8] Failed to decode JPEG EXIF for ${file.path}: $e');
         return false;
       }
       if (exifData == null || exifData.isEmpty) return false;
@@ -284,7 +277,10 @@ class ExifWriterService with LoggerMixin {
 
     final entries = perFileTags.entries.toList();
     for (int i = 0; i < entries.length; i += chunkSize) {
-      final chunk = entries.sublist(i, i + chunkSize > entries.length ? entries.length : i + chunkSize);
+      final chunk = entries.sublist(
+        i,
+        i + chunkSize > entries.length ? entries.length : i + chunkSize,
+      );
 
       // Build argfile content: for each file, write "-overwrite_original", tags, path, "-execute"
       final argLines = <String>[];
@@ -296,8 +292,8 @@ class ExifWriterService with LoggerMixin {
         final file = e.key;
         final tags = e.value;
 
-        final hasDate = _hasDateKeys(tags);
-        final hasGps = _hasGpsKeys(tags);
+        final hasDate = hasDateKeys(tags);
+        final hasGps = hasGpsKeys(tags);
         if (hasDate && hasGps) {
           catCombined++;
         } else if (hasDate) {
@@ -313,8 +309,9 @@ class ExifWriterService with LoggerMixin {
       }
 
       // Use a temporary argfile for -@
-      final tmp = await File('${Directory.systemTemp.path}/exiftool-args-${DateTime.now().microsecondsSinceEpoch}.txt')
-          .create(recursive: true);
+      final tmp = await File(
+        '${Directory.systemTemp.path}/exiftool-args-${DateTime.now().microsecondsSinceEpoch}.txt',
+      ).create(recursive: true);
       await tmp.writeAsString(argLines.join('\n'));
 
       final sw = Stopwatch()..start();
