@@ -38,7 +38,7 @@ class ExifToolService with LoggerMixin {
   bool _starting = false;
 
   // ───────────────────────────────────────────────────────────────────────────
-  // Compatibility helpers expected by ServiceContainer
+  // Discovery expected by ServiceContainer
   // ───────────────────────────────────────────────────────────────────────────
 
   /// Flexible discovery method used by ServiceContainer.
@@ -99,10 +99,8 @@ class ExifToolService with LoggerMixin {
   if (chosenPath == null) return null;
 
   if (showDiscoveryMessage) {
-  // Use stdout to avoid needing an instance logger for a static method.
-  // Your app will still pick this up in CI logs or console.
-  // ignore: avoid_print
-  print('[INFO] Found exiftool at: $chosenPath');
+  // Print via logger mixin for consistency with your logging.
+  ExifToolService().logInfo('Found exiftool at: $chosenPath', forcePrint: true);
   }
 
   return ExifToolService(exiftoolPath: chosenPath);

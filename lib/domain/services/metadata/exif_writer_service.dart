@@ -20,13 +20,14 @@ class ExifWriterService with LoggerMixin {
   final ExifToolService _exifTool;
   final ExifCoordinateExtractor _coordinateExtractor;
 
-  // ── Instrumentación del escritor ───────────────────────────────────────────
-  static int exiftoolCalls = 0;        // nº de llamadas al proceso exiftool
-  static int exiftoolFiles = 0;        // nº de ficheros que pasaron por exiftool
-  static int nativeJpegDateWrites = 0; // escrituras nativas (fecha)
-  static int nativeJpegGpsWrites = 0;  // escrituras nativas (GPS)
-  static int combinedTagWrites = 0;    // veces que combinamos fecha+GPS en una llamada
+  // ── Writer instrumentation counters ─────────────────────────────────────────
+  static int exiftoolCalls = 0;        // number of calls to exiftool process
+  static int exiftoolFiles = 0;        // number of files handled by exiftool
+  static int nativeJpegDateWrites = 0; // native JPEG writes for DateTime
+  static int nativeJpegGpsWrites = 0;  // native JPEG writes for GPS
+  static int combinedTagWrites = 0;    // number of times date+GPS combined in one call
 
+  /// Print instrumentation stats about EXIF writing
   void dumpWriterStats({bool reset = true}) {
     logInfo(
       '[WRITER] exiftoolCalls=$exiftoolCalls, exiftoolFiles=$exiftoolFiles, '
@@ -43,7 +44,7 @@ class ExifWriterService with LoggerMixin {
     }
   }
 
-  /// Método genérico de escritura con exiftool (una sola llamada)
+  /// Generic EXIF writing using exiftool (one single call)
   Future<bool> writeTagsWithExifTool(
       File file,
       Map<String, dynamic> tags,
@@ -63,7 +64,7 @@ class ExifWriterService with LoggerMixin {
     }
   }
 
-  /// API de compatibilidad (se usa desde otros sitios)
+  /// Compatibility API (used from other places)
   Future<bool> writeExifData(
       final File file,
       final Map<String, dynamic> exifData,
@@ -79,7 +80,7 @@ class ExifWriterService with LoggerMixin {
     }
   }
 
-  /// Escribe DateTime (intenta nativo para JPEG; si no, exiftool)
+  /// Write DateTime (tries native JPEG writer first, otherwise exiftool)
   Future<bool> writeDateTimeToExif(
       final DateTime dateTime,
       final File file,
@@ -90,11 +91,11 @@ class ExifWriterService with LoggerMixin {
     lookupMimeType(file.path, headerBytes: headerBytes);
     final String? mimeTypeFromExtension = lookupMimeType(file.path);
 
-    // Importante: evitamos re-leer EXIF para "comprobar" si ya tiene fecha.
-    // Confía en Step 4: si la fecha venía de EXIF, ese paso ya lo marcó.
+    // Important: we avoid re-reading EXIF to "check" if it already has a date.
+    // Trust Step 4: if the date came from EXIF, that step already marked it.
 
     if (globalConfig.exifToolInstalled) {
-      // Nativo para JPEG primero
+      // Try native JPEG writer first
       if (mimeTypeFromHeader == 'image/jpeg' &&
           await _noExifToolDateTimeWriter(
             file,
@@ -153,7 +154,7 @@ class ExifWriterService with LoggerMixin {
     }
   }
 
-  /// Escribe GPS (intenta nativo para JPEG; si no, exiftool)
+  /// Write GPS coordinates (tries native JPEG writer first, otherwise exiftool)
   Future<bool> writeGpsToExif(
       final DMSCoordinates coordinates,
       final File file,
@@ -193,8 +194,8 @@ class ExifWriterService with LoggerMixin {
         return false;
       }
 
-      // Nota: la comprobación de si ya hay GPS se hace fuera cuando conviene.
-      // Este método solo escribe si así se le pide.
+      // Note: the check whether GPS already exists is done outside when needed.
+      // This method only writes if explicitly requested.
 
       try {
         await _exifTool.writeExifData(file, {
@@ -223,7 +224,7 @@ class ExifWriterService with LoggerMixin {
     }
   }
 
-  // ── Implementaciones nativas JPEG ──────────────────────────────────────────
+  // ── Native JPEG implementations ────────────────────────────────────────────
 
   Future<bool> _noExifToolDateTimeWriter(
       final File file,
