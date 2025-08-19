@@ -47,8 +47,8 @@ class ExifDateExtractor with LoggerMixin {
 
   static void dumpStats({bool reset = false, LoggerMixin? loggerMixin, bool fallbackEnabled = false}) {
     final l1 = '[READ-EXIF] calls=$_total | videos=$_videoDirect | nativeSupported=$_mimeNativeSupported | unsupported=$_unsupportedDirect | fallbackEnabled=$fallbackEnabled';
-    final l2 = '[READ-EXIF] native: tried=$_mimeNativeSupported, hit=$_nativeHit, miss=$_nativeMiss, headReads=$_nativeHeadReads, fullReads=$_nativeFullReads, time=${(_nativeMs/1000).toStringAsFixed(3)}s, bytes=$_nativeBytes';
-    final l3 = '[READ-EXIF] exiftool: directTried=$_exiftoolDirectTried, directHit=$_exiftoolDirectHit, fallbackTried=$_fallbackTried, fallbackHit=$_fallbackHit, time=${(_exiftoolMs/1000).toStringAsFixed(3)}s, errors=$_exiftoolFail';
+    final l2 = '[READ-EXIF] native: tried=$_mimeNativeSupported, hit=$_nativeHit, miss=$_nativeMiss, headReads=$_nativeHeadReads, fullReads=$_nativeFullReads, time=${_fmtSec(_nativeDur)}s, bytes=$_nativeBytes';
+    final l3 = '[READ-EXIF] exiftool: directTried=$_unsupportedDirect , directHit=$_exiftoolDirectHit, fallbackTried=$_fallbackTried, fallbackHit=$_fallbackHit, time=${_fmtSec(_exiftoolDur)}s, errors=$_exiftoolFail';
 
     if (loggerMixin != null) {
       loggerMixin.logInfo(l1);
