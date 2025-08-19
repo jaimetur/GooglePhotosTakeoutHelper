@@ -38,12 +38,12 @@ class ExifWriterService with LoggerMixin {
   /// Print instrumentation lines; reset counters optionally.
   static void dumpWriterStats({bool reset = true, LoggerMixin? logger}) {
     final lines = <String>[
-      '[WRITE-EXIF] calls=$exiftoolCalls, files=$exiftoolFiles',
       '[WRITE-EXIF] native: '
-          'dateWrites=$nativeDateWrites, gpsWrites=$nativeGpsWrites, combined=$nativeCombinedWrites, '
+          'dateFiles=$nativeDateWrites, gpsFiles=$nativeGpsWrites, combinedFiles=$nativeCombinedWrites, '
           'dateTime=${_fmtSec(nativeDateTimeDur)}, gpsTime=${_fmtSec(nativeGpsDur)}, combinedTime=${_fmtSec(nativeCombinedDur)}',
+      '[WRITE-EXIF] exiftoolCalls=$exiftoolCalls, exiftoolFiles=$exiftoolFiles',
       '[WRITE-EXIF] exiftool: '
-          'dateWrites=$exiftoolDateWrites, gpsWrites=$exiftoolGpsWrites, combined=$exiftoolCombinedWrites, '
+          'dateFiles=$exiftoolDateWrites, gpsFiles=$exiftoolGpsWrites, combinedFiles=$exiftoolCombinedWrites, '
           'dateTime=${_fmtSec(exiftoolDateTimeDur)}, gpsTime=${_fmtSec(exiftoolGpsDur)}, combinedTime=${_fmtSec(exiftoolCombinedDur)}',
     ];
     for (final l in lines) {

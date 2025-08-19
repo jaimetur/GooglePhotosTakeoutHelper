@@ -139,7 +139,7 @@ class MediaEntityCollection with LoggerMixin {
     }
 
     // >>> Print READ-EXIF stats summary (seconds) after step 4
-    ExifDateExtractor.dumpStats(reset: true, loggerMixin: this);
+    ExifDateExtractor.dumpStats(reset: true, loggerMixin: this, fallbackEnabled: ServiceContainer.instance.globalConfig.fallbackToExifToolOnNativeMiss == true);
 
     return extractionStats;
   }

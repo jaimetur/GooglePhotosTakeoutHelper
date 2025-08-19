@@ -45,24 +45,18 @@ class ExifDateExtractor with LoggerMixin {
   static String _fmtSec(final Duration d) =>
       (d.inMilliseconds / 1000.0).toStringAsFixed(3) + 's';
 
-  static void dumpStats({bool reset = false, LoggerMixin? loggerMixin}) {
-    final line0 = '[READ-EXIF] calls=$_total | videos=$_videoDirect | nativeSupported=$_mimeNativeSupported | unsupported=$_unsupportedDirect';
-    final line1 = '[READ-EXIF] native: headReads=$_nativeHeadReads, fullReads=$_nativeFullReads, tried=${_nativeHit + _nativeMiss}, '
-        'hit=$_nativeHit, miss=$_nativeMiss, time=${_fmtSec(_nativeDur)}, bytes=$_nativeBytes';
-    final line2 = '[READ-EXIF] exiftool: directTried=${_unsupportedDirect + _videoDirect}, directHit=$_exiftoolDirectHit, '
-        'fallbackTried=$_fallbackTried, fallbackHit=$_fallbackHit, time=${_fmtSec(_exiftoolDur)}, errors=$_exiftoolFail';
+  static void dumpStats({bool reset = false, LoggerMixin? loggerMixin, bool fallbackEnabled = false}) {
+    final l1 = '[READ-EXIF] calls=$_total | videos=$_videoDirect | nativeSupported=$_mimeNativeSupported | unsupported=$_unsupportedDirect | fallbackEnabled=$fallbackEnabled';
+    final l2 = '[READ-EXIF] native: tried=$_mimeNativeSupported, hit=$_nativeHit, miss=$_nativeMiss, headReads=$_nativeHeadReads, fullReads=$_nativeFullReads, time=${(_nativeMs/1000).toStringAsFixed(3)}s, bytes=$_nativeBytes';
+    final l3 = '[READ-EXIF] exiftool: directTried=$_exiftoolDirectTried, directHit=$_exiftoolDirectHit, fallbackTried=$_fallbackTried, fallbackHit=$_fallbackHit, time=${(_exiftoolMs/1000).toStringAsFixed(3)}s, errors=$_exiftoolFail';
 
     if (loggerMixin != null) {
-      loggerMixin.logInfo(line0, forcePrint: true);
-      loggerMixin.logInfo('', forcePrint: true);
-      loggerMixin.logInfo(line1, forcePrint: true);
-      loggerMixin.logInfo('', forcePrint: true);
-      loggerMixin.logInfo(line2, forcePrint: true);
+      loggerMixin.logInfo(l1);
+      loggerMixin.logInfo(l2);
+      loggerMixin.logInfo(l3);
     } else {
       // ignore: avoid_print
-      print(line0);
-      print(line1);
-      print(line2);
+      print(l1); print(l2); print(l3);
     }
 
     if (reset) {
