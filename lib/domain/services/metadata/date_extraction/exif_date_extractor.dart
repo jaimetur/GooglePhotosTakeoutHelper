@@ -1,3 +1,4 @@
+// FILE: lib/domain/services/metadata/date_extraction/exif_date_extractor.dart
 // ignore_for_file: non_constant_identifier_names
 
 import 'dart:io';
@@ -20,95 +21,94 @@ class _SmartReadResult {
   final bool usedHeadOnly;
 }
 
-/// Service for extracting dates from EXIF data (fast-path native + optional fallback).
+/// Service for extracting dates from EXIF data
 class ExifDateExtractor with LoggerMixin {
   ExifDateExtractor(this.exiftool);
 
-  /// ExifTool service may be null when not available on the system.
   final ExifToolService? exiftool;
 
   // ────────────────────────────────────────────────────────────────────────────
-  // Instrumentation (per-process static counters + timers)
+  // Tiny instrumentation (static per-process)
   // ────────────────────────────────────────────────────────────────────────────
-  static int _total = 0;                  // files attempted by this extractor
-  static int _videoDirect = 0;            // direct exiftool route due to video/*
-  static int _mimeNativeSupported = 0;    // files with a native-supported MIME
-  static int _unsupportedDirect = 0;      // files routed to exiftool due to unsupported/unknown MIME
+  static int _total = 0;
+  static int _videoDirect = 0;
+  static int _mimeNativeSupported = 0;
 
-  static int _nativeHeadReads = 0;        // native fast head-only reads
-  static int _nativeFullReads = 0;        // native full-file reads
+  static int _nativeHeadReads = 0;
+  static int _nativeFullReads = 0;
 
-  static int _nativeTried = 0;            // equals _mimeNativeSupported
-  static int _nativeHit = 0;              // native returned a valid DateTime
-  static int _nativeMiss = 0;             // native returned null
+  static int _nativeTried = 0;
+  static int _nativeHit = 0;
+  static int _nativeMiss = 0;
 
-  static int _exiftoolDirectTried = 0;    // tried exiftool directly (videos/unsupported)
-  static int _exiftoolDirectHit = 0;      // exiftool direct found a date
-  static int _fallbackTried = 0;          // native miss re-tried via exiftool
-  static int _fallbackHit = 0;            // fallback succeeded
-  static int _exiftoolFail = 0;           // exiftool returned null or threw
+  static int _fallbackTried = 0;
+  static int _fallbackHit = 0;
 
-  static int _nativeBytes = 0;            // total bytes read by native
-  static int _nativeMs = 0;               // total ms spent in native parse
-  static int _exiftoolMs = 0;             // total ms spent in exiftool parse
+  static int _unsupportedDirect = 0;
+  static int _exiftoolDirectHit = 0;
+  static int _exiftoolFail = 0;
 
-  /// Print counters. `fallbackEnabled` helps explain why fallback tried may be 0.
-  static void dumpStats({
-    bool reset = false,
-    LoggerMixin? loggerMixin,
-    bool fallbackEnabled = false,
-  }) {
-    String secs(int ms) => (ms / 1000).toStringAsFixed(3);
+  static int _bytesRead = 0;
 
-    final l1 =
-        '[READ-EXIF] calls=$_total | videos=$_videoDirect | nativeSupported=$_mimeNativeSupported | unsupported=$_unsupportedDirect | fallbackEnabled=$fallbackEnabled';
-    final l2 =
-        '[READ-EXIF] native: tried=$_nativeTried, hit=$_nativeHit, miss=$_nativeMiss, headReads=$_nativeHeadReads, fullReads=$_nativeFullReads, time=${secs(_nativeMs)}s, bytes=$_nativeBytes';
-    final l3 =
-        '[READ-EXIF] exiftool: directTried=$_exiftoolDirectTried, directHit=$_exiftoolDirectHit, fallbackTried=$_fallbackTried, fallbackHit=$_fallbackHit, time=${secs(_exiftoolMs)}s, errors=$_exiftoolFail';
+  static int _nativeTimeMs = 0;
+  static int _exiftoolTimeMs = 0;
+
+  /// Print counters (seconds) in compact form — no extra blank lines.
+  static void dumpStats({bool reset = false, LoggerMixin? loggerMixin}) {
+    final String calls =
+        '[INFO] [READ-EXIF] calls=$_total | videos=$_videoDirect | nativeSupported=$_mimeNativeSupported | unsupported=$_unsupportedDirect';
+    final String native =
+        '[INFO] [READ-EXIF] native: headReads=$_nativeHeadReads, fullReads=$_nativeFullReads, tried=$_nativeTried, hit=$_nativeHit, miss=$_nativeMiss, time=${(_nativeTimeMs / 1000.0).toStringAsFixed(3)}s, bytes=$_bytesRead';
+    final String exiftool =
+        '[INFO] [READ-EXIF] exiftool: directTried=${_videoDirect + _unsupportedDirect}, directHit=$_exiftoolDirectHit, fallbackTried=$_fallbackTried, fallbackHit=$_fallbackHit, time=${(_exiftoolTimeMs / 1000.0).toStringAsFixed(3)}s, errors=$_exiftoolFail';
 
     if (loggerMixin != null) {
-      loggerMixin.logInfo(l1);
-      loggerMixin.logInfo(l2);
-      loggerMixin.logInfo(l3);
+      loggerMixin.logInfo(calls);
+      loggerMixin.logInfo(native);
+      loggerMixin.logInfo(exiftool);
     } else {
       // ignore: avoid_print
-      print(l1);
+      print(calls);
       // ignore: avoid_print
-      print(l2);
+      print(native);
       // ignore: avoid_print
-      print(l3);
+      print(exiftool);
     }
 
     if (reset) {
       _total = 0;
       _videoDirect = 0;
       _mimeNativeSupported = 0;
-      _unsupportedDirect = 0;
       _nativeHeadReads = 0;
       _nativeFullReads = 0;
       _nativeTried = 0;
       _nativeHit = 0;
       _nativeMiss = 0;
-      _exiftoolDirectTried = 0;
-      _exiftoolDirectHit = 0;
       _fallbackTried = 0;
       _fallbackHit = 0;
+      _unsupportedDirect = 0;
+      _exiftoolDirectHit = 0;
       _exiftoolFail = 0;
-      _nativeBytes = 0;
-      _nativeMs = 0;
-      _exiftoolMs = 0;
+      _bytesRead = 0;
+      _nativeTimeMs = 0;
+      _exiftoolTimeMs = 0;
     }
   }
 
-  /// Extract DateTime from EXIF for [file] using native fast-path and optional fallback.
+  /// Extract DateTime from EXIF for [file].
+  ///
+  /// Strategy:
+  /// 1) MIME sniff (header bytes).
+  /// 2) If video/* → ExifTool.
+  /// 3) If native-supported MIME → native first; optional fallback to ExifTool.
+  /// 4) Else → ExifTool (if available).
   Future<DateTime?> exifDateTimeExtractor(
     final File file, {
     required final GlobalConfigService globalConfig,
   }) async {
     _total++;
 
-    // Guard against large files if configured
+    // Guard large files if configured
     if (await file.length() > defaultMaxFileSize &&
         globalConfig.enforceMaxFileSize) {
       logError(
@@ -117,7 +117,7 @@ class ExifDateExtractor with LoggerMixin {
       return null;
     }
 
-    // MIME detection uses only a tiny header
+    // Only need first 128B for MIME detection
     final List<int> headerBytes = await File(file.path).openRead(0, 128).first;
     final String? mimeType = lookupMimeType(
       file.path,
@@ -126,21 +126,19 @@ class ExifDateExtractor with LoggerMixin {
 
     DateTime? result;
 
-    // For videos, go straight to ExifTool. Native reader doesn't support them.
+    // Videos → ExifTool (native exif_reader doesn’t support)
     if (mimeType?.startsWith('video/') == true) {
       _videoDirect++;
-      final sw = Stopwatch()..start();
-      if (globalConfig.exifToolInstalled && exiftool != null) {
+      if (globalConfig.exifToolInstalled) {
+        final sw = Stopwatch()..start();
         result = await _exifToolExtractor(file);
-        _exiftoolMs += sw.elapsedMilliseconds;
+        _exiftoolTimeMs += sw.elapsedMilliseconds;
         if (result != null) {
           _exiftoolDirectHit++;
           return result;
         } else {
           _exiftoolFail++;
         }
-      } else {
-        _exiftoolMs += sw.elapsedMilliseconds;
       }
       logWarning(
         'Reading exif from ${file.path} with mimeType $mimeType skipped. Reading from this kind of file is only supported with exiftool.',
@@ -148,14 +146,14 @@ class ExifDateExtractor with LoggerMixin {
       return null;
     }
 
-    // If MIME is supported by native reader, try native → optional fallback
+    // Supported by native reader → try native first
     if (supportedNativeExifMimeTypes.contains(mimeType)) {
       _mimeNativeSupported++;
       _nativeTried++;
 
       final sw = Stopwatch()..start();
       result = await _nativeExif_readerExtractor(file, mimeType: mimeType);
-      _nativeMs += sw.elapsedMilliseconds;
+      _nativeTimeMs += sw.elapsedMilliseconds;
 
       if (result != null) {
         _nativeHit++;
@@ -164,13 +162,13 @@ class ExifDateExtractor with LoggerMixin {
       _nativeMiss++;
 
       // Optional fallback to ExifTool when native misses
-      if (globalConfig.exifToolInstalled == true &&
-          globalConfig.fallbackToExifToolOnNativeMiss == true &&
-          exiftool != null) {
+      if (globalConfig.exifToolInstalled &&
+          (globalConfig.fallbackToExifToolOnNativeMiss == true)) {
         _fallbackTried++;
         final sw2 = Stopwatch()..start();
         result = await _exifToolExtractor(file);
-        _exiftoolMs += sw2.elapsedMilliseconds;
+        _exiftoolTimeMs += sw2.elapsedMilliseconds;
+
         if (result != null) {
           _fallbackHit++;
           return result;
@@ -181,13 +179,13 @@ class ExifDateExtractor with LoggerMixin {
       return null;
     }
 
-    // Unsupported or unknown MIME → ExifTool if available
+    // Unsupported/unknown MIME → ExifTool if available
     _unsupportedDirect++;
-    if (globalConfig.exifToolInstalled == true && exiftool != null) {
-      _exiftoolDirectTried++;
+    if (globalConfig.exifToolInstalled) {
       final sw = Stopwatch()..start();
       result = await _exifToolExtractor(file);
-      _exiftoolMs += sw.elapsedMilliseconds;
+      _exiftoolTimeMs += sw.elapsedMilliseconds;
+
       if (result != null) {
         _exiftoolDirectHit++;
         return result;
@@ -196,31 +194,30 @@ class ExifDateExtractor with LoggerMixin {
       }
     }
 
-    // Tailored messages when nothing worked
     if (mimeType == 'image/jpeg') {
       logWarning(
-        '${file.path} has a mimeType of $mimeType. However, could not read it with exif_reader. The file may be corrupt.',
+        '${file.path} has a mimeType of $mimeType. However, could not read it with exif_reader. The file is probably corrupt.',
       );
-    } else if (globalConfig.exifToolInstalled == true) {
+    } else if (globalConfig.exifToolInstalled) {
       logError(
-        "$mimeType is an unusual mime type we can't handle natively. Please create an issue if you get this often.",
+        "$mimeType is a weird mime type! Please create an issue if you get this message; we currently can't handle it.",
       );
     } else {
       logWarning(
-        'Reading exif from ${file.path} with mimeType $mimeType skipped. Reading from this kind of file is likely only supported with exiftool.',
+        'Reading exif from ${file.path} with mimeType $mimeType skipped. Likely only supported with exiftool.',
       );
     }
-    return null;
+    return result;
   }
 
-  /// Extract DateTime via ExifTool, picking the oldest acceptable tag among candidates.
+  /// Extracts DateTime using ExifTool (keeps the oldest plausible tag).
   Future<DateTime?> _exifToolExtractor(final File file) async {
     if (exiftool == null) return null;
 
     try {
       final tags = await exiftool!.readExifData(file);
 
-      // Candidate tags to probe
+      // Candidate tags
       final List<String> candidateKeys = [
         'DateTimeOriginal',
         'CreateDate',
@@ -235,8 +232,6 @@ class ExifDateExtractor with LoggerMixin {
       ];
 
       DateTime? best;
-      String? bestTag;
-
       for (final key in candidateKeys) {
         final dynamic value = tags[key];
         if (value == null) continue;
@@ -246,13 +241,10 @@ class ExifDateExtractor with LoggerMixin {
         // Skip obviously invalid dates
         if (datetime.startsWith('0000:00:00') ||
             datetime.startsWith('0000-00-00')) {
-          logDebug(
-            "ExifTool returned invalid date '$datetime' for ${file.path}. Skipping this tag.",
-          );
           continue;
         }
 
-        // Normalize a parseable ISO-like string (keep to 19 chars, swap first 2 ':' to '-')
+        // Normalize and parse
         datetime = datetime
             .replaceAll('-', ':')
             .replaceAll('/', ':')
@@ -267,27 +259,21 @@ class ExifDateExtractor with LoggerMixin {
         if (parsed != null) {
           if (best == null || parsed.isBefore(best)) {
             best = parsed;
-            bestTag = key;
           }
         }
       }
 
       if (best == null) {
-        logWarning(
-          "Exiftool couldn't extract an acceptable DateTime for ${file.path}. Tags present: ${tags.keys.join(', ')}",
-        );
         return null;
       }
 
-      // Handle special ffmpeg/epoch edge case
+      // Special edge case
       if (best == DateTime.parse('2036-01-01T23:59:59.000000Z')) {
         logWarning(
-          'Extracted DateTime before 1970 from EXIF for ${file.path}. Will not override other extractors.',
+          'Extracted DateTime before 1970 from EXIF for ${file.path}. Not using it.',
         );
         return null;
       }
-
-      logDebug('ExifTool chose tag $bestTag with value $best for ${file.path}');
       return best;
     } catch (e) {
       logError('exiftool read failed: ${e.toString()}');
@@ -295,26 +281,22 @@ class ExifDateExtractor with LoggerMixin {
     }
   }
 
-  /// Extract DateTime using native exif_reader with smart reads (head-only vs full).
+  /// Native exif_reader extractor with smart read (head-only vs full).
   Future<DateTime?> _nativeExif_readerExtractor(
     final File file, {
     required final String? mimeType,
   }) async {
-    final _SmartReadResult read = await _smartReadBytes(file, mimeType);
-    if (read.usedHeadOnly) {
+    final sr = await _smartReadBytes(file, mimeType);
+    if (sr.usedHeadOnly) {
       _nativeHeadReads++;
     } else {
       _nativeFullReads++;
     }
 
-    _nativeBytes += read.bytes.length;
+    _bytesRead += sr.bytes.length;
 
-    final sw = Stopwatch()..start();
-    final tags = await readExifFromBytes(read.bytes);
-    final elapsed = sw.elapsedMilliseconds;
-    _nativeMs += elapsed;
+    final tags = await readExifFromBytes(sr.bytes);
 
-    // Ordered probe: return upon the first valid tag
     final List<MapEntry<String, String?>> ordered = [
       MapEntry('EXIF DateTimeOriginal', tags['EXIF DateTimeOriginal']?.printable),
       MapEntry('Image DateTime', tags['Image DateTime']?.printable),
@@ -329,16 +311,13 @@ class ExifDateExtractor with LoggerMixin {
     ];
 
     for (final e in ordered) {
-      final String? value = e.value;
-      if (value == null || value.isEmpty) continue;
+      final String? v = e.value;
+      if (v == null || v.isEmpty) continue;
 
-      String datetime = value;
+      String datetime = v;
 
       if (datetime.startsWith('0000:00:00') ||
           datetime.startsWith('0000-00-00')) {
-        logInfo(
-          "exif_reader returned invalid date '$datetime' for ${file.path}. Skipping this tag.",
-        );
         continue;
       }
 
@@ -356,15 +335,13 @@ class ExifDateExtractor with LoggerMixin {
       if (parsed != null) {
         if (parsed == DateTime.parse('2036-01-01T23:59:59.000000Z')) {
           logWarning(
-            'Extracted DateTime before 1970 from EXIF for ${file.path}. Will not override other extractors.',
+            'Extracted DateTime before 1970 from EXIF for ${file.path}. Not using it.',
           );
           return null;
         }
-        logDebug('exif_reader chose tag ${e.key} with value $parsed for ${file.path}');
         return parsed;
       }
     }
-
     return null;
   }
 
