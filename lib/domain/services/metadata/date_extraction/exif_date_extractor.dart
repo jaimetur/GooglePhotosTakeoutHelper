@@ -53,7 +53,7 @@ class ExifDateExtractor with LoggerMixin {
   static String _fmtSec(final Duration d) =>
       (d.inMilliseconds / 1000.0).toStringAsFixed(3) + 's';
 
-  static void dumpStats({bool reset = false, LoggerMixin? loggerMixin, bool fallbackEnabled = false}) {
+  static void dumpStats({final bool reset = false, final LoggerMixin? loggerMixin, final bool fallbackEnabled = false}) {
     final l1 = '[READ-EXIF] calls=$_total | videos=$_videoDirect | nativeSupported=$_mimeNativeSupported | unsupported=$_unsupportedDirect | fallbackEnabled=$fallbackEnabled';
     final l2 = '[READ-EXIF] native: tried=$_nativeTried, hit=$_nativeHit, miss=$_nativeMiss, headReads=$_nativeHeadReads, fullReads=$_nativeFullReads, time=${_fmtSec(_nativeDur)}s, bytes=$_nativeBytes';
     final l3 = '[READ-EXIF] exiftool: directTried=$_exiftoolDirectTried , directHit=$_exiftoolDirectHit, fallbackTried=$_fallbackTried, fallbackHit=$_fallbackHit, time=${_fmtSec(_exiftoolDur)}s, errors=$_exiftoolFail';

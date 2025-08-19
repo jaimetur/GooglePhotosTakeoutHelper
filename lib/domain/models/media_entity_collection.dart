@@ -185,7 +185,7 @@ class MediaEntityCollection with LoggerMixin {
 
     final List<MapEntry<File, Map<String, dynamic>>> pendingBatch = [];
 
-    Future<void> _flushBatch({required bool useArgFile}) async {
+    Future<void> _flushBatch({required final bool useArgFile}) async {
       if (pendingBatch.isEmpty) return;
       try {
         await exifWriter.writeBatchWithExifTool(

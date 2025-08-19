@@ -30,7 +30,7 @@ class ExifCoordinateExtractor with LoggerMixin {
   static String _fmtSec(final Duration d) =>
       (d.inMilliseconds / 1000.0).toStringAsFixed(3) + 's';
 
-  static void dumpStats({bool reset = false, LoggerMixin? loggerMixin}) {
+  static void dumpStats({final bool reset = false, final LoggerMixin? loggerMixin}) {
     final line = '[GPS-EXTRACT]: '
         'nativeHit=$nativeHit, nativeMiss=$nativeMiss, fallbackTried=$fallbackTried, '
         'exifToolHit=$exifToolHit, exifToolMiss=$exifToolMiss, '

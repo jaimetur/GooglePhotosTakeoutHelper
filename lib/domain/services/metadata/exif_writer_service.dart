@@ -36,7 +36,7 @@ class ExifWriterService with LoggerMixin {
       (d.inMilliseconds / 1000.0).toStringAsFixed(3) + 's';
 
   /// Print instrumentation lines; reset counters optionally.
-  static void dumpWriterStats({bool reset = true, LoggerMixin? logger}) {
+  static void dumpWriterStats({final bool reset = true, final LoggerMixin? logger}) {
     final lines = <String>[
       '[WRITE-EXIF] native: '
           'dateFiles=$nativeDateWrites, gpsFiles=$nativeGpsWrites, combinedFiles=$nativeCombinedWrites, '
@@ -78,9 +78,9 @@ class ExifWriterService with LoggerMixin {
   Future<bool> writeTagsWithExifTool(
     final File file,
     final Map<String, dynamic> tags, {
-    bool countAsCombined = false,
-    bool isDate = false,
-    bool isGps = false,
+    final bool countAsCombined = false,
+    final bool isDate = false,
+    final bool isGps = false,
   }) async {
     if (tags.isEmpty) return false;
 
@@ -115,7 +115,7 @@ class ExifWriterService with LoggerMixin {
   /// Time attribution is **proportional** across categories to avoid overcount.
   Future<void> writeBatchWithExifTool(
     final List<MapEntry<File, Map<String, dynamic>>> batch, {
-    required bool useArgFileWhenLarge,
+    required final bool useArgFileWhenLarge,
   }) async {
     if (batch.isEmpty) return;
 
@@ -123,9 +123,9 @@ class ExifWriterService with LoggerMixin {
     int countDate = 0, countGps = 0, countCombined = 0;
     for (final entry in batch) {
       final keys = entry.value.keys;
-      final hasDate = keys.any((k) =>
+      final hasDate = keys.any((final k) =>
           k == 'DateTimeOriginal' || k == 'DateTimeDigitized' || k == 'DateTime');
-      final hasGps = keys.any((k) =>
+      final hasGps = keys.any((final k) =>
           k == 'GPSLatitude' || k == 'GPSLongitude' || k == 'GPSLatitudeRef' || k == 'GPSLongitudeRef');
       if (hasDate && hasGps) {
         countCombined++;
