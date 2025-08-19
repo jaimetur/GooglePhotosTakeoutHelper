@@ -41,10 +41,10 @@ class ExifWriterService with LoggerMixin {
       '[WRITE-EXIF] native: '
           'dateFiles=$nativeDateWrites, gpsFiles=$nativeGpsWrites, combinedFiles=$nativeCombinedWrites, '
           'dateTime=${_fmtSec(nativeDateTimeDur)}, gpsTime=${_fmtSec(nativeGpsDur)}, combinedTime=${_fmtSec(nativeCombinedDur)}',
-      '[WRITE-EXIF] exiftoolCalls=$exiftoolCalls, exiftoolFiles=$exiftoolFiles',
       '[WRITE-EXIF] exiftool: '
           'dateFiles=$exiftoolDateWrites, gpsFiles=$exiftoolGpsWrites, combinedFiles=$exiftoolCombinedWrites, '
           'dateTime=${_fmtSec(exiftoolDateTimeDur)}, gpsTime=${_fmtSec(exiftoolGpsDur)}, combinedTime=${_fmtSec(exiftoolCombinedDur)}',
+      '[WRITE-EXIF] exiftoolFiles=$exiftoolFiles, exiftoolCalls=$exiftoolCalls',
     ];
     for (final l in lines) {
       if (logger != null) {
