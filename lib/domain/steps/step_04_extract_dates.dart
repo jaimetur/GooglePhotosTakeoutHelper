@@ -169,7 +169,9 @@ class ExtractDatesStep extends ProcessingStep {
         if (byLabel.containsKey(k)) print('  $k: ${byLabel[k]} files');
       }
 
+      print('');
       stopwatch.stop();
+
       return StepResult.success(
         stepName: name,
         duration: stopwatch.elapsed,
