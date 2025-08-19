@@ -138,6 +138,9 @@ class MediaEntityCollection with LoggerMixin {
       onProgress?.call(completed, _media.length);
     }
 
+    // >>> Print READ-EXIF stats summary (seconds) after step 4
+    ExifDateExtractor.dumpStats(reset: true, loggerMixin: this);
+
     return extractionStats;
   }
 
@@ -155,9 +158,10 @@ class MediaEntityCollection with LoggerMixin {
     return _writeExifDataParallel(onProgress, exifTool);
   }
 
-  /// Parallel + batch strategy:
+  /// Parallel + adaptive batch strategy:
   /// - For JPEG: prefer native writes; combine Date+GPS when possible.
-  /// - For non-JPEG: gather tags and batch via exiftool in groups to reduce process invocations.
+  /// - For non-JPEG: gather tags and batch via exiftool. Uses argfile for very large batches.
+  /// - NEW: If native JPEG write fails → fall back to exiftool by enqueuing tags.
   Future<Map<String, int>> _writeExifDataParallel(
     final void Function(int current, int total)? onProgress,
     final ExifToolService exifTool,
@@ -175,14 +179,19 @@ class MediaEntityCollection with LoggerMixin {
     final coordExtractor = ExifCoordinateExtractor(exifTool);
     final globalConfig = ServiceContainer.instance.globalConfig;
 
-    // Accumulate exiftool writes for non-JPEG into batches of fixed size.
-    const int BATCH_SIZE = 100;
+    // Adaptive batch sizing
+    final bool isWindows = Platform.isWindows;
+    final int baseBatchSize = isWindows ? 60 : 120;
+
     final List<MapEntry<File, Map<String, dynamic>>> pendingBatch = [];
 
-    Future<void> _flushBatch() async {
+    Future<void> _flushBatch({required bool useArgFile}) async {
       if (pendingBatch.isEmpty) return;
       try {
-        await exifWriter.writeBatchWithExifTool(pendingBatch);
+        await exifWriter.writeBatchWithExifTool(
+          pendingBatch,
+          useArgFileWhenLarge: useArgFile,
+        );
       } catch (e) {
         logError('Batch flush failed (${pendingBatch.length} files): $e');
       } finally {
@@ -205,7 +214,7 @@ class MediaEntityCollection with LoggerMixin {
         bool gpsWritten = false;
         bool dateTimeWrittenLocal = false;
 
-        // Accumulate tags for non-JPEG single exiftool call
+        // Accumulate tags for non-JPEG or for JPEG fallback to exiftool
         final Map<String, dynamic> tagsToWrite = {};
 
         // 1) GPS from JSON if EXIF lacks it
@@ -222,25 +231,50 @@ class MediaEntityCollection with LoggerMixin {
                 existing['GPSLongitude'] != null;
 
             if (!hasCoords) {
-              if (mimeHeader == 'image/jpeg' && mediaEntity.dateTaken != null) {
-                // If we also need DateTime and it's JPEG, try native combined
-                if (mediaEntity.dateTimeExtractionMethod != DateTimeExtractionMethod.exif &&
+              if (mimeHeader == 'image/jpeg') {
+                // If also need DateTime and it's JPEG, try native combined
+                if (mediaEntity.dateTaken != null &&
+                    mediaEntity.dateTimeExtractionMethod != DateTimeExtractionMethod.exif &&
                     mediaEntity.dateTimeExtractionMethod != DateTimeExtractionMethod.none) {
                   final ok = await exifWriter.writeCombinedNativeJpeg(
-                      file, mediaEntity.dateTaken!, coordinates);
+                    file,
+                    mediaEntity.dateTaken!,
+                    coordinates,
+                  );
                   if (ok) {
                     gpsWritten = true;
                     dateTimeWrittenLocal = true;
-                    return {'gps': gpsWritten, 'dateTime': dateTimeWrittenLocal};
+                  } else {
+                    // Fallback to exiftool (enqueue combined tags)
+                    final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
+                    final dt = exifFormat.format(mediaEntity.dateTaken!);
+                    tagsToWrite['DateTimeOriginal'] = '"$dt"';
+                    tagsToWrite['DateTimeDigitized'] = '"$dt"';
+                    tagsToWrite['DateTime'] = '"$dt"';
+                    tagsToWrite['GPSLatitude'] = coordinates.toDD().latitude.toString();
+                    tagsToWrite['GPSLongitude'] = coordinates.toDD().longitude.toString();
+                    tagsToWrite['GPSLatitudeRef'] = coordinates.latDirection.abbreviation.toString();
+                    tagsToWrite['GPSLongitudeRef'] = coordinates.longDirection.abbreviation.toString();
+                    // Mark logical success; the actual write time/counters go in batch
+                    gpsWritten = true;
+                    dateTimeWrittenLocal = true;
+                  }
+                } else {
+                  // Only GPS on JPEG: try native GPS write
+                  final ok = await exifWriter.writeGpsNativeJpeg(file, coordinates);
+                  if (ok) {
+                    gpsWritten = true;
+                  } else {
+                    // Fallback to exiftool (enqueue GPS tags)
+                    tagsToWrite['GPSLatitude'] = coordinates.toDD().latitude.toString();
+                    tagsToWrite['GPSLongitude'] = coordinates.toDD().longitude.toString();
+                    tagsToWrite['GPSLatitudeRef'] = coordinates.latDirection.abbreviation.toString();
+                    tagsToWrite['GPSLongitudeRef'] = coordinates.longDirection.abbreviation.toString();
+                    gpsWritten = true;
                   }
                 }
-              }
-
-              if (mimeHeader == 'image/jpeg') {
-                final ok = await exifWriter.writeGpsNativeJpeg(file, coordinates);
-                if (ok) gpsWritten = true;
               } else {
-                // Defer to single exiftool call later
+                // Non-JPEG → defer to exiftool
                 tagsToWrite['GPSLatitude'] = coordinates.toDD().latitude.toString();
                 tagsToWrite['GPSLongitude'] = coordinates.toDD().longitude.toString();
                 tagsToWrite['GPSLatitudeRef'] = coordinates.latDirection.abbreviation.toString();
@@ -257,9 +291,19 @@ class MediaEntityCollection with LoggerMixin {
             mediaEntity.dateTimeExtractionMethod != DateTimeExtractionMethod.exif &&
             mediaEntity.dateTimeExtractionMethod != DateTimeExtractionMethod.none) {
           if (mimeHeader == 'image/jpeg') {
-            if (!gpsWritten) {
+            if (!dateTimeWrittenLocal) {
               final ok = await exifWriter.writeDateTimeNativeJpeg(file, mediaEntity.dateTaken!);
-              if (ok) dateTimeWrittenLocal = true;
+              if (ok) {
+                dateTimeWrittenLocal = true;
+              } else {
+                // Fallback to exiftool (enqueue DateTime tags)
+                final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
+                final dt = exifFormat.format(mediaEntity.dateTaken!);
+                tagsToWrite['DateTimeOriginal'] = '"$dt"';
+                tagsToWrite['DateTimeDigitized'] = '"$dt"';
+                tagsToWrite['DateTime'] = '"$dt"';
+                dateTimeWrittenLocal = true;
+              }
             }
           } else {
             final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
@@ -270,7 +314,7 @@ class MediaEntityCollection with LoggerMixin {
           }
         }
 
-        // 3) If there are pending tags for non-JPEG → enqueue in batch
+        // 3) If there are pending tags → enqueue in exiftool batch (JPEG fallback or non-JPEG)
         if (tagsToWrite.isNotEmpty) {
           // Avoid extension/content mismatch that would make exiftool fail
           if (mimeExt != mimeHeader && mimeHeader != 'image/tiff') {
@@ -282,15 +326,15 @@ class MediaEntityCollection with LoggerMixin {
             logWarning('Skipping AVI file - ExifTool cannot write RIFF AVI: ${file.path}');
           } else {
             pendingBatch.add(MapEntry(file, tagsToWrite));
-            if (pendingBatch.length >= BATCH_SIZE) {
-              await _flushBatch();
+
+            // Rough estimate of command “weight”: 1 per tag + file path
+            final int weight = tagsToWrite.length + 1;
+            final int targetBatch = weight > 6 ? (baseBatchSize ~/ 2) : baseBatchSize;
+
+            // Flush with argfile if the batch is big/heavy
+            if (pendingBatch.length >= targetBatch) {
+              await _flushBatch(useArgFile: true);
             }
-            // Mark for overall counters; actual I/O done at flush
-            final hasDate = tagsToWrite.containsKey('DateTimeOriginal') ||
-                tagsToWrite.containsKey('DateTime');
-            final hasGps = tagsToWrite.keys.any((k) => k.startsWith('GPS'));
-            if (hasDate) dateTimeWrittenLocal = true;
-            if (hasGps) gpsWritten = true;
           }
         }
 
@@ -308,8 +352,9 @@ class MediaEntityCollection with LoggerMixin {
       onProgress?.call(completed, _media.length);
     }
 
-    // Flush any remaining pending exiftool batch
-    await _flushBatch();
+    // Flush any remaining pending exiftool batch (argfile if large)
+    final bool flushWithArgfile = pendingBatch.length > (Platform.isWindows ? 30 : 60);
+    await _flushBatch(useArgFile: flushWithArgfile);
 
     if (coordinatesWritten > 0) {
       logInfo('$coordinatesWritten files got GPS set in EXIF data');
@@ -320,7 +365,7 @@ class MediaEntityCollection with LoggerMixin {
 
     // Final writer stats in seconds (no READ-EXIF lines here)
     ExifWriterService.dumpWriterStats(reset: true, logger: this);
-    // GPS extractor stats (includes GPS extraction timings)
+    // GPS extractor stats (includes GPS extraction timings and bracketed label)
     ExifCoordinateExtractor.dumpStats(reset: true, loggerMixin: this);
 
     return {

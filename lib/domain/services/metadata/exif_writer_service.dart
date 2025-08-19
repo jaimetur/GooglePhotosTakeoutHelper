@@ -8,7 +8,7 @@ import 'package:intl/intl.dart';
 import '../../../infrastructure/exiftool_service.dart';
 import '../core/logging_service.dart';
 
-/// Service that writes EXIF data (fast native JPEG path + exiftool batching).
+/// Service that writes EXIF data (fast native JPEG path + adaptive exiftool batching).
 /// Includes detailed instrumentation of counts and durations (seconds).
 class ExifWriterService with LoggerMixin {
   ExifWriterService(this._exifTool);
@@ -75,8 +75,13 @@ class ExifWriterService with LoggerMixin {
   // ─────────────────────────── Public helpers ────────────────────────────────
 
   /// Single-exec write for arbitrary tags (counts as one exiftool call).
-  Future<bool> writeTagsWithExifTool(final File file, final Map<String, dynamic> tags,
-      {bool countAsCombined = false, bool isDate = false, bool isGps = false}) async {
+  Future<bool> writeTagsWithExifTool(
+    final File file,
+    final Map<String, dynamic> tags, {
+    bool countAsCombined = false,
+    bool isDate = false,
+    bool isGps = false,
+  }) async {
     if (tags.isEmpty) return false;
 
     final sw = Stopwatch()..start();
@@ -99,7 +104,6 @@ class ExifWriterService with LoggerMixin {
         }
       }
 
-      logDebug('Wrote ${tags.keys.toList()} via exiftool: ${file.path}');
       return true;
     } catch (e) {
       logError('Failed to write tags ${tags.keys.toList()} to ${file.path}: $e');
@@ -108,33 +112,56 @@ class ExifWriterService with LoggerMixin {
   }
 
   /// Batch write: list of (file -> tags). Counts one exiftool call.
+  /// Time attribution is **proportional** across categories to avoid overcount.
   Future<void> writeBatchWithExifTool(
-      final List<MapEntry<File, Map<String, dynamic>>> batch) async {
+    final List<MapEntry<File, Map<String, dynamic>>> batch, {
+    required bool useArgFileWhenLarge,
+  }) async {
     if (batch.isEmpty) return;
+
+    // Categorize entries before executing to attribute time fairly
+    int countDate = 0, countGps = 0, countCombined = 0;
+    for (final entry in batch) {
+      final keys = entry.value.keys;
+      final hasDate = keys.any((k) =>
+          k == 'DateTimeOriginal' || k == 'DateTimeDigitized' || k == 'DateTime');
+      final hasGps = keys.any((k) =>
+          k == 'GPSLatitude' || k == 'GPSLongitude' || k == 'GPSLatitudeRef' || k == 'GPSLongitudeRef');
+      if (hasDate && hasGps) {
+        countCombined++;
+      } else if (hasDate) {
+        countDate++;
+      } else if (hasGps) {
+        countGps++;
+      }
+    }
+    final totalTagged =
+        (countDate + countGps + countCombined).clamp(1, 1 << 30); // avoid div/0
+
     final sw = Stopwatch()..start();
     try {
-      await _exifTool.writeExifDataBatch(batch);
+      if (useArgFileWhenLarge) {
+        await _exifTool.writeExifDataBatchViaArgFile(batch);
+      } else {
+        await _exifTool.writeExifDataBatch(batch);
+      }
       exiftoolCalls++;
       exiftoolFiles += batch.length;
 
-      // Classify per entry (coarse attribution of batch time)
-      for (final entry in batch) {
-        final keys = entry.value.keys;
-        final hasDate = keys.any((k) =>
-            k == 'DateTimeOriginal' || k == 'DateTimeDigitized' || k == 'DateTime');
-        final hasGps = keys.any((k) =>
-            k == 'GPSLatitude' || k == 'GPSLongitude' || k == 'GPSLatitudeRef' || k == 'GPSLongitudeRef');
+      final elapsed = sw.elapsed;
 
-        if (hasDate && hasGps) {
-          exiftoolCombinedWrites++;
-          exiftoolCombinedDur += sw.elapsed;
-        } else if (hasDate) {
-          exiftoolDateWrites++;
-          exiftoolDateTimeDur += sw.elapsed;
-        } else if (hasGps) {
-          exiftoolGpsWrites++;
-          exiftoolGpsDur += sw.elapsed;
-        }
+      // Proportional attribution
+      if (countCombined > 0) {
+        exiftoolCombinedWrites += countCombined;
+        exiftoolCombinedDur += elapsed * (countCombined / totalTagged);
+      }
+      if (countDate > 0) {
+        exiftoolDateWrites += countDate;
+        exiftoolDateTimeDur += elapsed * (countDate / totalTagged);
+      }
+      if (countGps > 0) {
+        exiftoolGpsWrites += countGps;
+        exiftoolGpsDur += elapsed * (countGps / totalTagged);
       }
     } catch (e) {
       logError('Batch exiftool write failed: $e');
@@ -144,9 +171,11 @@ class ExifWriterService with LoggerMixin {
 
   // ─────────────────────── Native JPEG implementations ───────────────────────
 
-  /// Native JPEG DateTime write.
+  /// Native JPEG DateTime write (returns true if wrote; false if failed).
   Future<bool> writeDateTimeNativeJpeg(
-      final File file, final DateTime dateTime) async {
+    final File file,
+    final DateTime dateTime,
+  ) async {
     final sw = Stopwatch()..start();
     try {
       final Uint8List orig = await file.readAsBytes();
@@ -173,8 +202,11 @@ class ExifWriterService with LoggerMixin {
     }
   }
 
-  /// Native JPEG GPS write.
-  Future<bool> writeGpsNativeJpeg(final File file, final DMSCoordinates coords) async {
+  /// Native JPEG GPS write (returns true if wrote; false if failed).
+  Future<bool> writeGpsNativeJpeg(
+    final File file,
+    final DMSCoordinates coords,
+  ) async {
     final sw = Stopwatch()..start();
     try {
       final Uint8List orig = await file.readAsBytes();
@@ -199,9 +231,12 @@ class ExifWriterService with LoggerMixin {
     }
   }
 
-  /// Native JPEG combined write (Date+GPS) to minimize double encoding.
+  /// Native JPEG combined write (Date+GPS). Returns true if wrote; false if failed.
   Future<bool> writeCombinedNativeJpeg(
-      final File file, final DateTime dateTime, final DMSCoordinates coords) async {
+    final File file,
+    final DateTime dateTime,
+    final DMSCoordinates coords,
+  ) async {
     final sw = Stopwatch()..start();
     try {
       final Uint8List orig = await file.readAsBytes();

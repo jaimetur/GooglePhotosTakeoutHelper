@@ -8,7 +8,8 @@ import '../domain/services/core/logging_service.dart';
 
 /// Infrastructure service for ExifTool external process management.
 /// Keeps 4.2.2 performance behavior while restoring robust path discovery
-/// (binary/script dir, parent dirs, PATH, common install paths).
+/// (binary/script dir, parent dirs, PATH, common install paths) and
+/// adds safe batch write via classic argv and via argfile (-@ file).
 class ExifToolService with LoggerMixin {
   ExifToolService(this.exiftoolPath);
 
@@ -44,7 +45,7 @@ class ExifToolService with LoggerMixin {
       } catch (_) {}
     }
 
-    // Resolve candidate folders: binary dir, script dir, their parents and exif_tool subfolders
+    // 2) Binary / script dirs and relatives (like 4.2.1)
     String? binDir;
     try {
       binDir = File(Platform.resolvedExecutable).parent.path;
@@ -71,7 +72,6 @@ class ExifToolService with LoggerMixin {
       if (binDir != null) p.join(p.dirname(binDir), 'exif_tool'),
     ];
 
-    // 2) Candidate directories
     for (final dir in candidateDirs) {
       if (dir == null || dir.isEmpty) continue;
       for (final exeName in exiftoolNames) {
@@ -173,7 +173,7 @@ class ExifToolService with LoggerMixin {
     print('ExifTool error: $line');
   }
 
-  /// For now we keep one-shot calls to avoid complexity; batch minimizes launches.
+  /// One-shot execution. Batch minimizes launches, but we still use one-shot here.
   Future<String> executeCommand(final List<String> args) async => _executeOneShot(args);
 
   Future<String> _executeOneShot(final List<String> args) async {
@@ -211,7 +211,7 @@ class ExifToolService with LoggerMixin {
     }
   }
 
-  /// Write EXIF data to a single file.
+  /// Write EXIF data to a single file (classic argv).
   Future<void> writeExifData(
     final File file,
     final Map<String, dynamic> exifData,
@@ -232,7 +232,7 @@ class ExifToolService with LoggerMixin {
     }
   }
 
-  /// Batch write: multiple files in a single exiftool invocation.
+  /// Batch write: multiple files in a single exiftool invocation (classic argv).
   Future<void> writeExifDataBatch(
     final List<MapEntry<File, Map<String, dynamic>>> batch,
   ) async {
@@ -244,7 +244,6 @@ class ExifToolService with LoggerMixin {
       final tags = fileAndTags.value;
       if (tags.isEmpty) continue;
 
-      // Push tags for this file followed by the file path
       for (final e in tags.entries) {
         args.add('-${e.key}=${e.value}');
       }
@@ -256,6 +255,44 @@ class ExifToolService with LoggerMixin {
         output.contains('Error') ||
         output.contains("weren't updated due to errors")) {
       throw Exception('ExifTool failed in batch write: $output');
+    }
+  }
+
+  /// Batch write using an argfile (-@ file) to avoid command-line limits.
+  Future<void> writeExifDataBatchViaArgFile(
+    final List<MapEntry<File, Map<String, dynamic>>> batch,
+  ) async {
+    if (batch.isEmpty) return;
+
+    // Build the argfile contents line-by-line, one tag per line, file path as the last arg.
+    final StringBuffer buf = StringBuffer();
+    buf.writeln('-overwrite_original');
+    for (final fileAndTags in batch) {
+      final file = fileAndTags.key;
+      final tags = fileAndTags.value;
+      if (tags.isEmpty) continue;
+
+      for (final e in tags.entries) {
+        buf.writeln('-${e.key}=${e.value}');
+      }
+      buf.writeln(file.path);
+    }
+
+    // Persist to a temp file, pass with -@
+    final tmp = await File('${Directory.systemTemp.path}${Platform.pathSeparator}exif_args_${DateTime.now().microsecondsSinceEpoch}.txt').create();
+    await tmp.writeAsString(buf.toString());
+
+    try {
+      final output = await executeCommand(['-@', tmp.path]);
+      if (output.contains('error') ||
+          output.contains('Error') ||
+          output.contains("weren't updated due to errors")) {
+        throw Exception('ExifTool failed in batch (argfile) write: $output');
+      }
+    } finally {
+      try {
+        await tmp.delete();
+      } catch (_) {/* ignore */}
     }
   }
 
