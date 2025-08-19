@@ -183,6 +183,7 @@ class MoveFilesStep extends ProcessingStep {
         progressBar.update(processedCount);
       }
       stopwatch.stop();
+      print(''); // Add a newline after progress bar completion
       return StepResult.success(
         stepName: name,
         duration: stopwatch.elapsed,
