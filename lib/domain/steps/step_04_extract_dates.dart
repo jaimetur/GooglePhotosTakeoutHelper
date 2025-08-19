@@ -161,10 +161,12 @@ class ExtractDatesStep extends ProcessingStep {
       );
 
       print('Date extraction completed:');
-      for (final key in ['json', 'exif', 'folderYear', 'guess']) {
-        if (extractionStats.containsKey(key)) {
-          print('  $key: ${extractionStats[key]} files');
-        }
+      final byLabel = {
+        for (final e in extractionStats.entries)
+          ((e.key is Enum) ? (e.key as Enum).name : e.key.toString().split('.').last): e.value
+      };
+      for (final k in ['json', 'exif', 'folderYear', 'guess']) {
+        if (byLabel.containsKey(k)) print('  $k: ${byLabel[k]} files');
       }
 
       stopwatch.stop();
