@@ -161,8 +161,10 @@ class ExtractDatesStep extends ProcessingStep {
       );
 
       print('Date extraction completed:');
-      for (final entry in extractionStats.entries) {
-        print('  ${entry.key.name}: ${entry.value} files');
+      for (final key in ['json', 'exif', 'folderYear', 'guess']) {
+        if (extractionStats.containsKey(key)) {
+          print('  $key: ${extractionStats[key]} files');
+        }
       }
 
       stopwatch.stop();
