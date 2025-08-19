@@ -31,7 +31,7 @@ class ExifCoordinateExtractor with LoggerMixin {
       (d.inMilliseconds / 1000.0).toStringAsFixed(3) + 's';
 
   static void dumpStats({bool reset = false, LoggerMixin? loggerMixin}) {
-    final line = '[GPS Extraction stats]: '
+    final line = '[GPS-EXTRACT]: '
         'nativeHit=$nativeHit, nativeMiss=$nativeMiss, fallbackTried=$fallbackTried, '
         'exifToolHit=$exifToolHit, exifToolMiss=$exifToolMiss, '
         'nativeTime=${_fmtSec(nativeDur)}, exiftoolTime=${_fmtSec(exiftoolDur)}';
