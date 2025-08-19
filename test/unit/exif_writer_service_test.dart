@@ -7,7 +7,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:coordinate_converter/coordinate_converter.dart';
-import 'package:gpth/domain/services/core/global_config_service.dart';
 import 'package:gpth/domain/services/metadata/exif_writer_service.dart';
 import 'package:gpth/infrastructure/exiftool_service.dart';
 import 'package:test/test.dart';
@@ -27,12 +26,12 @@ class MockExifToolService extends ExifToolService {
     final File file,
     final Map<String, dynamic> exifData,
   ) async {
-    // Simula el comportamiento de exiftool: acepta mapa vacío (no-op)
     lastWrittenFile = file;
     lastWrittenData = exifData;
     if (shouldFail) {
       throw Exception('Mock ExifTool failure');
     }
+    // no-op success
   }
 
   @override
@@ -136,10 +135,10 @@ void main() {
 
         mockExifTool.shouldFail = false;
 
-        // SIN flags isDate/isGps
         final result = await service.writeTagsWithExifTool(
           file,
           exifData,
+          isDate: true,
         );
 
         expect(result, isTrue);
@@ -156,6 +155,7 @@ void main() {
         final result = await service.writeTagsWithExifTool(
           file,
           exifData,
+          isDate: true,
         );
 
         expect(result, isFalse);
@@ -170,6 +170,7 @@ void main() {
         final result = await service.writeTagsWithExifTool(
           file,
           exifData,
+          isDate: true,
         );
 
         expect(result, isFalse);
@@ -248,40 +249,35 @@ void main() {
       });
     });
 
-    group('high-level public APIs', () {
-      test('writeDateTimeToExif returns bool', () async {
+    group('native JPEG writes', () {
+      test('writeDateTimeNativeJpeg returns bool', () async {
         final file = fixture.createImageWithExif('test.jpg');
         final dateTime = DateTime(2023, 1, 1, 12);
-        final globalConfig = GlobalConfigService()
-          ..exifToolInstalled = true; // por si acaba usando exiftool
 
-        final result = await service.writeDateTimeToExif(
+        mockExifTool.shouldFail = false;
+
+        final result = await service.writeDateTimeNativeJpeg(
+          file,
           dateTime,
-          file,
-          globalConfig,
         );
 
         expect(result, isA<bool>());
       });
 
-      test('writeGpsToExif returns bool', () async {
+      test('writeGpsNativeJpeg returns bool', () async {
         final file = fixture.createImageWithExif('test.jpg');
-        final ddCoordinates =
-            DDCoordinates(latitude: 40.713, longitude: -74.006);
+        final ddCoordinates = DDCoordinates(latitude: 40.713, longitude: -74.006);
         final coordinates = DMSCoordinates.fromDD(ddCoordinates);
-        final globalConfig = GlobalConfigService()
-          ..exifToolInstalled = true;
 
-        final result = await service.writeGpsToExif(
-          coordinates,
+        final result = await service.writeGpsNativeJpeg(
           file,
-          globalConfig,
+          coordinates,
         );
 
         expect(result, isA<bool>());
       });
 
-      test('writeGpsToExif works on image without existing EXIF', () async {
+      test('writeGpsNativeJpeg works on image without existing EXIF', () async {
         final file = fixture.createImageWithoutExif('no_gps.jpg');
         final coordinates = DMSCoordinates(
           latDegrees: 41,
@@ -293,21 +289,19 @@ void main() {
           latDirection: DirectionY.north,
           longDirection: DirectionX.east,
         );
-        final globalConfig = GlobalConfigService()
-          ..exifToolInstalled = true;
 
-        final result = await service.writeGpsToExif(
-          coordinates,
+        final result = await service.writeGpsNativeJpeg(
           file,
-          globalConfig,
+          coordinates,
         );
 
         expect(result, isA<bool>());
+        // Log for manual inspection in CI output
         // ignore: avoid_print
         print('GPS writing result: $result - ${coordinates.toString()}');
       });
 
-      test('writeGpsToExif handles different hemispheres', () async {
+      test('writeGpsNativeJpeg handles different hemispheres', () async {
         final cases = [
           DMSCoordinates(
             latDegrees: 48,
@@ -342,24 +336,15 @@ void main() {
         ];
 
         for (final coords in cases) {
-          final file =
-              fixture.createImageWithoutExif('case_${coords.hashCode}.jpg');
-          final globalConfig = GlobalConfigService()
-            ..exifToolInstalled = true;
-
-          final ok = await service.writeGpsToExif(
-            coords,
-            file,
-            globalConfig,
-          );
-
+          final file = fixture.createImageWithoutExif('case_${coords.hashCode}.jpg');
+          final ok = await service.writeGpsNativeJpeg(file, coords);
           expect(ok, isA<bool>());
           // ignore: avoid_print
           print('✓ GPS case ${coords.hashCode}: ${coords.toString()}');
         }
       });
 
-      test('writeGpsToExif returns false on non-image', () async {
+      test('writeGpsNativeJpeg returns false on non-image', () async {
         final file = fixture.createFile('invalid.txt', [1, 2, 3]); // Non-image
         final coordinates = DMSCoordinates(
           latDegrees: 40,
@@ -371,13 +356,10 @@ void main() {
           latDirection: DirectionY.north,
           longDirection: DirectionX.west,
         );
-        final globalConfig = GlobalConfigService()
-          ..exifToolInstalled = true;
 
-        final result = await service.writeGpsToExif(
-          coordinates,
+        final result = await service.writeGpsNativeJpeg(
           file,
-          globalConfig,
+          coordinates,
         );
 
         expect(result, isFalse);
@@ -385,7 +367,7 @@ void main() {
     });
 
     group('error handling', () {
-      test('exiftool write error produces false in high-level wrapper', () async {
+      test('exiftool write error bubbles as false in high-level wrapper', () async {
         final file = fixture.createImageWithExif('test.jpg');
         final exifData = {'DateTimeOriginal': '2023:01:01 12:00:00'};
 
@@ -394,6 +376,7 @@ void main() {
         final ok = await service.writeTagsWithExifTool(
           file,
           exifData,
+          isDate: true,
         );
 
         expect(ok, isFalse);

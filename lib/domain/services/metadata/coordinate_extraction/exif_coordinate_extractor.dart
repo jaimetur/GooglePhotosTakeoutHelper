@@ -1,4 +1,3 @@
-// FILE: lib/domain/services/metadata/coordinate_extraction/exif_coordinate_extractor.dart
 // ignore_for_file: non_constant_identifier_names
 
 import 'dart:io';
@@ -13,73 +12,76 @@ import '../../../../shared/constants/exif_constants.dart';
 import '../../core/global_config_service.dart';
 import '../../core/logging_service.dart';
 
-/// Service for extracting GPS coordinates from EXIF data (with tiny instrumentation)
+/// GPS extractor with instrumentation (time in seconds).
 class ExifCoordinateExtractor with LoggerMixin {
   ExifCoordinateExtractor(this.exiftool);
-
   final ExifToolService? exiftool;
 
-  // Stats (per-process)
+  // Instrumentation
   static int nativeHit = 0;
   static int nativeMiss = 0;
   static int fallbackTried = 0;
   static int exifToolHit = 0;
   static int exifToolMiss = 0;
 
-  static int nativeTimeMs = 0;
-  static int exiftoolTimeMs = 0;
+  static Duration nativeDur = Duration.zero;
+  static Duration exiftoolDur = Duration.zero;
+
+  static String _fmtSec(final Duration d) =>
+      (d.inMilliseconds / 1000.0).toStringAsFixed(3) + 's';
 
   static void dumpStats({bool reset = false, LoggerMixin? loggerMixin}) {
-    final line =
-        '[INFO] [GPS Extraction stats]: nativeHit=$nativeHit, nativeMiss=$nativeMiss, fallbackTried=$fallbackTried, exifToolHit=$exifToolHit, exifToolMiss=$exifToolMiss, nativeTime=${(nativeTimeMs / 1000.0).toStringAsFixed(3)}s, exiftoolTime=${(exiftoolTimeMs / 1000.0).toStringAsFixed(3)}s';
+    final line = '[GPS Extraction stats]: '
+        'nativeHit=$nativeHit, nativeMiss=$nativeMiss, fallbackTried=$fallbackTried, '
+        'exifToolHit=$exifToolHit, exifToolMiss=$exifToolMiss, '
+        'nativeTime=${_fmtSec(nativeDur)}, exiftoolTime=${_fmtSec(exiftoolDur)}';
+
     if (loggerMixin != null) {
-      loggerMixin.logInfo(line);
+      loggerMixin.logInfo(line, forcePrint: true);
     } else {
       // ignore: avoid_print
       print(line);
     }
+
     if (reset) {
       nativeHit = 0;
       nativeMiss = 0;
       fallbackTried = 0;
       exifToolHit = 0;
       exifToolMiss = 0;
-      nativeTimeMs = 0;
-      exiftoolTimeMs = 0;
+      nativeDur = Duration.zero;
+      exiftoolDur = Duration.zero;
     }
   }
 
-  /// Extracts GPS coordinates (Map) using native reader first if supported; fallback to ExifTool if allowed.
+  /// Extract GPS coordinates; native first for supported formats; fallback to ExifTool.
   Future<Map<String, dynamic>?> extractGPSCoordinates(
     final File file, {
     required final GlobalConfigService globalConfig,
   }) async {
-    // Guard large files if configured
     if (await file.length() > defaultMaxFileSize &&
         globalConfig.enforceMaxFileSize) {
       logError(
-        'The file is larger than the maximum supported file size of ${defaultMaxFileSize.toString()} bytes. File: ${file.path}',
+        'File is larger than ${defaultMaxFileSize.toString()} bytes. GPS read skipped: ${file.path}',
       );
       return null;
     }
 
-    // Only need first 128B for MIME detection
     final List<int> headerBytes = await File(file.path).openRead(0, 128).first;
     final String? mimeType = lookupMimeType(
       file.path,
       headerBytes: headerBytes,
     );
 
-    // Videos -> go exiftool if available
     if (mimeType?.startsWith('video/') == true) {
-      if (globalConfig.exifToolInstalled && exiftool != null) {
+      // Go straight to exiftool for videos
+      if (globalConfig.exifToolInstalled) {
         final sw = Stopwatch()..start();
-        final tags = await exiftool!.readExifData(file);
-        exiftoolTimeMs += sw.elapsedMilliseconds;
-        final ok = _gpsFromMap(tags);
-        if (ok != null) {
+        final m = await _exifToolGPSExtractor(file);
+        exiftoolDur += sw.elapsed;
+        if (m != null) {
           exifToolHit++;
-          return ok;
+          return m;
         } else {
           exifToolMiss++;
         }
@@ -89,39 +91,37 @@ class ExifCoordinateExtractor with LoggerMixin {
 
     if (supportedNativeExifMimeTypes.contains(mimeType)) {
       final sw = Stopwatch()..start();
-      final res = await _nativeExif_readerGPSExtractor(file);
-      nativeTimeMs += sw.elapsedMilliseconds;
-      if (res != null) {
-        nativeHit++;
-        return res;
-      }
-      nativeMiss++;
+      final m = await _nativeExif_readerGPSExtractor(file);
+      nativeDur += sw.elapsed;
 
-      if (globalConfig.exifToolInstalled && exiftool != null) {
-        fallbackTried++;
-        final sw2 = Stopwatch()..start();
-        final tags = await exiftool!.readExifData(file);
-        exiftoolTimeMs += sw2.elapsedMilliseconds;
-        final ok = _gpsFromMap(tags);
-        if (ok != null) {
-          exifToolHit++;
-          return ok;
-        } else {
-          exifToolMiss++;
+      if (m != null) {
+        nativeHit++;
+        return m;
+      } else {
+        nativeMiss++;
+        if (globalConfig.exifToolInstalled) {
+          fallbackTried++;
+          final sw2 = Stopwatch()..start();
+          final n = await _exifToolGPSExtractor(file);
+          exiftoolDur += sw2.elapsed;
+          if (n != null) {
+            exifToolHit++;
+            return n;
+          } else {
+            exifToolMiss++;
+          }
         }
       }
       return null;
     }
 
-    // Unsupported -> exiftool if available
-    if (globalConfig.exifToolInstalled && exiftool != null) {
+    if (globalConfig.exifToolInstalled) {
       final sw = Stopwatch()..start();
-      final tags = await exiftool!.readExifData(file);
-      exiftoolTimeMs += sw.elapsedMilliseconds;
-      final ok = _gpsFromMap(tags);
-      if (ok != null) {
+      final m = await _exifToolGPSExtractor(file);
+      exiftoolDur += sw.elapsed;
+      if (m != null) {
         exifToolHit++;
-        return ok;
+        return m;
       } else {
         exifToolMiss++;
       }
@@ -129,25 +129,12 @@ class ExifCoordinateExtractor with LoggerMixin {
     return null;
   }
 
-  Map<String, dynamic>? _gpsFromMap(Map<String, dynamic> tags) {
-    if (tags['GPSLatitude'] != null && tags['GPSLongitude'] != null) {
-      return {
-        'GPSLatitude': tags['GPSLatitude'],
-        'GPSLongitude': tags['GPSLongitude'],
-        'GPSLatitudeRef': tags['GPSLatitudeRef'],
-        'GPSLongitudeRef': tags['GPSLongitudeRef'],
-      };
-    }
-    return null;
-  }
-
-  /// Native reader path for GPS (fast for many JPEG/TIFF/PNG/etc supported by exif_reader)
   Future<Map<String, dynamic>?> _nativeExif_readerGPSExtractor(
     final File file,
   ) async {
     try {
-      // Read a small window (EXIF segments are usually at head for JPEG/TIFF)
-      const int exifScanWindow = 64 * 1024; // 64KB
+      // Read only the first 64KB which typically contains EXIF APP segments
+      const int exifScanWindow = 64 * 1024;
       final int fileLength = await file.length();
       final int end = fileLength < exifScanWindow ? fileLength : exifScanWindow;
       final bytesBuilder = BytesBuilder(copy: false);
@@ -171,6 +158,25 @@ class ExifCoordinateExtractor with LoggerMixin {
       }
       return null;
     } catch (_) {
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> _exifToolGPSExtractor(final File file) async {
+    if (exiftool == null) return null;
+    try {
+      final tags = await exiftool!.readExifData(file);
+      if (tags['GPSLatitude'] != null && tags['GPSLongitude'] != null) {
+        return {
+          'GPSLatitude': tags['GPSLatitude'],
+          'GPSLongitude': tags['GPSLongitude'],
+          'GPSLatitudeRef': tags['GPSLatitudeRef'],
+          'GPSLongitudeRef': tags['GPSLongitudeRef'],
+        };
+      }
+      return null;
+    } catch (e) {
+      logError('exiftool GPS read failed: $e');
       return null;
     }
   }
