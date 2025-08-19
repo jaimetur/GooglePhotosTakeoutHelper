@@ -51,9 +51,9 @@ class MediaEntityCollection with LoggerMixin {
     final extractorMethods = [
       DateTimeExtractionMethod.json,
       DateTimeExtractionMethod.exif,
+      DateTimeExtractionMethod.folderYear,
       DateTimeExtractionMethod.guess,
       DateTimeExtractionMethod.jsonTryHard,
-      DateTimeExtractionMethod.folderYear,
     ];
 
     final maxConcurrency = ConcurrencyManager().concurrencyFor(
@@ -139,7 +139,7 @@ class MediaEntityCollection with LoggerMixin {
     }
 
     // >>> Print READ-EXIF stats summary (seconds) after step 4
-    ExifDateExtractor.dumpStats(reset: true, loggerMixin: this, fallbackEnabled: ServiceContainer.instance.globalConfig.fallbackToExifToolOnNativeMiss == true);
+    ExifDateExtractor.dumpStats(reset: true, loggerMixin: this, exiftoolFallbackEnabled: ServiceContainer.instance.globalConfig.fallbackToExifToolOnNativeMiss == true);
 
     return extractionStats;
   }
