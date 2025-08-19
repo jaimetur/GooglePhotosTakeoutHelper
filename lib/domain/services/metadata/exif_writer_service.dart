@@ -9,83 +9,77 @@ import 'package:mime/mime.dart';
 import '../../../infrastructure/exiftool_service.dart';
 import '../core/global_config_service.dart';
 import '../core/logging_service.dart';
-import 'coordinate_extraction/exif_coordinate_extractor.dart';
 
-/// Writes EXIF data (keeps perf characteristics; adds per-branch counters + timing in seconds).
+/// Service that writes EXIF data (fast native JPEG path + exiftool batching).
+/// Includes detailed instrumentation of counts and durations (seconds).
 class ExifWriterService with LoggerMixin {
-  ExifWriterService(this._exifTool)
-      : _coordinateExtractor = ExifCoordinateExtractor(_exifTool);
+  ExifWriterService(this._exifTool);
 
   final ExifToolService _exifTool;
-  final ExifCoordinateExtractor _coordinateExtractor;
 
-  // ── Instrumentation ─────────────────────────────────────────────────────────
-  static int exiftoolCalls = 0;
-  static int exiftoolFiles = 0;
+  // ───────────────────── Instrumentation (per-process static) ─────────────────
+  static int exiftoolCalls = 0;            // number of exiftool invocations
+  static int exiftoolFiles = 0;            // files written via exiftool
+  static int nativeDateWrites = 0;         // native JPEG DateTime writes
+  static int nativeGpsWrites = 0;          // native JPEG GPS writes
+  static int nativeCombinedWrites = 0;     // native JPEG combined Date+GPS writes
+  static int exiftoolDateWrites = 0;       // exiftool DateTime-only writes
+  static int exiftoolGpsWrites = 0;        // exiftool GPS-only writes
+  static int exiftoolCombinedWrites = 0;   // exiftool combined Date+GPS writes
 
-  // Per-branch counts
-  static int nativeJpegDateWrites = 0;
-  static int nativeJpegGpsWrites = 0;
-  static int nativeCombinedWrites = 0;   // if you ever add native combined
-  static int exiftoolDateWrites = 0;
-  static int exiftoolGpsWrites = 0;
-  static int exiftoolCombinedWrites = 0;
+  static Duration nativeDateTimeDur = Duration.zero;
+  static Duration nativeGpsDur = Duration.zero;
+  static Duration nativeCombinedDur = Duration.zero;
+  static Duration exiftoolDateTimeDur = Duration.zero;
+  static Duration exiftoolGpsDur = Duration.zero;
+  static Duration exiftoolCombinedDur = Duration.zero;
 
-  // Timing (µs)
-  static int _tNativeDateUs = 0;
-  static int _tNativeGpsUs = 0;
-  static int _tNativeCombinedUs = 0;
-  static int _tExiftoolDateUs = 0;
-  static int _tExiftoolGpsUs = 0;
-  static int _tExiftoolCombinedUs = 0;
+  static String _fmtSec(final Duration d) =>
+      (d.inMilliseconds / 1000.0).toStringAsFixed(3) + 's';
 
-  static String _s(double seconds) => '${seconds.toStringAsFixed(3)}s';
-  static String _sec(int micros) => _s(micros / 1e6);
-
-  /// Print writer stats (seconds + split lines).
-  void dumpWriterStats({bool reset = true}) {
-    final callsLine =
-        '[WRITE-EXIF] calls=$exiftoolCalls, files=$exiftoolFiles';
-
-    final nativeLine =
-        '[WRITE-EXIF] native: dateWrites=$nativeJpegDateWrites, gpsWrites=$nativeJpegGpsWrites, '
-        'combined=$nativeCombinedWrites, dateTime=${_sec(_tNativeDateUs)}, gpsTime=${_sec(_tNativeGpsUs)}, combinedTime=${_sec(_tNativeCombinedUs)}';
-
-    final exiftoolLine =
-        '[WRITE-EXIF] exiftool: dateWrites=$exiftoolDateWrites, gpsWrites=$exiftoolGpsWrites, '
-        'combined=$exiftoolCombinedWrites, dateTime=${_sec(_tExiftoolDateUs)}, gpsTime=${_sec(_tExiftoolGpsUs)}, combinedTime=${_sec(_tExiftoolCombinedUs)}';
-
-    logInfo(callsLine, forcePrint: true);
-    logInfo(nativeLine, forcePrint: true);
-    logInfo(exiftoolLine, forcePrint: true);
-
+  /// Print instrumentation lines; reset counters optionally.
+  static void dumpWriterStats({bool reset = true, LoggerMixin? logger}) {
+    final lines = <String>[
+      '[WRITE-EXIF] calls=$exiftoolCalls, files=$exiftoolFiles',
+      '[WRITE-EXIF] native: '
+          'dateWrites=$nativeDateWrites, gpsWrites=$nativeGpsWrites, combined=$nativeCombinedWrites, '
+          'dateTime=${_fmtSec(nativeDateTimeDur)}, gpsTime=${_fmtSec(nativeGpsDur)}, combinedTime=${_fmtSec(nativeCombinedDur)}',
+      '[WRITE-EXIF] exiftool: '
+          'dateWrites=$exiftoolDateWrites, gpsWrites=$exiftoolGpsWrites, combined=$exiftoolCombinedWrites, '
+          'dateTime=${_fmtSec(exiftoolDateTimeDur)}, gpsTime=${_fmtSec(exiftoolGpsDur)}, combinedTime=${_fmtSec(exiftoolCombinedDur)}',
+    ];
+    for (final l in lines) {
+      if (logger != null) {
+        logger.logInfo(l, forcePrint: true);
+      } else {
+        // ignore: avoid_print
+        print(l);
+      }
+    }
     if (reset) {
       exiftoolCalls = 0;
       exiftoolFiles = 0;
-      nativeJpegDateWrites = 0;
-      nativeJpegGpsWrites = 0;
+      nativeDateWrites = 0;
+      nativeGpsWrites = 0;
       nativeCombinedWrites = 0;
       exiftoolDateWrites = 0;
       exiftoolGpsWrites = 0;
       exiftoolCombinedWrites = 0;
-      _tNativeDateUs = 0;
-      _tNativeGpsUs = 0;
-      _tNativeCombinedUs = 0;
-      _tExiftoolDateUs = 0;
-      _tExiftoolGpsUs = 0;
-      _tExiftoolCombinedUs = 0;
+      nativeDateTimeDur = Duration.zero;
+      nativeGpsDur = Duration.zero;
+      nativeCombinedDur = Duration.zero;
+      exiftoolDateTimeDur = Duration.zero;
+      exiftoolGpsDur = Duration.zero;
+      exiftoolCombinedDur = Duration.zero;
     }
   }
 
-  /// One-shot exiftool write (we infer the branch type from the tag set).
-  Future<bool> writeTagsWithExifTool(
-    File file,
-    Map<String, dynamic> tags,
-  ) async {
-    if (tags.isEmpty) return false;
+  // ─────────────────────────── Public helpers ────────────────────────────────
 
-    final hasDate = _hasDateKeys(tags);
-    final hasGps = _hasGpsKeys(tags);
+  /// Single-exec write for arbitrary tags (counts as one exiftool call).
+  Future<bool> writeTagsWithExifTool(final File file, final Map<String, dynamic> tags,
+      {bool countAsCombined = false, bool isDate = false, bool isGps = false}) async {
+    if (tags.isEmpty) return false;
 
     final sw = Stopwatch()..start();
     try {
@@ -93,344 +87,151 @@ class ExifWriterService with LoggerMixin {
       exiftoolCalls++;
       exiftoolFiles++;
 
-      if (hasDate && hasGps) {
+      if (countAsCombined) {
         exiftoolCombinedWrites++;
-      } else if (hasDate) {
-        exiftoolDateWrites++;
-      } else if (hasGps) {
-        exiftoolGpsWrites++;
+        exiftoolCombinedDur += sw.elapsed;
+      } else {
+        if (isDate) {
+          exiftoolDateWrites++;
+          exiftoolDateTimeDur += sw.elapsed;
+        }
+        if (isGps) {
+          exiftoolGpsWrites++;
+          exiftoolGpsDur += sw.elapsed;
+        }
       }
 
+      logDebug('Wrote ${tags.keys.toList()} via exiftool: ${file.path}');
       return true;
     } catch (e) {
       logError('Failed to write tags ${tags.keys.toList()} to ${file.path}: $e');
       return false;
-    } finally {
-      sw.stop();
-      if (hasDate && hasGps) {
-        _tExiftoolCombinedUs += sw.elapsedMicroseconds;
-      } else if (hasDate) {
-        _tExiftoolDateUs += sw.elapsedMicroseconds;
-      } else if (hasGps) {
-        _tExiftoolGpsUs += sw.elapsedMicroseconds;
-      }
     }
   }
 
-  /// Legacy API compatibility
-  Future<bool> writeExifData(
-    final File file,
-    final Map<String, dynamic> exifData,
-  ) async {
-    final hasDate = _hasDateKeys(exifData);
-    final hasGps = _hasGpsKeys(exifData);
+  /// Batch write: list of (file -> tags). Counts one exiftool call.
+  Future<void> writeBatchWithExifTool(
+      final List<MapEntry<File, Map<String, dynamic>>> batch) async {
+    if (batch.isEmpty) return;
     final sw = Stopwatch()..start();
-
     try {
-      await _exifTool.writeExifData(file, exifData);
+      await _exifTool.writeExifDataBatch(batch);
       exiftoolCalls++;
-      exiftoolFiles++;
-      if (hasDate && hasGps) {
-        exiftoolCombinedWrites++;
-      } else if (hasDate) {
-        exiftoolDateWrites++;
-      } else if (hasGps) {
-        exiftoolGpsWrites++;
+      exiftoolFiles += batch.length;
+
+      // Decide classification per entry
+      for (final entry in batch) {
+        final keys = entry.value.keys;
+        final hasDate = keys.any((k) =>
+            k == 'DateTimeOriginal' || k == 'DateTimeDigitized' || k == 'DateTime');
+        final hasGps = keys.any((k) =>
+            k == 'GPSLatitude' || k == 'GPSLongitude' || k == 'GPSLatitudeRef' || k == 'GPSLongitudeRef');
+
+        if (hasDate && hasGps) {
+          exiftoolCombinedWrites++;
+          exiftoolCombinedDur += sw.elapsed; // coarse: attribute whole batch time
+        } else if (hasDate) {
+          exiftoolDateWrites++;
+          exiftoolDateTimeDur += sw.elapsed;
+        } else if (hasGps) {
+          exiftoolGpsWrites++;
+          exiftoolGpsDur += sw.elapsed;
+        }
       }
+    } catch (e) {
+      logError('Batch exiftool write failed: $e');
+      rethrow;
+    }
+  }
+
+  // ─────────────────────── Native JPEG implementations ───────────────────────
+
+  /// Native JPEG DateTime write.
+  Future<bool> writeDateTimeNativeJpeg(
+      final File file, final DateTime dateTime) async {
+    final sw = Stopwatch()..start();
+    try {
+      final Uint8List orig = await file.readAsBytes();
+      final exif = decodeJpgExif(orig);
+      if (exif == null || exif.isEmpty) return false;
+
+      final fmt = DateFormat('yyyy:MM:dd HH:mm:ss');
+      final dt = fmt.format(dateTime);
+
+      exif.imageIfd['DateTime'] = dt;
+      exif.exifIfd['DateTimeOriginal'] = dt;
+      exif.exifIfd['DateTimeDigitized'] = dt;
+
+      final Uint8List? out = injectJpgExif(orig, exif);
+      if (out == null) return false;
+
+      await file.writeAsBytes(out);
+      nativeDateWrites++;
+      nativeDateTimeDur += sw.elapsed;
       return true;
     } catch (e) {
-      logError('Failed to write EXIF data to ${file.path}: $e');
+      logError('Native JPEG DateTime write failed for ${file.path}: $e');
       return false;
-    } finally {
-      sw.stop();
-      if (hasDate && hasGps) {
-        _tExiftoolCombinedUs += sw.elapsedMicroseconds;
-      } else if (hasDate) {
-        _tExiftoolDateUs += sw.elapsedMicroseconds;
-      } else if (hasGps) {
-        _tExiftoolGpsUs += sw.elapsedMicroseconds;
-      }
     }
   }
 
-  static bool _hasDateKeys(Map<String, dynamic> tags) =>
-      tags.containsKey('DateTimeOriginal') ||
-      tags.containsKey('DateTimeDigitized') ||
-      tags.containsKey('DateTime') ||
-      tags.containsKey('CreateDate');
+  /// Native JPEG GPS write.
+  Future<bool> writeGpsNativeJpeg(final File file, final DMSCoordinates coords) async {
+    final sw = Stopwatch()..start();
+    try {
+      final Uint8List orig = await file.readAsBytes();
+      final exif = decodeJpgExif(orig);
+      if (exif == null || exif.isEmpty) return false;
 
-  static bool _hasGpsKeys(Map<String, dynamic> tags) =>
-      tags.containsKey('GPSLatitude') ||
-      tags.containsKey('GPSLongitude') ||
-      tags.containsKey('GPSLatitudeRef') ||
-      tags.containsKey('GPSLongitudeRef');
+      exif.gpsIfd.gpsLatitude = coords.toDD().latitude;
+      exif.gpsIfd.gpsLongitude = coords.toDD().longitude;
+      exif.gpsIfd.gpsLatitudeRef = coords.latDirection.abbreviation;
+      exif.gpsIfd.gpsLongitudeRef = coords.longDirection.abbreviation;
 
-  /// Write DateTime (native for JPEG if possible; otherwise exiftool).
-  Future<bool> writeDateTimeToExif(
-    final DateTime dateTime,
-    final File file,
-    final GlobalConfigService globalConfig,
-  ) async {
-    final List<int> headerBytes = await file.openRead(0, 128).first;
-    final String? mimeTypeFromHeader =
-        lookupMimeType(file.path, headerBytes: headerBytes);
-    final String? mimeTypeFromExtension = lookupMimeType(file.path);
+      final Uint8List? out = injectJpgExif(orig, exif);
+      if (out == null) return false;
 
-    if (globalConfig.exifToolInstalled) {
-      // Native for JPEG first (fast)
-      if (mimeTypeFromHeader == 'image/jpeg') {
-        final sw = Stopwatch()..start();
-        final ok = await _noExifToolDateTimeWriter(
-          file,
-          dateTime,
-          mimeTypeFromHeader,
-          globalConfig,
-        );
-        sw.stop();
-        if (ok) {
-          nativeJpegDateWrites++;
-          _tNativeDateUs += sw.elapsedMicroseconds;
-          return true;
-        }
-      }
-
-      if (mimeTypeFromExtension != mimeTypeFromHeader &&
-          mimeTypeFromHeader != 'image/tiff') {
-        logError(
-          "DateWriter - File has a wrong extension indicating '$mimeTypeFromExtension' but actually it is '$mimeTypeFromHeader'. "
-          'ExifTool would fail on this file due to extension/content mismatch. Consider running GPTH with --fix-extensions.\n ${file.path}',
-        );
-        return false;
-      }
-
-      if (mimeTypeFromExtension == 'video/x-msvideo' ||
-          mimeTypeFromHeader == 'video/x-msvideo') {
-        logWarning(
-          '[Step 5/8] Skipping AVI file - ExifTool cannot write to RIFF AVI format: ${file.path}',
-        );
-        return false;
-      }
-
-      final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
-      final String dt = exifFormat.format(dateTime);
-      final sw = Stopwatch()..start();
-      try {
-        await _exifTool.writeExifData(file, {
-          'DateTimeOriginal': '"$dt"',
-          'DateTimeDigitized': '"$dt"',
-          'DateTime': '"$dt"',
-        });
-        exiftoolCalls++;
-        exiftoolFiles++;
-        exiftoolDateWrites++;
-        return true;
-      } catch (e) {
-        logError(
-          '[Step 5/8] DateTime $dt could not be written to EXIF: ${file.path}',
-        );
-        return false;
-      } finally {
-        sw.stop();
-        _tExiftoolDateUs += sw.elapsedMicroseconds;
-      }
-    } else {
-      final sw = Stopwatch()..start();
-      final ok = await _noExifToolDateTimeWriter(
-        file,
-        dateTime,
-        mimeTypeFromHeader,
-        globalConfig,
-      );
-      sw.stop();
-      if (ok) {
-        nativeJpegDateWrites++;
-        _tNativeDateUs += sw.elapsedMicroseconds;
-      }
-      return ok;
+      await file.writeAsBytes(out);
+      nativeGpsWrites++;
+      nativeGpsDur += sw.elapsed;
+      return true;
+    } catch (e) {
+      logError('Native JPEG GPS write failed for ${file.path}: $e');
+      return false;
     }
   }
 
-  /// Write GPS (native for JPEG if possible; otherwise exiftool).
-  Future<bool> writeGpsToExif(
-    final DMSCoordinates coordinates,
-    final File file,
-    final GlobalConfigService globalConfig,
-  ) async {
-    final List<int> headerBytes = await file.openRead(0, 128).first;
-    final String? mimeTypeFromHeader =
-        lookupMimeType(file.path, headerBytes: headerBytes);
+  /// Native JPEG combined write (Date+GPS) to minimize double encoding.
+  Future<bool> writeCombinedNativeJpeg(
+      final File file, final DateTime dateTime, final DMSCoordinates coords) async {
+    final sw = Stopwatch()..start();
+    try {
+      final Uint8List orig = await file.readAsBytes();
+      final exif = decodeJpgExif(orig);
+      if (exif == null || exif.isEmpty) return false;
 
-    if (globalConfig.exifToolInstalled) {
-      final String? mimeTypeFromExtension = lookupMimeType(file.path);
+      final fmt = DateFormat('yyyy:MM:dd HH:mm:ss');
+      final dt = fmt.format(dateTime);
 
-      if (mimeTypeFromHeader == 'image/jpeg') {
-        final sw = Stopwatch()..start();
-        final ok = await _noExifGPSWriter(
-          file,
-          coordinates,
-          mimeTypeFromHeader,
-          globalConfig,
-        );
-        sw.stop();
-        if (ok) {
-          nativeJpegGpsWrites++;
-          _tNativeGpsUs += sw.elapsedMicroseconds;
-          return true;
-        }
-      }
+      exif.imageIfd['DateTime'] = dt;
+      exif.exifIfd['DateTimeOriginal'] = dt;
+      exif.exifIfd['DateTimeDigitized'] = dt;
 
-      if (mimeTypeFromExtension != mimeTypeFromHeader) {
-        logError(
-          "GPSWriter - File has a wrong extension indicating '$mimeTypeFromExtension' but actually it is '$mimeTypeFromHeader'. "
-          'ExifTool would fail, skipping. You may want to run GPTH with --fix-extensions.\n ${file.path}',
-        );
-        return false;
-      }
+      exif.gpsIfd.gpsLatitude = coords.toDD().latitude;
+      exif.gpsIfd.gpsLongitude = coords.toDD().longitude;
+      exif.gpsIfd.gpsLatitudeRef = coords.latDirection.abbreviation;
+      exif.gpsIfd.gpsLongitudeRef = coords.longDirection.abbreviation;
 
-      if (mimeTypeFromExtension == 'video/x-msvideo' ||
-          mimeTypeFromHeader == 'video/x-msvideo') {
-        logWarning(
-          '[Step 5/8] Skipping AVI file - ExifTool cannot write to RIFF AVI format: ${file.path}',
-        );
-        return false;
-      }
+      final Uint8List? out = injectJpgExif(orig, exif);
+      if (out == null) return false;
 
-      final sw = Stopwatch()..start();
-      try {
-        await _exifTool.writeExifData(file, {
-          'GPSLatitude': coordinates.toDD().latitude.toString(),
-          'GPSLongitude': coordinates.toDD().longitude.toString(),
-          'GPSLatitudeRef': coordinates.latDirection.abbreviation.toString(),
-          'GPSLongitudeRef': coordinates.longDirection.abbreviation.toString(),
-        });
-        exiftoolCalls++;
-        exiftoolFiles++;
-        exiftoolGpsWrites++;
-        logInfo('[Step 5/8] New coordinates written to EXIF: ${file.path}');
-        return true;
-      } catch (e) {
-        logError(
-          '[Step 5/8] Coordinates ${coordinates.toString()} could not be written to EXIF: ${file.path}',
-        );
-        return false;
-      } finally {
-        sw.stop();
-        _tExiftoolGpsUs += sw.elapsedMicroseconds;
-      }
-    } else {
-      final sw = Stopwatch()..start();
-      final ok = await _noExifGPSWriter(
-        file,
-        coordinates,
-        mimeTypeFromHeader,
-        globalConfig,
-      );
-      sw.stop();
-      if (ok) {
-        nativeJpegGpsWrites++;
-        _tNativeGpsUs += sw.elapsedMicroseconds;
-      }
-      return ok;
+      await file.writeAsBytes(out);
+      nativeCombinedWrites++;
+      nativeCombinedDur += sw.elapsed;
+      return true;
+    } catch (e) {
+      logError('Native JPEG combined write failed for ${file.path}: $e');
+      return false;
     }
-  }
-
-  // ── Native JPEG implementations ─────────────────────────────────────────────
-
-  Future<bool> _noExifToolDateTimeWriter(
-    final File file,
-    final DateTime dateTime,
-    final String? mimeTypeFromHeader,
-    final GlobalConfigService globalConfig,
-  ) async {
-    final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
-    final String? mimeTypeFromExtension = lookupMimeType(file.path);
-
-    if (mimeTypeFromHeader == 'image/jpeg') {
-      if (mimeTypeFromHeader != mimeTypeFromExtension) {
-        logWarning(
-          "DateWriter - File has a wrong extension indicating '$mimeTypeFromExtension'"
-          " but actually it is '$mimeTypeFromHeader'. Will use native JPEG writer.\n ${file.path}",
-        );
-      }
-      ExifData? exifData;
-      final Uint8List origbytes = file.readAsBytesSync();
-      try {
-        exifData = decodeJpgExif(origbytes);
-      } catch (e) {
-        logError(
-          '[Step 5/8] Found DateTime in json, but missing in EXIF for file: ${file.path}. Failed to write because of error during decoding: $e',
-        );
-        return false;
-      }
-      if (exifData != null && !exifData.isEmpty) {
-        exifData.imageIfd['DateTime'] = exifFormat.format(dateTime);
-        exifData.exifIfd['DateTimeOriginal'] = exifFormat.format(dateTime);
-        exifData.exifIfd['DateTimeDigitized'] = exifFormat.format(dateTime);
-        final Uint8List? newbytes = injectJpgExif(origbytes, exifData);
-        if (newbytes != null) {
-          file.writeAsBytesSync(newbytes);
-          logInfo(
-            '[Step 5/8] New DateTime ${dateTime.toString()} written to EXIF (natively): ${file.path}',
-          );
-          return true;
-        }
-      }
-    }
-    if (!globalConfig.exifToolInstalled) {
-      logWarning(
-        '[Step 5/8] Found DateTime in json, but missing in EXIF. Writing to $mimeTypeFromHeader is not supported without exiftool.',
-      );
-    }
-    return false;
-  }
-
-  Future<bool> _noExifGPSWriter(
-    final File file,
-    final DMSCoordinates coordinates,
-    final String? mimeTypeFromHeader,
-    final GlobalConfigService globalConfig,
-  ) async {
-    if (mimeTypeFromHeader == 'image/jpeg') {
-      ExifData? exifData;
-      final Uint8List origbytes = file.readAsBytesSync();
-      try {
-        exifData = decodeJpgExif(origbytes);
-      } catch (e) {
-        logError(
-          '[Step 5/8] Found coordinates in json, but missing in EXIF for file: ${file.path}. Failed to write because of error during decoding: $e',
-        );
-        return false;
-      }
-      if (exifData != null && !exifData.isEmpty) {
-        try {
-          exifData.gpsIfd.gpsLatitude = coordinates.toDD().latitude;
-          exifData.gpsIfd.gpsLongitude = coordinates.toDD().longitude;
-          exifData.gpsIfd.gpsLatitudeRef =
-              coordinates.latDirection.abbreviation;
-          exifData.gpsIfd.gpsLongitudeRef =
-              coordinates.longDirection.abbreviation;
-
-          final Uint8List? newbytes = injectJpgExif(origbytes, exifData);
-          if (newbytes != null) {
-            file.writeAsBytesSync(newbytes);
-            logInfo(
-              '[Step 5/8] New coordinates written to EXIF (natively): ${file.path}',
-            );
-            return true;
-          }
-        } catch (e) {
-          logError(
-            '[Step 5/8] Error writing GPS coordinates to EXIF for file: ${file.path}. Error: $e',
-          );
-          return false;
-        }
-      }
-    }
-    if (!globalConfig.exifToolInstalled) {
-      logWarning(
-        '[Step 5/8] Found coordinates in json, but missing in EXIF. Writing to $mimeTypeFromHeader is not supported without exiftool.',
-      );
-    }
-    return false;
   }
 }
