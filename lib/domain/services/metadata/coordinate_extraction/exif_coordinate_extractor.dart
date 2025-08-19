@@ -12,7 +12,7 @@ import '../../../../shared/constants/exif_constants.dart';
 import '../../core/global_config_service.dart';
 import '../../core/logging_service.dart';
 
-/// GPS extractor with instrumentation.
+/// GPS extractor with instrumentation (time in seconds).
 class ExifCoordinateExtractor with LoggerMixin {
   ExifCoordinateExtractor(this.exiftool);
   final ExifToolService? exiftool;

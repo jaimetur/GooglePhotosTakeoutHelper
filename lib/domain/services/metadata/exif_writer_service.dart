@@ -4,10 +4,8 @@ import 'dart:typed_data';
 import 'package:coordinate_converter/coordinate_converter.dart';
 import 'package:image/image.dart';
 import 'package:intl/intl.dart';
-import 'package:mime/mime.dart';
 
 import '../../../infrastructure/exiftool_service.dart';
-import '../core/global_config_service.dart';
 import '../core/logging_service.dart';
 
 /// Service that writes EXIF data (fast native JPEG path + exiftool batching).
@@ -119,7 +117,7 @@ class ExifWriterService with LoggerMixin {
       exiftoolCalls++;
       exiftoolFiles += batch.length;
 
-      // Decide classification per entry
+      // Classify per entry (coarse attribution of batch time)
       for (final entry in batch) {
         final keys = entry.value.keys;
         final hasDate = keys.any((k) =>
@@ -129,7 +127,7 @@ class ExifWriterService with LoggerMixin {
 
         if (hasDate && hasGps) {
           exiftoolCombinedWrites++;
-          exiftoolCombinedDur += sw.elapsed; // coarse: attribute whole batch time
+          exiftoolCombinedDur += sw.elapsed;
         } else if (hasDate) {
           exiftoolDateWrites++;
           exiftoolDateTimeDur += sw.elapsed;
