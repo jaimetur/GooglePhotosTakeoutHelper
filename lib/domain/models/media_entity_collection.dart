@@ -51,9 +51,9 @@ class MediaEntityCollection with LoggerMixin {
     final extractorMethods = [
       DateTimeExtractionMethod.json,
       DateTimeExtractionMethod.exif,
-      DateTimeExtractionMethod.folderYear,
       DateTimeExtractionMethod.guess,
       DateTimeExtractionMethod.jsonTryHard,
+      DateTimeExtractionMethod.folderYear,
     ];
 
     final maxConcurrency = ConcurrencyManager().concurrencyFor(
