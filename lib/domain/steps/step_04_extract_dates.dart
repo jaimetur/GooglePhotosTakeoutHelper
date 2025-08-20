@@ -160,18 +160,13 @@ class ExtractDatesStep extends ProcessingStep {
         },
       );
 
-      // print('Date extraction completed:');
-      // for (final entry in extractionStats.entries) {
-      //   print('  ${entry.key.name}: ${entry.value} files');
-      // }
-
       print('Date extraction completed:');
       // Build a name->count map from your current entries
       final statsByName = <String, int>{
         for (final e in extractionStats.entries) e.key.name: e.value,
       };
       // Fixed order you want
-      const order = ['json', 'exif', 'folderYear', 'guess', 'jsonTryHard', 'none'];
+      const order = ['json', 'exif', 'guess', 'jsonTryHard', 'folderYear', 'none'];
       // Print all labels in that order, showing 0 if missing
       for (final k in order) {
         final v = statsByName[k] ?? 0;
