@@ -18,7 +18,7 @@ class GlobalConfigService {
   bool exifToolInstalled = false;
 
   /// Speeds up by avoiding costly ExifTool fallback when native claims support.
-  final bool fallbackToExifToolOnNativeMiss = true;
+  final bool fallbackToExifToolOnNativeMiss = false;
 
   /// Speeds up Step 5: skip the "already has date?" pre-check for non-JPEGs.
   /// If you need strict "skip if already has date", leave false.
