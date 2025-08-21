@@ -292,7 +292,7 @@ Future<ProcessingConfig> _buildConfigFromArgs(final ArgResults res) async {
   // Attempt to load the optional dates dictionary if provided
   if (res['fileDates'] != null) {
     final jsonPath = res['fileDates'] as String;
-    _logger.info('Attempting to load fileDates JSON from: $jsonPath');
+    print('Attempting to load fileDates JSON from: $jsonPath');
     try {
       final file = File(jsonPath);
       final jsonString = await file.readAsString();
@@ -303,12 +303,12 @@ Future<ProcessingConfig> _buildConfigFromArgs(final ArgResults res) async {
           parsed.map((k, v) => MapEntry(k, (v as Map).cast<String, dynamic>()));
 
       final dict = ServiceContainer.instance.globalConfig.fileDatesDictionary!;
-      _logger.info('Loaded ${dict.length} entries from $jsonPath');
+      print('Loaded ${dict.length} entries from $jsonPath');
 
       // Show a few sample keys to verify shapes quickly
       var shown = 0;
       for (final e in dict.entries) {
-        _logger.info('fileDates sample key: ${e.key}');
+        print('fileDates sample key: ${e.key}');
         shown++;
         if (shown >= 3) break;
       }
@@ -316,7 +316,7 @@ Future<ProcessingConfig> _buildConfigFromArgs(final ArgResults res) async {
       _logger.error('Failed to load fileDates JSON from "$jsonPath": $e');
     }
   } else {
-    _logger.info('No --fileDates provided. Continuing without external date dictionary.');
+    print('No --fileDates provided. Continuing without external date dictionary.');
   }
 
   // Build configuration using the builder pattern
