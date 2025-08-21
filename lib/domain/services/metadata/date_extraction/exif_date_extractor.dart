@@ -40,6 +40,10 @@ class ExifDateExtractor with LoggerMixin {
   static int _total = 0;                  // files attempted by this extractor
   static int _videoDirect = 0;            // direct exiftool route due to video/*
 
+  static int _dictTried = 0;              // tries of dictionary lookups
+  static int _dictHit = 0;                // found a valid date
+  static int _dictMiss = 0;               // not found or not valid date
+
   static int _nativeSupported = 0;        // files with a native-supported MIME
   static int _nativeUnsupported = 0;      // files routed to exiftool due to unsupported/unknown MIME
   static int _nativeHeadReads = 0;        // native fast head-only reads
@@ -56,6 +60,7 @@ class ExifDateExtractor with LoggerMixin {
 
   static int _nativeBytes = 0;            // total bytes read by native
 
+  static Duration _dictDuration = Duration.zero;
   static Duration _nativeDuration = Duration.zero;
   static Duration _exiftoolDuration = Duration.zero;
 
@@ -63,20 +68,23 @@ class ExifDateExtractor with LoggerMixin {
       (d.inMilliseconds / 1000.0).toStringAsFixed(3) + 's';
 
   static void dumpStats({final bool reset = false, final LoggerMixin? loggerMixin, final bool exiftoolFallbackEnabled = false}) {
-    final l1 = '[READ-EXIF] calls=$_total | videos=$_videoDirect | nativeSupported=$_nativeSupported | unsupported=$_nativeUnsupported | exiftoolFallbackEnabled=$exiftoolFallbackEnabled';
-    final l2 = '[READ-EXIF] native: tried=$_nativeTried, hit=$_nativeHit, miss=$_nativeMiss, headReads=$_nativeHeadReads, fullReads=$_nativeFullReads, time=${_fmtSec(_nativeDuration)}s, bytes=$_nativeBytes';
-    final l3 = '[READ-EXIF] exiftool: directTried=$_exiftoolDirectTried , directHit=$_exiftoolDirectHit, fallbackTried=$_exiftoolFallbackTried, fallbackHit=$_exiftoolFallbackHit, time=${_fmtSec(_exiftoolDuration)}s, errors=$_exiftoolFail';
+    final line_calls = '[READ-EXIF] calls=$_total | videos=$_videoDirect | nativeSupported=$_nativeSupported | unsupported=$_nativeUnsupported | exiftoolFallbackEnabled=$exiftoolFallbackEnabled';
+    final line_dict = '[READ-EXIF] ExternalDict: tried=$_dictTried, hit=$_dictHit, miss=$_dictMiss, time=${_fmtSec(_dictDuration)}';
+    final line_native = '[READ-EXIF] Native: tried=$_nativeTried, hit=$_nativeHit, miss=$_nativeMiss, headReads=$_nativeHeadReads, fullReads=$_nativeFullReads, time=${_fmtSec(_nativeDuration)}, bytes=$_nativeBytes';
+    final line_exiftool = '[READ-EXIF] Exiftool: directTried=$_exiftoolDirectTried , directHit=$_exiftoolDirectHit, fallbackTried=$_exiftoolFallbackTried, fallbackHit=$_exiftoolFallbackHit, time=${_fmtSec(_exiftoolDuration)}, errors=$_exiftoolFail';
 
     if (loggerMixin != null) {
-      loggerMixin.logInfo(l1, forcePrint: true);
-      loggerMixin.logInfo(l2, forcePrint: true);
-      loggerMixin.logInfo(l3, forcePrint: true);
+      loggerMixin.logInfo(line_calls, forcePrint: true);
+      loggerMixin.logInfo(line_dict, forcePrint: true);
+      loggerMixin.logInfo(line_native, forcePrint: true);
+      loggerMixin.logInfo(line_exiftool, forcePrint: true);
       loggerMixin.logInfo('', forcePrint: true);
     } else {
       // ignore: avoid_print
-      print(l1);
-      print(l2);
-      print(l3);
+      print(line_calls);
+      print(line_dict);
+      print(line_native);
+      print(line_exiftool);
       print('');
     }
 
@@ -87,15 +95,23 @@ class ExifDateExtractor with LoggerMixin {
       _nativeUnsupported = 0;
       _nativeHeadReads = 0;
       _nativeFullReads = 0;
+      _nativeBytes = 0;
+
+      _dictTried = 0;
+      _dictHit = 0;
+      _dictMiss = 0;
+
       _nativeTried = 0;
       _nativeHit = 0;
       _nativeMiss = 0;
+
       _exiftoolDirectTried = 0;
       _exiftoolDirectHit = 0;
       _exiftoolFallbackTried = 0;
       _exiftoolFallbackHit = 0;
       _exiftoolFail = 0;
-      _nativeBytes = 0;
+
+      _dictDuration = Duration.zero;
       _nativeDuration = Duration.zero;
       _exiftoolDuration = Duration.zero;
     }
@@ -112,12 +128,19 @@ class ExifDateExtractor with LoggerMixin {
 
     // 1) Optional dictionary lookup (Unix-style key). If valid, short-circuit.
     if (datesDict != null) {
+      _dictTried++;
+      final swDict = Stopwatch()..start();
       final DateTime? jsonDt = _lookupOldestDateFromDict(file, datesDict);
+      _dictDuration += swDict.elapsed;
+
       if (jsonDt != null) {
-        // Return as-is (already timezone-aware if string had Z/offset).
-        return jsonDt;
+        _dictHit++;
+        return jsonDt; // Return as-is (already timezone-aware if string had Z/offset).
+      } else {
+        _dictMiss++;
       }
     }
+
 
     // 2) Guard against large files only if dictionary did not resolve the date.
     if (await file.length() > defaultMaxFileSize &&
