@@ -43,6 +43,7 @@ class ExifDateExtractor with LoggerMixin {
   static int _dictTried = 0;              // tries of dictionary lookups
   static int _dictHit = 0;                // found a valid date
   static int _dictMiss = 0;               // not found or not valid date
+  static Duration _dictDuration = Duration.zero;
 
   static int _nativeSupported = 0;        // files with a native-supported MIME
   static int _nativeUnsupported = 0;      // files routed to exiftool due to unsupported/unknown MIME
@@ -60,12 +61,14 @@ class ExifDateExtractor with LoggerMixin {
 
   static int _nativeBytes = 0;            // total bytes read by native
 
-  static Duration _dictDuration = Duration.zero;
   static Duration _nativeDuration = Duration.zero;
   static Duration _exiftoolDuration = Duration.zero;
 
   static String _fmtSec(final Duration d) =>
       (d.inMilliseconds / 1000.0).toStringAsFixed(3) + 's';
+
+  // Cache of dictionary indices (one index per dictionary instance)
+  static final Map<Map<String, dynamic>, Map<String, Map<String, dynamic>>> _dictIndexCache = {};
 
   static void dumpStats({final bool reset = false, final LoggerMixin? loggerMixin, final bool exiftoolFallbackEnabled = false}) {
     final line_calls = '[READ-EXIF] calls=$_total | videos=$_videoDirect | nativeSupported=$_nativeSupported | unsupported=$_nativeUnsupported | exiftoolFallbackEnabled=$exiftoolFallbackEnabled';
@@ -91,16 +94,16 @@ class ExifDateExtractor with LoggerMixin {
     if (reset) {
       _total = 0;
       _videoDirect = 0;
-      _nativeSupported = 0;
-      _nativeUnsupported = 0;
-      _nativeHeadReads = 0;
-      _nativeFullReads = 0;
-      _nativeBytes = 0;
 
       _dictTried = 0;
       _dictHit = 0;
       _dictMiss = 0;
+      _dictDuration = Duration.zero;
 
+      _nativeSupported = 0;
+      _nativeUnsupported = 0;
+      _nativeHeadReads = 0;
+      _nativeFullReads = 0;
       _nativeTried = 0;
       _nativeHit = 0;
       _nativeMiss = 0;
@@ -111,14 +114,16 @@ class ExifDateExtractor with LoggerMixin {
       _exiftoolFallbackHit = 0;
       _exiftoolFail = 0;
 
-      _dictDuration = Duration.zero;
+      _nativeBytes = 0;
       _nativeDuration = Duration.zero;
       _exiftoolDuration = Duration.zero;
+
+      _dictIndexCache.clear();
     }
   }
 
   /// Extract DateTime from EXIF for [file] using native fast-path and optional fallback.
-  /// If [datesDict] is provided, it tries to read "OldestDate" from there first.
+  /// If [datesDict] is provided (or GlobalConfig has one), it tries to read "OldestDate" from there first.
   Future<DateTime?> exifDateTimeExtractor(
     final File file, {
     required final GlobalConfigService globalConfig,
@@ -126,21 +131,24 @@ class ExifDateExtractor with LoggerMixin {
   }) async {
     _total++;
 
+    // Prefer explicit dict, else use the one from global config if present.
+    final Map<String, dynamic>? effectiveDict =
+        datesDict ?? globalConfig.fileDatesDictionary;
+
     // 1) Optional dictionary lookup (Unix-style key). If valid, short-circuit.
-    if (datesDict != null) {
+    if (effectiveDict != null) {
       _dictTried++;
       final swDict = Stopwatch()..start();
-      final DateTime? jsonDt = _lookupOldestDateFromDict(file, datesDict);
+      final DateTime? jsonDt = _lookupOldestDateFromDict(file, effectiveDict);
       _dictDuration += swDict.elapsed;
 
       if (jsonDt != null) {
         _dictHit++;
-        return jsonDt; // Return as-is (already timezone-aware if string had Z/offset).
+        return jsonDt; // Already timezone-aware (we return UTC).
       } else {
         _dictMiss++;
       }
     }
-
 
     // 2) Guard against large files only if dictionary did not resolve the date.
     if (await file.length() > defaultMaxFileSize &&
@@ -243,35 +251,88 @@ class ExifDateExtractor with LoggerMixin {
     final Map<String, dynamic> dict,
   ) {
     try {
-      final String unixPath = file.path.replaceAll('\\', '/');
-      final dynamic entry = dict[unixPath];
+      final idx = _getOrBuildDictIndex(dict);
 
-      if (entry is! Map<String, dynamic>) {
-        // Not found or wrong type → continue normal flow.
-        return null;
-      }
-
-      final dynamic oldest = entry['OldestDate'];
-      if (oldest == null) return null;
-      if (oldest is! String || oldest.trim().isEmpty) return null;
-
-      // Prefer DateTime.parse for ISO8601 with offset/Z.
+      // Build candidate keys (all normalized to Unix paths).
+      final String p1 = file.path.replaceAll('\\', '/');
+      final String p2 = file.absolute.path.replaceAll('\\', '/');
+      String? p3;
       try {
-        final DateTime dt = DateTime.parse(oldest.trim()).toUtc();
-        if (_isInvalidOrSentinel(dt)) return null;
-        return dt;
+        p3 = File(file.path).resolveSymbolicLinksSync().replaceAll('\\', '/');
       } catch (_) {
-        // Fallback to robust parser if string is not strictly ISO.
-        final DateTime? p = _parseExifDateString(oldest.trim(), noOffsetPolicy: _NoOffsetPolicy.treatAsLocal);
-        if (p == null) return null;
-        final DateTime utc = p.toUtc();
-        if (_isInvalidOrSentinel(utc)) return null;
-        return utc;
+        // ignore if cannot resolve symlinks
       }
+
+      final candidates = <String>{
+        p1,
+        p2,
+        if (p3 != null && p3.isNotEmpty) p3,
+      };
+
+      for (final key in candidates) {
+        final Map<String, dynamic>? entry = idx[key];
+        if (entry == null) continue;
+
+        final dynamic oldest = entry['OldestDate'];
+        if (oldest == null) continue;
+        if (oldest is! String || oldest.trim().isEmpty) continue;
+
+        // Prefer DateTime.parse for ISO8601 with offset/Z.
+        try {
+          final DateTime dt = DateTime.parse(oldest.trim()).toUtc();
+          if (_isInvalidOrSentinel(dt)) continue;
+          return dt;
+        } catch (_) {
+          // Fallback to robust parser if string is not strictly ISO.
+          final DateTime? p = _parseExifDateString(oldest.trim(), noOffsetPolicy: _NoOffsetPolicy.treatAsLocal);
+          if (p == null) continue;
+          final DateTime utc = p.toUtc();
+          if (_isInvalidOrSentinel(utc)) continue;
+          return utc;
+        }
+      }
+
+      // Not found
+      return null;
     } catch (e) {
       logWarning('Failed to read from dates dictionary for "${file.path}": $e. Continuing with normal extraction.');
       return null;
     }
+  }
+
+  /// Build (or retrieve from cache) an index for quick lookups by path.
+  /// The index contains:
+  ///  - original top-level keys (normalized to Unix),
+  ///  - "TargetFile" values (normalized),
+  ///  - "SourceFile" values (normalized).
+  static Map<String, Map<String, dynamic>> _getOrBuildDictIndex(
+    final Map<String, dynamic> dict,
+  ) {
+    final cached = _dictIndexCache[dict];
+    if (cached != null) return cached;
+
+    final idx = <String, Map<String, dynamic>>{};
+
+    void _add(final String? k, final Map<String, dynamic> v) {
+      if (k == null || k.isEmpty) return;
+      idx[k.replaceAll('\\', '/')] = v;
+    }
+
+    dict.forEach((final String key, final dynamic val) {
+      if (val is Map<String, dynamic>) {
+        // original key
+        _add(key, val);
+
+        // also index by TargetFile/SourceFile if present
+        final tf = val['TargetFile'];
+        final sf = val['SourceFile'];
+        if (tf is String) _add(tf, val);
+        if (sf is String) _add(sf, val);
+      }
+    });
+
+    _dictIndexCache[dict] = idx;
+    return idx;
   }
 
   Future<DateTime?> _exifToolExtractor(final File file) async {
