@@ -305,13 +305,6 @@ Future<ProcessingConfig> _buildConfigFromArgs(final ArgResults res) async {
       final dict = ServiceContainer.instance.globalConfig.fileDatesDictionary!;
       print('Loaded ${dict.length} entries from $jsonPath');
 
-      // Show a few sample keys to verify shapes quickly
-      var shown = 0;
-      for (final e in dict.entries) {
-        print('fileDates sample key: ${e.key}');
-        shown++;
-        if (shown >= 3) break;
-      }
     } catch (e) {
       _logger.error('Failed to load fileDates JSON from "$jsonPath": $e');
     }
