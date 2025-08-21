@@ -1,6 +1,7 @@
 // ignore_for_file: unintended_html_in_doc_comment
 
 import 'dart:io';
+import 'dart:convert';
 
 import 'package:args/args.dart';
 import 'package:gpth/domain/main_pipeline.dart';
@@ -304,6 +305,10 @@ ArgParser _createArgumentParser() => ArgParser()
   ..addFlag(
     'divide-partner-shared',
     help: 'Move partner shared media to separate folder (PARTNER_SHARED)',
+  )
+  ..addOption(
+    'fileDates',
+    help: 'Path to a JSON file containing pre-extracted oldest dates for files',
   );
 
 /// **HELP TEXT DISPLAY**
@@ -377,6 +382,25 @@ Future<ProcessingConfig> _buildConfigFromArgs(final ArgResults res) async {
   // Set album behavior
   final albumBehavior = AlbumBehavior.fromString(res['albums']);
   configBuilder.albumBehavior = albumBehavior;
+
+  if (res['fileDates'] != null) {
+    final jsonPath = res['fileDates'] as String;
+    try {
+      final file = File(jsonPath);
+      final jsonString = await file.readAsString();
+      final Map<String, dynamic> parsed = jsonDecode(jsonString);
+
+      // Save in globalConfig to reuse everywhere
+      ServiceContainer.instance.globalConfig.fileDatesDictionary =
+          parsed.map((k, v) => MapEntry(k, v as Map<String, dynamic>));
+
+      _logger.info(
+        'Loaded ${ServiceContainer.instance.globalConfig.fileDatesDictionary!.length} entries from $jsonPath',
+      );
+    } catch (e) {
+      _logger.error('Failed to load fileDates JSON: $e');
+    }
+  }
 
   // Set extension fixing mode
   ExtensionFixingMode extensionFixingMode;

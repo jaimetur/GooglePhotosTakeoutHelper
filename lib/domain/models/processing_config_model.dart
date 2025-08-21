@@ -98,8 +98,17 @@ class ProcessingConfig {
       (final File f) => ExifDateExtractor(exifTool).exifDateTimeExtractor(
         f,
         globalConfig: ServiceContainer.instance.globalConfig,
+        datesDict: ServiceContainer.instance.globalConfig.fileDatesDictionary,
       ),
     );
+
+    // final exifTool = ServiceContainer.instance.exifTool;
+    // extractors.add(
+    //   (final File f) => ExifDateExtractor(exifTool).exifDateTimeExtractor(
+    //     f,
+    //     globalConfig: ServiceContainer.instance.globalConfig,
+    //   ),
+    // );
 
     if (guessFromName) {
       extractors.add(guessExtractor);

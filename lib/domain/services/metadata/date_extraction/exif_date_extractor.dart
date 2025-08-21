@@ -19,7 +19,17 @@ class _SmartReadResult {
   final bool usedHeadOnly;
 }
 
-/// Fast + instrumented EXIF Date extractor (4.2.2 behavior preserved).
+/// Policy for naive datetimes (no timezone info found).
+enum _NoOffsetPolicy {
+  /// Keep DateTime as local time when the string has no timezone info.
+  treatAsLocal,
+
+  /// Treat naive datetimes as UTC by appending 'Z' (UTC).
+  treatAsUtc,
+}
+
+/// Fast + instrumented EXIF Date extractor (4.2.2 behavior preserved),
+/// with robust, timezone-aware ExifTool parsing and optional dictionary lookup.
 class ExifDateExtractor with LoggerMixin {
   ExifDateExtractor(this.exiftool);
   final ExifToolService? exiftool;
@@ -92,13 +102,24 @@ class ExifDateExtractor with LoggerMixin {
   }
 
   /// Extract DateTime from EXIF for [file] using native fast-path and optional fallback.
+  /// If [datesDict] is provided, it tries to read "OldestDate" from there first.
   Future<DateTime?> exifDateTimeExtractor(
     final File file, {
     required final GlobalConfigService globalConfig,
+    final Map<String, dynamic>? datesDict,
   }) async {
     _total++;
 
-    // Guard against large files if configured
+    // 1) Optional dictionary lookup (Unix-style key). If valid, short-circuit.
+    if (datesDict != null) {
+      final DateTime? jsonDt = _lookupOldestDateFromDict(file, datesDict);
+      if (jsonDt != null) {
+        // Return as-is (already timezone-aware if string had Z/offset).
+        return jsonDt;
+      }
+    }
+
+    // 2) Guard against large files only if dictionary did not resolve the date.
     if (await file.length() > defaultMaxFileSize &&
         globalConfig.enforceMaxFileSize) {
       logError(
@@ -151,13 +172,9 @@ class ExifDateExtractor with LoggerMixin {
       _nativeMiss++;
 
       // Optional fallback to ExifTool when native misses
-      if (globalConfig.exifToolInstalled == true &&
-          globalConfig.fallbackToExifToolOnNativeMiss == true &&
-          exiftool != null) {
+      if (globalConfig.exifToolInstalled == true && globalConfig.fallbackToExifToolOnNativeMiss == true && exiftool != null) {
         _exiftoolFallbackTried++;
-        logWarning(
-          'Native exif_reader failed to extract DateTime from ${file.path} ($mimeType). Falling back to ExifTool.',
-        );
+        logWarning('Native exif_reader failed to extract DateTime from ${file.path} ($mimeType). Falling back to ExifTool.');
         final sw2 = Stopwatch()..start();
         result = await _exifToolExtractor(file);
         _exiftoolDuration += sw2.elapsed;
@@ -187,19 +204,51 @@ class ExifDateExtractor with LoggerMixin {
     }
 
     if (mimeType == 'image/jpeg') {
-      logWarning(
-        '${file.path} has a mimeType of $mimeType. However, could not read it with exif_reader. The file may be corrupt.',
-      );
+      logWarning('${file.path} has a mimeType of $mimeType. However, could not read it with exif_reader. The file may be corrupt.');
     } else if (globalConfig.exifToolInstalled == true) {
-      logError(
-        "$mimeType is an unusual mime type we can't handle natively. Please create an issue if you get this often.",
-      );
+      logError("$mimeType is an unusual mime type we can't handle natively. Please create an issue if you get this often.");
     } else {
-      logWarning(
-        'Reading exif from ${file.path} with mimeType $mimeType skipped. Reading from this kind of file is likely only supported with exiftool.',
-      );
+      logWarning('Reading exif from ${file.path} with mimeType $mimeType skipped. Reading from this kind of file is likely only supported with exiftool.');
     }
     return null;
+  }
+
+  /// Try to read "OldestDate" from a dictionary keyed by Unix-style paths.
+  /// Returns UTC DateTime if present and valid; otherwise null.
+  DateTime? _lookupOldestDateFromDict(
+    final File file,
+    final Map<String, dynamic> dict,
+  ) {
+    try {
+      final String unixPath = file.path.replaceAll('\\', '/');
+      final dynamic entry = dict[unixPath];
+
+      if (entry is! Map<String, dynamic>) {
+        // Not found or wrong type → continue normal flow.
+        return null;
+      }
+
+      final dynamic oldest = entry['OldestDate'];
+      if (oldest == null) return null;
+      if (oldest is! String || oldest.trim().isEmpty) return null;
+
+      // Prefer DateTime.parse for ISO8601 with offset/Z.
+      try {
+        final DateTime dt = DateTime.parse(oldest.trim()).toUtc();
+        if (_isInvalidOrSentinel(dt)) return null;
+        return dt;
+      } catch (_) {
+        // Fallback to robust parser if string is not strictly ISO.
+        final DateTime? p = _parseExifDateString(oldest.trim(), noOffsetPolicy: _NoOffsetPolicy.treatAsLocal);
+        if (p == null) return null;
+        final DateTime utc = p.toUtc();
+        if (_isInvalidOrSentinel(utc)) return null;
+        return utc;
+      }
+    } catch (e) {
+      logWarning('Failed to read from dates dictionary for "${file.path}": $e. Continuing with normal extraction.');
+      return null;
+    }
   }
 
   Future<DateTime?> _exifToolExtractor(final File file) async {
@@ -207,10 +256,11 @@ class ExifDateExtractor with LoggerMixin {
     try {
       final tags = await exiftool!.readExifData(file);
 
+      // Keys to probe; we will keep "earliest date wins" policy across them.
       final List<String> keys = [
         'DateTimeOriginal',
-        'CreateDate',
         'DateTime',
+        'CreateDate',
         'DateCreated',
         'CreationDate',
         'MediaCreateDate',
@@ -220,40 +270,47 @@ class ExifDateExtractor with LoggerMixin {
         'ModifyDate',
       ];
 
-      DateTime? best;
+      DateTime? bestUtc;
       for (final k in keys) {
-        final v = tags[k];
+        final dynamic v = tags[k];
         if (v == null) continue;
 
-        String s = v.toString();
-        if (s.startsWith('0000:00:00') || s.startsWith('0000-00-00')) continue;
-        s = s
-            .replaceAll('-', ':')
-            .replaceAll('/', ':')
-            .replaceAll('.', ':')
-            .replaceAll('\\', ':')
-            .replaceAll(': ', ':0')
-            .substring(0, math.min(s.length, 19))
-            .replaceFirst(':', '-')
-            .replaceFirst(':', '-');
-        final parsed = DateTime.tryParse(s);
-        if (parsed != null) {
-          if (best == null || parsed.isBefore(best)) best = parsed;
+        final String raw = v.toString().trim();
+        if (raw.isEmpty) continue;
+
+        // Fast reject for obvious bogus values
+        final lower = raw.toLowerCase();
+        if (lower.startsWith('0000:00:00') ||
+            lower.startsWith('0000-00-00') ||
+            lower.startsWith('0000/00/00')) {
+          continue;
+        }
+
+        // First try strict ISO8601 parser (handles Z/±HH:MM and converts to UTC).
+        DateTime? parsed;
+        try {
+          parsed = DateTime.parse(raw);
+        } catch (_) {
+          // Fallback to robust normalizer that preserves timezone.
+          parsed = _parseExifDateString(raw, noOffsetPolicy: _NoOffsetPolicy.treatAsLocal);
+        }
+
+        if (parsed == null) continue;
+
+        final DateTime pUtc = parsed.toUtc();
+        if (_isInvalidOrSentinel(pUtc)) continue;
+
+        if (bestUtc == null || pUtc.isBefore(bestUtc)) {
+          bestUtc = pUtc;
         }
       }
 
-      if (best == null) {
+      if (bestUtc == null) {
         logWarning('ExifTool did not return an acceptable DateTime for ${file.path}.');
         return null;
       }
 
-      if (best == DateTime.parse('2036-01-01T23:59:59.000000Z')) {
-        logWarning(
-          'Extracted DateTime before 1970 from EXIF for ${file.path}. Skipping.',
-        );
-        return null;
-      }
-      return best;
+      return bestUtc; // return UTC-aware value
     } catch (e) {
       logError('exiftool read failed: $e');
       return null;
@@ -336,5 +393,201 @@ class ExifDateExtractor with LoggerMixin {
       builder.add(chunk);
     }
     return _SmartReadResult(builder.takeBytes(), true);
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // Robust helpers for timezone-aware parsing and sentinel filtering
+  // ────────────────────────────────────────────────────────────────────────────
+
+  /// Returns true if the datetime is a known invalid/sentinel value to skip.
+  /// Compare in UTC to avoid local/UTC mismatches.
+  bool _isInvalidOrSentinel(DateTime dtUtc) {
+    // ExifTool sentinel for pre-1970
+    final DateTime sentinelUtc = DateTime.parse('2036-01-01T23:59:59Z');
+    if (dtUtc.isAtSameMomentAs(sentinelUtc)) return true;
+
+    // Discard weird lower bounds (paranoid guards)
+    if (dtUtc.year < 1901) return true;
+
+    // Some devices placeholder (HFS epoch)
+    if (dtUtc.year == 1904 && dtUtc.month == 1 && dtUtc.day == 1) return true;
+
+    // Exact Unix epoch start is often a placeholder when info is missing.
+    if (dtUtc.year == 1970 && dtUtc.month == 1 && dtUtc.day == 1 && dtUtc.hour == 0 && dtUtc.minute == 0 && dtUtc.second == 0) {
+      return true;
+    }
+    return false;
+  }
+
+  /// Parse a wide range of ExifTool datetime formats into a DateTime.
+  /// - Preserves timezone if present (Z or ±HH, ±HHMM, ±HH:MM).
+  /// - If no timezone info is present, applies [_NoOffsetPolicy.treatAsLocal].
+  /// Returns null if parsing fails or the value is clearly invalid.
+  DateTime? _parseExifDateString(
+    String raw, {
+    _NoOffsetPolicy noOffsetPolicy = _NoOffsetPolicy.treatAsLocal,
+  }) {
+    if (raw.isEmpty) return null;
+
+    // Quick invalid guards (common bogus values)
+    final String low = raw.toLowerCase();
+    if (low.startsWith('0000:00:00') ||
+        low.startsWith('0000-00-00') ||
+        low.startsWith('0000/00/00') ||
+        low.startsWith('0001') ||
+        low.startsWith('1899') ||
+        low.startsWith('1900-01-01') ||
+        low.startsWith('1900:01:01')) {
+      return null;
+    }
+
+    // Normalize whitespace
+    String s = raw.trim();
+
+    // If string is already ISO 8601, try fast path first.
+    try {
+      final dt = DateTime.parse(s);
+      return dt;
+    } catch (_) {
+      // continue to normalization
+    }
+
+    // Extract potential timezone suffix: Z, ±HH, ±HHMM, ±HH:MM
+    final tzMatch = RegExp(r'(Z|[+\-]\d{2}:\d{2}|[+\-]\d{4}|[+\-]\d{2})$')
+        .firstMatch(s.replaceAll(' ', ''));
+    String? tz = tzMatch?.group(1);
+
+    if (tz == null) {
+      final tzSpaceMatch = RegExp(r'(Z|[+\-]\d{2}:\d{2}|[+\-]\d{4}|[+\-]\d{2})$')
+          .firstMatch(s);
+      tz = tzSpaceMatch?.group(1);
+    }
+
+    // Remove the TZ from the core string temporarily (to normalize date/time cleanly)
+    String core = s;
+    if (tz != null && core.endsWith(tz)) {
+      core = core.substring(0, core.length - tz.length).trimRight();
+    }
+
+    // Replace 'T' with space to have a uniform separator between date and time
+    core = core.replaceFirst('T', ' ');
+
+    // Now split into date and time parts (time is optional)
+    final parts = core.split(RegExp(r'\s+'));
+    final String datePart = parts.isNotEmpty ? parts[0] : '';
+    final String timePart = parts.length > 1 ? parts.sublist(1).join(' ') : '';
+
+    if (datePart.isEmpty) return null;
+
+    // Normalize date: allow ':', '/', '.', '-', '\' as separators; allow single digits for M/D.
+    final dateNums = datePart
+        .replaceAll(RegExp(r'[\/\.\:\\-]'), '-')
+        .split('-')
+        .where((x) => x.trim().isNotEmpty)
+        .toList();
+
+    if (dateNums.length < 3) return null;
+
+    final String yRaw = dateNums[0];
+    final String mRaw = dateNums[1];
+    final String dRaw = dateNums[2];
+
+    if (yRaw.length < 4) return null; // need a 4-digit year
+
+    final int? year = int.tryParse(yRaw);
+    final int? month = int.tryParse(mRaw);
+    final int? day = int.tryParse(dRaw);
+
+    if (year == null || month == null || day == null) return null;
+    if (year < 1901) return null; // discard ultra-early/placeholder dates
+    if (month < 1 || month > 12) return null;
+    if (day < 1 || day > 31) return null;
+
+    final String yyyy = year.toString().padLeft(4, '0');
+    final String mm = month.toString().padLeft(2, '0');
+    final String dd = day.toString().padLeft(2, '0');
+
+    // Normalize time if present
+    String hh = '00', min = '00', ss = '00', fraction = '';
+    if (timePart.isNotEmpty) {
+      // Accept formats like "H", "H:M", "H:M:S", with separators ": / . -"
+      final t = timePart.replaceAll(RegExp(r'[\/\.\-]'), ':').trim();
+
+      // Extract hh:mm:ss(.fraction)?
+      final timeRe = RegExp(r'^(\d{1,2})(?::(\d{1,2}))?(?::(\d{1,2}))?(?:\.(\d+))?$');
+      final m = timeRe.firstMatch(t);
+      if (m != null) {
+        hh = (int.tryParse(m.group(1) ?? '0') ?? 0).toString().padLeft(2, '0');
+        min = (int.tryParse(m.group(2) ?? '0') ?? 0).toString().padLeft(2, '0');
+        ss = (int.tryParse(m.group(3) ?? '0') ?? 0).toString().padLeft(2, '0');
+        if (m.group(4) != null && m.group(4)!.isNotEmpty) {
+          // Keep up to 6 fractional digits to be safe for microseconds
+          fraction = '.' + m.group(4)!.substring(0, math.min(6, m.group(4)!.length));
+        }
+      } else {
+        // If time is present but not parseable, consider the whole value invalid.
+        return null;
+      }
+    }
+
+    // Canonicalize timezone string if present
+    String? tzIso;
+    if (tz != null) {
+      if (tz == 'Z') {
+        tzIso = 'Z';
+      } else {
+        // Normalize ±HH, ±HHMM, ±HH:MM to ±HH:MM
+        final tzClean = tz.replaceAll(' ', '');
+        final sign = tzClean.startsWith('-') ? '-' : '+';
+        final digits = tzClean.replaceAll(RegExp(r'[+\-:]'), '');
+        if (digits.length == 2) {
+          tzIso = '$sign${digits.padLeft(2, '0')}:00';
+        } else if (digits.length == 4) {
+          tzIso = '$sign${digits.substring(0, 2)}:${digits.substring(2, 4)}';
+        } else if (RegExp(r'^[+\-]\d{2}:\d{2}$').hasMatch(tzClean)) {
+          tzIso = tzClean;
+        } else {
+          // Unknown tz format; ignore it (safer than mis-parsing).
+          tzIso = null;
+        }
+      }
+    }
+
+    // If no timezone provided, apply policy (default: treat as local).
+    if (tzIso == null) {
+      switch (noOffsetPolicy) {
+        case _NoOffsetPolicy.treatAsLocal:
+          // Leave without TZ; DateTime.parse will treat it as local time.
+          break;
+        case _NoOffsetPolicy.treatAsUtc:
+          tzIso = 'Z';
+          break;
+      }
+    }
+
+    // Build ISO 8601 string
+    final iso = StringBuffer()
+      ..write(yyyy)
+      ..write('-')
+      ..write(mm)
+      ..write('-')
+      ..write(dd)
+      ..write('T')
+      ..write(hh)
+      ..write(':')
+      ..write(min)
+      ..write(':')
+      ..write(ss)
+      ..write(fraction);
+    if (tzIso != null) iso.write(tzIso);
+
+    final String isoStr = iso.toString();
+
+    try {
+      final dt = DateTime.parse(isoStr);
+      return dt;
+    } catch (_) {
+      return null;
+    }
   }
 }

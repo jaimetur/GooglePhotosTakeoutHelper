@@ -24,6 +24,8 @@ class GlobalConfigService {
   /// If you need strict "skip if already has date", leave false.
   final bool skipPrecheckForNonJpegInWriter = false;
 
+  /// DatesDictionary passed as argument (if ussed flag --fileDates)
+  Map<String, Map<String, dynamic>>? fileDatesDictionary;
 
   /// Initializes configuration from processing config
   void initializeFrom(final ProcessingConfig config) {
