@@ -135,6 +135,9 @@ class ExifDateExtractor with LoggerMixin {
     final Map<String, dynamic>? effectiveDict =
         datesDict ?? globalConfig.fileDatesDictionary;
 
+    print("DEBUG: datesDict is ${datesDict == null ? "null" : "non-null"} for ${file.path}");
+    print("DEBUG: datesDict is ${effectiveDict == null ? "null" : "non-null"} for ${file.path}");
+
     // 1) Optional dictionary lookup (Unix-style key). If valid, short-circuit.
     if (effectiveDict != null) {
       _dictTried++;
