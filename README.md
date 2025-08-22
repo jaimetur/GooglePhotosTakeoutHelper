@@ -7,9 +7,11 @@
 Transform your chaotic Google Photos Takeout into organized photo libraries with proper dates, albums, and metadata.
 
 ## Important Note
-I did my part but unfortunately I can't maintain this project anymore. I spend hours every day on it and the more tests I write, the more edge cases appear.
-It's quite complex under the hood. I am certain that we layed good groundwork for anyone who wants to extend on this functionality.
-I can only encourage to write e2e tests for different flag combinations. This will reveal some fundamental problems (e.g. with how special folders are handled). I attempted to fix this in the 4.0.6-development branch, but I just gave up due to the complexity. Everyone is welcome to fork the project and continue it. However, the last release here should be stable enough for the average user.
+I will only sporadically look at issues and pull requests and will only fix critical bugs.
+The last release here should be stable enough for the average user.
+There are some open issues with enhancements and I am always happy about pull requests.
+Issues which don't include enough information and don't follow the provided format will be closed and not addressed.
+The more info you provide me, the more likely I am to look at it and attempt to fix it/implement your feature.
 
 **Acknowledgment**: This project is based on the original work by [TheLastGimbus](https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper). We are grateful for their foundational contributions to the Google Photos Takeout ecosystem.
 
@@ -20,29 +22,29 @@ When you export photos from Google Photos using [Google Takeout](https://takeout
 - ✅ **Organizes photos chronologically** with correct dates
 - ✅ **Restores album structure** with multiple handling options
 - ✅ **Fixes timestamps** from JSON metadata and EXIF data
-- ✅ **Writes GPS coordinates and timestamps** back to media files
+- ✅ **Writes GPS coordinates and timestamps** back to media files (requires ExifTool for non-JPEG formats)
 - ✅ **Removes duplicates** automatically
 - ✅ **Handles special formats** (HEIC, Motion Photos, etc.)
+- ✅ **Fixes mismatches of file name and mime type** if google photos renamed e.g. a .heic to .jpeg (but mime type remains heic) we can fix this mismatch
 
-## Quick Start
+## Installation & Setup
 
-### 1. Get Your Photos from Google Takeout
+### 1. Download GPTH
 
-1. Go to [Google Takeout](https://takeout.google.com/)
-2. Deselect all, then select only **Google Photos**
-3. Download all ZIP files
+Download the latest executable from [releases](https://github.com/Xentraxx/GooglePhotosTakeoutHelper/releases)
 
-<img width="75%" alt="gpth usage image tutorial" src="https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/assets/40139196/8e85f58c-9958-466a-a176-51af85bb73dd">
+**Package Managers:**
+- **Arch Linux**: `yay -S gpth-bin` (Maintained by TheLastGimbus, so this does not work with my fork. Just kept it here in case he merges my fork into the original project)
 
-### 2. Extract and Merge
+**Building from Source:**
+```bash
+git clone https://github.com/Xentraxx/GooglePhotosTakeoutHelper.git
+cd GooglePhotosTakeoutHelper
+dart pub get
+dart compile exe bin/gpth.dart -o gpth
+```
 
-Unzip all files and merge them so you have one unified "Takeout" folder.
-
-<img width="75%" alt="Unzip image tutorial" src="https://user-images.githubusercontent.com/40139196/229361367-b9803ab9-2724-4ddf-9af5-4df507e02dfe.png">
-
-**⚠️ Keep the original ZIPs as backup!**
-
-### 3. Install Prerequisites
+### 2. Install Prerequisites
 
 **ExifTool** (required for metadata handling):
 
@@ -64,34 +66,71 @@ Unzip all files and merge them so you have one unified "Takeout" folder.
   ```
   - Or download from [exiftool.org](https://exiftool.org/) and place `exiftool` in PATH or same folder as `gpth`
 
-**Note**: If ExifTool is not found in PATH or the same directory as GPTH, the tool will fall back to basic EXIF reading with limited format support.
+**Note**: If ExifTool is not found in PATH or the same directory as GPTH, the tool will fall back to basic EXIF reading with limited format support. EXIF writing for non-JPEG formats requires ExifTool.
 
-### 4. Download and Run GPTH
+## Quick Start
 
-1. Download the latest executable from [releases](https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/releases)
-2. **Interactive Mode** (recommended for beginners):
-   - Windows: Double-click `gpth.exe`
-   - Mac/Linux: Run `./gpth-macos` or `./gpth-linux` in terminal
-3. Follow the prompts to select input/output folders and options
+### 1. Get Your Photos from Google Takeout
+
+1. Go to [Google Takeout](https://takeout.google.com/takeout/custom/photos)
+2. Deselect all, then select only **Google Photos**
+3. Download all ZIP files
+
+<img width="75%" alt="gpth usage image tutorial" src="https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/assets/40139196/8e85f58c-9958-466a-a176-51af85bb73dd">
+
+### 2. Choose Your Extraction Method
+
+GPTH now supports automatic extraction directly from ZIP files:
+
+#### Option A: Automatic ZIP Processing (Recommended)
+1. Keep your ZIP files from Google Takeout
+2. When running GPTH in interactive mode, select "Select ZIP files from Google Takeout"
+3. GPTH will automatically extract, merge, and process all files
+4. Original ZIP files are preserved; temporary extracted files are cleaned up automatically
+
+The automatic ZIP processing is recommended for most users as it:
+- Reduces manual work and potential errors
+- Ensures proper file merging across multiple ZIP files
+- Automatically cleans up temporary files
+
+The biggest downside is, that you need the processing power to extract on the device you run gpth. If this is an issue, choose manual extraction.
+
+#### Option B: Manual Extraction (Traditional)
+1. Unzip all files manually
+2. Merge them so you have one unified "Takeout" folder
+3. When running GPTH, select "Use already extracted folder"
+
+<img width="75%" alt="Unzip image tutorial" src="https://user-images.githubusercontent.com/40139196/229361367-b9803ab9-2724-4ddf-9af5-4df507e02dfe.png">
+
+**⚠️ Note that the files will be moved from the input folder during processing, so keep the original ZIPs as backup!**
+
+### 3. Run GPTH
+
+**Interactive Mode** (recommended for beginners):
+- Windows: Double-click `gpth.exe`
+- Mac/Linux: Run `./gpth-macos` or `./gpth-linux` in terminal
+
+Follow the prompts to select input/output folders and options
 
 ## Album Handling Options
 
 GPTH offers several ways to handle your Google Photos albums:
 
 ### 🔗 Shortcut (Recommended)
-**What it does:** Creates shortcuts/symlinks from album folders to files in `ALL_PHOTOS`. The original files are moved to `ALL_PHOTOS`, and shortcuts are created in album folders.
+**What it does:** Creates symbolic links from album folders to files in `ALL_PHOTOS`. The original files are moved to `ALL_PHOTOS`, and symlinks are created in album folders.
 
 **Advantages:**
 - Saves maximum disk space (no duplicate files)
 - Maintains album organization
 - Fast processing
+- Better compatibility with cloud services and file type detection
+- Works across all platforms (Windows, Mac, Linux)
 
 **Disadvantages:**
-- Shortcuts may break when moving folders between systems
-- Not all applications support shortcuts/symlinks
-- Windows shortcuts (.lnk files) don't work on Mac/Linux
+- Requires symbolic link support (most modern systems support this)
+- Some older applications may not follow symlinks properly
 
-**Best for:** Most users who want space efficiency and plan to keep photos on the same system.
+**Best for:** Most users who want space efficiency and better compatibility with modern applications and cloud services.
 
 ### 📁 Duplicate Copy
 **What it does:** Creates actual file copies in both `ALL_PHOTOS` and album folders. Each photo appears as a separate physical file in every location.
@@ -141,24 +180,24 @@ GPTH offers several ways to handle your Google Photos albums:
 **Best for:** Developers, users migrating to photo management software that can read JSON metadata, or those who don't care about visual album organization.
 
 ### ❌ Nothing
-**What it does:** Ignores albums entirely and creates only `ALL_PHOTOS` with files from year folders. Album-only files are included if they can be linked to year folders.
+**What it does:** Ignores albums entirely and creates only `ALL_PHOTOS` with all files organized chronologically. All files are moved to `ALL_PHOTOS` regardless of their source location.
 
 **Advantages:**
 - Simplest processing
 - Fastest execution
 - Clean, single-folder result
 - No complex album logic
+- No data loss - all files are moved
 
 **Disadvantages:**
 - Completely loses album organization
-- Some album-only photos might be skipped
 - No way to recover album information later
 
 **Best for:** Users who don't care about album organization and just want all photos in chronological order.
 
 ## Important Notes
 
-- **File Movement:** By default, GPTH moves (not copies) files to save space. Use `--copy` flag if you want to preserve the original takeout structure.
+- **File Movement:** GPTH moves files from the input to output directory to save space. Files are moved, not copied, which means the input directory structure will be modified as files are relocated.
 - **Album-Only Photos:** Some photos exist only in albums (not in year folders). GPTH handles these differently depending on the mode chosen.
 - **Duplicate Handling:** If a photo appears in multiple albums, the behavior varies by mode (shortcuts link to same file, duplicate-copy creates multiple copies, etc.).
 
@@ -174,7 +213,7 @@ gpth --input "/path/to/takeout" --output "/path/to/organized" --albums "shortcut
 
 | Argument | Description |
 |----------|-------------|
-| `--input`, `-i` | Input folder containing extracted Takeout |
+| `--input`, `-i` | Input folder containing extracted Takeout or your unextracted zip files |
 | `--output`, `-o` | Output folder for organized photos |
 | `--albums` | Album handling: `shortcut`, `duplicate-copy`, `reverse-shortcut`, `json`, `nothing` |
 | `--help`, `-h` | Show help and exit |
@@ -183,8 +222,8 @@ gpth --input "/path/to/takeout" --output "/path/to/organized" --albums "shortcut
 
 | Argument | Description |
 |----------|-------------|
-| `--divide-to-dates` | Folder structure: `0`=one folder, `1`=by year, `2`=year/month, `3`=year/month/day |
-| `--copy` | Copy files instead of moving (safer but uses more space) |
+| `--divide-to-dates` | Date-based folder structure for ALL_PHOTOS: `0`=one folder, `1`=by year, `2`=year/month, `3`=year/month/day (albums remain flattened) |
+| `--divide-partner-shared` | Separate partner shared media into a dedicated `PARTNER_SHARED` folder (works with date division) |
 | `--skip-extras` | Skip extra images like "-edited" versions |
 
 ### Metadata & Processing
@@ -192,11 +231,63 @@ gpth --input "/path/to/takeout" --output "/path/to/organized" --albums "shortcut
 | Argument | Description |
 |----------|-------------|
 | `--write-exif` | Write GPS coordinates and dates to EXIF metadata (enabled by default) |
-| `--modify-json` | Fix JSON files with "supplemental-metadata" suffix |
 | `--transform-pixel-mp` | Convert Pixel Motion Photos (.MP/.MV) to .mp4 |
 | `--guess-from-name` | Extract dates from filenames (enabled by default) |
 | `--update-creation-time` | Sync creation time with modified time (Windows only) |
 | `--limit-filesize` | Skip files larger than 64MB (for low-RAM systems) |
+
+### Extension Fixing Modes
+
+Google Photos has an option of 'data saving' which will compress images to JPEG format but retain the original filename extension. Additionally, some web-downloaded images may have incorrect extensions (e.g., a file named `.jpeg` may actually be `.heif` internally).
+
+GPTH natively writes EXIF data to files with JPEG signatures, while other formats require ExifTool. Files with mismatched extensions can cause ExifTool to fail, so GPTH provides several extension fixing strategies:
+
+| Mode | Description | Technical Details | When to Use |
+|------|-------------|-------------------|-------------|
+| `--fix-extensions=none` | **Disable extension fixing entirely** | Files keep their original extensions regardless of content type. EXIF writing may fail for mismatched files. | When you're certain all extensions are correct, or when you want to preserve original filenames at all costs. |
+| `--fix-extensions=standard` | **Default: Fix extensions but skip TIFF-based files** | Renames files where extension doesn't match MIME type, but avoids TIFF-based formats (like RAW files from cameras) which are often misidentified by MIME detection. | **Recommended for most users**. Balances safety with effectiveness. Good for typical Google Photos exports. |
+| `--fix-extensions=conservative` | **Skip both TIFF-based and JPEG files** | Most cautious approach - only fixes clearly incorrect extensions while avoiding both TIFF formats AND actual JPEG files to prevent any potential issues. | When you have valuable photos and want maximum safety, or when you've had issues with previous modes. |
+| `--fix-extensions=solo` | **Fix extensions then exit immediately** | Performs extension fixing as a standalone operation without running the full GPTH processing pipeline. Useful for preprocessing files before the main operation. | When you want to fix extensions first, then run GPTH again, or when integrating with other tools. |
+
+#### Why These Modes Exist
+
+**The TIFF Problem**: Many RAW camera formats (CR2, NEF, ARW, etc.) are based on the TIFF specification internally. Standard MIME type detection often identifies these as `image/tiff`, which could cause the tool to rename `photo.CR2` to `photo.CR2.tiff`, potentially breaking camera software compatibility.
+
+**The JPEG Complexity**: While JPEG files are generally safe to rename, the `conservative` mode provides an extra safety net for users who prefer minimal changes to their photo collections.
+
+**ExifTool Dependencies**: When extensions don't match content, ExifTool operations fail. The extension fixing resolves this by ensuring filenames accurately reflect file content, enabling proper metadata writing.
+
+**NOTE**: Some RAW formats are TIFF-based internally and contain TIFF headers - the extension fixing modes are designed to avoid incorrectly renaming these files.
+
+#### Practical Examples
+
+**Scenario 1: Google Photos Data Saver**
+- Original file: `vacation_sunset.heic` (HEIC format from iPhone)
+- Google Photos compresses it to JPEG but keeps name: `vacation_sunset.heic`
+- File header shows: JPEG, Extension suggests: HEIC
+- `standard` mode renames to: `vacation_sunset.heic.jpg`
+
+**Scenario 2: Camera RAW File**
+- Camera file: `DSC_0001.NEF` (Nikon RAW)
+- MIME detection might identify as: TIFF (since NEF is TIFF-based)
+- `standard` mode: **Skips** (protects RAW files)
+- `conservative` mode: **Skips** (protects RAW files)
+- `none` mode: **No change** (leaves as-is)
+
+**Scenario 3: Web Download**
+- Downloaded as: `image.png`
+- Actually contains: JPEG data
+- `standard` mode renames to: `image.png.jpg`
+- `conservative` mode: **Skips** (avoids touching JPEG content)
+
+You can configure extension fixing behavior with:
+
+| Argument                     | Description                                                   |
+|------------------------------|---------------------------------------------------------------|
+| `--fix-extensions=none`      | Disable extension fixing entirely |
+| `--fix-extensions=standard`  | **Default**: Fix extensions but skip TIFF-based files (like RAW formats) to avoid potential issues |
+| `--fix-extensions=conservative` | Fix extensions but skip both TIFF-based and JPEG files for maximum safety |
+| `--fix-extensions=solo`      | Fix extensions then exit immediately (standalone mode for preprocessing files) |
 
 ### Other Options
 
@@ -213,14 +304,19 @@ gpth --input "/path/to/takeout" --output "/path/to/organized" --albums "shortcut
 gpth --input "~/Takeout" --output "~/Photos" --albums "shortcut"
 ```
 
-**Copy files with year folders:**
+**Move files with year folders:**
 ```bash
-gpth --input "~/Takeout" --output "~/Photos" --copy --divide-to-dates 1
+gpth --input "~/Takeout" --output "~/Photos" --divide-to-dates 1
 ```
 
 **Full metadata processing:**
 ```bash
 gpth --input "~/Takeout" --output "~/Photos" --transform-pixel-mp --albums "duplicate-copy"
+```
+
+**Separate partner shared media with date organization:**
+```bash
+gpth --input "~/Takeout" --output "~/Photos" --divide-partner-shared --divide-to-dates 1
 ```
 
 **Fix dates in existing folder:**
@@ -236,6 +332,7 @@ GPTH uses multiple methods to determine correct photo dates:
 2. **EXIF data** from photo files
 3. **Filename patterns** (Screenshot_20190919-053857.jpg, etc.)
 4. **Aggressive matching** for difficult cases
+5. **Folder year extraction** (Photos from 2005 → January 1, 2005)
 
 ### 🔍 Duplicate Detection
 Removes identical files using content hashing, keeping the best copy (shortest filename, most metadata).
@@ -249,26 +346,22 @@ Extracts location data and timestamps from JSON files and writes them to media f
 - **Unicode filenames**: Properly handles international characters
 - **Large files**: Optional size limits for resource-constrained systems
 
+### 🤝 Partner Sharing Support
+Separates partner shared media from personal uploads for better organization:
+- **Automatic Detection**: Identifies partner shared photos from JSON metadata
+- **Separate Folders**: Moves partner shared media to `PARTNER_SHARED` folder
+- **Date Organization**: Applies same date division structure to partner shared content
+- **Album Compatibility**: Works with all album handling modes
+
+**Enable partner sharing separation:**
+```bash
+gpth --input "~/Takeout" --output "~/Photos" --divide-partner-shared
+```
+
 ### 📁 Flexible Organization
 - Multiple date-based folder structures
 - Preserve or reorganize album structure
-- Copy or move files (safety vs. efficiency)
-
-## Installation
-
-### Pre-built Binaries
-Download from [releases page](https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/releases)
-
-### Package Managers
-- **Arch Linux**: `yay -S gpth-bin`
-
-### Building from Source
-```bash
-git clone https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper.git
-cd GooglePhotosTakeoutHelper
-dart pub get
-dart compile exe bin/gpth.dart -o gpth
-```
+- Move files efficiently from input to organized output structure
 
 ## Troubleshooting
 
@@ -311,7 +404,7 @@ If GPTH saved you time and frustration, consider supporting development:
 ## Related Projects
 
 - **[Google Keep Exporter](https://github.com/vHanda/google-keep-exporter)**: Export Google Keep notes to Markdown
-- **[PhotoMigrator](https://github.com/jaimetur/PhotoMigrator)**: Uses GPTH 4.x.x which has been designed to Interact and Manage different Photos Cloud services, and allow users to do an Automatic Migration from one Photo Cloud service to other or from one account to a new account of the same Photo Cloud service.
+- **[PhotoMigrator](https://github.com/jaimetur/PhotoMigrator)**: Uses GPTH 4.x.x and has been designed to Interact and Manage different Photos Cloud services, and allow users to do an Automatic Migration from one Photo Cloud service to other or from one account to a new account of the same Photo Cloud service.
 
 ---
 

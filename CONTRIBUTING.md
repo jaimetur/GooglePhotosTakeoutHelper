@@ -91,19 +91,29 @@ By participating in this project, you agree to abide by our [Code of Conduct](CO
 
 ```
 lib/
-├── media.dart              # Core Media class and file handling
-├── grouping.dart          # Duplicate detection and grouping logic
-├── interactive.dart       # User interaction and CLI interface
-├── folder_classify.dart   # Album and folder type detection
-├── moving.dart           # File organization and moving logic
-├── extras.dart           # Edited file detection
-├── exiftoolInterface.dart # ExifTool integration
-├── utils.dart            # Utility functions
-└── date_extractors/      # Date extraction from various sources
-    ├── date_extractor.dart
-    ├── exif_extractor.dart
-    ├── guess_extractor.dart
-    └── json_extractor.dart
+├── domain/                # Core business logic and entities
+│   ├── entities/         # Core domain entities (MediaEntity, etc.)
+│   ├── models/           # Data models and DTOs
+│   ├── services/         # Business logic services
+│   ├── steps/            # Processing pipeline steps
+│   └── value_objects/    # Value objects and enums
+├── infrastructure/       # External service integrations
+│   ├── exiftool_service.dart
+│   ├── platform_service.dart
+│   └── windows_symlink_service.dart
+├── presentation/         # User interface and interaction
+│   └── interactive_presenter.dart
+└── shared/              # Shared utilities and constants
+    ├── constants/
+    ├── extensions/
+    └── exports.dart
+bin/
+└── gpth.dart            # Application entry point
+test/                    # Comprehensive test suite
+├── unit/               # Unit tests for individual components
+├── integration/        # Integration tests for service interactions
+├── e2e/               # End-to-end workflow tests
+└── setup/             # Test fixtures and utilities
 ```
 
 ## Development Workflow

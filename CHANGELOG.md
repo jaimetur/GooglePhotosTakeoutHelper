@@ -1,3 +1,366 @@
+## 4.3.0-Xentraxx
+
+### 🚀 **Improvements**
+- #### Step 4 (Extract Dates) & 5 (Write EXIF) Optimization
+  - ##### ⚡ Performance
+    - Step 4 (READ-EXIF) now support --fileDates flag to provide a JSON dictionar with the Extracted dates per file (PhotoMigrator creates this file and can now be used by GPTH Tool).
+    - Step 4 (READ-EXIF) now uses batch reads and a fast native mode, with ExifTool only as fallback → about 3x faster metadata extraction.  
+    - Step 5 (WRITE-EXIF) supports batch writes and argfile mode, plus native JPEG writers → up to 5x faster on large collections.
+  - ##### 🔧 API
+    - Added batch write methods in `ExifToolService`.  
+    - Updated `MediaEntityCollection` to use new helpers for counting written tags.
+  - ##### 📊 Logging
+    - Statistics are clearer: calls, hits, misses, fallback attempts, timings.  
+    - Date, GPS, and combined writes are reported separately.  
+    - Removed extra blank lines for cleaner output.
+  - ##### 🧪 Testing
+    - Extended mocks with batch support and error simulation.  
+    - Added tests for GPS writing, batch operations, and non-image handling.
+  - ##### ✅ Benefits
+    - Much faster EXIF processing with less ExifTool overhead.  
+    - More reliable and structured API.  
+    - Logging is easier to read and interpret.  
+    - Stronger test coverage across edge cases.  
+
+- #### Step 6 (Find Albums) Optimization
+  - ##### ⚡ Performance
+    - Replaced `_groupIdenticalMedia` with `_groupIdenticalMediaOptimized`.  
+      - Two-phase strategy:  
+        - First group by file **size** (cheap).  
+        - Only hash files that share the same size.  
+      - Switched from `readAsBytes()` (full memory load) to **streaming hashing** with `md5.bind(file.openRead())`.  
+      - Files are processed in **parallel batches** instead of sequentially.  
+      - Concurrency defaults to number of CPU cores, configurable via `maxConcurrent`.
+  - ##### 🔧 Implementation
+    - Added an in-memory **hash cache** keyed by `(path|size|mtime)` to avoid recalculating.  
+      - Introduced a custom **semaphore** to limit concurrent hashing and prevent I/O overload.  
+      - Errors are handled gracefully: unprocessable files go into dedicated groups without breaking the process.
+  - ##### ✅ Benefits
+    - Processing time reduced from **1m20s → 4s** on large collections.  
+      - Greatly reduced memory usage.  
+      - Scales better on multi-core systems.  
+      - More robust and fault-tolerant album detection.  
+
+
+## 4.1.1-Xentraxx
+
+### 🐛 **Bug Fixes**
+
+  - **changed exif tags to be utilized** - Before we used the following lists of tags in this exact order to find a date to set: 
+    - Exiftool reading: 'DateTimeOriginal', 'MediaCreateDate', 'CreationDate', 'TrackCreateDate', 'CreateDate', 'DateTimeDigitized', 'GPSDateStamp' and 'DateTime'.
+    - Native dart exif reading: 'Image DateTime', 'EXIF DateTimeOriginal', 'EXIF DateTimeDigitized'.
+  Some of those values are prone to deliver wrong dates (e.g. DateTimeDigitized) and the order did not completely make sense.
+  We therefore now read those tags and the the oldest DateTime we can find:
+    - Exiftool reading: 'DateTimeOriginal','DateTime','CreateDate','DateCreated','CreationDate','MediaCreateDate','TrackCreateDate','EncodedDate','MetadataDate','ModifyDate'.
+    - Native dart exif reading: same as above.
+  - **Fixed typo in partner sharing** - Functionality was fundamentally broken due to a typo.
+  - **Fixed small bug in interactive mode in the options of the limit filezise dialogue**
+  - **Fixed unzipping through command line by automatically detecting if input directory contains zip files**
+
+### 🚀 **Improvements**
+
+  - **Improved non-zero exit code quitting behaviour** - Now with nice descriptive error messages because I was tired of looking up what is responsible for a certain exit code.
+  - **Standardized concurrency & logging** - All parallel operations now obtain limits exclusively through `ConcurrencyManager` / `GlobalPools` (hashing, EXIF extraction/writing, duplicate detection, grouping, moving, file I/O). Added consistent one-time or operation-start log lines like `Starting N threads (<operation> concurrency)`; removed deprecated `maxConcurrency` parameters and legacy random placeholder logic from `ProcessingLimits`. Lightweight operations (e.g. disk space checks) intentionally left sequential to avoid overhead.
+
+## 4.1.0-Xentraxx - Bug Fixes and Performance Improvements
+
+### ✨ **New Features**
+
+- **Partner Sharing Support** - Added `--divide-partner-shared` flag to separate partner shared media from personal uploads into dedicated `PARTNER_SHARED` folder (Issue #56)
+  - Automatically detects partner shared photos from JSON metadata (`googlePhotosOrigin.fromPartnerSharing`)
+  - Creates separate folder structure while maintaining date division and album organization
+  - Works with all album handling modes (shortcut, duplicate-copy, reverse-shortcut, json, nothing)
+  - Preserves album relationships for partner shared media
+- **Added folder year date extraction strategy** - New fallback date extractor that extracts year from parent folder names like "Photos from 2005" when other extraction methods fail (Issue #28)
+- **Centralized concurrency management** - Introduced `ConcurrencyManager` for consistent concurrency calculations across all services, eliminating hardcoded multipliers scattered throughout the codebase
+- **Displaying version of Exiftool when found** - Instead of just displaying that Exif tool was found, we display the version now as well.
+
+### 🚀 **Performance Improvements**
+
+- **EXIF processing optimization** - Native `exif_reader` library integration for 15-40% performance improvement in EXIF data extraction
+  - Uses fast native library for supported formats (JPEG, TIFF, HEIC, PNG, WebP, AVIF, JXL, CR3, RAF, ARW, DNG, CRW, NEF, NRW)
+  - Automatic fallback to ExifTool for unsupported formats or when native extraction fails
+  - Centralized MIME type constants verified against actual library source code
+  - Improved error logging with GitHub issue reporting guidance when native extraction fails
+- **GPS coordinate extraction optimization** - Dedicated coordinate extraction service with native library support
+  - 15-40% performance improvement for GPS-heavy photo collections
+  - Clean architectural separation between date and coordinate extraction
+  - Centralized MIME type support across all EXIF processing operations
+- **Significantly increased parallelization** - Changed CPU concurrency multiplier from ×2 to ×8 for most operations, dramatically improving performance on multi-core systems
+- **Removed concurrency caps** - Eliminated `.clamp()` limits that were artificially restricting parallelization on high-core systems
+- **Platform-optimized concurrency**:
+  - **Linux**: Improved from `CPU cores + 1` to `CPU cores × 8` (massive improvement for Linux users)
+  - **macOS**: Improved from `CPU cores + 1` to `CPU cores × 6` 
+  - **Windows**: Maintained at `CPU cores × 8` (already optimized)
+- **Operation-specific concurrency tuning**:
+  - **Hash operations**: `CPU cores × 4` (balanced for CPU + I/O workload)
+  - **EXIF/Metadata**: `CPU cores × 6` (I/O optimized for modern SSDs)
+  - **Duplicate detection**: `CPU cores × 6` (memory intensive, conservative)
+  - **Network operations**: `CPU cores × 16` (high for I/O waiting)
+- **Adaptive concurrency scaling** - Dynamic performance-based concurrency adjustment that scales up to ×24 for high-performance scenarios
+
+### 🐛 **Bug Fixes**
+
+- **Fixed memory exhaustion during ZIP extraction** - Implemented streaming extraction to handle large ZIP files without running out of memory
+- **Fixed atomic file operations** - Changed to atomic file rename operations to resolve situations where only the json was renamed in file extension correction (Issue #60)
+- **Fixed album relationship processing** - Improved album relationship service to handle edge cases properly (Issue #61)
+- **Fixed interactive presenter display** - Corrected display issue in interactive mode (Issue #62)
+- **Fixed date division behavior for albums** - The `--divide-to-dates` flag now only applies to ALL_PHOTOS folder, leaving album folders flattened without date subfolders (Issue #55)
+- **Reaorganised ReadMe for a more intuitive structure** - First Installation, then prerequisites and then the quickstart.
+- **Step 8 now also uses a progress bar instead of simple print statements**
+- **Supressed some unnecessary ouput**
+
+## 4.0.9-Xentraxx - Major Architecture Refactor
+
+### 🛡️ **BREAKING CHANGE: Copy Mode Completely Removed**
+
+This release removes the `--copy` flag and all copy mode functionality to ensure **complete input directory safety** and eliminate data integrity issues.
+
+#### **Why This Change Was Made**
+- **Input Directory Protection**: Copy mode was modifying files in the input directory during extension fixing and filename sanitization, violating the principle of data safety
+- **Simplified Architecture**: Removes complex conditional logic that led to inconsistent behavior
+- **Clearer User Intent**: All operations now clearly move files from input to output, with no ambiguity
+- **Enhanced Reliability**: Eliminates edge cases where input files could be modified unexpectedly
+
+#### **Breaking Changes**
+- **❌ Removed**: `--copy` command line flag
+- **❌ Removed**: `copyMode` from all configuration APIs
+- **❌ Removed**: Copy-related conditional logic throughout codebase
+- **✅ New Behavior**: All files are **always moved** from input to output directory
+
+#### **Migration Guide**
+- **Before**: `gpth --input source --output dest --copy`
+- **After**: `gpth --input source --output dest` (copy flag no longer needed or supported)
+- **Result**: Files will be moved (not copied) from source to destination
+- **Behavior**: Files are relocated from input to output directory with metadata processing applied
+
+#### **Technical Implementation**
+- **FileOperationService**: Simplified to move-only operations with cross-device copy+delete fallback
+- **Moving Strategies**: All strategies now use consistent move semantics
+- **Album Strategies**: Duplicate copy strategy still creates copies in album folders when needed
+- **Configuration System**: Streamlined without copy mode complexity
+
+#### **Benefits**
+- **⚡ Better Performance**: Simplified logic reduces overhead
+- **🧹 Cleaner Codebase**: Removed 400+ lines of conditional copy logic
+- **🎯 Clearer Semantics**: Move operations are explicit and predictable
+
+### 🛡️ **BREAKING CHANGE: fix extension flag renamed**
+
+- **Consolidated extension fixing flags** into unified `--fix-extensions=<mode>` option
+  - **Before**: `--fix-extensions`, `--fix-extensions-non-jpeg`, `--fix-extensions-solo-mode`
+  - **After**: `--fix-extensions=<mode>` with `none`, `standard`, `conservative`, `solo` modes
+
+### 🏗️ **Complete Architecture Overhaul**
+
+This release represents a fundamental restructuring of the codebase following **Clean Architecture** principles, providing better maintainability, testability, and performance.
+
+#### **Tl;dr**
+
+- fix extenstion flag changed to `--fix-extensions=<mode>`
+- Improved performance.
+- **CRITICAL FIX**: Nothing mode now processes ALL files, preventing data loss in move mode
+
+#### **Critical Bug Fixes**
+- **🚨 FIXED: Data loss in Nothing mode** - Album-only files are now properly moved in Nothing mode instead of being silently skipped, preventing potential data loss when using move mode with `--album-behavior=nothing`
+
+#### **Domain-Driven Design Implementation**
+- **Reorganized codebase into distinct layers**: Domain, Infrastructure, and Presentation
+- **Introduced service-oriented architecture** with dependency injection container
+- **Implemented immutable domain entities** for better data integrity and performance
+- **Added comprehensive test coverage** with over 200+ unit and integration tests
+
+#### **Service Consolidation & Modernization**
+- **Unified service interfaces** through consolidated service pattern
+- **Implemented ServiceContainer** for centralized dependency management
+- **Refactored moving logic** into strategy pattern with pluggable implementations
+- **Enhanced error handling** with proper exception hierarchies and logging
+
+### 🚀 **Performance & Reliability Improvements**
+
+#### **Async Processing Architecture**
+- **Stream-based file I/O operations** replacing synchronous access
+- **Persistent ExifTool process** management (10-50x faster EXIF operations)
+- **Concurrent media processing** with race condition protection
+- **Memory optimization** - up to 99.4% reduction for large file operations
+
+#### **Advanced File Operations**
+- **Streaming hash calculations** (20% faster with reduced memory usage)
+- **Optimized directory scanning** (50% fewer I/O operations)
+- **Parallel file moving operations** (40-50% performance improvement)
+- **Smart duplicate detection** with memory-efficient algorithms
+- **Native Win32 creation time updates** - Replaced PowerShell with direct Win32 FFI calls (10-100x faster)
+
+#### **Intelligent Extension Correction**
+- **MIME type validation** with file header detection
+- **RAW format protection** - prevents corruption of TIFF-based files
+- **Comprehensive safety modes** for different use cases
+- **JSON metadata synchronization** after extension fixes
+
+### 📁 **Modern File Management**
+
+#### **Strategy Pattern Implementation**
+- **Pluggable moving strategies**: Nothing, Copy, Shortcut, Reverse Shortcut
+- **Context-aware path generation** with date-based organization
+- **Atomic file operations** with rollback capabilities
+- **Smart collision handling** with unique filename generation
+
+#### **Cross-Platform Improvements**
+- **Platform-specific optimizations** for Windows, macOS, and Linux
+- **Enhanced shortcut creation** bypassing PowerShell on Windows
+- **Unified disk space management** across all platforms
+- **Improved encoding handling** for international filenames
+
+### 🧪 **Testing & Quality Assurance**
+
+#### **Comprehensive Test Suite**
+- **200+ automated tests** covering unit, integration, and end-to-end scenarios
+- **Mock service infrastructure** for reliable testing
+- **Performance regression testing** with benchmarks
+- **Cross-platform validation** across all supported systems
+
+#### **Code Quality Improvements**
+- **Comprehensive documentation** with detailed function descriptions
+- **Lint rule enforcement** following Dart best practices
+- **Type safety enhancements** with null safety
+- **Error logging standardization** with structured log levels
+
+### 🔄 **Processing Pipeline Modernization**
+
+#### **Eight-Step Pipeline Architecture**
+1. **Extension Fixing** - Intelligent MIME type correction
+2. **Media Discovery** - Optimized file system scanning
+3. **Duplicate Removal** - Content-based deduplication
+4. **Date Extraction** - Multi-source timestamp resolution
+5. **EXIF Writing** - Metadata synchronization
+6. **Album Detection** - Smart folder classification
+7. **File Moving** - Strategy-based organization
+8. **Creation Time Updates** - Final timestamp alignment
+
+#### **Enhanced Data Processing**
+- **MediaEntity immutable models** for thread-safe operations
+- **Coordinate processing** with validation and conversion
+- **JSON metadata matching** with truncated filename support
+- **Album relationship management** with shortcut strategies
+
+### 🛠️ **Infrastructure Enhancements**
+
+#### **External Tool Integration**
+- **Persistent ExifTool management** with automatic discovery
+- **Platform service abstraction** for system-specific operations
+- **Disk space monitoring** with real-time calculations
+- **Process lifecycle management** with proper cleanup
+
+#### **Interactive User Experience**
+- **Consolidated interactive services** with improved prompts
+- **Real-time progress reporting** for long-running operations
+- **Enhanced error messages** with actionable guidance
+- **ZIP extraction restoration** with security improvements
+
+### 📋 **Configuration & Usability**
+
+#### **Streamlined Configuration**
+- **Unified command-line interface** with consistent flag patterns
+- **Interactive configuration validation** with user guidance
+- **Global configuration service** with centralized settings
+- **Backward compatibility** for existing workflows
+
+#### **Bug Fixes & Stability**
+- **Race condition elimination** in concurrent operations
+- **JSON file matching improvements** for truncated names
+- **Memory leak prevention** in long-running processes
+- **Cross-platform filename handling** improvements
+
+## 4.0.8-Xentraxx
+
+### Interactive ZIP File Extraction Restored
+
+#### Major Feature Restoration
+- **Restored interactive ZIP file extraction functionality** that was previously deprecated due to photo loss issues
+- Added comprehensive security measures to prevent data loss and security vulnerabilities
+- Implemented user-friendly choice between automatic ZIP extraction or using pre-extracted directories
+
+#### New Interactive ZIP Features
+- **`askIfUnzip()` function**: Provides users with clear options for handling Google Takeout data:
+  - Option 1: Select ZIP files for automatic extraction (Recommended)
+  - Option 2: Use already extracted directory
+- **Enhanced `getZips()` function**: Improved file picker with better validation and user feedback
+- **Secure `unzip()` function**: Comprehensive ZIP extraction with multiple safety layers
+
+#### Security and Safety Improvements
+- **ZIP Slip Protection**: Prevents malicious ZIP files from extracting outside the target directory
+- **Cross-platform filename sanitization**: Handles encoding issues and invalid characters safely
+- **Comprehensive error handling**: User-friendly error messages with actionable guidance
+- **File integrity validation**: Verifies ZIP files before extraction
+- **Progress reporting**: Real-time feedback during extraction process
+
+#### Technical Enhancements
+- **`_extractZipSafely()` helper**: Internal function with security checks and encoding handling
+- **`_sanitizeFileName()` helper**: Cross-platform filename normalization and safety checks
+- **`_handleExtractionError()` helper**: Context-specific error handling with detailed guidance
+- **`SecurityException` class**: Custom exception for handling security-related extraction issues
+
+#### Workflow Integration
+- Seamlessly integrated into interactive mode with clear user prompts
+
+### Extension Fixing Feature
+
+- Added comprehensive file extension correction functionality to handle mismatched MIME types and extensions
+- Added three CLI flags for different extension fixing behaviors:
+  - `--fix-extensions`: Fixes incorrect extensions except for TIFF-based files (e.g., RAW formats)
+  - `--fix-extensions-non-jpeg`: More conservative mode that also skips actual JPEG files  
+  - `--fix-extensions-solo-mode`: Standalone mode that fixes extensions and exits without further processing
+- Added interactive prompts for extension fixing configuration with three options for user convenience
+- Enhanced EXIF writing error messages to suggest using `--fix-extensions` when extension/MIME type mismatches are detected
+- Added comprehensive test coverage for extension fixing functionality including edge cases
+
+### JSON File Matching Improvements
+
+- Added support for removing partial extra format suffixes from truncated filenames (issue #29)
+- Enhanced JSON file matching for media files with filename truncation due to filesystem limits
+- Added `removePartialExtraFormats` function to handle cases where suffixes like "-ed" need to be removed to match corresponding JSON files
+- Improved date extraction reliability for files with truncated names ending in partial extra format patterns
+
+#### Technical Details
+
+When filenames are truncated due to filesystem character limits, partial suffixes (e.g., "-ed" from "-edited") can prevent proper JSON file matching for date extraction. The new functionality identifies and removes these partial patterns, allowing the JSON extractor to find corresponding metadata files and extract accurate photo dates.
+
+### Bug Fixes and Improvements
+
+- Fixed EXIF writing to properly handle files with incorrect extensions by detecting MIME type mismatches
+- Improved error logging with more informative messages about extension/MIME type conflicts
+- Updated statistics reporting to include count of fixed file extensions
+- Enhanced interactive mode with better user guidance for extension fixing options
+
+### Technical Details
+
+The extension fixing feature addresses a common issue where Google Photos' "data saving" option compresses images to JPEG format but retains original file extensions, or where web-downloaded images have incorrect extensions. The tool now:
+
+1. Reads file headers to detect actual MIME type
+2. Compares with extension-based MIME type detection
+3. Skips TIFF-based files (like RAW formats) as they're often misidentified
+4. Renames files with correct extensions and updates associated JSON metadata files
+5. Provides detailed logging of the fixing process
+
+The feature integrates seamlessly with the existing EXIF writing workflow, ensuring metadata can be properly written to files after extension correction.
+
+## 4.0.7-Xentraxx
+
+### Fork/Alternate version
+
+#### Bug fixes
+
+- Simplified year folder detection logic to strictly match "Photos from YYYY" format
+- Updated folder classification tests to align with more restrictive year folder recognition
+- Fixed test failures related to year folder pattern matching
+
+#### General improvements
+
+- Enhanced test coverage for folder classification functionality
+- Improved test documentation and organization
+- Strengthened year folder validation to prevent false positives
+- Removed --modify-json flag from wachees fork due to issues.
+
 ## 4.0.5-wacheee-xentraxx-beta
 
 ### Fork/Alternate version
@@ -393,3 +756,5 @@ You get **_🔥FOUR🔥_** different options on how you want your albums 😱 - 
 - `--skip-extras-harder` is missing for now
 - `--divide-to-dates` is missing for now
 - End-to-end tests are gone, but they're not as required since we have a lod of Units instead 👍
+
+</details>

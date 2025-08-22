@@ -20,7 +20,6 @@ jobs:
       - uses: dart-lang/setup-dart@v1.7.1
         with:
           sdk: ${{ matrix.sdk }}
-
       - name: Install exiftool (Linux)
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y exiftool
@@ -46,3 +45,14 @@ jobs:
       - name: Verify formatting
         run: dart format --output=none --set-exit-if-changed .
       - run: dart analyze --fatal-infos
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Secret Scanning
+        uses: trufflesecurity/trufflehog@main
+        with:
+          extra_args: --results=verified,unknown
