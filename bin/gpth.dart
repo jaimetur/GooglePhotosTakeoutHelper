@@ -125,11 +125,11 @@ Future<void> main(final List<String> arguments) async {
     // Reinitialize ServiceContainer with the properly configured logger
     await ServiceContainer.instance.initialize(loggingService: _logger);
 
-    // Load optional fileDates dictionary AFTER the second initialize
-    await _loadFileDatesIntoGlobalConfigFromArgs(parsedArguments);
-
     // Configure dependencies with the parsed config
     await _configureDependencies(config);
+
+    // Load optional fileDates dictionary AFTER the second initialize
+    await _loadFileDatesIntoGlobalConfigFromArgs(parsedArguments);
 
     // Execute the processing pipeline
     final result = await _executeProcessing(config);
