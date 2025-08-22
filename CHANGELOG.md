@@ -1,6 +1,5 @@
 ## 4.3.0-Xentraxx
 
-
 ### 🚀 **Improvements**
 - #### Step 4 (Extract Dates) & 5 (Write EXIF) Optimization
   - ##### ⚡ Performance
