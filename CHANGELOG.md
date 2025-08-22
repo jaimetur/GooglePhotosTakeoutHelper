@@ -1,3 +1,48 @@
+## 4.3.0-Xentraxx
+
+
+### 🚀 **Improvements**
+- #### Step 4 (Extract Dates) & 5 (Write EXIF) Optimization
+  - ##### ⚡ Performance
+    - Step 4 (READ-EXIF) now support --fileDates flag to provide a JSON dictionar with the Extracted dates per file (PhotoMigrator creates this file and can now be used by GPTH Tool).
+    - Step 4 (READ-EXIF) now uses batch reads and a fast native mode, with ExifTool only as fallback → about 3x faster metadata extraction.  
+    - Step 5 (WRITE-EXIF) supports batch writes and argfile mode, plus native JPEG writers → up to 5x faster on large collections.
+  - ##### 🔧 API
+    - Added batch write methods in `ExifToolService`.  
+    - Updated `MediaEntityCollection` to use new helpers for counting written tags.
+  - ##### 📊 Logging
+    - Statistics are clearer: calls, hits, misses, fallback attempts, timings.  
+    - Date, GPS, and combined writes are reported separately.  
+    - Removed extra blank lines for cleaner output.
+  - ##### 🧪 Testing
+    - Extended mocks with batch support and error simulation.  
+    - Added tests for GPS writing, batch operations, and non-image handling.
+  - ##### ✅ Benefits
+    - Much faster EXIF processing with less ExifTool overhead.  
+    - More reliable and structured API.  
+    - Logging is easier to read and interpret.  
+    - Stronger test coverage across edge cases.  
+
+- #### Step 6 (Find Albums) Optimization
+  - ##### ⚡ Performance
+    - Replaced `_groupIdenticalMedia` with `_groupIdenticalMediaOptimized`.  
+      - Two-phase strategy:  
+        - First group by file **size** (cheap).  
+        - Only hash files that share the same size.  
+      - Switched from `readAsBytes()` (full memory load) to **streaming hashing** with `md5.bind(file.openRead())`.  
+      - Files are processed in **parallel batches** instead of sequentially.  
+      - Concurrency defaults to number of CPU cores, configurable via `maxConcurrent`.
+  - ##### 🔧 Implementation
+    - Added an in-memory **hash cache** keyed by `(path|size|mtime)` to avoid recalculating.  
+      - Introduced a custom **semaphore** to limit concurrent hashing and prevent I/O overload.  
+      - Errors are handled gracefully: unprocessable files go into dedicated groups without breaking the process.
+  - ##### ✅ Benefits
+    - Processing time reduced from **1m20s → 4s** on large collections.  
+      - Greatly reduced memory usage.  
+      - Scales better on multi-core systems.  
+      - More robust and fault-tolerant album detection.  
+
+
 ## 4.1.1-Xentraxx
 
 ### 🐛 **Bug Fixes**
@@ -712,3 +757,5 @@ You get **_🔥FOUR🔥_** different options on how you want your albums 😱 - 
 - `--skip-extras-harder` is missing for now
 - `--divide-to-dates` is missing for now
 - End-to-end tests are gone, but they're not as required since we have a lod of Units instead 👍
+
+</details>
