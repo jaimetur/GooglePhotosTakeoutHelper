@@ -126,7 +126,7 @@ Future<void> main(final List<String> arguments) async {
     await ServiceContainer.instance.initialize(loggingService: _logger);
 
     // ✅ Load optional fileDates dictionary AFTER the second initialize
-    await _loadFileDatesIntoGlobalConfigFromArgs(parsedArguments);
+    await _loadFileDatesIntoGlobalConfigFromArgs(parsedArguments, _logger);
 
     // Configure dependencies with the parsed config
     await _configureDependencies(config);
@@ -966,42 +966,49 @@ void _showResults(
 /// after the ServiceContainer has been re-initialized with the final logger.
 Future<void> _loadFileDatesIntoGlobalConfigFromArgs(
   final List<String> parsedArguments,
+  final LoggingService logger,
 ) async {
   try {
     final parser = _createArgumentParser();
     final res = parser.parse(parsedArguments);
     final String? jsonPath = res['fileDates'] as String?;
     if (jsonPath == null) {
-      _logger.info('--fileDates not provided; skipping external dictionary load.');
+      logger.info('--fileDates not provided; skipping external dictionary load.');
       return;
     }
 
-    _logger.info('Attempting to load fileDates JSON from: $jsonPath');
-    final file = File(jsonPath);
-    final jsonString = await file.readAsString();
+    logger.info('Attempting to load fileDates JSON from: $jsonPath');
 
-    final dynamic raw = jsonDecode(jsonString);
-    if (raw is! Map<String, dynamic>) {
-      throw FormatException('Top-level JSON must be an object/dictionary.');
+    final file = File(jsonPath);
+    if (!await file.exists()) {
+      logger.error('Failed to load fileDates JSON: file does not exist at "$jsonPath"');
+      return;
     }
 
-    // Ensure Map<String, Map<String, dynamic>>-like structure
-    final normalized = raw.map((k, v) {
-      if (v is Map<String, dynamic>) return MapEntry(k, v);
-      if (v is Map) {
+    final jsonString = await file.readAsString();
+    final dynamic raw = jsonDecode(jsonString);
+    if (raw is! Map<String, dynamic>) {
+      throw const FormatException('Top-level JSON must be an object/dictionary.');
+    }
+
+    // Ensure Map<String, Map<String, dynamic>>-like structure (skip non-map values)
+    final Map<String, Map<String, dynamic>> normalized = {};
+    raw.forEach((k, v) {
+      if (v is Map<String, dynamic>) {
+        normalized[k] = v;
+      } else if (v is Map) {
         final m = <String, dynamic>{};
         v.forEach((kk, vv) => m[kk.toString()] = vv);
-        return MapEntry(k, m);
+        normalized[k] = m;
+      } else {
+        // skip non-map entries
       }
-      // If value is not a map, store empty map to avoid type errors later
-      return MapEntry(k, <String, dynamic>{});
     });
 
     ServiceContainer.instance.globalConfig.fileDatesDictionary = normalized;
-
-    _logger.info('Loaded ${normalized.length} entries from $jsonPath');
-
+    logger.info('Loaded ${normalized.length} entries from $jsonPath');
   } catch (e) {
-    _logger.error('Failed to load fileDates JSON: $e');
+    logger.error('Failed to load fileDates JSON: $e');
   }
 }
+
