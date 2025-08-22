@@ -18,11 +18,11 @@ class GlobalConfigService {
   bool exifToolInstalled = false;
 
   /// Speeds up by avoiding costly ExifTool fallback when native claims support.
-  final bool fallbackToExifToolOnNativeMiss = false;
+  bool fallbackToExifToolOnNativeMiss = false;
 
   /// Speeds up Step 5: skip the "already has date?" pre-check for non-JPEGs.
   /// If you need strict "skip if already has date", leave false.
-  final bool skipPrecheckForNonJpegInWriter = false;
+  bool skipPrecheckForNonJpegInWriter = false;
 
   /// DatesDictionary passed as argument (if ussed flag --fileDates)
   Map<String, Map<String, dynamic>>? fileDatesDictionary;
@@ -39,5 +39,7 @@ class GlobalConfigService {
     isVerbose = false;
     enforceMaxFileSize = false;
     exifToolInstalled = false;
+    fallbackToExifToolOnNativeMiss = false;
+    skipPrecheckForNonJpegInWriter = false;
   }
 }
