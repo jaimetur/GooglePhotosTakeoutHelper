@@ -125,8 +125,8 @@ Future<void> main(final List<String> arguments) async {
     // Reinitialize ServiceContainer with the properly configured logger
     await ServiceContainer.instance.initialize(loggingService: _logger);
 
-    // ✅ Load optional fileDates dictionary AFTER the second initialize
-    await _loadFileDatesIntoGlobalConfigFromArgs(parsedArguments, _logger);
+    // Load optional fileDates dictionary AFTER the second initialize
+    await _loadFileDatesIntoGlobalConfigFromArgs(parsedArguments);
 
     // Configure dependencies with the parsed config
     await _configureDependencies(config);
@@ -966,22 +966,21 @@ void _showResults(
 /// after the ServiceContainer has been re-initialized with the final logger.
 Future<void> _loadFileDatesIntoGlobalConfigFromArgs(
   final List<String> parsedArguments,
-  final LoggingService logger,
 ) async {
   try {
     final parser = _createArgumentParser();
     final res = parser.parse(parsedArguments);
     final String? jsonPath = res['fileDates'] as String?;
     if (jsonPath == null) {
-      logger.info('--fileDates not provided; skipping external dictionary load.');
+      _logger.info('--fileDates not provided; skipping external dictionary load.', forcePrint: true);
       return;
     }
 
-    logger.info('Attempting to load fileDates JSON from: $jsonPath');
+    _logger.info('Attempting to load fileDates JSON from: $jsonPath', forcePrint: true);
 
     final file = File(jsonPath);
     if (!await file.exists()) {
-      logger.error('Failed to load fileDates JSON: file does not exist at "$jsonPath"');
+      _logger.error('Failed to load fileDates JSON: file does not exist at "$jsonPath"', forcePrint: true);
       return;
     }
 
@@ -1006,9 +1005,9 @@ Future<void> _loadFileDatesIntoGlobalConfigFromArgs(
     });
 
     ServiceContainer.instance.globalConfig.fileDatesDictionary = normalized;
-    logger.info('Loaded ${normalized.length} entries from $jsonPath');
+    _logger.info('Loaded ${normalized.length} entries from $jsonPath', forcePrint: true);
   } catch (e) {
-    logger.error('Failed to load fileDates JSON: $e');
+    _logger.error('Failed to load fileDates JSON: $e', forcePrint: true);
   }
 }
 
