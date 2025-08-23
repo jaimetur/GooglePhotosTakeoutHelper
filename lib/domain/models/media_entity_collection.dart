@@ -162,6 +162,7 @@ class MediaEntityCollection with LoggerMixin {
   /// - For JPEG: prefer native writes; combine Date+GPS when possible.
   /// - For non-JPEG: gather tags and batch via exiftool. Uses argfile for very large batches.
   /// - NEW: If native JPEG write fails → fall back to exiftool by enqueuing tags.
+  /// - IMPORTANT: Per-file try/catch ensures one failure does not abort the whole step.
   Future<Map<String, int>> _writeExifDataParallel(
     final void Function(int current, int total)? onProgress,
     final ExifToolService exifTool,
@@ -193,6 +194,7 @@ class MediaEntityCollection with LoggerMixin {
           useArgFileWhenLarge: useArgFile,
         );
       } catch (e) {
+        // Batch-level error is logged, but execution continues.
         logError('Batch flush failed (${pendingBatch.length} files): $e');
       } finally {
         pendingBatch.clear();
@@ -203,142 +205,174 @@ class MediaEntityCollection with LoggerMixin {
       final batch = _media.skip(i).take(maxConcurrency).toList();
 
       final futures = batch.map((final mediaEntity) async {
-        final file = mediaEntity.files.firstFile;
-
-        // Cache MIME/header once
-        final List<int> headerBytes = await file.openRead(0, 128).first;
-        final String? mimeHeader =
-            lookupMimeType(file.path, headerBytes: headerBytes);
-        final String? mimeExt = lookupMimeType(file.path);
-
-        bool gpsWritten = false;
-        bool dateTimeWrittenLocal = false;
-
-        // Accumulate tags for non-JPEG or for JPEG fallback to exiftool
-        final Map<String, dynamic> tagsToWrite = {};
-
-        // 1) GPS from JSON if EXIF lacks it
+        // Per-file safety net: never let a single failure abort the batch.
         try {
-          final coordinates = await jsonCoordinatesExtractor(file);
-          if (coordinates != null) {
-            // Check if EXIF already has GPS
-            final existing = await coordExtractor.extractGPSCoordinates(
-              file,
-              globalConfig: globalConfig,
-            );
-            final hasCoords = existing != null &&
-                existing['GPSLatitude'] != null &&
-                existing['GPSLongitude'] != null;
+          final file = mediaEntity.files.firstFile;
 
-            if (!hasCoords) {
+          // Cache MIME/header once with protection against stream errors.
+          List<int> headerBytes = const [];
+          String? mimeHeader;
+          String? mimeExt;
+
+          try {
+            headerBytes = await file.openRead(0, 128).first;
+            mimeHeader = lookupMimeType(file.path, headerBytes: headerBytes);
+            mimeExt = lookupMimeType(file.path);
+          } catch (e) {
+            // Header read failed; fall back to extension-based guess.
+            logWarning('Failed to read header for ${file.path}: $e (falling back to extension)');
+            mimeHeader = lookupMimeType(file.path);
+            mimeExt = mimeHeader;
+          }
+
+          bool gpsWritten = false;
+          bool dateTimeWrittenLocal = false;
+
+          // Accumulate tags for non-JPEG or for JPEG fallback to exiftool
+          final Map<String, dynamic> tagsToWrite = {};
+
+          // 1) GPS from JSON if EXIF lacks it
+          try {
+            final coordinates = await jsonCoordinatesExtractor(file);
+            if (coordinates != null) {
+              // Check if EXIF already has GPS
+              final existing = await coordExtractor.extractGPSCoordinates(
+                file,
+                globalConfig: globalConfig,
+              );
+              final hasCoords = existing != null &&
+                  existing['GPSLatitude'] != null &&
+                  existing['GPSLongitude'] != null;
+
+              if (!hasCoords) {
+                if (mimeHeader == 'image/jpeg') {
+                  // If also need DateTime and it's JPEG, try native combined
+                  if (mediaEntity.dateTaken != null &&
+                      mediaEntity.dateTimeExtractionMethod != DateTimeExtractionMethod.exif &&
+                      mediaEntity.dateTimeExtractionMethod != DateTimeExtractionMethod.none) {
+                    final ok = await exifWriter.writeCombinedNativeJpeg(
+                      file,
+                      mediaEntity.dateTaken!,
+                      coordinates,
+                    );
+                    if (ok) {
+                      gpsWritten = true;
+                      dateTimeWrittenLocal = true;
+                    } else {
+                      // Fallback to exiftool (enqueue combined tags)
+                      final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
+                      final dt = exifFormat.format(mediaEntity.dateTaken!);
+                      tagsToWrite['DateTimeOriginal'] = '"$dt"';
+                      tagsToWrite['DateTimeDigitized'] = '"$dt"';
+                      tagsToWrite['DateTime'] = '"$dt"';
+                      tagsToWrite['GPSLatitude'] = coordinates.toDD().latitude.toString();
+                      tagsToWrite['GPSLongitude'] = coordinates.toDD().longitude.toString();
+                      tagsToWrite['GPSLatitudeRef'] = coordinates.latDirection.abbreviation.toString();
+                      tagsToWrite['GPSLongitudeRef'] = coordinates.longDirection.abbreviation.toString();
+                      // Logical success; actual write counted after batch flush.
+                      gpsWritten = true;
+                      dateTimeWrittenLocal = true;
+                    }
+                  } else {
+                    // Only GPS on JPEG: try native GPS write
+                    final ok = await exifWriter.writeGpsNativeJpeg(file, coordinates);
+                    if (ok) {
+                      gpsWritten = true;
+                    } else {
+                      // Fallback to exiftool (enqueue GPS tags)
+                      tagsToWrite['GPSLatitude'] = coordinates.toDD().latitude.toString();
+                      tagsToWrite['GPSLongitude'] = coordinates.toDD().longitude.toString();
+                      tagsToWrite['GPSLatitudeRef'] = coordinates.latDirection.abbreviation.toString();
+                      tagsToWrite['GPSLongitudeRef'] = coordinates.longDirection.abbreviation.toString();
+                      gpsWritten = true;
+                    }
+                  }
+                } else {
+                  // Non-JPEG → defer to exiftool
+                  tagsToWrite['GPSLatitude'] = coordinates.toDD().latitude.toString();
+                  tagsToWrite['GPSLongitude'] = coordinates.toDD().longitude.toString();
+                  tagsToWrite['GPSLatitudeRef'] = coordinates.latDirection.abbreviation.toString();
+                  tagsToWrite['GPSLongitudeRef'] = coordinates.longDirection.abbreviation.toString();
+                }
+              }
+            }
+          } catch (e) {
+            // GPS extraction/writing failure for this file is logged; continue.
+            logWarning('Failed to extract/write GPS for ${file.path}: $e');
+          }
+
+          // 2) DateTime if available and not originally from EXIF
+          try {
+            if (mediaEntity.dateTaken != null &&
+                mediaEntity.dateTimeExtractionMethod != DateTimeExtractionMethod.exif &&
+                mediaEntity.dateTimeExtractionMethod != DateTimeExtractionMethod.none) {
               if (mimeHeader == 'image/jpeg') {
-                // If also need DateTime and it's JPEG, try native combined
-                if (mediaEntity.dateTaken != null &&
-                    mediaEntity.dateTimeExtractionMethod != DateTimeExtractionMethod.exif &&
-                    mediaEntity.dateTimeExtractionMethod != DateTimeExtractionMethod.none) {
-                  final ok = await exifWriter.writeCombinedNativeJpeg(
-                    file,
-                    mediaEntity.dateTaken!,
-                    coordinates,
-                  );
+                if (!dateTimeWrittenLocal) {
+                  final ok = await exifWriter.writeDateTimeNativeJpeg(file, mediaEntity.dateTaken!);
                   if (ok) {
-                    gpsWritten = true;
                     dateTimeWrittenLocal = true;
                   } else {
-                    // Fallback to exiftool (enqueue combined tags)
+                    // Fallback to exiftool (enqueue DateTime tags)
                     final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
                     final dt = exifFormat.format(mediaEntity.dateTaken!);
                     tagsToWrite['DateTimeOriginal'] = '"$dt"';
                     tagsToWrite['DateTimeDigitized'] = '"$dt"';
                     tagsToWrite['DateTime'] = '"$dt"';
-                    tagsToWrite['GPSLatitude'] = coordinates.toDD().latitude.toString();
-                    tagsToWrite['GPSLongitude'] = coordinates.toDD().longitude.toString();
-                    tagsToWrite['GPSLatitudeRef'] = coordinates.latDirection.abbreviation.toString();
-                    tagsToWrite['GPSLongitudeRef'] = coordinates.longDirection.abbreviation.toString();
-                    // Mark logical success; the actual write time/counters go in batch
-                    gpsWritten = true;
                     dateTimeWrittenLocal = true;
-                  }
-                } else {
-                  // Only GPS on JPEG: try native GPS write
-                  final ok = await exifWriter.writeGpsNativeJpeg(file, coordinates);
-                  if (ok) {
-                    gpsWritten = true;
-                  } else {
-                    // Fallback to exiftool (enqueue GPS tags)
-                    tagsToWrite['GPSLatitude'] = coordinates.toDD().latitude.toString();
-                    tagsToWrite['GPSLongitude'] = coordinates.toDD().longitude.toString();
-                    tagsToWrite['GPSLatitudeRef'] = coordinates.latDirection.abbreviation.toString();
-                    tagsToWrite['GPSLongitudeRef'] = coordinates.longDirection.abbreviation.toString();
-                    gpsWritten = true;
                   }
                 }
               } else {
-                // Non-JPEG → defer to exiftool
-                tagsToWrite['GPSLatitude'] = coordinates.toDD().latitude.toString();
-                tagsToWrite['GPSLongitude'] = coordinates.toDD().longitude.toString();
-                tagsToWrite['GPSLatitudeRef'] = coordinates.latDirection.abbreviation.toString();
-                tagsToWrite['GPSLongitudeRef'] = coordinates.longDirection.abbreviation.toString();
-              }
-            }
-          }
-        } catch (e) {
-          logWarning('Failed to extract/write GPS for ${file.path}: $e');
-        }
-
-        // 2) DateTime if available and not originally from EXIF
-        if (mediaEntity.dateTaken != null &&
-            mediaEntity.dateTimeExtractionMethod != DateTimeExtractionMethod.exif &&
-            mediaEntity.dateTimeExtractionMethod != DateTimeExtractionMethod.none) {
-          if (mimeHeader == 'image/jpeg') {
-            if (!dateTimeWrittenLocal) {
-              final ok = await exifWriter.writeDateTimeNativeJpeg(file, mediaEntity.dateTaken!);
-              if (ok) {
-                dateTimeWrittenLocal = true;
-              } else {
-                // Fallback to exiftool (enqueue DateTime tags)
                 final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
                 final dt = exifFormat.format(mediaEntity.dateTaken!);
                 tagsToWrite['DateTimeOriginal'] = '"$dt"';
                 tagsToWrite['DateTimeDigitized'] = '"$dt"';
                 tagsToWrite['DateTime'] = '"$dt"';
-                dateTimeWrittenLocal = true;
               }
             }
-          } else {
-            final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
-            final dt = exifFormat.format(mediaEntity.dateTaken!);
-            tagsToWrite['DateTimeOriginal'] = '"$dt"';
-            tagsToWrite['DateTimeDigitized'] = '"$dt"';
-            tagsToWrite['DateTime'] = '"$dt"';
+          } catch (e) {
+            // DateTime write failure for this file is logged; continue.
+            logWarning('Failed to write DateTime for ${file.path}: $e');
           }
-        }
 
-        // 3) If there are pending tags → enqueue in exiftool batch (JPEG fallback or non-JPEG)
-        if (tagsToWrite.isNotEmpty) {
-          // Avoid extension/content mismatch that would make exiftool fail
-          if (mimeExt != mimeHeader && mimeHeader != 'image/tiff') {
-            logError(
-              "EXIF Writer - File has a wrong extension indicating '$mimeExt' but actually is '$mimeHeader'. "
-              'ExifTool would fail. Consider running --fix-extensions.\n ${file.path}',
-            );
-          } else if (mimeExt == 'video/x-msvideo' || mimeHeader == 'video/x-msvideo') {
-            logWarning('Skipping AVI file - ExifTool cannot write RIFF AVI: ${file.path}');
-          } else {
-            pendingBatch.add(MapEntry(file, tagsToWrite));
+          // 3) If there are pending tags → enqueue in exiftool batch (JPEG fallback or non-JPEG)
+          try {
+            if (tagsToWrite.isNotEmpty) {
+              // Avoid extension/content mismatch that would make exiftool fail
+              if (mimeExt != mimeHeader && mimeHeader != 'image/tiff') {
+                logError(
+                  "EXIF Writer - File has a wrong extension indicating '$mimeExt' but actually is '$mimeHeader'. "
+                  'ExifTool would fail. Consider running --fix-extensions.\n ${file.path}',
+                );
+              } else if (mimeExt == 'video/x-msvideo' || mimeHeader == 'video/x-msvideo') {
+                logWarning('Skipping AVI file - ExifTool cannot write RIFF AVI: ${file.path}');
+              } else {
+                pendingBatch.add(MapEntry(file, tagsToWrite));
 
-            // Rough estimate of command “weight”: 1 per tag + file path
-            final int weight = tagsToWrite.length + 1;
-            final int targetBatch = weight > 6 ? (baseBatchSize ~/ 2) : baseBatchSize;
+                // Rough estimate of command “weight”: 1 per tag + file path
+                final int weight = tagsToWrite.length + 1;
+                final int targetBatch = weight > 6 ? (baseBatchSize ~/ 2) : baseBatchSize;
 
-            // Flush with argfile if the batch is big/heavy
-            if (pendingBatch.length >= targetBatch) {
-              await _flushBatch(useArgFile: true);
+                // Flush with argfile if the batch is big/heavy
+                if (pendingBatch.length >= targetBatch) {
+                  await _flushBatch(useArgFile: true);
+                }
+              }
             }
+          } catch (e) {
+            // Enqueue/flush preparation failed for this file; continue.
+            logWarning('Failed to enqueue EXIF tags for ${file.path}: $e');
           }
-        }
 
-        return {'gps': gpsWritten, 'dateTime': dateTimeWrittenLocal};
+          return {'gps': gpsWritten, 'dateTime': dateTimeWrittenLocal};
+        } catch (e) {
+          // Defensive catch-all for any unexpected per-file error.
+          // This guarantees we continue with the next file.
+          final pathSafe = () {
+            try { return mediaEntity.files.firstFile.path; } catch (_) { return '<unknown>'; }
+          }();
+          logError('EXIF write failed for $pathSafe: $e');
+          return {'gps': false, 'dateTime': false};
+        }
       });
 
       final results = await Future.wait(futures);
