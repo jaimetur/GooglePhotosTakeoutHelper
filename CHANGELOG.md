@@ -1,5 +1,9 @@
 ## 4.3.0-Xentraxx
 
+### 🐛 **Bug Fixes**
+ - Handle per file exception in WriteExif Step. Now the flow continues if any file fails to write EXIF
+ - Fixed interactive mode when asking to limit the file size.
+
 ### 🚀 **Improvements**
 - #### Step 4 (Extract Dates) & 5 (Write EXIF) Optimization
   - ##### ⚡ Performance
