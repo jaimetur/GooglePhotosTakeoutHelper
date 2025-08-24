@@ -211,30 +211,44 @@ gpth --input "/path/to/takeout" --output "/path/to/organized" --albums "shortcut
 
 ### Core Arguments
 
-| Argument | Description |
-|----------|-------------|
-| `--input`, `-i` | Input folder containing extracted Takeout or your unextracted zip files |
-| `--output`, `-o` | Output folder for organized photos |
-| `--albums` | Album handling: `shortcut`, `duplicate-copy`, `reverse-shortcut`, `json`, `nothing` |
-| `--help`, `-h` | Show help and exit |
+| Argument         | Description                                                                         |
+|------------------|-------------------------------------------------------------------------------------|
+| `--input`, `-i`  | Input folder containing extracted Takeout or your unextracted zip files             |
+| `--output`, `-o` | Output folder for organized photos                                                  |
+| `--albums`       | Album handling: `shortcut`, `duplicate-copy`, `reverse-shortcut`, `json`, `nothing` |
+| `--help`, `-h`   | Show help and exit                                                                  |
 
 ### Organization Options
 
-| Argument | Description |
-|----------|-------------|
-| `--divide-to-dates` | Date-based folder structure for ALL_PHOTOS: `0`=one folder, `1`=by year, `2`=year/month, `3`=year/month/day (albums remain flattened) |
-| `--divide-partner-shared` | Separate partner shared media into a dedicated `PARTNER_SHARED` folder (works with date division) |
-| `--skip-extras` | Skip extra images like "-edited" versions |
+| Argument                  | Description                                                                                                                           |
+|---------------------------|---------------------------------------------------------------------------------------------------------------------------------------|
+| `--divide-to-dates`       | Date-based folder structure for ALL_PHOTOS: `0`=one folder, `1`=by year, `2`=year/month, `3`=year/month/day (albums remain flattened) |
+| `--divide-partner-shared` | Separate partner shared media into a dedicated `PARTNER_SHARED` folder (works with date division)                                     |
+| `--skip-extras`           | Skip extra images like "-edited" versions                                                                                             |
 
 ### Metadata & Processing
 
-| Argument | Description |
-|----------|-------------|
-| `--write-exif` | Write GPS coordinates and dates to EXIF metadata (enabled by default) |
-| `--transform-pixel-mp` | Convert Pixel Motion Photos (.MP/.MV) to .mp4 |
-| `--guess-from-name` | Extract dates from filenames (enabled by default) |
-| `--update-creation-time` | Sync creation time with modified time (Windows only) |
-| `--limit-filesize` | Skip files larger than 64MB (for low-RAM systems) |
+| Argument                 | Description                                                                                                              |
+|--------------------------|--------------------------------------------------------------------------------------------------------------------------|
+| `--write-exif`           | Write GPS coordinates and dates to EXIF metadata (enabled by default)                                                    |
+| `--transform-pixel-mp`   | Convert Pixel Motion Photos (.MP/.MV) to .mp4                                                                            |
+| `--guess-from-name`      | Extract dates from filenames (enabled by default)                                                                        |
+| `--update-creation-time` | Sync creation time with modified time (Windows only)                                                                     |
+| `--limit-filesize`       | Skip files larger than 64MB (for low-RAM systems)                                                                        |
+| `--fileDates`            | Provide a JSON dictionary with the dates per file to void reading it from EXIF when any file does not associated sidecar |
+
+> The JSON format is a dictionary whose key is the full filepath (unix format) and the date is given by the key `oldestDate`.  
+> Example:
+> ```
+> {
+>   "/data/2012-08-05_161346-EFFECTS.jpg": {
+>     "OldestDate": "2012-08-05T00:00:00+02:00"
+> 
+>   },
+>   "/data/2012-08-07_090832.JPG": {
+>     "OldestDate": "2012-08-05T15:42:06+02:00"
+> }
+> ```
 
 ### Extension Fixing Modes
 
@@ -242,12 +256,12 @@ Google Photos has an option of 'data saving' which will compress images to JPEG 
 
 GPTH natively writes EXIF data to files with JPEG signatures, while other formats require ExifTool. Files with mismatched extensions can cause ExifTool to fail, so GPTH provides several extension fixing strategies:
 
-| Mode | Description | Technical Details | When to Use |
-|------|-------------|-------------------|-------------|
-| `--fix-extensions=none` | **Disable extension fixing entirely** | Files keep their original extensions regardless of content type. EXIF writing may fail for mismatched files. | When you're certain all extensions are correct, or when you want to preserve original filenames at all costs. |
-| `--fix-extensions=standard` | **Default: Fix extensions but skip TIFF-based files** | Renames files where extension doesn't match MIME type, but avoids TIFF-based formats (like RAW files from cameras) which are often misidentified by MIME detection. | **Recommended for most users**. Balances safety with effectiveness. Good for typical Google Photos exports. |
-| `--fix-extensions=conservative` | **Skip both TIFF-based and JPEG files** | Most cautious approach - only fixes clearly incorrect extensions while avoiding both TIFF formats AND actual JPEG files to prevent any potential issues. | When you have valuable photos and want maximum safety, or when you've had issues with previous modes. |
-| `--fix-extensions=solo` | **Fix extensions then exit immediately** | Performs extension fixing as a standalone operation without running the full GPTH processing pipeline. Useful for preprocessing files before the main operation. | When you want to fix extensions first, then run GPTH again, or when integrating with other tools. |
+| Mode                            | Description                                           | Technical Details                                                                                                                                                   | When to Use                                                                                                   |
+|---------------------------------|-------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------|
+| `--fix-extensions=none`         | **Disable extension fixing entirely**                 | Files keep their original extensions regardless of content type. EXIF writing may fail for mismatched files.                                                        | When you're certain all extensions are correct, or when you want to preserve original filenames at all costs. |
+| `--fix-extensions=standard`     | **Default: Fix extensions but skip TIFF-based files** | Renames files where extension doesn't match MIME type, but avoids TIFF-based formats (like RAW files from cameras) which are often misidentified by MIME detection. | **Recommended for most users**. Balances safety with effectiveness. Good for typical Google Photos exports.   |
+| `--fix-extensions=conservative` | **Skip both TIFF-based and JPEG files**               | Most cautious approach - only fixes clearly incorrect extensions while avoiding both TIFF formats AND actual JPEG files to prevent any potential issues.            | When you have valuable photos and want maximum safety, or when you've had issues with previous modes.         |
+| `--fix-extensions=solo`         | **Fix extensions then exit immediately**              | Performs extension fixing as a standalone operation without running the full GPTH processing pipeline. Useful for preprocessing files before the main operation.    | When you want to fix extensions first, then run GPTH again, or when integrating with other tools.             |
 
 #### Why These Modes Exist
 
@@ -282,20 +296,20 @@ GPTH natively writes EXIF data to files with JPEG signatures, while other format
 
 You can configure extension fixing behavior with:
 
-| Argument                     | Description                                                   |
-|------------------------------|---------------------------------------------------------------|
-| `--fix-extensions=none`      | Disable extension fixing entirely |
-| `--fix-extensions=standard`  | **Default**: Fix extensions but skip TIFF-based files (like RAW formats) to avoid potential issues |
-| `--fix-extensions=conservative` | Fix extensions but skip both TIFF-based and JPEG files for maximum safety |
-| `--fix-extensions=solo`      | Fix extensions then exit immediately (standalone mode for preprocessing files) |
+| Argument                        | Description                                                                                        |
+|---------------------------------|----------------------------------------------------------------------------------------------------|
+| `--fix-extensions=none`         | Disable extension fixing entirely                                                                  |
+| `--fix-extensions=standard`     | **Default**: Fix extensions but skip TIFF-based files (like RAW formats) to avoid potential issues |
+| `--fix-extensions=conservative` | Fix extensions but skip both TIFF-based and JPEG files for maximum safety                          |
+| `--fix-extensions=solo`         | Fix extensions then exit immediately (standalone mode for preprocessing files)                     |
 
 ### Other Options
 
-| Argument | Description |
-|----------|-------------|
-| `--interactive` | Force interactive mode |
-| `--verbose`, `-v` | Show detailed logging output |
-| `--fix` | Special mode: fix dates in any folder (not just Takeout) |
+| Argument          | Description                                              |
+|-------------------|----------------------------------------------------------|
+| `--interactive`   | Force interactive mode                                   |
+| `--verbose`, `-v` | Show detailed logging output                             |
+| `--fix`           | Special mode: fix dates in any folder (not just Takeout) |
 
 ### Example Commands
 
@@ -403,8 +417,8 @@ If GPTH saved you time and frustration, consider supporting development:
 
 ## Related Projects
 
+- **[PhotoMigrator](https://github.com/jaimetur/PhotoMigrator)**: Complete Migratin tool that uses GPTH 4.x.x, and has been designed to Interact and Manage different Photos Cloud services. Allow users to do an Automatic Migration from one Photo Cloud service to other or from one account to a new account of the same Photo Cloud service.
 - **[Google Keep Exporter](https://github.com/vHanda/google-keep-exporter)**: Export Google Keep notes to Markdown
-- **[PhotoMigrator](https://github.com/jaimetur/PhotoMigrator)**: Uses GPTH 4.x.x and has been designed to Interact and Manage different Photos Cloud services, and allow users to do an Automatic Migration from one Photo Cloud service to other or from one account to a new account of the same Photo Cloud service.
 
 ---
 
