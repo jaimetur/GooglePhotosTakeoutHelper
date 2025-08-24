@@ -30,7 +30,10 @@ class MediaEntityCollection with LoggerMixin {
   /// Read-only list copy.
   List<MediaEntity> get media => List.unmodifiable(_media);
 
+  /// Number of media items in the collection
   int get length => _media.length;
+
+  /// Whether the collection is empty
   bool get isEmpty => _media.isEmpty;
   bool get isNotEmpty => _media.isNotEmpty;
 
@@ -50,14 +53,16 @@ class MediaEntityCollection with LoggerMixin {
     final extractionStats = <DateTimeExtractionMethod, int>{};
     var completed = 0;
 
+    // Map extractor index to extraction method for proper tracking
     final extractorMethods = [
-      DateTimeExtractionMethod.json,
-      DateTimeExtractionMethod.exif,
-      DateTimeExtractionMethod.guess,
-      DateTimeExtractionMethod.jsonTryHard,
-      DateTimeExtractionMethod.folderYear,
+      DateTimeExtractionMethod.json, // JSON extractor (first priority)
+      DateTimeExtractionMethod.exif, // EXIF extractor (second priority)
+      DateTimeExtractionMethod.guess, // Filename guess extractor (if enabled)
+      DateTimeExtractionMethod.jsonTryHard, // JSON tryhard extractor (last resort)
+      DateTimeExtractionMethod.folderYear, // Folder year extractor (fallback)
     ];
 
+    // Get optimal concurrency for EXIF operations using ConcurrencyManager
     final maxConcurrency = ConcurrencyManager().concurrencyFor(
       ConcurrencyOperation.exif,
     );
@@ -85,6 +90,7 @@ class MediaEntityCollection with LoggerMixin {
           };
         }
 
+        // Try each extractor in sequence until one succeeds
         bool dateFound = false;
         MediaEntity updatedMediaFile = mediaFile;
 
@@ -93,6 +99,7 @@ class MediaEntityCollection with LoggerMixin {
           final extractedDate = await extractor(mediaFile);
 
           if (extractedDate != null) {
+            // Determine the correct extraction method based on extractor index
             extractionMethod = extractorIndex < extractorMethods.length
                 ? extractorMethods[extractorIndex]
                 : DateTimeExtractionMethod.guess;
@@ -125,8 +132,10 @@ class MediaEntityCollection with LoggerMixin {
         };
       });
 
+      // Wait for all futures in this batch to complete
       final results = await Future.wait(futures);
 
+      // Update the media list and statistics with results from this batch
       for (final result in results) {
         final index = result['index'] as int;
         final updatedMediaFile = result['mediaFile'] as MediaEntity;
@@ -137,6 +146,7 @@ class MediaEntityCollection with LoggerMixin {
         completed++;
       }
 
+      // Report progress
       onProgress?.call(completed, _media.length);
     }
 
@@ -147,9 +157,12 @@ class MediaEntityCollection with LoggerMixin {
   }
 
   // ──────────────────────────────── Step 5: Write EXIF ────────────────────────────────
+  /// Updates EXIF metadata for media entities that have date/time information
+  /// and coordinate data, tracking success statistics.
   Future<Map<String, int>> writeExifData({
     final void Function(int current, int total)? onProgress,
   }) async {
+    // Check if ExifTool is available before proceeding
     final exifTool = ServiceContainer.instance.exifTool;
     if (exifTool == null) {
       logWarning('ExifTool not available, skipping EXIF data writing');
@@ -157,6 +170,8 @@ class MediaEntityCollection with LoggerMixin {
     }
 
     logInfo('[Step 5/8] Starting EXIF data writing for ${_media.length} files');
+
+    // Always use parallel processing for optimal performance
     return _writeExifDataParallel(onProgress, exifTool);
   }
 
@@ -173,11 +188,14 @@ class MediaEntityCollection with LoggerMixin {
     var dateTimesWritten = 0;
     var completed = 0;
 
+    // Calculate optimal concurrency
     final maxConcurrency = ConcurrencyManager().concurrencyFor(
       ConcurrencyOperation.exif,
     );
+
     logDebug('Starting $maxConcurrency threads (exif write concurrency)');
 
+    // Reuse writer and coordinate extractor across the batch
     final exifWriter = ExifWriterService(exifTool);
     final coordExtractor = ExifCoordinateExtractor(exifTool);
     final globalConfig = ServiceContainer.instance.globalConfig;
@@ -419,6 +437,8 @@ class MediaEntityCollection with LoggerMixin {
   }
 
   // ─────────────────────────── Remove duplicates ────────────────────────────
+  /// Uses content-based duplicate detection to identify and remove duplicate files,
+  /// keeping the best version of each duplicate group.
   Future<int> removeDuplicates({
     final void Function(int current, int total)? onProgress,
   }) async {
@@ -430,10 +450,12 @@ class MediaEntityCollection with LoggerMixin {
     // Group media by album association first to preserve cross-album duplicates
     final albumGroups = <String?, List<MediaEntity>>{};
     for (final media in _media) {
-      final albumKey = media.files.getAlbumKey(); // null for year folders
+      // Get the album key (null for year folder files, album name for album files)
+      final albumKey = media.files.getAlbumKey();
       albumGroups.putIfAbsent(albumKey, () => []).add(media);
     }
 
+    // Process each album group separately to avoid removing cross-album duplicates
     final entitiesToRemove = <MediaEntity>[];
     int processed = 0;
     final totalGroups = albumGroups.length;
@@ -445,24 +467,41 @@ class MediaEntityCollection with LoggerMixin {
         continue;
       }
 
+      // Find duplicates within this album group only
       final hashGroups = await duplicateService.groupIdentical(albumGroup);
 
       for (final group in hashGroups.values) {
-        if (group.length <= 1) continue;
+        if (group.length <= 1) {
+          continue; // No duplicates in this group
+        }
 
         // Sort by best date extraction quality, then file name length
         group.sort((final MediaEntity a, final MediaEntity b) {
+          // Prefer files with dates from better extraction methods
           final aAccuracy = a.dateAccuracy?.value ?? 999;
           final bAccuracy = b.dateAccuracy?.value ?? 999;
           if (aAccuracy != bAccuracy) {
             return aAccuracy.compareTo(bAccuracy);
           }
+
+          // If equal accuracy, prefer shorter file names (typically original names)
           final aLen = a.files.firstFile.path.length;
           final bLen = b.files.firstFile.path.length;
           return aLen.compareTo(bLen);
         });
 
+        // Add all duplicates except the first (best) one to removal list
         final duplicatesToRemove = group.sublist(1);
+
+        // Log which duplicates are being removed
+        if (duplicatesToRemove.isNotEmpty) {
+          final keptFile = group.first.primaryFile.path;
+          logDebug('Found ${group.length} identical files, keeping: $keptFile');
+          for (final duplicate in duplicatesToRemove) {
+            logDebug('  Removing duplicate: ${duplicate.primaryFile.path}');
+          }
+        }
+
         entitiesToRemove.addAll(duplicatesToRemove);
         removedCount += duplicatesToRemove.length;
       }
@@ -471,31 +510,42 @@ class MediaEntityCollection with LoggerMixin {
       onProgress?.call(processed, totalGroups);
     }
 
-    // Remove afterwards to avoid concurrent modification
-    for (final e in entitiesToRemove) {
-      _media.remove(e);
+    // Remove all duplicates in a single operation to prevent race conditions
+    // ignore: prefer_foreach
+    for (final entityToRemove in entitiesToRemove) {
+      _media.remove(entityToRemove);
     }
 
     return removedCount;
   }
 
-  // ──────────────────────────────── Find albums ───────────────────────────────
+  /// Find and merge album relationships in the collection
+  ///
+  /// This method detects media files that appear in multiple locations
+  /// (year folders and album folders) and merges them into single entities
+  /// with all file associations preserved.
   Future<void> findAlbums({
     final void Function(int processed, int total)? onProgress,
   }) async {
     final albumService = ServiceContainer.instance.albumRelationshipService;
 
+    // Create a copy of the media list to avoid concurrent modification
     final mediaCopy = List<MediaEntity>.from(_media);
+
+    // Get the merged results
     final mergedMedia = await albumService.detectAndMergeAlbums(mediaCopy);
 
-    _media
-      ..clear()
-      ..addAll(mergedMedia);
+    // Replace the current media list with merged results
+    _media.clear();
+    _media.addAll(mergedMedia);
 
     onProgress?.call(_media.length, _media.length);
   }
 
-  // ────────────────────────────── Collection stats ─────────────────────────────
+  /// Get processing statistics for the collection
+  ///
+  /// Returns comprehensive statistics about the media collection including
+  /// file counts, date information, and extraction method distribution.
   ProcessingStatistics getStatistics() {
     var mediaWithDates = 0;
     var mediaWithAlbums = 0;
@@ -503,10 +553,20 @@ class MediaEntityCollection with LoggerMixin {
     final extractionMethodDistribution = <DateTimeExtractionMethod, int>{};
 
     for (final mediaEntity in _media) {
-      if (mediaEntity.dateTaken != null) mediaWithDates++;
-      if (mediaEntity.files.hasAlbumFiles) mediaWithAlbums++;
+      // Count media with dates
+      if (mediaEntity.dateTaken != null) {
+        mediaWithDates++;
+      }
+
+      // Count media with album associations
+      if (mediaEntity.files.hasAlbumFiles) {
+        mediaWithAlbums++;
+      }
+
+      // Count total files
       totalFiles += mediaEntity.files.files.length;
 
+      // Track extraction method distribution
       final method =
           mediaEntity.dateTimeExtractionMethod ?? DateTimeExtractionMethod.none;
       extractionMethodDistribution[method] =
@@ -553,6 +613,7 @@ class MediaEntityCollection with LoggerMixin {
   }
 }
 
+/// Statistics about processed media collection
 class ProcessingStatistics {
   const ProcessingStatistics({
     required this.totalMedia,
