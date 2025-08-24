@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 
 import '../../infrastructure/exiftool_service.dart';
 import '../../shared/concurrency_manager.dart';
@@ -9,6 +10,7 @@ import '../services/metadata/date_extraction/json_date_extractor.dart';
 import '../services/metadata/exif_writer_service.dart';
 import '../services/metadata/date_extraction/exif_date_extractor.dart';
 import '../services/metadata/coordinate_extraction/exif_coordinate_extractor.dart';
+import '../services/metadata/json_metadata_matcher_service.dart';
 import '../value_objects/date_time_extraction_method.dart';
 import 'package:intl/intl.dart';
 import 'package:mime/mime.dart';
@@ -231,6 +233,15 @@ class MediaEntityCollection with LoggerMixin {
           // Accumulate tags for non-JPEG or for JPEG fallback to exiftool
           final Map<String, dynamic> tagsToWrite = {};
 
+          // 0) Late-bind a date from JSON if the entity has no date
+          DateTime? effectiveDate = mediaEntity.dateTaken;
+          if (effectiveDate == null) {
+            effectiveDate = await _lateResolveDateFromJson(file);
+            if (effectiveDate != null) {
+              logDebug('Late JSON date resolved for ${file.path}: $effectiveDate');
+            }
+          }
+
           // 1) GPS from JSON if EXIF lacks it
           try {
             final coordinates = await jsonCoordinatesExtractor(file);
@@ -247,11 +258,10 @@ class MediaEntityCollection with LoggerMixin {
               if (!hasCoords) {
                 if (mimeHeader == 'image/jpeg') {
                   // If also need DateTime and it's JPEG, try native combined
-                  if (mediaEntity.dateTaken != null &&
-                      mediaEntity.dateTimeExtractionMethod != DateTimeExtractionMethod.none) {
+                  if (effectiveDate != null) {
                     final ok = await exifWriter.writeCombinedNativeJpeg(
                       file,
-                      mediaEntity.dateTaken!,
+                      effectiveDate,
                       coordinates,
                     );
                     if (ok) {
@@ -260,7 +270,7 @@ class MediaEntityCollection with LoggerMixin {
                     } else {
                       // Fallback to exiftool (enqueue combined tags)
                       final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
-                      final dt = exifFormat.format(mediaEntity.dateTaken!);
+                      final dt = exifFormat.format(effectiveDate);
                       tagsToWrite['DateTimeOriginal'] = '"$dt"';
                       tagsToWrite['DateTimeDigitized'] = '"$dt"';
                       tagsToWrite['DateTime'] = '"$dt"';
@@ -300,19 +310,18 @@ class MediaEntityCollection with LoggerMixin {
             logWarning('Failed to extract/write GPS for ${file.path}: $e');
           }
 
-          // 2) DateTime if available and not originally from EXIF
+          // 2) DateTime if available (now also when originally null but resolved from JSON)
           try {
-            if (mediaEntity.dateTaken != null &&
-                mediaEntity.dateTimeExtractionMethod != DateTimeExtractionMethod.none) {
+            if (effectiveDate != null) {
               if (mimeHeader == 'image/jpeg') {
                 if (!dateTimeWrittenLocal) {
-                  final ok = await exifWriter.writeDateTimeNativeJpeg(file, mediaEntity.dateTaken!);
+                  final ok = await exifWriter.writeDateTimeNativeJpeg(file, effectiveDate);
                   if (ok) {
                     dateTimeWrittenLocal = true;
                   } else {
                     // Fallback to exiftool (enqueue DateTime tags)
                     final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
-                    final dt = exifFormat.format(mediaEntity.dateTaken!);
+                    final dt = exifFormat.format(effectiveDate);
                     tagsToWrite['DateTimeOriginal'] = '"$dt"';
                     tagsToWrite['DateTimeDigitized'] = '"$dt"';
                     tagsToWrite['DateTime'] = '"$dt"';
@@ -321,7 +330,7 @@ class MediaEntityCollection with LoggerMixin {
                 }
               } else {
                 final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
-                final dt = exifFormat.format(mediaEntity.dateTaken!);
+                final dt = exifFormat.format(effectiveDate);
                 tagsToWrite['DateTimeOriginal'] = '"$dt"';
                 tagsToWrite['DateTimeDigitized'] = '"$dt"';
                 tagsToWrite['DateTime'] = '"$dt"';
@@ -508,6 +517,36 @@ class MediaEntityCollection with LoggerMixin {
       totalFiles: totalFiles,
       extractionMethodDistribution: extractionMethodDistribution,
     );
+  }
+
+  /// Late JSON resolve helper used only in Step 5 when an entity has no date.
+  /// Attempts to locate the sidecar JSON and parse photoTakenTime.timestamp.
+  Future<DateTime?> _lateResolveDateFromJson(final File file) async {
+    try {
+      final File? jsonSidecar = await JsonMetadataMatcherService.findJsonForFile(
+        file,
+        tryhard: true,
+      );
+      if (jsonSidecar == null) return null;
+
+      final String raw = await jsonSidecar.readAsString();
+      final dynamic data = jsonDecode(raw);
+
+      dynamic ts = (data is Map<String, dynamic>)
+          ? (data['photoTakenTime']?['timestamp'] ?? data['creationTime']?['timestamp'])
+          : null;
+      if (ts == null) return null;
+
+      final int seconds = int.tryParse(ts.toString()) ?? 0;
+      if (seconds <= 0) return null;
+
+      // JSON timestamps are UTC; convert to local for writing.
+      final DateTime utc = DateTime.fromMillisecondsSinceEpoch(seconds * 1000, isUtc: true);
+      return utc.toLocal();
+    } catch (e) {
+      logWarning('Late JSON date parse failed for ${file.path}: $e');
+      return null;
+    }
   }
 }
 
