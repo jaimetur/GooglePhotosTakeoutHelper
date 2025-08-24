@@ -18,11 +18,11 @@ import 'symlink_service.dart';
 /// Uses MediaEntity exclusively for better performance and immutability.
 class MediaEntityMovingService with LoggerMixin {
   MediaEntityMovingService()
-    : _strategyFactory = MediaEntityMovingStrategyFactory(
-        FileOperationService(),
-        PathGeneratorService(),
-        SymlinkService(),
-      );
+      : _strategyFactory = MediaEntityMovingStrategyFactory(
+          FileOperationService(),
+          PathGeneratorService(),
+          SymlinkService(),
+        );
 
   /// Custom constructor for dependency injection (useful for testing)
   MediaEntityMovingService.withDependencies({
@@ -30,12 +30,47 @@ class MediaEntityMovingService with LoggerMixin {
     required final PathGeneratorService pathService,
     required final SymlinkService symlinkService,
   }) : _strategyFactory = MediaEntityMovingStrategyFactory(
-         fileService,
-         pathService,
-         symlinkService,
-       );
+          fileService,
+          pathService,
+          symlinkService,
+        );
 
   final MediaEntityMovingStrategyFactory _strategyFactory;
+
+  /// Returns the exact number of low-level operations that would be performed.
+  ///
+  /// Semantics:
+  /// - Each File entry in `mediaEntity.files.files` generally maps to 1 operation
+  ///   (primary move + per-album copy/symlink/shortcut depending on album behavior).
+  /// - JSON mode: we only move to `ALL_PHOTOS` → exactly 1 operation per entity.
+  /// - Nothing/Shortcut/Duplicate/ReverseShortcut modes: equals to the number of
+  ///   placements (map entries).
+  ///
+  /// This does **not** touch the disk and has no side effects.
+  Future<int> estimateOperationCount(
+    final MediaEntityCollection entityCollection,
+    final MovingContext context,
+  ) async {
+    final strategy = _strategyFactory.createStrategy(context.albumBehavior);
+    strategy.validateContext(context);
+
+    // Count per-entity placements
+    int total = 0;
+    for (final entity in entityCollection.entities) {
+      final placements = entity.files.files.length;
+
+      // JSON mode → only primary placement is materialized
+      if (_isJsonMode(context)) {
+        total += 1;
+      } else {
+        total += placements;
+      }
+    }
+
+    // Optionally include finalize() outputs if those generate files;
+    // by default, finalize is metadata-only and does not add file ops to count.
+    return total;
+  }
 
   /// Moves media entities according to the provided context using parallel processing
   ///
@@ -140,6 +175,13 @@ class MediaEntityMovingService with LoggerMixin {
         print('  ... and ${failed - 5} more errors');
       }
     }
+  }
+
+  bool _isJsonMode(final MovingContext context) {
+    // English comment: detect the JSON behavior. Adjust if your enum/value differs.
+    // Many codebases expose something like: context.albumBehavior.value == 'json'
+    final value = context.albumBehavior.value.toString().toLowerCase();
+    return value.contains('json');
   }
 }
 
