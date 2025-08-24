@@ -12,6 +12,7 @@ import '../../../../shared/constants.dart';
 import '../../../../shared/constants/exif_constants.dart';
 import '../../core/global_config_service.dart';
 import '../../core/logging_service.dart';
+import '../../core/service_container.dart'; // <-- Added to check global dictionary presence
 
 class _SmartReadResult {
   _SmartReadResult(this.bytes, this.usedHeadOnly);
@@ -76,18 +77,34 @@ class ExifDateExtractor with LoggerMixin {
     final line_native = '[READ-EXIF] Native: tried=$_nativeTried, hit=$_nativeHit, miss=$_nativeMiss, headReads=$_nativeHeadReads, fullReads=$_nativeFullReads, time=${_fmtSec(_nativeDuration)}, bytes=$_nativeBytes';
     final line_exiftool = '[READ-EXIF] Exiftool: directTried=$_exiftoolDirectTried , directHit=$_exiftoolDirectHit, fallbackTried=$_exiftoolFallbackTried, fallbackHit=$_exiftoolFallbackHit, time=${_fmtSec(_exiftoolDuration)}, errors=$_exiftoolFail';
 
+    // Only show the dictionary stats line when a global fileDatesDictionary is present
+    bool showDictLine = false;
+    try {
+      showDictLine = ServiceContainer.instance.globalConfig.fileDatesDictionary != null;
+    } catch (_) {
+      showDictLine = false;
+    }
+
     if (loggerMixin != null) {
       loggerMixin.logInfo(line_calls, forcePrint: true);
-      loggerMixin.logInfo(line_dict, forcePrint: true);
+      if (showDictLine) {
+        loggerMixin.logInfo(line_dict, forcePrint: true);
+      }
       loggerMixin.logInfo(line_native, forcePrint: true);
       loggerMixin.logInfo(line_exiftool, forcePrint: true);
       loggerMixin.logInfo('', forcePrint: true);
     } else {
       // ignore: avoid_print
       print(line_calls);
-      print(line_dict);
+      if (showDictLine) {
+        // ignore: avoid_print
+        print(line_dict);
+      }
+      // ignore: avoid_print
       print(line_native);
+      // ignore: avoid_print
       print(line_exiftool);
+      // ignore: avoid_print
       print('');
     }
 
@@ -147,6 +164,8 @@ class ExifDateExtractor with LoggerMixin {
         return jsonDt; // Already timezone-aware (we return UTC).
       } else {
         _dictMiss++;
+        // Also print the path of the file that was not found in the dictionary
+        logInfo('Dates dictionary miss for file: ${file.path}', forcePrint: true);
       }
     }
 

@@ -10,11 +10,17 @@ library;
 /// of original photos/videos and should typically be excluded from processing.
 /// All patterns should be lowercase for case-insensitive matching.
 const List<String> extraFormats = <String>[
+  // Special Suffixes (are always in English)
+  '-effects',
+  '-motion',
+  '-animation',
+  '-smile',
+  '-collage',
+  '-mix',
+
+  // Edited Suffixes (language-specific)
   // EN/US - thanks @DalenW
   '-edited',
-  '-effects',
-  '-smile',
-  '-mix',
   // PL
   '-edytowane',
   // DE - thanks @cintx
@@ -31,6 +37,7 @@ const List<String> extraFormats = <String>[
   '-modifié',
   // ES - @Sappstal report
   '-ha editado',
+  // IT
   '-editado',
   // CA - @Sappstal report
   '-editat',
