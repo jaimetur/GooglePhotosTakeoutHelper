@@ -1,49 +1,57 @@
 ## 4.3.0-Xentraxx
 
-### 🐛 **Bug Fixes**
- - Handle per file exception in WriteExif Step. Now the flow continues if any file fails to write EXIF
- - Fixed interactive mode when asking to limit the file size.
+### ✨ **New Features**
+
+  - New flag `--fileDates` to provide a JSON dictionary with the date per file to void reading it from EXIF when any file does not associated sidecar. (PhotoMigrator creates this file and can now be used by GPTH Tool).
 
 ### 🚀 **Improvements**
-- #### Step 4 (Extract Dates) & 5 (Write EXIF) Optimization
-  - ##### ⚡ Performance
-    - Step 4 (READ-EXIF) now support --fileDates flag to provide a JSON dictionary with the Extracted dates per file (PhotoMigrator creates this file and can now be used by GPTH Tool).
-    - Step 4 (READ-EXIF) now uses batch reads and a fast native mode, with ExifTool only as fallback → about 3x faster metadata extraction.  
-    - Step 5 (WRITE-EXIF) supports batch writes and argfile mode, plus native JPEG writers → up to 5x faster on large collections.
-  - ##### 🔧 API
-    - Added batch write methods in `ExifToolService`.  
-    - Updated `MediaEntityCollection` to use new helpers for counting written tags.
-  - ##### 📊 Logging
-    - Statistics are clearer: calls, hits, misses, fallback attempts, timings.  
-    - Date, GPS, and combined writes are reported separately.  
-    - Removed extra blank lines for cleaner output.
-  - ##### 🧪 Testing
-    - Extended mocks with batch support and error simulation.  
-    - Added tests for GPS writing, batch operations, and non-image handling.
-  - ##### ✅ Benefits
-    - Much faster EXIF processing with less ExifTool overhead.  
-    - More reliable and structured API.  
-    - Logging is easier to read and interpret.  
-    - Stronger test coverage across edge cases.  
 
-- #### Step 6 (Find Albums) Optimization
-  - ##### ⚡ Performance
-    - Replaced `_groupIdenticalMedia` with `_groupIdenticalMediaOptimized`.  
-      - Two-phase strategy:  
-        - First group by file **size** (cheap).  
-        - Only hash files that share the same size.  
-      - Switched from `readAsBytes()` (full memory load) to **streaming hashing** with `md5.bind(file.openRead())`.  
-      - Files are processed in **parallel batches** instead of sequentially.  
-      - Concurrency defaults to number of CPU cores, configurable via `maxConcurrent`.
-  - ##### 🔧 Implementation
-    - Added an in-memory **hash cache** keyed by `(path|size|mtime)` to avoid recalculating.  
-      - Introduced a custom **semaphore** to limit concurrent hashing and prevent I/O overload.  
-      - Errors are handled gracefully: unprocessable files go into dedicated groups without breaking the process.
-  - ##### ✅ Benefits
-    - Processing time reduced from **1m20s → 4s** on large collections.  
-      - Greatly reduced memory usage.  
-      - Scales better on multi-core systems.  
-      - More robust and fault-tolerant album detection.  
+  - #### Step 4 (Extract Dates) & 5 (Write EXIF) Optimization
+    - ##### ⚡ Performance
+      - Step 4 (READ-EXIF) now uses batch reads and a fast native mode, with ExifTool only as fallback → about 3x faster metadata extraction.  
+      - Step 5 (WRITE-EXIF) supports batch writes and argfile mode, plus native JPEG writers → up to 5x faster on large collections.
+    - ##### 🔧 API
+      - Added batch write methods in `ExifToolService`.  
+      - Updated `MediaEntityCollection` to use new helpers for counting written tags.
+    - ##### 📊 Logging
+      - Statistics are clearer: calls, hits, misses, fallback attempts, timings.  
+      - Date, GPS, and combined writes are reported separately.  
+      - Removed extra blank lines for cleaner output.
+    - ##### 🧪 Testing
+      - Extended mocks with batch support and error simulation.  
+      - Added tests for GPS writing, batch operations, and non-image handling.
+    - ##### ✅ Benefits
+      - Much faster EXIF processing with less ExifTool overhead.  
+      - More reliable and structured API.  
+      - Logging is easier to read and interpret.  
+      - Stronger test coverage across edge cases.  
+
+  - #### Step 6 (Find Albums) Optimization
+    - ##### ⚡ Performance
+      - Replaced `_groupIdenticalMedia` with `_groupIdenticalMediaOptimized`.  
+        - Two-phase strategy:  
+          - First group by file **size** (cheap).  
+          - Only hash files that share the same size.  
+        - Switched from `readAsBytes()` (full memory load) to **streaming hashing** with `md5.bind(file.openRead())`.  
+        - Files are processed in **parallel batches** instead of sequentially.  
+        - Concurrency defaults to number of CPU cores, configurable via `maxConcurrent`.
+    - ##### 🔧 Implementation
+      - Added an in-memory **hash cache** keyed by `(path|size|mtime)` to avoid recalculating.  
+        - Introduced a custom **semaphore** to limit concurrent hashing and prevent I/O overload.  
+        - Errors are handled gracefully: unprocessable files go into dedicated groups without breaking the process.
+    - ##### ✅ Benefits
+      - Processing time reduced from **1m20s → 4s** on large collections.  
+        - Greatly reduced memory usage.  
+        - Scales better on multi-core systems.  
+        - More robust and fault-tolerant album detection.  
+
+### 🐛 **Bug Fixes**
+
+  - Handle per file exception in WriteExif Step. Now the flow continues if any file fails to write EXIF
+  - Fixed interactive mode when asking to limit the file size.
+  - Show dictMiss files in log to see those files that have not been found in dates dictionary when it was passed as argument using --fileDates
+  - Fix missing JSON match when the length of the original JSON filename is higher than 51. Now try first with the full filename even if its length is longer than 51 chars, if not match, then try the different truncations variants.
+  - Fix Progress bar on Step 7: Move files. Now counts the number of real operations instead of number of move instances.
 
 
 ## 4.1.1-Xentraxx
