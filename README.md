@@ -237,7 +237,8 @@ gpth --input "/path/to/takeout" --output "/path/to/organized" --albums "shortcut
 | `--limit-filesize`       | Skip files larger than 64MB (for low-RAM systems)                                                                        |
 | `--fileDates`            | Provide a JSON dictionary with the dates per file to void reading it from EXIF when any file does not associated sidecar |
 
-> The JSON format is a dictionary whose key is the full filepath (unix format) and the date is given by the key `oldestDate`.  
+> The `--fileDates` argument should be a JSON dictionary that must have as key the full filepath (in unix format) and the value must be a dictionary with at least the key `oldestDate` which contains the date for the given filepath.  
+>
 > Example:
 > ```
 > {
