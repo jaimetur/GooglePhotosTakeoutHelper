@@ -46,30 +46,32 @@ class JsonMetadataMatcherService with LoggerMixin {
     for (final strategy in strategies) {
       final String processedName = strategy.transform(name);
 
-      // Try all possible truncations of supplemental-metadata.json
+      // Try all possible supplemental-metadata variants
       final String fullSupplementalPath =
           '$processedName.supplemental-metadata.json';
+
+      // Always try the full supplemental-metadata filename first, even if > 51
+      final File supplementalJsonFile = File(
+        p.join(dir.path, fullSupplementalPath),
+      );
+      if (await supplementalJsonFile.exists()) {
+        return supplementalJsonFile;
+      }
+
+      // If the full name would exceed 51, try truncated variants afterwards
       if (fullSupplementalPath.length > 51) {
         // Calculate all possible truncations based on available space
         final List<String> truncatedSuffixes =
             _generateTruncatedSupplementalSuffixes(
-              processedName,
-              maxLength: 51,
-            );
+          processedName,
+          maxLength: 51,
+        );
 
         for (final suffix in truncatedSuffixes) {
           final File truncatedFile = File(
             p.join(dir.path, '$processedName.$suffix'),
           );
           if (await truncatedFile.exists()) return truncatedFile;
-        }
-      } else {
-        // If we have space for the full name, try that first
-        final File supplementalJsonFile = File(
-          p.join(dir.path, fullSupplementalPath),
-        );
-        if (await supplementalJsonFile.exists()) {
-          return supplementalJsonFile;
         }
       }
 
@@ -255,13 +257,15 @@ class JsonMetadataMatcherService with LoggerMixin {
     required final int maxLength,
   }) {
     final List<String> suffixes = [];
-    const String fullSuffix = 'supplemental-metadata.json';
+    // Fix: use the suffix without '.json' and append a single '.json' later
+    const String fullSuffix = 'supplemental-metadata';
     final int baseLength = baseName.length + 1; // +1 for the dot
     final int maxSuffixLength = maxLength - baseLength;
 
-    // Try progressively shorter versions of the suffix
+    // Try progressively shorter versions of the suffix (longest first)
     for (int i = fullSuffix.length; i > 0; i--) {
-      final String truncatedSuffix = '${fullSuffix.substring(0, i)}.json';
+      final String candidateCore = fullSuffix.substring(0, i);
+      final String truncatedSuffix = '$candidateCore.json';
       if (truncatedSuffix.length <= maxSuffixLength) {
         suffixes.add(truncatedSuffix);
       }
