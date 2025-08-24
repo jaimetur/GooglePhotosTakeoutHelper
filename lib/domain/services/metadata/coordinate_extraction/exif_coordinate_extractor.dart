@@ -56,6 +56,15 @@ class ExifCoordinateExtractor with LoggerMixin {
     }
   }
 
+  bool _isValidCoord(final dynamic v) {
+    if (v == null) return false;
+    final s = v.toString().trim();
+    if (s.isEmpty) return false;
+    if (s == '0' || s == '0.0' || s == '0,0') return false;
+    if (s.toLowerCase() == 'nan') return false;
+    return true;
+  }
+
   /// Extract GPS coordinates; native first for supported formats; fallback to ExifTool.
   Future<Map<String, dynamic>?> extractGPSCoordinates(
     final File file, {
@@ -150,7 +159,7 @@ class ExifCoordinateExtractor with LoggerMixin {
       final latRef = tags['GPS GPSLatitudeRef']?.printable;
       final longRef = tags['GPS GPSLongitudeRef']?.printable;
 
-      if (latitude != null && longitude != null) {
+      if (_isValidCoord(latitude) && _isValidCoord(longitude)) {
         return {
           'GPSLatitude': latitude,
           'GPSLongitude': longitude,
@@ -168,7 +177,7 @@ class ExifCoordinateExtractor with LoggerMixin {
     if (exiftool == null) return null;
     try {
       final tags = await exiftool!.readExifData(file);
-      if (tags['GPSLatitude'] != null && tags['GPSLongitude'] != null) {
+      if (_isValidCoord(tags['GPSLatitude']) && _isValidCoord(tags['GPSLongitude'])) {
         return {
           'GPSLatitude': tags['GPSLatitude'],
           'GPSLongitude': tags['GPSLongitude'],

@@ -171,6 +171,10 @@ class MediaEntityCollection with LoggerMixin {
     var dateTimesWritten = 0;
     var completed = 0;
 
+    // Pending counters that will be committed only after a successful batch flush
+    var pendingGpsToCommit = 0;
+    var pendingDateTimeToCommit = 0;
+
     final maxConcurrency = ConcurrencyManager().concurrencyFor(
       ConcurrencyOperation.exif,
     );
@@ -193,9 +197,19 @@ class MediaEntityCollection with LoggerMixin {
           pendingBatch,
           useArgFileWhenLarge: useArgFile,
         );
+        // Only after a successful flush, commit the pending counters
+        if (pendingGpsToCommit > 0) {
+          coordinatesWritten += pendingGpsToCommit;
+          pendingGpsToCommit = 0;
+        }
+        if (pendingDateTimeToCommit > 0) {
+          dateTimesWritten += pendingDateTimeToCommit;
+          pendingDateTimeToCommit = 0;
+        }
       } catch (e) {
         // Batch-level error is logged, but execution continues.
         logError('Batch flush failed (${pendingBatch.length} files): $e');
+        // On failure, do not commit pending counters; keep them so a later retry could apply (or they will be lost if we clear).
       } finally {
         pendingBatch.clear();
       }
@@ -260,8 +274,9 @@ class MediaEntityCollection with LoggerMixin {
                       dateTimeWrittenLocal = true;
                     } else {
                       // Fallback to exiftool (enqueue combined tags)
+                      final dtLocal = mediaEntity.dateTaken!.toLocal();
                       final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
-                      final dt = exifFormat.format(mediaEntity.dateTaken!);
+                      final dt = exifFormat.format(dtLocal);
                       tagsToWrite['DateTimeOriginal'] = '"$dt"';
                       tagsToWrite['DateTimeDigitized'] = '"$dt"';
                       tagsToWrite['DateTime'] = '"$dt"';
@@ -269,9 +284,9 @@ class MediaEntityCollection with LoggerMixin {
                       tagsToWrite['GPSLongitude'] = coordinates.toDD().longitude.toString();
                       tagsToWrite['GPSLatitudeRef'] = coordinates.latDirection.abbreviation.toString();
                       tagsToWrite['GPSLongitudeRef'] = coordinates.longDirection.abbreviation.toString();
-                      // Logical success; actual write counted after batch flush.
-                      gpsWritten = true;
-                      dateTimeWrittenLocal = true;
+                      // Defer success counting until batch flush
+                      pendingGpsToCommit += 1;
+                      pendingDateTimeToCommit += 1;
                     }
                   } else {
                     // Only GPS on JPEG: try native GPS write
@@ -284,7 +299,8 @@ class MediaEntityCollection with LoggerMixin {
                       tagsToWrite['GPSLongitude'] = coordinates.toDD().longitude.toString();
                       tagsToWrite['GPSLatitudeRef'] = coordinates.latDirection.abbreviation.toString();
                       tagsToWrite['GPSLongitudeRef'] = coordinates.longDirection.abbreviation.toString();
-                      gpsWritten = true;
+                      // Defer success counting until batch flush
+                      pendingGpsToCommit += 1;
                     }
                   }
                 } else {
@@ -293,6 +309,8 @@ class MediaEntityCollection with LoggerMixin {
                   tagsToWrite['GPSLongitude'] = coordinates.toDD().longitude.toString();
                   tagsToWrite['GPSLatitudeRef'] = coordinates.latDirection.abbreviation.toString();
                   tagsToWrite['GPSLongitudeRef'] = coordinates.longDirection.abbreviation.toString();
+                  // Defer success counting until batch flush
+                  pendingGpsToCommit += 1;
                 }
               }
             }
@@ -313,20 +331,25 @@ class MediaEntityCollection with LoggerMixin {
                     dateTimeWrittenLocal = true;
                   } else {
                     // Fallback to exiftool (enqueue DateTime tags)
+                    final dtLocal = mediaEntity.dateTaken!.toLocal();
                     final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
-                    final dt = exifFormat.format(mediaEntity.dateTaken!);
+                    final dt = exifFormat.format(dtLocal);
                     tagsToWrite['DateTimeOriginal'] = '"$dt"';
                     tagsToWrite['DateTimeDigitized'] = '"$dt"';
                     tagsToWrite['DateTime'] = '"$dt"';
-                    dateTimeWrittenLocal = true;
+                    // Defer success counting until batch flush
+                    pendingDateTimeToCommit += 1;
                   }
                 }
               } else {
+                final dtLocal = mediaEntity.dateTaken!.toLocal();
                 final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
-                final dt = exifFormat.format(mediaEntity.dateTaken!);
+                final dt = exifFormat.format(dtLocal);
                 tagsToWrite['DateTimeOriginal'] = '"$dt"';
                 tagsToWrite['DateTimeDigitized'] = '"$dt"';
                 tagsToWrite['DateTime'] = '"$dt"';
+                // Defer success counting until batch flush
+                pendingDateTimeToCommit += 1;
               }
             }
           } catch (e) {
@@ -338,14 +361,16 @@ class MediaEntityCollection with LoggerMixin {
           try {
             if (tagsToWrite.isNotEmpty) {
               // Avoid extension/content mismatch that would make exiftool fail
-              if (mimeExt != mimeHeader && mimeHeader != 'image/tiff') {
-                logError(
-                  "EXIF Writer - File has a wrong extension indicating '$mimeExt' but actually is '$mimeHeader'. "
-                  'ExifTool would fail. Consider running --fix-extensions.\n ${file.path}',
-                );
-              } else if (mimeExt == 'video/x-msvideo' || mimeHeader == 'video/x-msvideo') {
+              if (mimeExt == 'video/x-msvideo' || mimeHeader == 'video/x-msvideo') {
                 logWarning('Skipping AVI file - ExifTool cannot write RIFF AVI: ${file.path}');
               } else {
+                // Relaxed: log a warning if there is a mismatch, but do not block writing for common image types
+                if (mimeExt != mimeHeader && mimeHeader != 'image/tiff') {
+                  logWarning(
+                    "EXIF Writer - File reports extension '$mimeExt' but header '$mimeHeader'. "
+                    'Proceeding to exiftool write. Consider running --fix-extensions.\n ${file.path}',
+                  );
+                }
                 pendingBatch.add(MapEntry(file, tagsToWrite));
 
                 // Rough estimate of command “weight”: 1 per tag + file path
