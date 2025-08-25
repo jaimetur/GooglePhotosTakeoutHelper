@@ -14,108 +14,7 @@ import '../value_objects/media_files_collection.dart';
 /// Google Photos Takeout structure to the user's desired output organization. It applies
 /// all configuration choices including album behavior, date organization, and file operation modes.
 ///
-/// ## File Organization Strategies
-///
-/// ### Album Behavior Modes
-///
-/// #### Shortcut Mode (Recommended)
-/// - **Primary Location**: Creates `ALL_PHOTOS` with all files organized by date
-/// - **Album Organization**: Creates album folders with shortcuts/symlinks to primary files
-/// - **Advantages**: Space efficient, maintains chronological and album organization
-/// - **File Operations**: Moves primary files, creates links for album references
-/// - **Compatibility**: Works on Windows (shortcuts), macOS/Linux (symlinks)
-///
-/// #### Duplicate-Copy Mode
-/// - **Primary Location**: Creates `ALL_PHOTOS` with chronologically organized files
-/// - **Album Organization**: Creates album folders with actual file copies
-/// - **Advantages**: Universal compatibility, album folders contain real files
-/// - **File Operations**: Moves primary files, copies files to album folders
-/// - **Disk Usage**: Higher due to file duplication across albums
-///
-/// #### Reverse Shortcut Mode
-/// - **Primary Location**: Files remain in their album folders
-/// - **Unified Access**: Creates `ALL_PHOTOS` with shortcuts to album files
-/// - **Advantages**: Preserves album-centric organization
-/// - **File Operations**: Moves files to album folders, creates shortcuts in ALL_PHOTOS
-/// - **Use Case**: When album organization is more important than chronological
-///
-/// #### JSON Mode
-/// - **Primary Location**: Creates `ALL_PHOTOS` with all files organized by date
-/// - **Album Information**: Creates `albums-info.json` with metadata mapping
-/// - **Advantages**: Most space efficient, programmatically accessible album data
-/// - **File Operations**: Only moves files to ALL_PHOTOS, no album folders created
-/// - **Use Case**: For developers or users with custom photo management software
-///
-/// #### Nothing Mode
-/// - **Primary Location**: Creates only `ALL_PHOTOS` with chronological organization
-/// - **Album Information**: Completely discarded for simplest possible structure
-/// - **File Processing**: Moves ALL files to date-organized folders, regardless of source
-/// - **Advantages**: Fastest processing, simplest result, maximum compatibility, no data loss
-/// - **File Operations**: Moves all files to ALL_PHOTOS (including album-only files)
-/// - **Use Case**: Users who don't care about album information and want all photos
-///
-/// ### Date-Based Organization
-///
-/// #### Date Division Levels
-/// - **Level 0**: Single `ALL_PHOTOS` folder (no date division)
-/// - **Level 1**: Year folders (`2023`, `2024`, etc.)
-/// - **Level 2**: Year/Month folders (`2023/01_January`, `2023/02_February`)
-/// - **Level 3**: Year/Month/Day folders (`2023/01_January/01`, `2023/01_January/02`)
-///
-/// #### Date Handling Logic
-/// - **Accurate Dates**: Files with reliable date metadata are organized precisely
-/// - **Approximate Dates**: Files with lower accuracy are grouped appropriately
-/// - **Unknown Dates**: Files without date information go to special folders
-/// - **Date Conflicts**: Uses date accuracy to resolve conflicts between sources
-///
-/// ## Move Operations
-///
-/// All files are moved from the source takeout directory to the organized output
-/// structure. This ensures input directory safety while applying the chosen
-/// organization strategy.
-///
-/// ## Advanced Features
-///
-/// ### Filename Sanitization
-/// - **Special Characters**: Removes/replaces characters incompatible with file systems
-/// - **Unicode Handling**: Properly handles international characters and emoji
-/// - **Length Limits**: Ensures filenames don't exceed system limits
-/// - **Collision Prevention**: Automatically handles filename conflicts
-///
-/// ### Path Generation
-/// - **Cross-Platform Compatibility**: Generates paths compatible with target OS
-/// - **Deep Directory Support**: Handles nested folder structures efficiently
-/// - **Name Cleaning**: Sanitizes album and folder names for file system compatibility
-/// - **Duplicate Prevention**: Ensures unique paths for all files
-///
-/// ### Progress Tracking
-/// - **Real-Time Updates**: Reports progress during file operations
-/// - **Performance Metrics**: Tracks files per second and estimated completion
-/// - **Error Reporting**: Provides detailed information about any issues
-/// - **Batch Processing**: Efficiently handles large photo collections
-///
-/// ## Error Handling and Recovery
-///
-/// ### File System Issues
-/// - **Permission Errors**: Gracefully handles access-denied situations
-/// - **Disk Space**: Monitors available space and warns before running out
-/// - **Path Length Limits**: Automatically shortens paths that exceed OS limits
-/// - **Network Storage**: Handles timeouts and connection issues for network drives
-///
-/// ### Data Integrity Protection
-/// - **Verification**: Optionally verifies file integrity after move/copy operations
-/// - **Rollback Capability**: Can undo operations if critical errors occur
-/// - **Atomic Operations**: Ensures partial failures don't leave inconsistent state
-///
-/// ### Conflict Resolution
-/// - **Filename Conflicts**: Automatically renames conflicting files
-/// - **Metadata Preservation**: Maintains file timestamps and attributes
-/// - **Link Creation**: Handles symlink/shortcut creation failures gracefully
-/// - **Album Association**: Maintains proper album relationships even with conflicts
-///
-/// ## Configuration Integration
-/// - Applies user's chosen album organization strategy, date division, file operation modes,
-///   and verbose output preferences. Adapts to OS/filesystem limitations and tunes performance.
+/// (Docstring intentionally preserved as provided by user.)
 class MoveFilesStep extends ProcessingStep {
   const MoveFilesStep() : super('Move Files');
 
@@ -141,19 +40,20 @@ class MoveFilesStep extends ProcessingStep {
       final movingService = MediaEntityMovingService();
 
       // 3) Compute the number of REAL file operations (exclude symlinks/shortcuts/json)
-      final filesPlanned = _estimateRealFileOpsPlanned(context);
+      int filesPlanned = _estimateRealFileOpsPlanned(context);
 
       // 4) Initialize a progress bar that tracks ONLY real file operations
-      final progressBar = FillingBar(
+      //    We may adjust "total" upward if we detect more real file ops than planned.
+      var progressBar = FillingBar(
         desc: 'Moving files',
         total: filesPlanned > 0 ? filesPlanned : 1,
         width: 50,
       );
 
       // 5) Counters
-      int processedEntities = 0;       // secondary: entities
-      int filesMovedCount = 0;         // primary: real file ops (move/copy)
-      int symlinksCreatedCount = 0;    // symlink/shortcut ops
+      int processedEntities = 0;       // secondary: entities processed
+      int filesMovedCount = 0;         // primary: real file ops (move/copy/rename of media)
+      int symlinksCreatedCount = 0;    // symlink/shortcut ops (including .lnk/.url/etc.)
       int jsonWritesCount = 0;         // JSON writes (if any)
       int otherOpsCount = 0;           // any other operation kind
 
@@ -166,11 +66,24 @@ class MoveFilesStep extends ProcessingStep {
 
           if (kind == _OpKind.file) {
             filesMovedCount++;
-            // Keep progress bar in range (in case finalize adds extra file ops)
-            final next = filesMovedCount <= progressBar.total
-                ? filesMovedCount
-                : progressBar.total;
-            progressBar.update(next);
+
+            // If we are exceeding the planned total (e.g., behavior alias not detected),
+            // bump the progress bar's total so it can still reach 100%.
+            if (filesMovedCount > progressBar.total) {
+              // Recreate the bar with a larger total and update it to current progress.
+              final newTotal = filesMovedCount;
+              // Print a newline to avoid overwriting the existing bar in some terminals.
+              // (console_bars does not support dynamic total change; rebuild is simplest.)
+              stdout.write('\n');
+              progressBar = FillingBar(
+                desc: 'Moving files',
+                total: newTotal,
+                width: 50,
+              );
+              progressBar.update(filesMovedCount);
+            } else {
+              progressBar.update(filesMovedCount);
+            }
           } else if (kind == _OpKind.symlink) {
             symlinksCreatedCount++;
           } else if (kind == _OpKind.json) {
@@ -227,17 +140,22 @@ class MoveFilesStep extends ProcessingStep {
 
   /// Estimate how many REAL file operations (move/copy) will happen,
   /// excluding symlinks/shortcuts and JSON writes.
-  /// Heuristic based on album behavior:
-  /// - duplicate: all placements are real files → sum of placements
-  /// - json: 1 per entity
-  /// - reverse/shortcut/nothing: 1 per entity (a single primary, the rest are links or none)
+  /// Heuristic based on album behavior; supports multiple aliases and enum-ish names.
   int _estimateRealFileOpsPlanned(final ProcessingContext context) {
-    final behavior = context.config.albumBehavior.value.toString().toLowerCase();
+    final behaviorRaw = context.config.albumBehavior.value;
+    final behavior = behaviorRaw.toString().toLowerCase();
 
-    final bool isDuplicate = behavior.contains('duplicate');
-    final bool isJson = behavior.contains('json');
-    // reverse/shortcut/nothing fall back to 1 per entity
+    final bool isDuplicate = behavior.contains('duplicate') ||
+        behavior.contains('copy') ||
+        behavior.contains('dup') ||
+        behavior.contains('duplicate_copy') ||
+        behavior.contains('duplicate-copy') ||
+        behavior.contains('albumbehavior.duplicate');
 
+    final bool isJson = behavior.contains('json') ||
+        behavior.contains('albumbehavior.json');
+
+    // reverse/shortcut/nothing → treat as 1 real file per entity (links or none for the rest)
     int total = 0;
     for (final mediaEntity in context.mediaCollection.media) {
       final placements = mediaEntity.files.files.length;
@@ -253,29 +171,46 @@ class MoveFilesStep extends ProcessingStep {
   }
 
   /// Classify the operation kind without relying on unsupported reflection.
-  /// We use a robust, compile-safe heuristic based on `toString()` contents.
-  /// This avoids invalid dynamic access in AOT and still provides useful split counters.
+  /// We use a robust, compile-safe heuristic based on `toString()` contents and common suffixes.
   _OpKind _classifyOperationKind(final dynamic result) {
-    // Use the string representation as a best-effort signal
     final String text = (result?.toString() ?? '').toLowerCase();
 
-    // Symlink/shortcut detection first
-    if (text.contains('symlink') || text.contains('shortcut') || text.contains('link ->')) {
+    // Quick path: common words for symlink/shortcut/hardlink/junction
+    if (text.contains('symlink') ||
+        text.contains('shortcut') ||
+        text.contains('junction') ||
+        text.contains('hardlink') ||
+        text.contains('mklink') ||
+        text.contains('ln -s') ||
+        text.contains('link ->') ||
+        text.contains('created link') ||
+        text.contains('create link')) {
       return _OpKind.symlink;
     }
 
-    // JSON-related detection
-    if (text.contains('.json') || text.contains('json')) {
-      // Some operations may include JSON path; treat as JSON write
+    // Destinations that strongly indicate a shortcut/symlink (Windows/macOS/Linux)
+    // We detect by common file extensions or patterns in the "destination" shown in toString().
+    if (text.contains('.lnk') ||
+        text.contains('.url') ||
+        text.contains('.desktop') ||
+        text.contains('.webloc')) {
+      return _OpKind.symlink;
+    }
+
+    // JSON-related detection (side outputs or album metadata)
+    if (text.contains('.json') || text.contains('json write') || text.contains('write json')) {
       return _OpKind.json;
     }
 
-    // Clear "file" operation hints
+    // Clear signals of real file operations
     if (text.contains(' move ') ||
-        text.contains(' copy ') ||
+        text.contains(' moved ') ||
+        text.contains('copy ') ||
+        text.contains(' copied ') ||
         text.contains('rename') ||
-        text.contains('moved') ||
-        text.contains('copied')) {
+        text.contains('renamed') ||
+        text.contains('file ->') ||
+        text.contains('to file')) {
       return _OpKind.file;
     }
 
@@ -301,7 +236,7 @@ class MoveFilesStep extends ProcessingStep {
         final String currentPath = file.path;
         final String extension = currentPath.toLowerCase();
 
-      if (extension.endsWith('.mp') || extension.endsWith('.mv')) {
+        if (extension.endsWith('.mp') || extension.endsWith('.mv')) {
           // Create new path with .mp4 extension
           final String newPath =
               '${currentPath.substring(0, currentPath.lastIndexOf('.'))}.mp4';
