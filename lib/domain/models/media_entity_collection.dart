@@ -273,7 +273,7 @@ class MediaEntityCollection with LoggerMixin {
     final maxConcurrency = ConcurrencyManager().concurrencyFor(ConcurrencyOperation.exif);
 
     // Reuse writer and coordinate extractor across the batch
-    final exifWriter = ExifWriterService(exifTool);
+    final ExifWriterService? exifWriter = (exifTool != null) ? ExifWriterService(exifTool) : null;
     final coordExtractor = exifTool != null ? ExifCoordinateExtractor(exifTool) : null;
     final globalConfig = ServiceContainer.instance.globalConfig;
 
@@ -284,8 +284,14 @@ class MediaEntityCollection with LoggerMixin {
     final List<MapEntry<File, Map<String, dynamic>>> pendingBatch = [];
 
     Future<void> _flushBatch({required final bool useArgFile}) async {
-      if (nativeOnly) return; // no usar exiftool en modo nativo
+      if (nativeOnly) return; // do not use exiftool in native mode
       if (pendingBatch.isEmpty) return;
+
+      // If there is no exifWriter (no ExifTool), skip batch safely
+      if (exifWriter == null) {
+        pendingBatch.clear();
+        return;
+      }
 
       // Pre-clean possible stale *_exiftool_tmp files for all files in this batch
       try {
@@ -398,11 +404,13 @@ class MediaEntityCollection with LoggerMixin {
                   if (mimeHeader == 'image/jpeg') {
                     // If also need DateTime and it's JPEG, try native combined
                     if (effectiveDate != null) {
-                      final ok = await exifWriter.writeCombinedNativeJpeg(
-                        file,
-                        effectiveDate,
-                        coordinates,
-                      );
+                      final ok = (exifWriter != null)
+                          ? await exifWriter.writeCombinedNativeJpeg(
+                              file,
+                              effectiveDate,
+                              coordinates,
+                            )
+                          : false;
                       if (ok) {
                         gpsWritten = true;
                         dateTimeWrittenLocal = true;
@@ -424,7 +432,9 @@ class MediaEntityCollection with LoggerMixin {
                       }
                     } else {
                       // Only GPS on JPEG: try native GPS write
-                      final ok = await exifWriter.writeGpsNativeJpeg(file, coordinates);
+                      final ok = (exifWriter != null)
+                          ? await exifWriter.writeGpsNativeJpeg(file, coordinates)
+                          : false;
                       if (ok) {
                         gpsWritten = true;
                       } else {
@@ -459,7 +469,9 @@ class MediaEntityCollection with LoggerMixin {
               if (effectiveDate != null) {
                 if (mimeHeader == 'image/jpeg') {
                   if (!dateTimeWrittenLocal) {
-                    final ok = await exifWriter.writeDateTimeNativeJpeg(file, effectiveDate);
+                    final ok = (exifWriter != null)
+                        ? await exifWriter.writeDateTimeNativeJpeg(file, effectiveDate)
+                        : false;
                     if (ok) {
                       dateTimeWrittenLocal = true;
                     } else {
