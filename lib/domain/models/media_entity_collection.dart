@@ -239,19 +239,25 @@ class MediaEntityCollection with LoggerMixin {
   /// and coordinate data, tracking success statistics.
   Future<Map<String, int>> writeExifData({
     final void Function(int current, int total)? onProgress,
+    bool exifToolBatching = false,
   }) async {
     // Check if ExifTool is available before proceeding
     final exifTool = ServiceContainer.instance.exifTool;
     if (exifTool == null) {
       logWarning('ExifTool not available, writing EXIF data for native supported files only');
       logInfo('[Step 5/8] Starting EXIF data writing (native-only, no ExifTool) for ${_media.length} files', forcePrint: true);
-      return _writeExifDataParallel(onProgress, null, nativeOnly: true);
+      return _writeExifDataParallel(onProgress, null, nativeOnly: true, disableExifToolBatch: true);
     }
 
     logInfo('[Step 5/8] Starting EXIF data writing for ${_media.length} files', forcePrint: true);
 
     // Always use parallel processing for optimal performance
-    return _writeExifDataParallel(onProgress, exifTool, nativeOnly: false);
+    return _writeExifDataParallel(
+      onProgress,
+      exifTool,
+      nativeOnly: false,
+      disableExifToolBatch: !exifToolBatching, // <-- PROPAGACIÓN
+    );
   }
 
   /// Parallel + adaptive batch strategy:
@@ -263,6 +269,7 @@ class MediaEntityCollection with LoggerMixin {
     final void Function(int current, int total)? onProgress,
     final ExifToolService? exifTool, {
     bool nativeOnly = false,
+    bool disableExifToolBatch = false, // <-- NUEVO FLAG INTERNO
   }) async {
     var coordinatesWritten = 0;
     var dateTimesWritten = 0;
@@ -289,14 +296,14 @@ class MediaEntityCollection with LoggerMixin {
       required bool useArgFile,
       required bool isVideoBatch,
     }) async {
-      if (nativeOnly) return; // do not use exiftool in native mode
+      if (nativeOnly || disableExifToolBatch) return; // sin lotes en modo per-file
       if (queue.isEmpty) return;
       if (exifWriter == null) {
         queue.clear();
         return;
       }
 
-      // Pre-cleanup of *_exiftool_tmp
+      // Limpieza previa de *_exiftool_tmp
       try {
         for (final e in queue) {
           final tmp = File('${e.key.path}_exiftool_tmp');
@@ -308,7 +315,7 @@ class MediaEntityCollection with LoggerMixin {
         }
       } catch (_) {}
 
-      // Attempt 1: batch
+      // Intento 1: batch
       try {
         await exifWriter.writeBatchWithExifTool(
           queue,
@@ -321,7 +328,7 @@ class MediaEntityCollection with LoggerMixin {
               : 'Batch flush failed (${queue.length} files): $e',
         );
 
-        // Retry per-file so that we don't lose any item
+        // Reintento por-fichero para no perder nada
         for (final entry in queue) {
           try {
             await exifWriter.writeTagsWithExifTool(entry.key, entry.value);
@@ -387,7 +394,7 @@ class MediaEntityCollection with LoggerMixin {
               effectiveDate = mediaEntity.dateTaken;
             }
 
-            // 1) GPS coordinates Writer from JSON if EXIF lacks it
+            // 1) GPS coordinates Writter from JSON if EXIF lacks it
             try {
               final coordinates = await jsonCoordinatesExtractor(file);
               if (coordinates != null) {
@@ -405,7 +412,7 @@ class MediaEntityCollection with LoggerMixin {
 
                 if (!hasCoords) {
                   if (mimeHeader == 'image/jpeg') {
-                    // Try native combined if we also have DateTime; fallback to ExifTool if native fails
+                    // Try native combined; fallback a ExifTool si falla
                     if (effectiveDate != null) {
                       final ok = (exifWriter != null)
                           ? await exifWriter.writeCombinedNativeJpeg(
@@ -433,7 +440,6 @@ class MediaEntityCollection with LoggerMixin {
                         }
                       }
                     } else {
-                      // Only GPS on JPEG: try native first, fallback to ExifTool
                       final ok = (exifWriter != null)
                           ? await exifWriter.writeGpsNativeJpeg(file, coordinates)
                           : false;
@@ -450,7 +456,7 @@ class MediaEntityCollection with LoggerMixin {
                       }
                     }
                   } else {
-                    // Non-JPEG → defer to exiftool (only if not nativeOnly mode)
+                    // Non-JPEG → exiftool si no estamos en nativeOnly
                     if (!nativeOnly) {
                       tagsToWrite['GPSLatitude'] = coordinates.toDD().latitude.toString();
                       tagsToWrite['GPSLongitude'] = coordinates.toDD().longitude.toString();
@@ -501,22 +507,37 @@ class MediaEntityCollection with LoggerMixin {
               logWarning('Failed to write DateTime for ${file.path}: $e');
             }
 
-            // 3) If there are pending tags → enqueue in the correct queue (images vs videos)
+            // 3) Encolar o escribir per-file con ExifTool según configuración
             try {
               if (!nativeOnly && tagsToWrite.isNotEmpty) {
                 // Avoid extension/content mismatch that would make exiftool fail
                 if (mimeExt != mimeHeader && mimeHeader != 'image/tiff') {
-                  // Downgrade to warning and proceed to batch (ExifTool usually handles jpg/jpeg casing)
                   logWarning("EXIF Writer - Extension indicates '$mimeExt' but header is '$mimeHeader'. Enqueuing for ExifTool batch.\n ${file.path}");
                 }
                 if (mimeExt == 'video/x-msvideo' || mimeHeader == 'video/x-msvideo') {
                   logWarning('Skipping AVI file - ExifTool cannot write RIFF AVI: ${file.path}');
                 } else {
                   final isVideo = (mimeHeader != null && mimeHeader.startsWith('video/'));
-                  if (isVideo) {
-                    pendingVideosBatch.add(MapEntry(file, tagsToWrite));
+                  if (disableExifToolBatch) {
+                    // escritura por archivo (sin lotes)
+                    if (exifWriter != null) {
+                      try {
+                        await exifWriter.writeTagsWithExifTool(file, tagsToWrite);
+                      } catch (e) {
+                        logWarning(
+                          isVideo
+                              ? 'Per-file video write failed: ${file.path} -> $e'
+                              : 'Per-file write failed: ${file.path} -> $e',
+                        );
+                      }
+                    }
                   } else {
-                    pendingImagesBatch.add(MapEntry(file, tagsToWrite));
+                    // escritura en lote (cola)
+                    if (isVideo) {
+                      pendingVideosBatch.add(MapEntry(file, tagsToWrite));
+                    } else {
+                      pendingImagesBatch.add(MapEntry(file, tagsToWrite));
+                    }
                   }
                 }
               }
@@ -547,10 +568,10 @@ class MediaEntityCollection with LoggerMixin {
 
         onProgress?.call(completed, _media.length);
 
-        // Serialized flushes: images and videos separately
-        if (!nativeOnly) {
+        // Flushed serializados: imágenes y vídeos por separado (solo si hay lotes)
+        if (!nativeOnly && !disableExifToolBatch) {
           final int targetImageBatch = baseBatchSize;
-          final int targetVideoBatch = 12; // small batches for videos
+          final int targetVideoBatch = 12; // lotes pequeños para vídeos
           if (pendingImagesBatch.length >= targetImageBatch) {
             await _flushImageBatch(useArgFile: true);
           }
@@ -560,8 +581,8 @@ class MediaEntityCollection with LoggerMixin {
         }
       }
     } finally {
-      // Flush any remaining batches
-      if (!nativeOnly) {
+      // Flush any remaining batches (solo si hay lotes)
+      if (!nativeOnly && !disableExifToolBatch) {
         final bool flushImagesWithArg = pendingImagesBatch.length > (Platform.isWindows ? 30 : 60);
         final bool flushVideosWithArg = pendingVideosBatch.length > 6;
         await _flushImageBatch(useArgFile: flushImagesWithArg);
