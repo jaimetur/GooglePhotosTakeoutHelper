@@ -143,13 +143,13 @@ import '../value_objects/media_files_collection.dart';
 /// - **Performance Data**: Provides insights for future processing optimizations
 class MoveFilesStep extends ProcessingStep {
   const MoveFilesStep() : super('Move Files');
-
   @override
   Future<StepResult> execute(final ProcessingContext context) async {
+    print ('');
     final stopwatch = Stopwatch()..start();
 
     try {
-      // 1) Optional transformation of Pixel .MP/.MV files (before estimating ops)
+      // Transform Pixel MP/MV files if enabled
       int transformedCount = 0;
       if (context.config.transformPixelMp) {
         transformedCount = await _transformPixelFiles(context);
@@ -158,61 +158,39 @@ class MoveFilesStep extends ProcessingStep {
         }
       }
 
-      // 2) Prepare moving context and service
-      final movingContext = MovingContext.fromConfig(
-        context.config,
-        context.outputDirectory,
-      );
-      final movingService = MediaEntityMovingService();
-
-      // 3) Compute the REAL number of low-level operations to perform
-      final totalOps = await movingService.estimateOperationCount(
-        context.mediaCollection,
-        movingContext,
-      );
-
-      // 4) Initialize a progress bar that will tick ONCE PER REAL OPERATION
+      // Initialize progress bar - always visible
       final progressBar = FillingBar(
         desc: 'Moving files',
-        total: totalOps > 0 ? totalOps : 1,
+        total: context.mediaCollection.length,
         width: 50,
+      ); // Create modern moving context
+      final movingContext = MovingContext(
+        outputDirectory: context.outputDirectory,
+        dateDivision: context.config.dateDivision,
+        albumBehavior: context.config.albumBehavior,
       );
+      // Create the moving service
+      final movingService = MediaEntityMovingService();
 
-      // 5) Counters: entities (secondary metric) and low-level operations (primary)
-      int processedEntities = 0;
-      int operationCount = 0;
-
-      // 6) Stream consumption: progress is driven by onOperation (per-file)
+      int processedCount = 0;
       await for (final _ in movingService.moveMediaEntities(
         context.mediaCollection,
         movingContext,
-        onOperation: (_) {
-          // One progress tick per actual low-level operation (move/copy/symlink/json)
-          operationCount++;
-          progressBar.update(operationCount);
-        },
       )) {
-        // Entity-level counter (secondary metric only)
-        processedEntities++;
+        processedCount++;
+        progressBar.update(processedCount);
       }
-
-      // 7) Finalize timing and UI
       stopwatch.stop();
-      print(''); // newline after progress bar
-
-      // 8) Build success result (use REAL operationCount in the human message)
       return StepResult.success(
         stepName: name,
         duration: stopwatch.elapsed,
-        data: <String, dynamic>{
-          'processedEntities': processedEntities,
+        data: {
+          'processedCount': processedCount,
           'transformedCount': transformedCount,
           'albumBehavior': context.config.albumBehavior.value,
-          'operationCount': operationCount,
-          'totalOperationsPlanned': totalOps,
         },
         message:
-            'Moved $operationCount files to output directory${transformedCount > 0 ? ', transformed $transformedCount Pixel files to .mp4' : ''}',
+            'Moved $processedCount files to output directory${transformedCount > 0 ? ', transformed $transformedCount Pixel files to .mp4' : ''}',
       );
     } catch (e) {
       stopwatch.stop();
@@ -229,7 +207,7 @@ class MoveFilesStep extends ProcessingStep {
   bool shouldSkip(final ProcessingContext context) =>
       context.mediaCollection.isEmpty;
 
-  /// Transform Pixel .MP/.MV files to .mp4 extension.
+  /// Transform Pixel .MP/.MV files to .mp4 extension
   ///
   /// Updates MediaEntity file paths to use .mp4 extension for better compatibility
   /// while preserving the original file content.

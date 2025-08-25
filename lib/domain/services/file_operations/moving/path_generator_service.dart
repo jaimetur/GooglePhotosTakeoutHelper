@@ -38,7 +38,11 @@ class PathGeneratorService {
     }
 
     // Original logic for non-partner-shared media
-    final String folderName = albumKey?.trim() ?? 'ALL_PHOTOS';
+    // final String folderName = albumKey?.trim() ?? 'ALL_PHOTOS';
+    final String folderName = albumKey != null
+    ? p.join('Albums', albumKey.trim()) // Now All Album's folders will be moved to 'Albums'
+    : 'ALL_PHOTOS';
+
 
     // Only apply date division to ALL_PHOTOS, not to Albums
     final String dateFolder = albumKey == null

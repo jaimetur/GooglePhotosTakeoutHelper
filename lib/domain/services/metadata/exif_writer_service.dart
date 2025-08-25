@@ -33,19 +33,15 @@ class ExifWriterService with LoggerMixin {
   static Duration exiftoolCombinedDur = Duration.zero;
 
   static String _fmtSec(final Duration d) =>
-      (d.inMilliseconds / 1000.0).toStringAsFixed(3) + 's';
+      '${(d.inMilliseconds / 1000.0).toStringAsFixed(3)}s';
 
   /// Print instrumentation lines; reset counters optionally.
   static void dumpWriterStats({final bool reset = true, final LoggerMixin? logger}) {
     final lines = <String>[
-      '[WRITE-EXIF] native: '
-          'dateFiles=$nativeDateWrites, gpsFiles=$nativeGpsWrites, combinedFiles=$nativeCombinedWrites, '
-          'dateTime=${_fmtSec(nativeDateTimeDur)}, gpsTime=${_fmtSec(nativeGpsDur)}, combinedTime=${_fmtSec(nativeCombinedDur)}',
-      '[WRITE-EXIF] exiftool: '
-          'dateFiles=$exiftoolDateWrites, gpsFiles=$exiftoolGpsWrites, combinedFiles=$exiftoolCombinedWrites, '
-          'dateTime=${_fmtSec(exiftoolDateTimeDur)}, gpsTime=${_fmtSec(exiftoolGpsDur)}, combinedTime=${_fmtSec(exiftoolCombinedDur)}',
-      '[WRITE-EXIF] exiftoolFiles=$exiftoolFiles, exiftoolCalls=$exiftoolCalls',
+      '[WRITE-EXIF] Native  : dateFiles=$nativeDateWrites, gpsFiles=$nativeGpsWrites, combinedFiles=$nativeCombinedWrites, dateTime=${_fmtSec(nativeDateTimeDur)}, gpsTime=${_fmtSec(nativeGpsDur)}, combinedTime=${_fmtSec(nativeCombinedDur)}',
+      '[WRITE-EXIF] Exiftool: dateFiles=$exiftoolDateWrites, gpsFiles=$exiftoolGpsWrites, combinedFiles=$exiftoolCombinedWrites, dateTime=${_fmtSec(exiftoolDateTimeDur)}, gpsTime=${_fmtSec(exiftoolGpsDur)}, combinedTime=${_fmtSec(exiftoolCombinedDur)}, exiftoolFiles=$exiftoolFiles, exiftoolCalls=$exiftoolCalls',
     ];
+    print ('');
     for (final l in lines) {
       if (logger != null) {
         logger.logInfo(l, forcePrint: true);
@@ -101,6 +97,7 @@ class ExifWriterService with LoggerMixin {
         if (isGps) {
           exiftoolGpsWrites++;
           exiftoolGpsDur += sw.elapsed;
+          logInfo('[WRITE-EXIF] GPS written via exiftool: ${file.path}', forcePrint: true);
         }
       }
 
@@ -162,6 +159,7 @@ class ExifWriterService with LoggerMixin {
       if (countGps > 0) {
         exiftoolGpsWrites += countGps;
         exiftoolGpsDur += elapsed * (countGps / totalTagged);
+        logInfo('[WRITE-EXIF] GPS written via exiftool (batch): $countGps files', forcePrint: true);
       }
     } catch (e) {
       logError('Batch exiftool write failed: $e');
@@ -224,6 +222,7 @@ class ExifWriterService with LoggerMixin {
       await file.writeAsBytes(out);
       nativeGpsWrites++;
       nativeGpsDur += sw.elapsed;
+      logInfo('[WRITE-EXIF] GPS written natively (JPEG): ${file.path}', forcePrint: true);
       return true;
     } catch (e) {
       logError('Native JPEG GPS write failed for ${file.path}: $e');
@@ -261,6 +260,7 @@ class ExifWriterService with LoggerMixin {
       await file.writeAsBytes(out);
       nativeCombinedWrites++;
       nativeCombinedDur += sw.elapsed;
+      logInfo('[WRITE-EXIF] Date+GPS written natively (JPEG): ${file.path}', forcePrint: true);
       return true;
     } catch (e) {
       logError('Native JPEG combined write failed for ${file.path}: $e');

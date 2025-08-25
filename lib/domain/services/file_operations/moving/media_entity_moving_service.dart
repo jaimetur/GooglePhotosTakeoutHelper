@@ -1,9 +1,7 @@
 import 'dart:async';
+import 'dart:collection';
 
-import '../../../../shared/concurrency_manager.dart';
-import '../../../../shared/global_pools.dart';
 import '../../../models/media_entity_collection.dart';
-import '../../core/logging_service.dart';
 import 'file_operation_service.dart';
 import 'moving_context_model.dart';
 import 'path_generator_service.dart';
@@ -16,13 +14,13 @@ import 'symlink_service.dart';
 /// This service coordinates all the moving logic components and provides
 /// a clean interface for moving media files according to configuration.
 /// Uses MediaEntity exclusively for better performance and immutability.
-class MediaEntityMovingService with LoggerMixin {
+class MediaEntityMovingService {
   MediaEntityMovingService()
-      : _strategyFactory = MediaEntityMovingStrategyFactory(
-          FileOperationService(),
-          PathGeneratorService(),
-          SymlinkService(),
-        );
+    : _strategyFactory = MediaEntityMovingStrategyFactory(
+        FileOperationService(),
+        PathGeneratorService(),
+        SymlinkService(),
+      );
 
   /// Custom constructor for dependency injection (useful for testing)
   MediaEntityMovingService.withDependencies({
@@ -30,80 +28,92 @@ class MediaEntityMovingService with LoggerMixin {
     required final PathGeneratorService pathService,
     required final SymlinkService symlinkService,
   }) : _strategyFactory = MediaEntityMovingStrategyFactory(
-          fileService,
-          pathService,
-          symlinkService,
-        );
+         fileService,
+         pathService,
+         symlinkService,
+       );
 
   final MediaEntityMovingStrategyFactory _strategyFactory;
 
-  /// Returns the exact number of low-level operations that would be performed.
-  ///
-  /// Semantics:
-  /// - Each File entry in `mediaEntity.files.files` generally maps to 1 operation
-  ///   (primary move + per-album copy/symlink/shortcut depending on album behavior).
-  /// - JSON mode: we only move to `ALL_PHOTOS` → exactly 1 operation per entity.
-  /// - Nothing/Shortcut/Duplicate/ReverseShortcut modes: equals to the number of
-  ///   placements (map entries).
-  ///
-  /// This does **not** touch the disk and has no side effects.
-  Future<int> estimateOperationCount(
-    final MediaEntityCollection entityCollection,
-    final MovingContext context,
-  ) async {
-    final strategy = _strategyFactory.createStrategy(context.albumBehavior);
-    strategy.validateContext(context);
-
-    // Count per-entity placements
-    int total = 0;
-    for (final entity in entityCollection.entities) {
-      final placements = entity.files.files.length;
-
-      // JSON mode → only primary placement is materialized
-      if (_isJsonMode(context)) {
-        total += 1;
-      } else {
-        total += placements;
-      }
-    }
-
-    // Optionally include finalize() outputs if those generate files;
-    // by default, finalize is metadata-only and does not add file ops to count.
-    return total;
-  }
-
-  /// Moves media entities according to the provided context using parallel processing
-  ///
-  /// Progress Semantics CHANGE (entity-level):
-  ///   The returned stream now reports the NUMBER OF ENTITIES processed, not
-  ///   the number of low-level file operations (move + symlink + duplicate, etc.).
-  ///   Each MediaEntity contributes +1 to the progress count regardless of how
-  ///   many underlying operations its strategy performs. This provides a
-  ///   stable, cross-platform progress metric (Windows symlink limitations
-  ///   previously caused inconsistent counts).
+  /// Moves media entities according to the provided context
   ///
   /// [entityCollection] Collection of media entities to process
   /// [context] Configuration and context for the moving operations
-  /// [maxConcurrent] Maximum number of concurrent operations (optional)
-  /// [batchSize] Number of entities to process in each batch
-  /// Returns a stream of progress updates (number of entities processed)
+  /// Returns a stream of progress updates (number of files processed)
   Stream<int> moveMediaEntities(
     final MediaEntityCollection entityCollection,
+    final MovingContext context,
+  ) async* {
+    // Create the appropriate strategy for the album behavior
+    final strategy = _strategyFactory.createStrategy(context.albumBehavior);
+
+    // Validate the context for this strategy
+    strategy.validateContext(context);
+
+    int processedCount = 0;
+    final List<MediaEntityMovingResult> allResults = [];
+
+    // Process each media entity
+    for (final entity in entityCollection.entities) {
+      await for (final result in strategy.processMediaEntity(entity, context)) {
+        allResults.add(result);
+
+        if (!result.success && context.verbose) {
+          _logError(result);
+        } else if (context.verbose) {
+          _logResult(result);
+        }
+      }
+
+      processedCount++;
+      yield processedCount;
+    }
+
+    // Perform any finalization steps
+    try {
+      final finalizationResults = await strategy.finalize(
+        context,
+        entityCollection.entities.toList(),
+      );
+      allResults.addAll(finalizationResults);
+
+      for (final result in finalizationResults) {
+        if (!result.success && context.verbose) {
+          _logError(result);
+        } else if (context.verbose) {
+          _logResult(result);
+        }
+      }
+    } catch (e) {
+      if (context.verbose) {
+        print('[Error] Strategy finalization failed: $e');
+      }
+    }
+
+    // Print summary if verbose
+    if (context.verbose) {
+      _printSummary(allResults, strategy);
+    } else {
+      _printSummary(allResults, strategy);
+    }
+
+  }
+
+  /// High-performance parallel media moving with batched operations
+  ///
+  /// Processes multiple media entities concurrently to dramatically improve
+  /// throughput for large collections while preventing system overload
+  Stream<int> moveMediaEntitiesParallel(
+    final MediaEntityCollection entityCollection,
     final MovingContext context, {
-    int? maxConcurrent,
+    final int maxConcurrent = 10,
     final int batchSize = 100,
-    final void Function(MediaEntityMovingResult op)? onOperation,
   }) async* {
-    // Derive sensible default if not provided
-    maxConcurrent ??= ConcurrencyManager()
-        .concurrencyFor(ConcurrencyOperation.moveCopy)
-        .clamp(4, 128);
-    logDebug('Starting $maxConcurrent threads (move/copy concurrency)');
     final strategy = _strategyFactory.createStrategy(context.albumBehavior);
     strategy.validateContext(context);
 
     final entities = entityCollection.entities.toList();
-    int processedCount = 0; // entity-level count
+    int processedCount = 0;
     final allResults = <MediaEntityMovingResult>[];
 
     // Process entities in batches to avoid overwhelming the system
@@ -113,43 +123,66 @@ class MediaEntityMovingService with LoggerMixin {
 
       // Process batch with controlled concurrency
       final futures = <Future<List<MediaEntityMovingResult>>>[];
-      final pool = GlobalPools.poolFor(ConcurrencyOperation.moveCopy);
+      final semaphore = _Semaphore(maxConcurrent);
       for (final entity in batch) {
         futures.add(
-          pool.withResource(() async {
-            final results = <MediaEntityMovingResult>[];
-            // ignore: prefer_foreach
-            await for (final result in strategy.processMediaEntity(
-              entity,
-              context,
-            )) {
-              results.add(result);
-              if (onOperation != null) onOperation(result);
+          semaphore.acquire().then((_) async {
+            try {
+              final results = <MediaEntityMovingResult>[];
+              // ignore: prefer_foreach
+              await for (final result in strategy.processMediaEntity(
+                entity,
+                context,
+              )) {
+                results.add(result);
+              }
+              return results;
+            } finally {
+              semaphore.release();
             }
-            return results;
           }),
         );
       }
 
       // Wait for batch completion
       final batchResults = await Future.wait(futures);
-      batchResults.forEach(allResults.addAll);
+      for (final results in batchResults) {
+        allResults.addAll(results);
+        processedCount += results.length;
+      }
 
-      // Increment by number of entities in this batch (entity-level progress)
-      processedCount += batchResults.length;
-      yield processedCount; // entities processed so far
+      yield processedCount;
     }
 
     // Finalize
     final finalizationResults = await strategy.finalize(context, entities);
-    for (final r in finalizationResults) {
-      allResults.add(r);
-      if (onOperation != null) onOperation(r);
-    }
+    allResults.addAll(finalizationResults);
 
+    // Print summary if verbose
     if (context.verbose) {
       _printSummary(allResults, strategy);
+    } else {
+      _printSummary(allResults, strategy);
     }
+  }
+
+  void _logResult(final MediaEntityMovingResult result) {
+    final operation = result.operation;
+    final status = result.success ? 'SUCCESS' : 'FAILED';
+    print(
+      '[${operation.operationType.name.toUpperCase()}] $status: ${operation.sourceFile.path}',
+    );
+
+    if (result.resultFile != null) {
+      print('  → ${result.resultFile!.path}');
+    }
+  }
+
+  void _logError(final MediaEntityMovingResult result) {
+    print(
+      '[Error] Failed to process ${result.operation.sourceFile.path}: '
+      '${result.errorMessage}',
+    );
   }
 
   void _printSummary(
@@ -167,22 +200,40 @@ class MediaEntityMovingService with LoggerMixin {
     if (failed > 0) {
       print('\nErrors encountered:');
       results.where((final r) => !r.success).take(5).forEach((final result) {
-        print(
-          '  • ${result.operation.sourceFile.path}: ${result.errorMessage}',
-        );
+        print('  • ${result.operation.sourceFile.path}: ${result.errorMessage}');
       });
       if (failed > 5) {
         print('  ... and ${failed - 5} more errors');
       }
     }
   }
-
-  bool _isJsonMode(final MovingContext context) {
-    // English comment: detect the JSON behavior. Adjust if your enum/value differs.
-    // Many codebases expose something like: context.albumBehavior.value == 'json'
-    final value = context.albumBehavior.value.toString().toLowerCase();
-    return value.contains('json');
-  }
 }
 
-// Concurrency now managed via package:pool.
+/// Simple semaphore implementation for controlling concurrency
+class _Semaphore {
+  _Semaphore(this.maxCount) : _currentCount = maxCount;
+
+  final int maxCount;
+  int _currentCount;
+  final Queue<Completer<void>> _waitQueue = Queue<Completer<void>>();
+
+  Future<void> acquire() async {
+    if (_currentCount > 0) {
+      _currentCount--;
+      return;
+    }
+
+    final completer = Completer<void>();
+    _waitQueue.add(completer);
+    return completer.future;
+  }
+
+  void release() {
+    if (_waitQueue.isNotEmpty) {
+      final completer = _waitQueue.removeFirst();
+      completer.complete();
+    } else {
+      _currentCount++;
+    }
+  }
+}

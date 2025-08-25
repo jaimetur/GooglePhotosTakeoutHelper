@@ -6,47 +6,34 @@ import 'package:path/path.dart' as p;
 import '../../../presentation/interactive_presenter.dart';
 import '../core/logging_service.dart';
 
-/// Service for handling ZIP file extraction with safety checks and error handling
+/// Service for handling ZIP file extraction with safety checks and error handling.
 ///
 /// This service provides secure ZIP extraction functionality with comprehensive
 /// error handling, progress reporting, and security validation to prevent
 /// common ZIP-based vulnerabilities like path traversal attacks (Zip Slip).
+/// Filenames and directory names are sanitized with a policy that:
+/// - Replaces invalid Windows filename characters [<>:"|?*] with '_'
+/// - Keeps Unicode characters (Ñ, accents, emojis) untouched
+/// - Handles Windows reserved device names by suffixing with `_file`
+/// - Removes trailing dots/spaces on Windows
+/// Additionally, a light heuristic fixes mojibake where 'Ñ/ñ' appears as '¥'.
 class ZipExtractionService {
   /// Creates a new instance of ZipExtractionService
-  ZipExtractionService({final InteractivePresenter? presenter})
-    : _presenter = presenter ?? InteractivePresenter();
+  ZipExtractionService({
+    final InteractivePresenter? presenter,
+    this.enableNameDiagnostics = false, // set to false to silence name logs
+  }) : _presenter = presenter ?? InteractivePresenter();
 
   final InteractivePresenter _presenter;
   final LoggingService _logger = LoggingService();
 
-  /// Extracts all ZIP files to the specified directory
+  /// When true, the extractor logs suspicious entry names (e.g., ones containing '¥', 'Ñ', 'ñ', '~')
+  /// with their code points before and after sanitization to diagnose mojibake issues.
+  final bool enableNameDiagnostics;
+
+  /// Extracts all ZIP files to the specified directory.
   ///
-  /// This function safely extracts all provided ZIP files to the specified directory.
-  /// It includes comprehensive error handling, progress reporting, and cross-platform support.
-  ///
-  /// Features:
-  /// - Creates destination directory if it doesn't exist
-  /// - Validates ZIP file integrity before extraction
-  /// - Provides progress feedback during extraction
-  /// - Handles filename encoding issues across platforms
-  /// - Prevents path traversal attacks (Zip Slip vulnerability)
-  /// - Graceful error handling with user-friendly messages
-  /// - Continues processing remaining ZIPs if individual extractions fail
-  /// - Memory-efficient streaming extraction for large files
-  ///
-  /// [zips] List of ZIP files to extract
-  /// [dir] Target directory for extraction (will be created if needed)
-  ///
-  /// Individual ZIP extraction failures are logged as warnings and do not stop
-  /// the overall process. The method continues processing remaining ZIP files.
-  ///
-  /// Example usage:
-  /// ```dart
-  /// final service = ZipExtractionService();
-  /// final zips = await getZips();
-  /// final unzipDir = Directory(p.join(outputPath, '.gpth-unzipped'));
-  /// await service.extractAll(zips, unzipDir);
-  /// ```
+  /// Streamed extraction is used (archive v4 decodeStream). Memory fallback is guarded.
   Future<void> extractAll(final List<File> zips, final Directory dir) async {
     // Clean up and create destination directory
     if (await dir.exists()) {
@@ -103,8 +90,8 @@ class ZipExtractionService {
           );
         }
 
-        // Extract with safety checks
-        await _extractZipSafely(zip, dir);
+        // Extract with safety checks (streamed) + filename sanitization + mojibake fix
+        await _extractZipStreamed(zip, dir);
 
         await _presenter.showUnzipSuccess(p.basename(zip.path));
       } on ArchiveException catch (e) {
@@ -168,113 +155,127 @@ class ZipExtractionService {
     await _presenter.showUnzipComplete();
   }
 
-  /// Safely extracts a ZIP file with security and encoding checks
+  /// Streamed extraction using archive v4 `decodeStream` API.
   ///
-  /// This internal helper function performs the actual extraction while
-  /// preventing common security vulnerabilities and handling encoding issues.
-  /// Uses streaming extraction to handle large ZIP files without exhausting memory.
-  ///
-  /// [zip] The ZIP file to extract
-  /// [destinationDir] The target directory for extraction
-  Future<void> _extractZipSafely(
+  /// Applies a mojibake fix (¥ -> Ñ/ñ) before sanitizing, then standard sanitization.
+  Future<void> _extractZipStreamed(
     final File zip,
     final Directory destinationDir,
   ) async {
-    // Use extractFileToDisk for memory-efficient streaming extraction
-    // This avoids loading the entire ZIP file into memory at once
+    final String destCanonical = p.canonicalize(destinationDir.path);
+
+    final input = InputFileStream(zip.path);
+    Archive archive;
     try {
-      await extractFileToDisk(zip.path, destinationDir.path);
-    } catch (e) {
-      // If streaming extraction fails, fall back to the original method
-      // but with better error handling for large files
-      _logger.warning(
-        'Streaming extraction failed, attempting fallback method: $e',
-      );
-      await _extractZipFallback(zip, destinationDir);
-    }
-  }
-
-  /// Fallback extraction method for when streaming fails
-  ///
-  /// This method uses the original approach but with better memory management
-  /// and size checks to prevent heap exhaustion.
-  Future<void> _extractZipFallback(
-    final File zip,
-    final Directory destinationDir,
-  ) async {
-    // Check file size before attempting to load into memory
-    final int zipSize = await zip.length();
-    const int maxMemorySize = 2 * 1024 * 1024 * 1024; // 2GB limit
-
-    if (zipSize > maxMemorySize) {
-      throw Exception(
-        'ZIP file too large for memory extraction: ${zipSize ~/ (1024 * 1024)}MB. '
-        'Maximum supported size: ${maxMemorySize ~/ (1024 * 1024)}MB. '
-        'Please extract manually or use smaller ZIP files.',
-      );
+      archive = ZipDecoder().decodeStream(input);
+    } finally {
+      await input.close();
     }
 
-    _logger.info(
-      'Using fallback extraction for ${p.basename(zip.path)} (${zipSize ~/ (1024 * 1024)}MB)',
-    );
+    for (final ArchiveFile entry in archive) {
+      // Diagnostics: log decoder-provided name
+      if (enableNameDiagnostics && _looksSuspicious(entry.name)) {
+        _logNameDiagnostics('decoder', entry.name);
+      }
 
-    final Archive archive = ZipDecoder().decodeBytes(await zip.readAsBytes());
+      // Heuristic fix for mojibake where Ñ/ñ became ¥
+      final fixedName = _fixMojibakeYenToEnye(entry.name);
 
-    for (final ArchiveFile file in archive) {
-      // Security check: Prevent Zip Slip vulnerability
-      final String fileName = _sanitizeFileName(file.name);
-      final String fullPath = p.join(destinationDir.path, fileName);
+      // Diagnostics: log fixed form
+      if (enableNameDiagnostics && fixedName != entry.name && _looksSuspicious(fixedName)) {
+        _logNameDiagnostics('fixed', fixedName);
+      }
 
-      // Ensure the file path is within the destination directory
-      final String canonicalDestPath = p.canonicalize(destinationDir.path);
-      final String canonicalFilePath = p.canonicalize(p.dirname(fullPath));
+      // Sanitize after fixing
+      final String sanitizedRelative = _sanitizeFileName(fixedName);
 
-      if (!canonicalFilePath.startsWith(canonicalDestPath)) {
+      if (enableNameDiagnostics && _looksSuspicious(sanitizedRelative)) {
+        _logNameDiagnostics('sanitized', sanitizedRelative);
+      }
+
+      final String fullPath = p.join(destinationDir.path, sanitizedRelative);
+
+      // Zip Slip protection
+      final String entryDirCanonical = p.canonicalize(p.dirname(fullPath));
+      if (!entryDirCanonical.startsWith(destCanonical)) {
         throw SecurityException(
-          'Path traversal attempt detected: ${file.name} -> $fullPath',
+          'Path traversal attempt detected: ${entry.name} -> $fullPath',
         );
       }
-      if (file.isFile) {
-        final File outputFile = File(fullPath);
-        await outputFile.create(recursive: true);
 
-        // Extract file content
-        final List<int> content = file.content as List<int>;
-        await outputFile.writeAsBytes(content, flush: true);
+      if (entry.isFile) {
+        // Ensure parent directory exists
+        final Directory parent = Directory(p.dirname(fullPath));
+        await parent.create(recursive: true);
+
+        // Streamed write using OutputFileStream
+        final output = OutputFileStream(fullPath);
+        try {
+          entry.writeContent(output);
+        } finally {
+          await output.close();
+        }
 
         // Preserve file modification time if available
         try {
-          await outputFile.setLastModified(
-            DateTime.fromMillisecondsSinceEpoch(file.lastModTime * 1000),
+          await File(fullPath).setLastModified(
+            DateTime.fromMillisecondsSinceEpoch(entry.lastModTime * 1000),
           );
         } catch (e) {
-          // Ignore timestamp setting errors - not critical
           _logger.warning(
-            'Warning: Could not set modification time for ${outputFile.path}: $e',
+            'Warning: Could not set modification time for $fullPath: $e',
           );
         }
-      } else if (file.isDirectory) {
-        // Create directory
-        final Directory outputDir = Directory(fullPath);
-        await outputDir.create(recursive: true);
+      } else if (entry.isDirectory) {
+        final Directory outDir = Directory(fullPath);
+        await outDir.create(recursive: true);
       }
     }
   }
 
-  /// Sanitizes file names to handle encoding issues and invalid characters
-  ///
-  /// This function normalizes file names for cross-platform compatibility,
-  /// handles Unicode normalization, and removes invalid characters.
-  ///
-  /// [fileName] The original file name from the archive
-  /// Returns the sanitized file name safe for the current platform
-  String _sanitizeFileName(final String fileName) {
-    // Normalize Unicode characters (important for cross-platform compatibility)
-    fileName.replaceAll(RegExp(r'[<>:"|?*]'), '_');
 
-    // Handle Windows reserved names
+  /// Heuristic to fix mojibake where 'Ñ/ñ' shows up as '¥'.
+  ///
+  /// Rules:
+  /// - Replace U+00A5 with 'Ñ' if surrounded by uppercase context.
+  /// - Replace U+00A5 with 'ñ' otherwise.
+  /// - This is conservative and only touches the yen sign.
+  String _fixMojibakeYenToEnye(final String name) {
+    if (!name.contains('¥')) return name;
+
+    final runes = name.runes.toList();
+    final buffer = StringBuffer();
+
+    bool _isLatinUpper(int r) => (r >= 0x41 && r <= 0x5A) || r == 0x00D1; // A-Z or Ñ
+    for (int i = 0; i < runes.length; i++) {
+      final r = runes[i];
+      if (r == 0x00A5) {
+        final prev = i > 0 ? runes[i - 1] : null;
+        final next = i + 1 < runes.length ? runes[i + 1] : null;
+        final upperContext = (prev != null && _isLatinUpper(prev)) ||
+            (next != null && _isLatinUpper(next));
+        buffer.write(upperContext ? 'Ñ' : 'ñ');
+      } else {
+        buffer.write(String.fromCharCode(r));
+      }
+    }
+    return buffer.toString();
+  }
+
+  /// Sanitizes file and directory names inside the archive path.
+  ///
+  /// Keeps Unicode characters (Ñ, accents, emojis) untouched. Only replaces
+  /// characters invalid on Windows file systems and handles reserved names.
+  /// Trailing dots/spaces are removed on Windows.
+  String _sanitizeFileName(final String fileName) {
+    var result = fileName;
+
+    // Replace invalid characters in Windows file names (do not touch path separators)
+    result = result.replaceAll(RegExp(r'[<>:"|?*]'), '_');
+
+    // Windows reserved device names (applies to last path segment)
     if (Platform.isWindows) {
-      final List<String> reservedNames = [
+      final List<String> reservedNames = <String>[
         'CON',
         'PRN',
         'AUX',
@@ -299,28 +300,37 @@ class ZipExtractionService {
         'LPT9',
       ];
 
-      final String baseName = p.basenameWithoutExtension(fileName);
+      final String baseName = p.basenameWithoutExtension(result);
+      final String ext = p.extension(result);
       if (reservedNames.contains(baseName.toUpperCase())) {
-        fileName.replaceFirst(baseName, '${baseName}_file');
+        result = p.join(p.dirname(result), '${baseName}_file$ext');
       }
 
-      // Remove trailing dots and spaces (Windows specific)
-      fileName.replaceAll(RegExp(r'[. ]+$'), '');
+      // Remove trailing dots and spaces on the full path
+      result = result.replaceAll(RegExp(r'[. ]+$'), '');
     }
 
-    return fileName;
+    // Remove ASCII control characters from the full path
+    result = result.replaceAll(RegExp(r'[\x00-\x1F]'), '_');
+
+    return result;
   }
 
-  /// Handles extraction errors with detailed error messages and user guidance
-  ///
-  /// This function provides context-specific error handling for different types
-  /// of extraction failures, offering actionable guidance to users.
-  ///
-  /// [zip] The ZIP file that failed to extract
-  /// [error] The error that occurred
-  /// [isArchiveError] Whether this is a ZIP format/corruption error
-  /// [isPathError] Whether this is a file path related error
-  /// [isFileSystemError] Whether this is a file system related error
+  /// Returns true if the name contains characters that usually indicate encoding issues.
+  bool _looksSuspicious(final String name) {
+    return name.contains('¥') || name.contains('�') || name.contains('~');
+    // The tilde (~) often appears in DOS 8.3 short names (e.g., RESIDE~4).
+  }
+
+  /// Logs the name with code points for diagnostics.
+  void _logNameDiagnostics(final String stage, final String name) {
+    final codePoints = name.runes
+        .map((r) => 'U+${r.toRadixString(16).toUpperCase().padLeft(4, '0')}')
+        .join(' ');
+    _logger.info('[NameDiag][$stage] "$name"  ->  $codePoints', forcePrint: true);
+  }
+
+  /// Handles extraction errors with detailed error messages and user guidance.
   Never _handleExtractionError(
     final File zip,
     final Object errorObject, {
@@ -399,8 +409,7 @@ class ZipExtractionService {
     );
     _logger.error('Please check the extraction directory for partial results.');
 
-    // Instead of quitting, we'll throw an exception that can be caught
-    // and handled by the calling code
+    // Propagate to caller
     throw Exception('ZIP extraction failed: $errorObject');
   }
 }
