@@ -256,7 +256,7 @@ class MediaEntityCollection with LoggerMixin {
       onProgress,
       exifTool,
       nativeOnly: false,
-      disableExifToolBatch: !exifToolBatching, // <-- PROPAGACIÓN
+      disableExifToolBatch: !exifToolBatching,
     );
   }
 
@@ -269,7 +269,7 @@ class MediaEntityCollection with LoggerMixin {
     final void Function(int current, int total)? onProgress,
     final ExifToolService? exifTool, {
     bool nativeOnly = false,
-    bool disableExifToolBatch = false, // <-- NUEVO FLAG INTERNO
+    bool disableExifToolBatch = true,
   }) async {
     var coordinatesWritten = 0;
     var dateTimesWritten = 0;
