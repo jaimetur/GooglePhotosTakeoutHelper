@@ -269,7 +269,7 @@ class MediaEntityCollection with LoggerMixin {
     final void Function(int current, int total)? onProgress,
     final ExifToolService? exifTool, {
     bool nativeOnly = false,
-    bool disableExifToolBatch = true,
+    bool disableExifToolBatch = false,
   }) async {
     var coordinatesWritten = 0;
     var dateTimesWritten = 0;
@@ -361,7 +361,10 @@ class MediaEntityCollection with LoggerMixin {
           // Per-file safety net: never let a single failure abort the batch.
           try {
             final file = mediaEntity.files.firstFile;
-
+            // TODO: Remove this trace
+            if (file.path.contains("HOJA1")) {
+              print("TRACE: contains 'HOJA1'");
+            }
             // Cache MIME/header once with protection against stream errors.
             List<int> headerBytes = const [];
             String? mimeHeader;
