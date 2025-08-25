@@ -201,7 +201,6 @@ class MediaEntityCollection with LoggerMixin {
           updatedMediaFile = mediaFile.withDate(
             dateTimeExtractionMethod: DateTimeExtractionMethod.none,
           );
-          logDebug('No date found for ${mediaFile.primaryFile.path}');
         }
 
         return {
@@ -281,7 +280,7 @@ class MediaEntityCollection with LoggerMixin {
     final bool isWindows = Platform.isWindows;
     final int baseBatchSize = isWindows ? 60 : 120;
 
-    // Two separated queues: immages and videos
+    // Two separated queues: images and videos
     final List<MapEntry<File, Map<String, dynamic>>> pendingImagesBatch = [];
     final List<MapEntry<File, Map<String, dynamic>>> pendingVideosBatch = [];
 
@@ -297,7 +296,7 @@ class MediaEntityCollection with LoggerMixin {
         return;
       }
 
-      // Cleanning of *_exiftool_tmp
+      // Pre-cleanup of *_exiftool_tmp
       try {
         for (final e in queue) {
           final tmp = File('${e.key.path}_exiftool_tmp');
@@ -309,7 +308,7 @@ class MediaEntityCollection with LoggerMixin {
         }
       } catch (_) {}
 
-      // Intento 1: batch
+      // Attempt 1: batch
       try {
         await exifWriter.writeBatchWithExifTool(
           queue,
@@ -322,7 +321,7 @@ class MediaEntityCollection with LoggerMixin {
               : 'Batch flush failed (${queue.length} files): $e',
         );
 
-        // Reintento por-fichero para no perder nada
+        // Retry per-file so that we don't lose any item
         for (final entry in queue) {
           try {
             await exifWriter.writeTagsWithExifTool(entry.key, entry.value);
@@ -380,14 +379,20 @@ class MediaEntityCollection with LoggerMixin {
 
             // 0) Late-bind a date from JSON if the entity has no date
             DateTime? effectiveDate = mediaEntity.dateTaken;
+            bool resolvedFromJsonSidecar = false;
             if (effectiveDate == null) {
               effectiveDate = await _lateResolveDateFromJson(file);
               if (effectiveDate != null) {
+                resolvedFromJsonSidecar = true;
                 logDebug('Late JSON date resolved for ${file.path}: $effectiveDate');
               }
             }
+            final bool fromJsonMethod =
+                mediaEntity.dateTimeExtractionMethod == DateTimeExtractionMethod.json ||
+                mediaEntity.dateTimeExtractionMethod == DateTimeExtractionMethod.jsonTryHard;
+            final bool dateFromJson = fromJsonMethod || resolvedFromJsonSidecar;
 
-            // 1) GPS coordinates Writter from JSON if EXIF lacks it
+            // 1) GPS coordinates Writer from JSON if EXIF lacks it
             try {
               final coordinates = await jsonCoordinatesExtractor(file);
               if (coordinates != null) {
@@ -405,49 +410,64 @@ class MediaEntityCollection with LoggerMixin {
 
                 if (!hasCoords) {
                   if (mimeHeader == 'image/jpeg') {
-                    // If also need DateTime and it's JPEG, try native combined
-                    if (effectiveDate != null) {
-                      final ok = (exifWriter != null)
-                          ? await exifWriter.writeCombinedNativeJpeg(
-                              file,
-                              effectiveDate,
-                              coordinates,
-                            )
-                          : false;
-                      if (ok) {
-                        gpsWritten = true;
+                    // Consistency: if the date comes from JSON and ExifTool is available,
+                    // avoid native writer and enqueue everything for ExifTool
+                    if (!nativeOnly && dateFromJson) {
+                      if (effectiveDate != null) {
+                        final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
+                        final dt = exifFormat.format(effectiveDate);
+                        tagsToWrite['DateTimeOriginal'] = '"$dt"';
+                        tagsToWrite['DateTimeDigitized'] = '"$dt"';
+                        tagsToWrite['DateTime'] = '"$dt"';
                         dateTimeWrittenLocal = true;
-                      } else {
-                        if (!nativeOnly) {
-                          // Fallback to exiftool (enqueue combined tags)
-                          final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
-                          final dt = exifFormat.format(effectiveDate);
-                          tagsToWrite['DateTimeOriginal'] = '"$dt"';
-                          tagsToWrite['DateTimeDigitized'] = '"$dt"';
-                          tagsToWrite['DateTime'] = '"$dt"';
-                          tagsToWrite['GPSLatitude'] = coordinates.toDD().latitude.toString();
-                          tagsToWrite['GPSLongitude'] = coordinates.toDD().longitude.toString();
-                          tagsToWrite['GPSLatitudeRef'] = coordinates.latDirection.abbreviation.toString();
-                          tagsToWrite['GPSLongitudeRef'] = coordinates.longDirection.abbreviation.toString();
+                      }
+                      tagsToWrite['GPSLatitude'] = coordinates.toDD().latitude.toString();
+                      tagsToWrite['GPSLongitude'] = coordinates.toDD().longitude.toString();
+                      tagsToWrite['GPSLatitudeRef'] = coordinates.latDirection.abbreviation.toString();
+                      tagsToWrite['GPSLongitudeRef'] = coordinates.longDirection.abbreviation.toString();
+                      gpsWritten = true;
+                    } else {
+                      // Previous path: native combined if there is a date; if it fails, fallback to ExifTool
+                      if (effectiveDate != null) {
+                        final ok = (exifWriter != null)
+                            ? await exifWriter.writeCombinedNativeJpeg(
+                                file,
+                                effectiveDate,
+                                coordinates,
+                              )
+                            : false;
+                        if (ok) {
                           gpsWritten = true;
                           dateTimeWrittenLocal = true;
+                        } else {
+                          if (!nativeOnly) {
+                            final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
+                            final dt = exifFormat.format(effectiveDate);
+                            tagsToWrite['DateTimeOriginal'] = '"$dt"';
+                            tagsToWrite['DateTimeDigitized'] = '"$dt"';
+                            tagsToWrite['DateTime'] = '"$dt"';
+                            tagsToWrite['GPSLatitude'] = coordinates.toDD().latitude.toString();
+                            tagsToWrite['GPSLongitude'] = coordinates.toDD().longitude.toString();
+                            tagsToWrite['GPSLatitudeRef'] = coordinates.latDirection.abbreviation.toString();
+                            tagsToWrite['GPSLongitudeRef'] = coordinates.longDirection.abbreviation.toString();
+                            gpsWritten = true;
+                            dateTimeWrittenLocal = true;
+                          }
                         }
-                      }
-                    } else {
-                      // Only GPS on JPEG: try native GPS write
-                      final ok = (exifWriter != null)
-                          ? await exifWriter.writeGpsNativeJpeg(file, coordinates)
-                          : false;
-                      if (ok) {
-                        gpsWritten = true;
                       } else {
-                        if (!nativeOnly) {
-                          // Fallback to exiftool (enqueue GPS tags)
-                          tagsToWrite['GPSLatitude'] = coordinates.toDD().latitude.toString();
-                          tagsToWrite['GPSLongitude'] = coordinates.toDD().longitude.toString();
-                          tagsToWrite['GPSLatitudeRef'] = coordinates.latDirection.abbreviation.toString();
-                          tagsToWrite['GPSLongitudeRef'] = coordinates.longDirection.abbreviation.toString();
+                        final ok = (exifWriter != null)
+                            ? await exifWriter.writeGpsNativeJpeg(file, coordinates)
+                            : false;
+                        if (ok) {
                           gpsWritten = true;
+                        } else {
+                          if (!nativeOnly) {
+                            tagsToWrite['GPSLatitude'] = coordinates.toDD().latitude.toString();
+                            tagsToWrite['GPSLongitude'] = coordinates.toDD().longitude.toString();
+                            tagsToWrite['GPSLatitudeRef'] = coordinates.latDirection.abbreviation.toString();
+                            tagsToWrite['GPSLongitudeRef'] = coordinates.longDirection.abbreviation.toString();
+                            gpsWritten = true;
+                          }
                         }
                       }
                     }
@@ -467,25 +487,34 @@ class MediaEntityCollection with LoggerMixin {
               logWarning('Failed to extract/write GPS for ${file.path}: $e');
             }
 
-            // 2) Native Exif Writter (now also when originally null but resolved from JSON)
+            // 2) Native Exif Writer (now also when originally null but resolved from JSON)
             try {
               if (effectiveDate != null) {
                 if (mimeHeader == 'image/jpeg') {
-                  if (!dateTimeWrittenLocal) {
-                    final ok = (exifWriter != null)
-                        ? await exifWriter.writeDateTimeNativeJpeg(file, effectiveDate)
-                        : false;
-                    if (ok) {
-                      dateTimeWrittenLocal = true;
-                    } else {
-                      if (!nativeOnly) {
-                        // Fallback to exiftool (enqueue DateTime tags) (only if not nativeOnly mode)
-                        final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
-                        final dt = exifFormat.format(effectiveDate);
-                        tagsToWrite['DateTimeOriginal'] = '"$dt"';
-                        tagsToWrite['DateTimeDigitized'] = '"$dt"';
-                        tagsToWrite['DateTime'] = '"$dt"';
+                  // If it comes from JSON and ExifTool is available, force ExifTool route for consistency
+                  if (!nativeOnly && dateFromJson) {
+                    final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
+                    final dt = exifFormat.format(effectiveDate);
+                    tagsToWrite['DateTimeOriginal'] = '"$dt"';
+                    tagsToWrite['DateTimeDigitized'] = '"$dt"';
+                    tagsToWrite['DateTime'] = '"$dt"';
+                    dateTimeWrittenLocal = true;
+                  } else {
+                    if (!dateTimeWrittenLocal) {
+                      final ok = (exifWriter != null)
+                          ? await exifWriter.writeDateTimeNativeJpeg(file, effectiveDate)
+                          : false;
+                      if (ok) {
                         dateTimeWrittenLocal = true;
+                      } else {
+                        if (!nativeOnly) {
+                          final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
+                          final dt = exifFormat.format(effectiveDate);
+                          tagsToWrite['DateTimeOriginal'] = '"$dt"';
+                          tagsToWrite['DateTimeDigitized'] = '"$dt"';
+                          tagsToWrite['DateTime'] = '"$dt"';
+                          dateTimeWrittenLocal = true;
+                        }
                       }
                     }
                   }
@@ -504,7 +533,7 @@ class MediaEntityCollection with LoggerMixin {
               logWarning('Failed to write DateTime for ${file.path}: $e');
             }
 
-            // 3) If there are pending tags → enqueue en la cola correcta (imágenes vs vídeos)
+            // 3) If there are pending tags → enqueue in the correct queue (images vs videos)
             try {
               if (!nativeOnly && tagsToWrite.isNotEmpty) {
                 // Avoid extension/content mismatch that would make exiftool fail
@@ -535,7 +564,7 @@ class MediaEntityCollection with LoggerMixin {
             final pathSafe = () {
               try { return mediaEntity.files.firstFile.path; } catch (_) { return '<unknown>'; }
             }();
-            logWarning('EXIF write failed for $pathSafe: $e');
+            logError('EXIF write failed for $pathSafe: $e', forcePrint: true);
             return {'gps': false, 'dateTime': false};
           }
         });
@@ -550,10 +579,10 @@ class MediaEntityCollection with LoggerMixin {
 
         onProgress?.call(completed, _media.length);
 
-        // Serialized Flushed: separated images and videos
+        // Serialized flushes: images and videos separately
         if (!nativeOnly) {
           final int targetImageBatch = baseBatchSize;
-          final int targetVideoBatch = 12; // smaller batches for videos
+          final int targetVideoBatch = 12; // small batches for videos
           if (pendingImagesBatch.length >= targetImageBatch) {
             await _flushImageBatch(useArgFile: true);
           }
