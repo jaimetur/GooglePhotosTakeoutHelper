@@ -175,8 +175,8 @@ class MediaEntityMovingService with LoggerMixin {
               results.add(result);
               if (onOperation != null) onOperation(result);
 
-              // Robust classification per low-level operation
-              final _OpClass oc = _classifyOp(result);
+              // Robust classification per low-level operation (filesystem-based)
+              final _OpClass oc = _classifyOpFs(result);
               switch (oc.kind) {
                 case _OpKind.file:
                   realFiles++;
@@ -222,7 +222,7 @@ class MediaEntityMovingService with LoggerMixin {
       if (onOperation != null) onOperation(r);
 
       // Some strategies may emit JSON or link ops during finalize
-      final _OpClass oc = _classifyOp(r);
+      final _OpClass oc = _classifyOpFs(r);
       switch (oc.kind) {
         case _OpKind.file:
           realFiles++;
@@ -289,10 +289,10 @@ class MediaEntityMovingService with LoggerMixin {
     }
   }
 
-  // ------------------- Robust op classification (no reflection hacks) -------------------
+  // ------------------- Filesystem-based op classification -------------------
 
-  _OpClass _classifyOp(final dynamic result) {
-    // Try to access common fields safely
+  _OpClass _classifyOpFs(final dynamic result) {
+    // Access common operation fields safely
     final dynamic op = _try(() => result.operation, null);
 
     final File? srcFile = _asFile(_try(() => op?.sourceFile, null));
@@ -300,26 +300,46 @@ class MediaEntityMovingService with LoggerMixin {
         _asFile(_try(() => op?.targetFile, null));
     final String? destPath = _asString(_try(() => op?.destinationPath, null));
 
-    // If we have a destination File, prefer that path; else use destinationPath
+    // Prefer concrete File path; else fallback to destinationPath
     final String? dstPath = (dstFile?.path ?? destPath)?.toString();
 
-    // Detect JSON writes
+    // JSON writes (naming-based; typically metadata files)
     if (_isJsonPath(dstPath)) {
       return _OpClass.json(jsonFile: _fileFromPath(dstPath));
     }
 
-    // Detect symlink/shortcut/junction by explicit fields or by extension
+    // If we have a destination path, ask the filesystem what was actually created.
+    if (dstPath != null && dstPath.isNotEmpty) {
+      try {
+        // Do NOT follow links so we can detect symlinks on Linux/macOS.
+        final FileSystemEntityType t =
+            FileSystemEntity.typeSync(dstPath, followLinks: false);
+
+        if (t == FileSystemEntityType.link) {
+          // A symbolic link or junction
+          return _OpClass.symlink(linkPath: dstPath, linkTarget: _asString(_try(() => op?.targetPath, null)));
+        }
+
+        if (t == FileSystemEntityType.file) {
+          // Real file materialized; ensure src != dst
+          if (srcFile != null && srcFile.path != dstPath) {
+            return _OpClass.file(srcFile: srcFile, dstFile: File(dstPath));
+          }
+        }
+
+        // Directories / notFound / other → not something we count as a real file
+        return const _OpClass.other();
+      } catch (_) {
+        // If stat fails, fall through to soft checks
+      }
+    }
+
+    // Fallback soft checks (rare): explicit flags if strategy exposes them
     final bool explicitLinkFlag = _asBool(_try(() => op?.isSymlink, false)) ||
         _asBool(_try(() => op?.isShortcut, false)) ||
         _asBool(_try(() => op?.isLink, false));
-    if (explicitLinkFlag || _isShortcutPath(dstPath)) {
+    if (explicitLinkFlag) {
       return _OpClass.symlink(linkPath: dstPath, linkTarget: _asString(_try(() => op?.targetPath, null)));
-    }
-
-    // Real file move/copy/rename requires src and dst files with different paths
-    if (srcFile != null && dstPath != null && srcFile.path != dstPath) {
-      // Destination must not be JSON or shortcut; already filtered
-      return _OpClass.file(srcFile: srcFile, dstFile: _fileFromPath(dstPath)!);
     }
 
     // Unknown/metadata/no-op
@@ -362,14 +382,6 @@ class MediaEntityMovingService with LoggerMixin {
   }
 
   bool _isJsonPath(final String? p) => (p ?? '').toLowerCase().endsWith('.json');
-
-  bool _isShortcutPath(final String? p) {
-    final s = (p ?? '').toLowerCase();
-    return s.endsWith('.lnk') ||
-        s.endsWith('.url') ||
-        s.endsWith('.desktop') ||
-        s.endsWith('.webloc');
-  }
 
   String _safePath(final dynamic fileLike) {
     if (fileLike is File) return fileLike.path;
