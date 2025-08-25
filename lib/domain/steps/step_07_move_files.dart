@@ -106,7 +106,6 @@ import '../value_objects/media_files_collection.dart';
 /// - **Verification**: Optionally verifies file integrity after move/copy operations
 /// - **Rollback Capability**: Can undo operations if critical errors occur
 /// - **Atomic Operations**: Ensures partial failures don't leave inconsistent state
-/// - **Backup Creation**: Can create backups before destructive operations
 ///
 /// ### Conflict Resolution
 /// - **Filename Conflicts**: Automatically renames conflicting files
@@ -115,32 +114,8 @@ import '../value_objects/media_files_collection.dart';
 /// - **Album Association**: Maintains proper album relationships even with conflicts
 ///
 /// ## Configuration Integration
-///
-/// ### User Preferences
-/// - **Album Behavior**: Applies user's chosen album organization strategy
-/// - **Date Organization**: Uses selected date division level
-/// - **File Operations**: Respects copy vs. move preference
-/// - **Verbose Output**: Provides detailed progress when requested
-///
-/// ### System Adaptation
-/// - **OS Detection**: Adapts link creation to target operating system
-/// - **File System**: Handles different file system capabilities and limitations
-/// - **Performance Tuning**: Adjusts batch sizes based on system performance
-/// - **Memory Management**: Manages memory usage for large file operations
-///
-/// ## Quality Assurance
-///
-/// ### Validation
-/// - **File Count Verification**: Ensures all files are properly moved/copied
-/// - **Metadata Preservation**: Verifies file timestamps and attributes are maintained
-/// - **Link Integrity**: Validates that created shortcuts/symlinks work correctly
-/// - **Album Completeness**: Confirms all album relationships are preserved
-///
-/// ### Statistics Collection
-/// - **Processing Metrics**: Tracks files processed, time taken, errors encountered
-/// - **Organization Results**: Reports folder structure created and file distribution
-/// - **Space Usage**: Calculates disk space used by final organization
-/// - **Performance Data**: Provides insights for future processing optimizations
+/// - Applies user's chosen album organization strategy, date division, file operation modes,
+///   and verbose output preferences. Adapts to OS/filesystem limitations and tunes performance.
 class MoveFilesStep extends ProcessingStep {
   const MoveFilesStep() : super('Move Files');
 
@@ -165,34 +140,46 @@ class MoveFilesStep extends ProcessingStep {
       );
       final movingService = MediaEntityMovingService();
 
-      // 3) Compute the REAL number of low-level operations to perform
-      final totalOps = await movingService.estimateOperationCount(
-        context.mediaCollection,
-        movingContext,
-      );
+      // 3) Compute the number of REAL file operations (exclude symlinks/shortcuts/json)
+      final filesPlanned = _estimateRealFileOpsPlanned(context);
 
-      // 4) Initialize a progress bar that will tick ONCE PER REAL OPERATION
+      // 4) Initialize a progress bar that tracks ONLY real file operations
       final progressBar = FillingBar(
         desc: 'Moving files',
-        total: totalOps > 0 ? totalOps : 1,
+        total: filesPlanned > 0 ? filesPlanned : 1,
         width: 50,
       );
 
-      // 5) Counters: entities (secondary metric) and low-level operations (primary)
-      int processedEntities = 0;
-      int operationCount = 0;
+      // 5) Counters
+      int processedEntities = 0;       // secondary: entities
+      int filesMovedCount = 0;         // primary: real file ops (move/copy)
+      int symlinksCreatedCount = 0;    // symlink/shortcut ops
+      int jsonWritesCount = 0;         // JSON writes (if any)
+      int otherOpsCount = 0;           // any other operation kind
 
-      // 6) Stream consumption: progress is driven by onOperation (per-file)
+      // 6) Consume stream; progress is driven by onOperation classification
       await for (final _ in movingService.moveMediaEntities(
         context.mediaCollection,
         movingContext,
-        onOperation: (_) {
-          // One progress tick per actual low-level operation (move/copy/symlink/json)
-          operationCount++;
-          progressBar.update(operationCount);
+        onOperation: (final result) {
+          final kind = _classifyOperationKind(result);
+
+          if (kind == _OpKind.file) {
+            filesMovedCount++;
+            // Keep progress bar in range (in case finalize adds extra file ops)
+            final next = filesMovedCount <= progressBar.total
+                ? filesMovedCount
+                : progressBar.total;
+            progressBar.update(next);
+          } else if (kind == _OpKind.symlink) {
+            symlinksCreatedCount++;
+          } else if (kind == _OpKind.json) {
+            jsonWritesCount++;
+          } else {
+            otherOpsCount++;
+          }
         },
       )) {
-        // Entity-level counter (secondary metric only)
         processedEntities++;
       }
 
@@ -200,7 +187,14 @@ class MoveFilesStep extends ProcessingStep {
       stopwatch.stop();
       print(''); // newline after progress bar
 
-      // 8) Build success result (use REAL operationCount in the human message)
+      // 8) Build success result with split counters
+      final messageBuffer = StringBuffer()
+        ..write('Moved $filesMovedCount files to output directory')
+        ..write(', created $symlinksCreatedCount symlinks');
+      if (jsonWritesCount > 0) {
+        messageBuffer.write(', wrote $jsonWritesCount JSON entries');
+      }
+
       return StepResult.success(
         stepName: name,
         duration: stopwatch.elapsed,
@@ -208,11 +202,13 @@ class MoveFilesStep extends ProcessingStep {
           'processedEntities': processedEntities,
           'transformedCount': transformedCount,
           'albumBehavior': context.config.albumBehavior.value,
-          'operationCount': operationCount,
-          'totalOperationsPlanned': totalOps,
+          'filesMovedCount': filesMovedCount,
+          'symlinksCreatedCount': symlinksCreatedCount,
+          'jsonWritesCount': jsonWritesCount,
+          'otherOpsCount': otherOpsCount,
+          'filesPlanned': filesPlanned,
         },
-        message:
-            'Moved $operationCount files to output directory${transformedCount > 0 ? ', transformed $transformedCount Pixel files to .mp4' : ''}',
+        message: messageBuffer.toString(),
       );
     } catch (e) {
       stopwatch.stop();
@@ -228,6 +224,64 @@ class MoveFilesStep extends ProcessingStep {
   @override
   bool shouldSkip(final ProcessingContext context) =>
       context.mediaCollection.isEmpty;
+
+  /// Estimate how many REAL file operations (move/copy) will happen,
+  /// excluding symlinks/shortcuts and JSON writes.
+  /// Heuristic based on album behavior:
+  /// - duplicate: all placements are real files → sum of placements
+  /// - json: 1 per entity
+  /// - reverse/shortcut/nothing: 1 per entity (a single primary, the rest are links or none)
+  int _estimateRealFileOpsPlanned(final ProcessingContext context) {
+    final behavior = context.config.albumBehavior.value.toString().toLowerCase();
+
+    final bool isDuplicate = behavior.contains('duplicate');
+    final bool isJson = behavior.contains('json');
+    // reverse/shortcut/nothing fall back to 1 per entity
+
+    int total = 0;
+    for (final mediaEntity in context.mediaCollection.media) {
+      final placements = mediaEntity.files.files.length;
+      if (isDuplicate) {
+        total += placements; // each placement is a real copy
+      } else if (isJson) {
+        total += 1; // only ALL_PHOTOS real file
+      } else {
+        total += 1; // one primary real file (ALL_PHOTOS or album), rest links or nothing
+      }
+    }
+    return total;
+  }
+
+  /// Classify the operation kind without relying on unsupported reflection.
+  /// We use a robust, compile-safe heuristic based on `toString()` contents.
+  /// This avoids invalid dynamic access in AOT and still provides useful split counters.
+  _OpKind _classifyOperationKind(final dynamic result) {
+    // Use the string representation as a best-effort signal
+    final String text = (result?.toString() ?? '').toLowerCase();
+
+    // Symlink/shortcut detection first
+    if (text.contains('symlink') || text.contains('shortcut') || text.contains('link ->')) {
+      return _OpKind.symlink;
+    }
+
+    // JSON-related detection
+    if (text.contains('.json') || text.contains('json')) {
+      // Some operations may include JSON path; treat as JSON write
+      return _OpKind.json;
+    }
+
+    // Clear "file" operation hints
+    if (text.contains(' move ') ||
+        text.contains(' copy ') ||
+        text.contains('rename') ||
+        text.contains('moved') ||
+        text.contains('copied')) {
+      return _OpKind.file;
+    }
+
+    // Fallback: default to file to avoid under-counting progress
+    return _OpKind.file;
+  }
 
   /// Transform Pixel .MP/.MV files to .mp4 extension.
   ///
@@ -247,7 +301,7 @@ class MoveFilesStep extends ProcessingStep {
         final String currentPath = file.path;
         final String extension = currentPath.toLowerCase();
 
-        if (extension.endsWith('.mp') || extension.endsWith('.mv')) {
+      if (extension.endsWith('.mp') || extension.endsWith('.mv')) {
           // Create new path with .mp4 extension
           final String newPath =
               '${currentPath.substring(0, currentPath.lastIndexOf('.'))}.mp4';
@@ -296,3 +350,5 @@ class MoveFilesStep extends ProcessingStep {
     return transformedCount;
   }
 }
+
+enum _OpKind { file, symlink, json, other }

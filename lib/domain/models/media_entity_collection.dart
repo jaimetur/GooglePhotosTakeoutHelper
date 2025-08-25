@@ -148,7 +148,7 @@ class MediaEntityCollection with LoggerMixin {
     final maxConcurrency = ConcurrencyManager().concurrencyFor(
       ConcurrencyOperation.exif,
     );
-    logDebug('Starting $maxConcurrency threads (exif date extraction concurrency)');
+    logInfo('Starting $maxConcurrency threads (exif date extraction concurrency)', forcePrint: true);
 
     for (int i = 0; i < _media.length; i += maxConcurrency) {
       final batch = _media.skip(i).take(maxConcurrency).toList();
@@ -316,11 +316,10 @@ class MediaEntityCollection with LoggerMixin {
           useArgFileWhenLarge: useArgFile,
         );
       } catch (e) {
-        logError(
-          (isVideoBatch
+        logWarning(
+          isVideoBatch
               ? 'Video batch flush failed (${queue.length} files): $e'
-              : 'Batch flush failed (${queue.length} files): $e'),
-          forcePrint: true,
+              : 'Batch flush failed (${queue.length} files): $e',
         );
 
         // Reintento por-fichero para no perder nada
@@ -328,11 +327,10 @@ class MediaEntityCollection with LoggerMixin {
           try {
             await exifWriter.writeTagsWithExifTool(entry.key, entry.value);
           } catch (e2) {
-            logError(
-              (isVideoBatch
+            logWarning(
+              isVideoBatch
                   ? 'Per-file video write failed: ${entry.key.path} -> $e2'
-                  : 'Per-file write failed: ${entry.key.path} -> $e2'),
-              forcePrint: true,
+                  : 'Per-file write failed: ${entry.key.path} -> $e2',
             );
           }
         }
@@ -537,7 +535,7 @@ class MediaEntityCollection with LoggerMixin {
             final pathSafe = () {
               try { return mediaEntity.files.firstFile.path; } catch (_) { return '<unknown>'; }
             }();
-            logError('EXIF write failed for $pathSafe: $e', forcePrint: true);
+            logWarning('EXIF write failed for $pathSafe: $e');
             return {'gps': false, 'dateTime': false};
           }
         });
