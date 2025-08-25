@@ -372,9 +372,9 @@ class MediaEntityCollection with LoggerMixin {
           try {
             final file = mediaEntity.files.firstFile;
             // TODO: Remove this trace
-            if (file.path.contains('HOJA1')) {
-              print("\nTRACE: contains 'HOJA1'");
-            }
+            // if (file.path.contains('HOJA1')) {
+            //   print("\nTRACE: contains 'HOJA1'");
+            // }
             // Cache MIME/header once with protection against stream errors.
             List<int> headerBytes = const [];
             String? mimeHeader;
