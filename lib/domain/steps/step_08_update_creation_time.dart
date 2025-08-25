@@ -100,6 +100,7 @@ class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
   @override
   Future<StepResult> execute(final ProcessingContext context) async {
     final stopwatch = Stopwatch()..start();
+    print ('');
 
     try {
       if (!Platform.isWindows || !context.config.updateCreationTime) {
@@ -107,11 +108,7 @@ class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
             ? 'not supported on this platform (${Platform.operatingSystem})'
             : 'disabled in configuration';
 
-        logInfo(
-          '\n[Step 8/8] Skipping creation time update ($reason).',
-          forcePrint: true,
-        );
-
+        logWarning('[Step 8/8] Skipping creation time update ($reason).', forcePrint: true);
         stopwatch.stop();
         return StepResult.success(
           stepName: name,
@@ -120,19 +117,14 @@ class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
           message: 'Creation time update skipped: $reason',
         );
       }
-      if (context.config.verbose) {
-        logInfo('\n[Step 8/8] Updating creation times...', forcePrint: true);
-      }
 
+      print('[Step 8/8] Updating creation times...');
       int updatedCount = 0;
 
       // 1. Traverse the output directory and update creation times
       final outputDir = Directory(context.config.outputPath);
       if (!await outputDir.exists()) {
-        logInfo(
-          '\n[Step 8/8] Skipping creation time update (output directory not found: ${context.config.outputPath}).',
-          forcePrint: true,
-        );
+        logWarning('[Step 8/8] Skipping creation time update (output directory not found: ${context.config.outputPath}).', forcePrint: true);
 
         stopwatch.stop();
         return StepResult.success(
@@ -176,11 +168,7 @@ class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
       final reason = !Platform.isWindows
           ? 'not supported on this platform (${Platform.operatingSystem})'
           : 'disabled in configuration';
-
-      logInfo(
-        '\n[Step 8/8] Skipping creation time update ($reason).',
-        forcePrint: true,
-      );
+      logWarning('[Step 8/8] Skipping creation time update ($reason).', forcePrint: true);
     }
 
     return shouldSkipStep;
@@ -199,10 +187,7 @@ class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
     }
 
     if (allFiles.isEmpty) {
-      logInfo(
-        '\n[Step 8/8] No files found to update creation times.',
-        forcePrint: true,
-      );
+      print('[Step 8/8] No files found to update creation times.');
       return 0;
     }
 

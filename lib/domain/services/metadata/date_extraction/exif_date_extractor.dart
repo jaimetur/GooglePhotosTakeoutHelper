@@ -72,7 +72,7 @@ class ExifDateExtractor with LoggerMixin {
   static final Map<Map<String, dynamic>, Map<String, Map<String, dynamic>>> _dictIndexCache = {};
 
   static void dumpStats({final bool reset = false, final LoggerMixin? loggerMixin, final bool exiftoolFallbackEnabled = false}) {
-    final line_calls = '[READ-EXIF] calls=$_total | videos=$_videoDirect | nativeSupported=$_nativeSupported | unsupported=$_nativeUnsupported | exiftoolFallbackEnabled=$exiftoolFallbackEnabled';
+    final line_calls = '[READ-EXIF] Calls=$_total | videos=$_videoDirect | nativeSupported=$_nativeSupported | unsupported=$_nativeUnsupported | exiftoolFallbackEnabled=$exiftoolFallbackEnabled';
     final line_dict = '[READ-EXIF] ExternalDict: tried=$_dictTried, hit=$_dictHit, miss=$_dictMiss, time=${_fmtSec(_dictDuration)}';
     final line_native = '[READ-EXIF] Native: tried=$_nativeTried, hit=$_nativeHit, miss=$_nativeMiss, headReads=$_nativeHeadReads, fullReads=$_nativeFullReads, time=${_fmtSec(_nativeDuration)}, bytes=$_nativeBytes';
     final line_exiftool = '[READ-EXIF] Exiftool: directTried=$_exiftoolDirectTried , directHit=$_exiftoolDirectHit, fallbackTried=$_exiftoolFallbackTried, fallbackHit=$_exiftoolFallbackHit, time=${_fmtSec(_exiftoolDuration)}, errors=$_exiftoolFail';
@@ -86,25 +86,22 @@ class ExifDateExtractor with LoggerMixin {
     }
 
     if (loggerMixin != null) {
+      print('');
       loggerMixin.logInfo(line_calls, forcePrint: true);
       if (showDictLine) {
         loggerMixin.logInfo(line_dict, forcePrint: true);
       }
       loggerMixin.logInfo(line_native, forcePrint: true);
       loggerMixin.logInfo(line_exiftool, forcePrint: true);
-      loggerMixin.logInfo('', forcePrint: true);
+      print('');
     } else {
-      // ignore: avoid_print
+      print('');
       print(line_calls);
       if (showDictLine) {
-        // ignore: avoid_print
         print(line_dict);
       }
-      // ignore: avoid_print
       print(line_native);
-      // ignore: avoid_print
       print(line_exiftool);
-      // ignore: avoid_print
       print('');
     }
 

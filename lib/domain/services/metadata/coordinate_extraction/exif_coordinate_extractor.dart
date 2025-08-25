@@ -38,9 +38,8 @@ class ExifCoordinateExtractor with LoggerMixin {
 
     if (loggerMixin != null) {
       loggerMixin.logInfo(line, forcePrint: true);
-      loggerMixin.logInfo('', forcePrint: true);
+      print('');
     } else {
-      // ignore: avoid_print
       print(line);
       print('');
     }

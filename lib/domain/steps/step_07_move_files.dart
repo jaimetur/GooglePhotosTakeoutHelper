@@ -145,6 +145,7 @@ class MoveFilesStep extends ProcessingStep {
   const MoveFilesStep() : super('Move Files');
   @override
   Future<StepResult> execute(final ProcessingContext context) async {
+    print ('');
     final stopwatch = Stopwatch()..start();
 
     try {

@@ -93,7 +93,10 @@ class MediaEntityMovingService {
     // Print summary if verbose
     if (context.verbose) {
       _printSummary(allResults, strategy);
+    } else {
+      _printSummary(allResults, strategy);
     }
+
   }
 
   /// High-performance parallel media moving with batched operations
@@ -155,7 +158,10 @@ class MediaEntityMovingService {
     final finalizationResults = await strategy.finalize(context, entities);
     allResults.addAll(finalizationResults);
 
+    // Print summary if verbose
     if (context.verbose) {
+      _printSummary(allResults, strategy);
+    } else {
       _printSummary(allResults, strategy);
     }
   }
@@ -194,9 +200,7 @@ class MediaEntityMovingService {
     if (failed > 0) {
       print('\nErrors encountered:');
       results.where((final r) => !r.success).take(5).forEach((final result) {
-        print(
-          '  • ${result.operation.sourceFile.path}: ${result.errorMessage}',
-        );
+        print('  • ${result.operation.sourceFile.path}: ${result.errorMessage}');
       });
       if (failed > 5) {
         print('  ... and ${failed - 5} more errors');

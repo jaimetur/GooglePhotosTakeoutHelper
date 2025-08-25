@@ -33,19 +33,15 @@ class ExifWriterService with LoggerMixin {
   static Duration exiftoolCombinedDur = Duration.zero;
 
   static String _fmtSec(final Duration d) =>
-      (d.inMilliseconds / 1000.0).toStringAsFixed(3) + 's';
+      '${(d.inMilliseconds / 1000.0).toStringAsFixed(3)}s';
 
   /// Print instrumentation lines; reset counters optionally.
   static void dumpWriterStats({final bool reset = true, final LoggerMixin? logger}) {
     final lines = <String>[
-      '[WRITE-EXIF] native: '
-          'dateFiles=$nativeDateWrites, gpsFiles=$nativeGpsWrites, combinedFiles=$nativeCombinedWrites, '
-          'dateTime=${_fmtSec(nativeDateTimeDur)}, gpsTime=${_fmtSec(nativeGpsDur)}, combinedTime=${_fmtSec(nativeCombinedDur)}',
-      '[WRITE-EXIF] exiftool: '
-          'dateFiles=$exiftoolDateWrites, gpsFiles=$exiftoolGpsWrites, combinedFiles=$exiftoolCombinedWrites, '
-          'dateTime=${_fmtSec(exiftoolDateTimeDur)}, gpsTime=${_fmtSec(exiftoolGpsDur)}, combinedTime=${_fmtSec(exiftoolCombinedDur)}',
-      '[WRITE-EXIF] exiftoolFiles=$exiftoolFiles, exiftoolCalls=$exiftoolCalls',
+      '[WRITE-EXIF] Native  : dateFiles=$nativeDateWrites, gpsFiles=$nativeGpsWrites, combinedFiles=$nativeCombinedWrites, dateTime=${_fmtSec(nativeDateTimeDur)}, gpsTime=${_fmtSec(nativeGpsDur)}, combinedTime=${_fmtSec(nativeCombinedDur)}',
+      '[WRITE-EXIF] Exiftool: dateFiles=$exiftoolDateWrites, gpsFiles=$exiftoolGpsWrites, combinedFiles=$exiftoolCombinedWrites, dateTime=${_fmtSec(exiftoolDateTimeDur)}, gpsTime=${_fmtSec(exiftoolGpsDur)}, combinedTime=${_fmtSec(exiftoolCombinedDur)}, exiftoolFiles=$exiftoolFiles, exiftoolCalls=$exiftoolCalls',
     ];
+    print ('');
     for (final l in lines) {
       if (logger != null) {
         logger.logInfo(l, forcePrint: true);

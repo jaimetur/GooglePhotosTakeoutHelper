@@ -1,19 +1,20 @@
-import 'dart:io';
 import 'dart:convert';
+import 'dart:io';
+
+import 'package:intl/intl.dart';
+import 'package:mime/mime.dart';
 
 import '../../infrastructure/exiftool_service.dart';
 import '../../shared/concurrency_manager.dart';
 import '../entities/media_entity.dart';
 import '../services/core/logging_service.dart';
 import '../services/core/service_container.dart';
+import '../services/metadata/coordinate_extraction/exif_coordinate_extractor.dart';
+import '../services/metadata/date_extraction/exif_date_extractor.dart';
 import '../services/metadata/date_extraction/json_date_extractor.dart';
 import '../services/metadata/exif_writer_service.dart';
-import '../services/metadata/date_extraction/exif_date_extractor.dart';
-import '../services/metadata/coordinate_extraction/exif_coordinate_extractor.dart';
 import '../services/metadata/json_metadata_matcher_service.dart';
 import '../value_objects/date_time_extraction_method.dart';
-import 'package:intl/intl.dart';
-import 'package:mime/mime.dart';
 
 /// Modern domain model representing a collection of media entities.
 /// Full API: includes extractDates, writeExifData (batched), removeDuplicates,
@@ -120,9 +121,7 @@ class MediaEntityCollection with LoggerMixin {
     }
 
     // Remove afterwards to avoid concurrent modification
-    for (final e in entitiesToRemove) {
-      _media.remove(e);
-    }
+    entitiesToRemove.forEach(_media.remove);
 
     return removedCount;
   }
@@ -148,7 +147,7 @@ class MediaEntityCollection with LoggerMixin {
     final maxConcurrency = ConcurrencyManager().concurrencyFor(
       ConcurrencyOperation.exif,
     );
-    logInfo('Starting $maxConcurrency threads (exif date extraction concurrency)', forcePrint: true);
+    print('Starting $maxConcurrency threads (exif date extraction concurrency)');
 
     for (int i = 0; i < _media.length; i += maxConcurrency) {
       final batch = _media.skip(i).take(maxConcurrency).toList();
@@ -239,24 +238,23 @@ class MediaEntityCollection with LoggerMixin {
   /// and coordinate data, tracking success statistics.
   Future<Map<String, int>> writeExifData({
     final void Function(int current, int total)? onProgress,
-    bool exifToolBatching = false,
+    final bool exifToolBatching = false,
   }) async {
     // Check if ExifTool is available before proceeding
     final exifTool = ServiceContainer.instance.exifTool;
-    if (exifTool == null) {
-      logWarning('ExifTool not available, writing EXIF data for native supported files only');
-      logInfo('[Step 5/8] Starting EXIF data writing (native-only, no ExifTool) for ${_media.length} files', forcePrint: true);
-      return _writeExifDataParallel(onProgress, null, nativeOnly: true, disableExifToolBatch: true);
-    }
 
-    logInfo('[Step 5/8] Starting EXIF data writing for ${_media.length} files', forcePrint: true);
+    if (exifTool == null) {
+      logWarning('[Step 5/8] ExifTool not available, writing EXIF data for native supported files only...');
+      print('[Step 5/8] Starting EXIF data writing (native-only, no ExifTool) for ${_media.length} files');
+      return _writeExifDataParallel(onProgress, null, nativeOnly: true, enableExifToolBatch: false);
+    }
 
     // Always use parallel processing for optimal performance
     return _writeExifDataParallel(
       onProgress,
       exifTool,
       nativeOnly: false,
-      disableExifToolBatch: !exifToolBatching,
+      enableExifToolBatch: exifToolBatching,
     );
   }
 
@@ -268,12 +266,24 @@ class MediaEntityCollection with LoggerMixin {
   Future<Map<String, int>> _writeExifDataParallel(
     final void Function(int current, int total)? onProgress,
     final ExifToolService? exifTool, {
-    bool nativeOnly = false,
-    bool disableExifToolBatch = false,
+    final bool nativeOnly = false,
+    final bool enableExifToolBatch = true,
   }) async {
     var coordinatesWritten = 0;
     var dateTimesWritten = 0;
     var completed = 0;
+
+    if (nativeOnly) {
+      logInfo ('Exiftool disabled using argument nativeOnly=true', forcePrint: true);
+    } else {
+      logInfo ('Exiftool enabled using argument nativeOnly=false', forcePrint: true);
+    }
+
+    if (enableExifToolBatch) {
+      logInfo ('Exiftool batch enabled using argument enableExifToolBatch=true. Exiftool will be called in batches with several files per batch', forcePrint: true);
+    } else {
+      logInfo ('Exiftool batch processing disabled using argument enableExifToolBatch=false. Exiftool will be called 1 time per file', forcePrint: true);
+    }
 
     // Calculate optimal concurrency
     final maxConcurrency = ConcurrencyManager().concurrencyFor(ConcurrencyOperation.exif);
@@ -291,12 +301,12 @@ class MediaEntityCollection with LoggerMixin {
     final List<MapEntry<File, Map<String, dynamic>>> pendingImagesBatch = [];
     final List<MapEntry<File, Map<String, dynamic>>> pendingVideosBatch = [];
 
-    Future<void> _flushBatchGeneric(
-      List<MapEntry<File, Map<String, dynamic>>> queue, {
-      required bool useArgFile,
-      required bool isVideoBatch,
+    Future<void> flushBatchGeneric(
+      final List<MapEntry<File, Map<String, dynamic>>> queue, {
+      required final bool useArgFile,
+      required final bool isVideoBatch,
     }) async {
-      if (nativeOnly || disableExifToolBatch) return; // sin lotes en modo per-file
+      if (nativeOnly || !enableExifToolBatch) return; // sin lotes en modo per-file
       if (queue.isEmpty) return;
       if (exifWriter == null) {
         queue.clear();
@@ -346,11 +356,11 @@ class MediaEntityCollection with LoggerMixin {
     }
 
     // Helpers for specific flush
-    Future<void> _flushImageBatch({required bool useArgFile}) =>
-        _flushBatchGeneric(pendingImagesBatch, useArgFile: useArgFile, isVideoBatch: false);
+    Future<void> flushImageBatch({required final bool useArgFile}) =>
+        flushBatchGeneric(pendingImagesBatch, useArgFile: useArgFile, isVideoBatch: false);
 
-    Future<void> _flushVideoBatch({required bool useArgFile}) =>
-        _flushBatchGeneric(pendingVideosBatch, useArgFile: useArgFile, isVideoBatch: true);
+    Future<void> flushVideoBatch({required final bool useArgFile}) =>
+        flushBatchGeneric(pendingVideosBatch, useArgFile: useArgFile, isVideoBatch: true);
 
     // Wrap the whole loop so we guarantee a final flush even if an unexpected error occurs.
     try {
@@ -362,8 +372,8 @@ class MediaEntityCollection with LoggerMixin {
           try {
             final file = mediaEntity.files.firstFile;
             // TODO: Remove this trace
-            if (file.path.contains("HOJA1")) {
-              print("TRACE: contains 'HOJA1'");
+            if (file.path.contains('HOJA1')) {
+              print("\nTRACE: contains 'HOJA1'");
             }
             // Cache MIME/header once with protection against stream errors.
             List<int> headerBytes = const [];
@@ -520,8 +530,8 @@ class MediaEntityCollection with LoggerMixin {
                 if (mimeExt == 'video/x-msvideo' || mimeHeader == 'video/x-msvideo') {
                   logWarning('Skipping AVI file - ExifTool cannot write RIFF AVI: ${file.path}');
                 } else {
-                  final isVideo = (mimeHeader != null && mimeHeader.startsWith('video/'));
-                  if (disableExifToolBatch) {
+                  final isVideo = mimeHeader != null && mimeHeader.startsWith('video/');
+                  if (!enableExifToolBatch) {
                     // escritura por archivo (sin lotes)
                     if (exifWriter != null) {
                       try {
@@ -572,24 +582,24 @@ class MediaEntityCollection with LoggerMixin {
         onProgress?.call(completed, _media.length);
 
         // Flushed serializados: imágenes y vídeos por separado (solo si hay lotes)
-        if (!nativeOnly && !disableExifToolBatch) {
+        if (!nativeOnly && enableExifToolBatch) {
           final int targetImageBatch = baseBatchSize;
-          final int targetVideoBatch = 12; // lotes pequeños para vídeos
+          const int targetVideoBatch = 12; // lotes pequeños para vídeos
           if (pendingImagesBatch.length >= targetImageBatch) {
-            await _flushImageBatch(useArgFile: true);
+            await flushImageBatch(useArgFile: true);
           }
           if (pendingVideosBatch.length >= targetVideoBatch) {
-            await _flushVideoBatch(useArgFile: true);
+            await flushVideoBatch(useArgFile: true);
           }
         }
       }
     } finally {
       // Flush any remaining batches (solo si hay lotes)
-      if (!nativeOnly && !disableExifToolBatch) {
+      if (!nativeOnly && enableExifToolBatch) {
         final bool flushImagesWithArg = pendingImagesBatch.length > (Platform.isWindows ? 30 : 60);
         final bool flushVideosWithArg = pendingVideosBatch.length > 6;
-        await _flushImageBatch(useArgFile: flushImagesWithArg);
-        await _flushVideoBatch(useArgFile: flushVideosWithArg);
+        await flushImageBatch(useArgFile: flushImagesWithArg);
+        await flushVideoBatch(useArgFile: flushVideosWithArg);
       } else {
         pendingImagesBatch.clear();
         pendingVideosBatch.clear();
@@ -597,10 +607,10 @@ class MediaEntityCollection with LoggerMixin {
     }
 
     if (coordinatesWritten > 0) {
-      logInfo('$coordinatesWritten files got GPS set in EXIF data', forcePrint: true);
+      print('$coordinatesWritten files got GPS set in EXIF data');
     }
     if (dateTimesWritten > 0) {
-      logInfo('$dateTimesWritten files got DateTime set in EXIF data', forcePrint: true);
+      print('$dateTimesWritten files got DateTime set in EXIF data');
     }
 
     // Final writer stats in seconds (no READ-EXIF lines here)
@@ -688,7 +698,7 @@ class MediaEntityCollection with LoggerMixin {
       final String raw = await jsonSidecar.readAsString();
       final dynamic data = jsonDecode(raw);
 
-      dynamic ts = (data is Map<String, dynamic>)
+      final dynamic ts = (data is Map<String, dynamic>)
           ? (data['photoTakenTime']?['timestamp'] ?? data['creationTime']?['timestamp'])
           : null;
       if (ts == null) return null;
