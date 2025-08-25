@@ -215,7 +215,7 @@ class MediaEntityCollection with LoggerMixin {
         );
       } catch (e) {
         // Batch-level error is logged, but execution continues.
-        logError('Batch flush failed (${pendingBatch.length} files): $e', forcePrint: true);
+        logError('Batch flush failed (${pendingBatch.length} files): $e');
       } finally {
         pendingBatch.clear();
       }
@@ -242,7 +242,7 @@ class MediaEntityCollection with LoggerMixin {
               mimeExt = lookupMimeType(file.path);
             } catch (e) {
               // Header read failed; fall back to extension-based guess.
-              logWarning('Failed to read header for ${file.path}: $e (falling back to extension)', forcePrint: true);
+              logWarning('Failed to read header for ${file.path}: $e (falling back to extension)');
               mimeHeader = lookupMimeType(file.path);
               mimeExt = mimeHeader;
             }
@@ -258,7 +258,7 @@ class MediaEntityCollection with LoggerMixin {
             if (effectiveDate == null) {
               effectiveDate = await _lateResolveDateFromJson(file);
               if (effectiveDate != null) {
-                logDebug('Late JSON date resolved for ${file.path}: $effectiveDate', forcePrint: true);
+                logDebug('Late JSON date resolved for ${file.path}: $effectiveDate');
               }
             }
 
@@ -291,18 +291,9 @@ class MediaEntityCollection with LoggerMixin {
                         // Fallback to exiftool (enqueue combined tags)
                         final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
                         final dt = exifFormat.format(effectiveDate);
-                        // Consistent AllDates + Offsets
-                        final Duration off = effectiveDate.timeZoneOffset;
-                        final String offStr =
-                            '${off.isNegative ? '-' : '+'}${off.inHours.abs().toString().padLeft(2, '0')}:${(off.inMinutes.abs() % 60).toString().padLeft(2, '0')}';
                         tagsToWrite['DateTimeOriginal'] = '"$dt"';
                         tagsToWrite['DateTimeDigitized'] = '"$dt"';
                         tagsToWrite['DateTime'] = '"$dt"';
-                        tagsToWrite['CreateDate'] = '"$dt"';
-                        tagsToWrite['ModifyDate'] = '"$dt"';
-                        tagsToWrite['OffsetTimeOriginal'] = '"$offStr"';
-                        tagsToWrite['OffsetTimeDigitized'] = '"$offStr"';
-                        tagsToWrite['OffsetTime'] = '"$offStr"';
                         tagsToWrite['GPSLatitude'] = coordinates.toDD().latitude.toString();
                         tagsToWrite['GPSLongitude'] = coordinates.toDD().longitude.toString();
                         tagsToWrite['GPSLatitudeRef'] = coordinates.latDirection.abbreviation.toString();
@@ -335,7 +326,7 @@ class MediaEntityCollection with LoggerMixin {
               }
             } catch (e) {
               // GPS extraction/writing failure for this file is logged; continue.
-              logWarning('Failed to extract/write GPS for ${file.path}: $e', forcePrint: true);
+              logWarning('Failed to extract/write GPS for ${file.path}: $e');
             }
 
             // 2) DateTime if available (now also when originally null but resolved from JSON)
@@ -350,41 +341,23 @@ class MediaEntityCollection with LoggerMixin {
                       // Fallback to exiftool (enqueue DateTime tags)
                       final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
                       final dt = exifFormat.format(effectiveDate);
-                      // Consistent AllDates + Offsets
-                      final Duration off = effectiveDate.timeZoneOffset;
-                      final String offStr =
-                          '${off.isNegative ? '-' : '+'}${off.inHours.abs().toString().padLeft(2, '0')}:${(off.inMinutes.abs() % 60).toString().padLeft(2, '0')}';
                       tagsToWrite['DateTimeOriginal'] = '"$dt"';
                       tagsToWrite['DateTimeDigitized'] = '"$dt"';
                       tagsToWrite['DateTime'] = '"$dt"';
-                      tagsToWrite['CreateDate'] = '"$dt"';
-                      tagsToWrite['ModifyDate'] = '"$dt"';
-                      tagsToWrite['OffsetTimeOriginal'] = '"$offStr"';
-                      tagsToWrite['OffsetTimeDigitized'] = '"$offStr"';
-                      tagsToWrite['OffsetTime'] = '"$offStr"';
                       dateTimeWrittenLocal = true;
                     }
                   }
                 } else {
                   final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
                   final dt = exifFormat.format(effectiveDate);
-                  // Consistent AllDates + Offsets
-                  final Duration off = effectiveDate.timeZoneOffset;
-                  final String offStr =
-                      '${off.isNegative ? '-' : '+'}${off.inHours.abs().toString().padLeft(2, '0')}:${(off.inMinutes.abs() % 60).toString().padLeft(2, '0')}';
                   tagsToWrite['DateTimeOriginal'] = '"$dt"';
                   tagsToWrite['DateTimeDigitized'] = '"$dt"';
                   tagsToWrite['DateTime'] = '"$dt"';
-                  tagsToWrite['CreateDate'] = '"$dt"';
-                  tagsToWrite['ModifyDate'] = '"$dt"';
-                  tagsToWrite['OffsetTimeOriginal'] = '"$offStr"';
-                  tagsToWrite['OffsetTimeDigitized'] = '"$offStr"';
-                  tagsToWrite['OffsetTime'] = '"$offStr"';
                 }
               }
             } catch (e) {
               // DateTime write failure for this file is logged; continue.
-              logWarning('Failed to write DateTime for ${file.path}: $e', forcePrint: true);
+              logWarning('Failed to write DateTime for ${file.path}: $e');
             }
 
             // 3) If there are pending tags → enqueue in exiftool batch (JPEG fallback or non-JPEG)
@@ -393,10 +366,12 @@ class MediaEntityCollection with LoggerMixin {
                 // Avoid extension/content mismatch that would make exiftool fail
                 if (mimeExt != mimeHeader && mimeHeader != 'image/tiff') {
                   // Downgrade to warning and proceed to batch (ExifTool usually handles jpg/jpeg casing)
-                  logWarning("EXIF Writer - Extension indicates '$mimeExt' but header is '$mimeHeader'. Enqueuing for ExifTool batch.\n ${file.path}", forcePrint: true);
+                  logWarning(
+                    "EXIF Writer - Extension indicates '$mimeExt' but header is '$mimeHeader'. Enqueuing for ExifTool batch.\n ${file.path}",
+                  );
                 }
                 if (mimeExt == 'video/x-msvideo' || mimeHeader == 'video/x-msvideo') {
-                  logWarning('Skipping AVI file - ExifTool cannot write RIFF AVI: ${file.path}', forcePrint: true);
+                  logWarning('Skipping AVI file - ExifTool cannot write RIFF AVI: ${file.path}');
                 } else {
                   pendingBatch.add(MapEntry(file, tagsToWrite));
 
@@ -412,7 +387,7 @@ class MediaEntityCollection with LoggerMixin {
               }
             } catch (e) {
               // Enqueue/flush preparation failed for this file; continue.
-              logWarning('Failed to enqueue EXIF tags for ${file.path}: $e', forcePrint: true);
+              logWarning('Failed to enqueue EXIF tags for ${file.path}: $e');
             }
 
             return {'gps': gpsWritten, 'dateTime': dateTimeWrittenLocal};
@@ -422,7 +397,7 @@ class MediaEntityCollection with LoggerMixin {
             final pathSafe = () {
               try { return mediaEntity.files.firstFile.path; } catch (_) { return '<unknown>'; }
             }();
-            logError('EXIF write failed for $pathSafe: $e', forcePrint: true);
+            logError('EXIF write failed for $pathSafe: $e');
             return {'gps': false, 'dateTime': false};
           }
         });
