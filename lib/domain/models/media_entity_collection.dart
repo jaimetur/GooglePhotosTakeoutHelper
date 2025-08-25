@@ -208,6 +208,24 @@ class MediaEntityCollection with LoggerMixin {
 
     Future<void> _flushBatch({required final bool useArgFile}) async {
       if (pendingBatch.isEmpty) return;
+
+      // Pre-clean possible stale *_exiftool_tmp files for all files in this batch
+      try {
+        for (final e in pendingBatch) {
+          final tmp = File('${e.key.path}_exiftool_tmp');
+          if (await tmp.exists()) {
+            try {
+              await tmp.delete();
+            } catch (_) {
+              // ignore cleanup failure
+            }
+          }
+        }
+      } catch (_) {
+        // ignore pre-clean failures
+      }
+
+      // Execute ExifTool once; on failure, try one cleanup+retry
       try {
         await exifWriter.writeBatchWithExifTool(
           pendingBatch,
@@ -216,6 +234,26 @@ class MediaEntityCollection with LoggerMixin {
       } catch (e) {
         // Batch-level error is logged, but execution continues.
         logError('Batch flush failed (${pendingBatch.length} files): $e');
+        // Retry after another cleanup of temps
+        try {
+          for (final e in pendingBatch) {
+            final tmp = File('${e.key.path}_exiftool_tmp');
+            if (await tmp.exists()) {
+              try {
+                await tmp.delete();
+              } catch (_) {
+                // ignore
+              }
+            }
+          }
+          await exifWriter.writeBatchWithExifTool(
+            pendingBatch,
+            useArgFileWhenLarge: useArgFile,
+          );
+          logInfo('Batch flush retry succeeded (${pendingBatch.length} files).');
+        } catch (e2) {
+          logError('Batch flush retry failed (${pendingBatch.length} files): $e2');
+        }
       } finally {
         pendingBatch.clear();
       }
@@ -223,7 +261,7 @@ class MediaEntityCollection with LoggerMixin {
 
     // Wrap the whole loop so we guarantee a final flush even if an unexpected error occurs.
     try {
-      for (int i = 0; i < _media.length; i += maxConcurrency) {
+      for (int i = 0; i = maxConcurrency) {
         final batch = _media.skip(i).take(maxConcurrency).toList();
 
         final futures = batch.map((final mediaEntity) async {
@@ -373,16 +411,8 @@ class MediaEntityCollection with LoggerMixin {
                 if (mimeExt == 'video/x-msvideo' || mimeHeader == 'video/x-msvideo') {
                   logWarning('Skipping AVI file - ExifTool cannot write RIFF AVI: ${file.path}');
                 } else {
+                  // Only enqueue; flushing is serialized outside to avoid concurrent ExifTool runs
                   pendingBatch.add(MapEntry(file, tagsToWrite));
-
-                  // Rough estimate of command “weight”: 1 per tag + file path
-                  final int weight = tagsToWrite.length + 1;
-                  final int targetBatch = weight > 6 ? (baseBatchSize ~/ 2) : baseBatchSize;
-
-                  // Flush with argfile if the batch is big/heavy
-                  if (pendingBatch.length >= targetBatch) {
-                    await _flushBatch(useArgFile: true);
-                  }
                 }
               }
             } catch (e) {
@@ -411,6 +441,12 @@ class MediaEntityCollection with LoggerMixin {
         }
 
         onProgress?.call(completed, _media.length);
+
+        // Serialized flush: decide here, outside of per-file futures.
+        final int targetBatch = baseBatchSize;
+        if (pendingBatch.length >= targetBatch) {
+          await _flushBatch(useArgFile: true);
+        }
       }
     } finally {
       // Flush any remaining pending exiftool batch (argfile if large)
