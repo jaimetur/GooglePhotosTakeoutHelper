@@ -39,14 +39,16 @@ class MoveFilesStep extends ProcessingStep {
       );
       final movingService = MediaEntityMovingService();
 
-      // 3) Compute the number of REAL file operations (exclude symlinks/shortcuts/json)
-      int filesPlanned = _estimateRealFileOpsPlanned(context);
+      // 3) Compute the REAL number of file operations (exclude symlinks/shortcuts/json)
+      final totalOps = await movingService.estimateRealFileOperationCount(
+        context.mediaCollection,
+        movingContext,
+      );
 
       // 4) Initialize a progress bar that tracks ONLY real file operations
-      //    We may adjust "total" upward if we detect more real file ops than planned.
       var progressBar = FillingBar(
         desc: 'Moving files',
-        total: filesPlanned > 0 ? filesPlanned : 1,
+        total: totalOps > 0 ? totalOps : 1,
         width: 50,
       );
 
@@ -67,14 +69,12 @@ class MoveFilesStep extends ProcessingStep {
           if (kind == _OpKind.file) {
             filesMovedCount++;
 
-            // If we are exceeding the planned total (e.g., behavior alias not detected),
+            // If we are exceeding the planned total (defensive: behavior alias mismatch),
             // bump the progress bar's total so it can still reach 100%.
             if (filesMovedCount > progressBar.total) {
               // Recreate the bar with a larger total and update it to current progress.
               final newTotal = filesMovedCount;
-              // Print a newline to avoid overwriting the existing bar in some terminals.
-              // (console_bars does not support dynamic total change; rebuild is simplest.)
-              stdout.write('\n');
+              stdout.write('\n'); // avoid overwriting existing bar line
               progressBar = FillingBar(
                 desc: 'Moving files',
                 total: newTotal,
@@ -119,7 +119,7 @@ class MoveFilesStep extends ProcessingStep {
           'symlinksCreatedCount': symlinksCreatedCount,
           'jsonWritesCount': jsonWritesCount,
           'otherOpsCount': otherOpsCount,
-          'filesPlanned': filesPlanned,
+          'totalOperationsPlanned': totalOps,
         },
         message: messageBuffer.toString(),
       );
@@ -137,38 +137,6 @@ class MoveFilesStep extends ProcessingStep {
   @override
   bool shouldSkip(final ProcessingContext context) =>
       context.mediaCollection.isEmpty;
-
-  /// Estimate how many REAL file operations (move/copy) will happen,
-  /// excluding symlinks/shortcuts and JSON writes.
-  /// Heuristic based on album behavior; supports multiple aliases and enum-ish names.
-  int _estimateRealFileOpsPlanned(final ProcessingContext context) {
-    final behaviorRaw = context.config.albumBehavior.value;
-    final behavior = behaviorRaw.toString().toLowerCase();
-
-    final bool isDuplicate = behavior.contains('duplicate') ||
-        behavior.contains('copy') ||
-        behavior.contains('dup') ||
-        behavior.contains('duplicate_copy') ||
-        behavior.contains('duplicate-copy') ||
-        behavior.contains('albumbehavior.duplicate');
-
-    final bool isJson = behavior.contains('json') ||
-        behavior.contains('albumbehavior.json');
-
-    // reverse/shortcut/nothing → treat as 1 real file per entity (links or none for the rest)
-    int total = 0;
-    for (final mediaEntity in context.mediaCollection.media) {
-      final placements = mediaEntity.files.files.length;
-      if (isDuplicate) {
-        total += placements; // each placement is a real copy
-      } else if (isJson) {
-        total += 1; // only ALL_PHOTOS real file
-      } else {
-        total += 1; // one primary real file (ALL_PHOTOS or album), rest links or nothing
-      }
-    }
-    return total;
-  }
 
   /// Classify the operation kind without relying on unsupported reflection.
   /// We use a robust, compile-safe heuristic based on `toString()` contents and common suffixes.
@@ -189,7 +157,6 @@ class MoveFilesStep extends ProcessingStep {
     }
 
     // Destinations that strongly indicate a shortcut/symlink (Windows/macOS/Linux)
-    // We detect by common file extensions or patterns in the "destination" shown in toString().
     if (text.contains('.lnk') ||
         text.contains('.url') ||
         text.contains('.desktop') ||
@@ -197,7 +164,7 @@ class MoveFilesStep extends ProcessingStep {
       return _OpKind.symlink;
     }
 
-    // JSON-related detection (side outputs or album metadata)
+    // JSON-related detection
     if (text.contains('.json') || text.contains('json write') || text.contains('write json')) {
       return _OpKind.json;
     }
@@ -286,4 +253,4 @@ class MoveFilesStep extends ProcessingStep {
   }
 }
 
-enum _OpKind { file, symlink, json, other }
+enum _OpKind { file, symlink, json}

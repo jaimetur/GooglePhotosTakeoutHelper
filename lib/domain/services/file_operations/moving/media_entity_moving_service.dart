@@ -37,14 +37,16 @@ class MediaEntityMovingService with LoggerMixin {
 
   final MediaEntityMovingStrategyFactory _strategyFactory;
 
-  /// Returns the exact number of low-level operations that would be performed.
+  /// Returns the exact number of *low-level operations* that would be performed.
   ///
   /// Semantics:
   /// - Each File entry in `mediaEntity.files.files` generally maps to 1 operation
-  ///   (primary move + per-album copy/symlink/shortcut depending on album behavior).
-  /// - JSON mode: we only move to `ALL_PHOTOS` → exactly 1 operation per entity.
-  /// - Nothing/Shortcut/Duplicate/ReverseShortcut modes: equals to the number of
-  ///   placements (map entries).
+  ///   (primary + per-album placement). Depending on album behavior, a placement
+  ///   can be a real copy/move or a symlink/shortcut.
+  /// - JSON mode: only 1 operation per entity (materialize in `ALL_PHOTOS`).
+  /// - Shortcut/Reverse/Nothing/Duplicate modes: equals the number of placements
+  ///   (map entries). For Shortcut/Reverse/Nothing, many of those placements
+  ///   may be links rather than real copies.
   ///
   /// This does **not** touch the disk and has no side effects.
   Future<int> estimateOperationCount(
@@ -54,29 +56,67 @@ class MediaEntityMovingService with LoggerMixin {
     final strategy = _strategyFactory.createStrategy(context.albumBehavior);
     strategy.validateContext(context);
 
-    // Count per-entity placements
+    // Count per-entity placements (low-level ops of any kind: file or link)
     int total = 0;
+    final mode = _behavior(context);
+
     for (final entity in entityCollection.entities) {
       final placements = entity.files.files.length;
 
-      // JSON mode → only primary placement is materialized
-      if (_isJsonMode(context)) {
-        total += 1;
+      if (mode.isJson) {
+        total += 1; // only primary materialized
       } else {
-        total += placements;
+        total += placements; // each placement is an op (file or link)
       }
     }
 
-    // Optionally include finalize() outputs if those generate files;
-    // by default, finalize is metadata-only and does not add file ops to count.
+    // Note: finalize() is typically metadata-only; if it generates outputs,
+    // you may add them here to the count.
     return total;
   }
 
-  /// Moves media entities according to the provided context using parallel processing
+  /// Returns the exact number of *real file operations* (move/copy/rename),
+  /// explicitly excluding symlinks/shortcuts and JSON writes.
   ///
-  /// Progress Semantics CHANGE (entity-level):
-  ///   The returned stream now reports the NUMBER OF ENTITIES processed, not
-  ///   the number of low-level file operations (move + symlink + duplicate, etc.).
+  /// Semantics:
+  /// - Duplicate (copy) mode: every placement is a real file op → sum(placements).
+  /// - JSON mode: exactly 1 real file op per entity (ALL_PHOTOS only).
+  /// - Shortcut/Reverse/Nothing modes: exactly 1 real file op per entity
+  ///   (the primary placement). Album placements are links or no-op.
+  ///
+  /// This does **not** touch the disk and has no side effects.
+  Future<int> estimateRealFileOperationCount(
+    final MediaEntityCollection entityCollection,
+    final MovingContext context,
+  ) async {
+    final strategy = _strategyFactory.createStrategy(context.albumBehavior);
+    strategy.validateContext(context);
+
+    int total = 0;
+    final mode = _behavior(context);
+
+    for (final entity in entityCollection.entities) {
+      final placements = entity.files.files.length;
+
+      if (mode.isDuplicate) {
+        // Each placement is a real copy
+        total += placements;
+      } else if (mode.isJson) {
+        // Only primary materialized
+        total += 1;
+      } else {
+        // Shortcut / Reverse / Nothing → one real file, rest links or none
+        total += 1;
+      }
+    }
+    return total;
+  }
+
+  /// Moves media entities according to the provided context using parallel processing.
+  ///
+  /// Progress Semantics (entity-level):
+  ///   The returned stream reports the NUMBER OF ENTITIES processed, not
+  ///   the number of low-level operations (move + symlink + duplicate, etc.).
   ///   Each MediaEntity contributes +1 to the progress count regardless of how
   ///   many underlying operations its strategy performs. This provides a
   ///   stable, cross-platform progress metric (Windows symlink limitations
@@ -177,12 +217,57 @@ class MediaEntityMovingService with LoggerMixin {
     }
   }
 
-  bool _isJsonMode(final MovingContext context) {
-    // English comment: detect the JSON behavior. Adjust if your enum/value differs.
-    // Many codebases expose something like: context.albumBehavior.value == 'json'
-    final value = context.albumBehavior.value.toString().toLowerCase();
-    return value.contains('json');
+  /// Behavior helpers --------------------------------------------------------
+
+  _AlbumBehaviorFlags _behavior(final MovingContext context) {
+    final raw = context.albumBehavior.value.toString().toLowerCase();
+
+    final isDuplicate = raw.contains('duplicate') ||
+        raw.contains('duplicate_copy') ||
+        raw.contains('duplicate-copy') ||
+        raw.contains('copy') ||
+        raw.contains('dup') ||
+        raw.contains('albumbehavior.duplicate');
+
+    final isJson = raw.contains('json') ||
+        raw.contains('albumbehavior.json');
+
+    final isShortcut = raw.contains('shortcut') ||
+        raw.contains('symlink') ||
+        raw.contains('link') ||
+        raw.contains('albumbehavior.shortcut');
+
+    final isReverse = raw.contains('reverse') ||
+        raw.contains('albumbehavior.reverse');
+
+    final isNothing = raw.contains('nothing') ||
+        raw.contains('none') ||
+        raw.contains('albumbehavior.nothing');
+
+    return _AlbumBehaviorFlags(
+      isDuplicate: isDuplicate,
+      isJson: isJson,
+      isShortcut: isShortcut,
+      isReverse: isReverse,
+      isNothing: isNothing,
+    );
   }
+}
+
+class _AlbumBehaviorFlags {
+  const _AlbumBehaviorFlags({
+    required this.isDuplicate,
+    required this.isJson,
+    required this.isShortcut,
+    required this.isReverse,
+    required this.isNothing,
+  });
+
+  final bool isDuplicate;
+  final bool isJson;
+  final bool isShortcut;
+  final bool isReverse;
+  final bool isNothing;
 }
 
 // Concurrency now managed via package:pool.
