@@ -9,6 +9,10 @@ import '../services/file_operations/moving/media_entity_moving_service.dart';
 import '../services/file_operations/moving/moving_context_model.dart';
 import '../value_objects/media_files_collection.dart';
 
+/// Step 7: Move files to output directory
+///
+/// Orchestrates the physical reorganization of media into the output structure.
+/// Progress bar reflects *real file operations* (move/copy/rename) only.
 class MoveFilesStep extends ProcessingStep {
   const MoveFilesStep() : super('Move Files');
 
@@ -26,40 +30,43 @@ class MoveFilesStep extends ProcessingStep {
         }
       }
 
-      // 2) Prepare moving context and service
+      // 2) Build moving context & service
       final movingContext = MovingContext.fromConfig(
         context.config,
         context.outputDirectory,
       );
       final movingService = MediaEntityMovingService();
 
-      // 3) Get the REAL total of file ops (move/copy/rename) excluding symlinks/JSON
-      final totalOps = await movingService.estimateRealFileOperationCount(
+      // 3) Totals for robust accounting
+      final int lowLevelTotal = await movingService.estimateOperationCount(
         context.mediaCollection,
         movingContext,
-      );
+      ); // files + symlinks + json
 
-      // 4) Progress bar for REAL files only (no symlinks/JSON)
+      final int realFilesTotal = await movingService.estimateRealFileOperationCount(
+        context.mediaCollection,
+        movingContext,
+      ); // only real files
+
+      // 4) Progress bar for *real files only*
       final progressBar = FillingBar(
         desc: 'Moving files',
-        total: max(1, totalOps),
+        total: max(1, realFilesTotal),
         width: 50,
       );
 
-      // 5) Counters from service summary (authoritative)
-      int processedEntities = 0; // informational
-      MediaMoveCounters? summary; // will be set by onSummary
+      // 5) Authoritative counters from service summary (if provided)
+      MediaMoveCounters? summary;
 
-      // ✅ we maintain our own progress counter
-      int progressSoFar = 0;
+      // 6) Local counters for progress and fallback
+      int processedEntities = 0;
+      int progressSoFar = 0; // real-file progress (drives the bar)
 
-      // 6) Consume stream; progress is driven by onRealFile (1 tick per real file)
       await for (final _ in movingService.moveMediaEntities(
         context.mediaCollection,
         movingContext,
         onRealFile: (final File src, final File dst) {
           progressSoFar++;
-          // Update bar with our local counter, capped to totalOps
           progressBar.update(min(progressSoFar, progressBar.total));
         },
         onSummary: (final MediaMoveCounters counters) {
@@ -69,16 +76,23 @@ class MoveFilesStep extends ProcessingStep {
         processedEntities++;
       }
 
-      // 7) Finish timing and UI
+      // 7) Finalize UI
       stopwatch.stop();
-      print(''); // newline after the progress bar
+      print(''); // close the progress bar line
 
-      // 8) Use authoritative counters from the service (fallback to zeros if null)
-      final filesMovedCount = summary?.realFiles ?? 0;
-      final symlinksCreatedCount = summary?.symlinks ?? 0;
-      final jsonWritesCount = summary?.jsonWrites ?? 0;
-      final othersCount = summary?.others ?? 0;
+      // 8) Reconcile counts (robust)
+      // Prefer service-provided counts; if symlinks look wrong, compute fallback.
+      final int filesMovedCount = summary?.realFiles ?? progressSoFar;
+      final int jsonWritesCount = summary?.jsonWrites ?? 0;
 
+      // Algebraic fallback for symlinks:
+      // lowLevel = files + symlinks + json  => symlinks = lowLevel - files - json
+      int symlinksCreatedCount = summary?.symlinks ?? -1; // -1 indicates "unknown/unreliable"
+      if (symlinksCreatedCount < 0) {
+        symlinksCreatedCount = max(0, lowLevelTotal - filesMovedCount - jsonWritesCount);
+      }
+
+      // 9) Build success result
       final messageBuffer = StringBuffer()
         ..write('Moved $filesMovedCount files to output directory')
         ..write(', created $symlinksCreatedCount symlinks');
@@ -96,8 +110,9 @@ class MoveFilesStep extends ProcessingStep {
           'filesMovedCount': filesMovedCount,
           'symlinksCreatedCount': symlinksCreatedCount,
           'jsonWritesCount': jsonWritesCount,
-          'otherOpsCount': othersCount,
-          'totalOperationsPlanned': totalOps,
+          'lowLevelTotalPlanned': lowLevelTotal,
+          'realFilesTotalPlanned': realFilesTotal,
+          'realFilesProgressObserved': progressSoFar,
         },
         message: messageBuffer.toString(),
       );
@@ -116,6 +131,7 @@ class MoveFilesStep extends ProcessingStep {
   bool shouldSkip(final ProcessingContext context) =>
       context.mediaCollection.isEmpty;
 
+  /// Transform Pixel .MP/.MV files to .mp4 extension (rename on disk and update entities).
   Future<int> _transformPixelFiles(final ProcessingContext context) async {
     int transformedCount = 0;
     final updatedEntities = <MediaEntity>[];
