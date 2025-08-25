@@ -281,67 +281,72 @@ class MediaEntityCollection with LoggerMixin {
     final bool isWindows = Platform.isWindows;
     final int baseBatchSize = isWindows ? 60 : 120;
 
-    final List<MapEntry<File, Map<String, dynamic>>> pendingBatch = [];
+    // Two separated queues: immages and videos
+    final List<MapEntry<File, Map<String, dynamic>>> pendingImagesBatch = [];
+    final List<MapEntry<File, Map<String, dynamic>>> pendingVideosBatch = [];
 
-    Future<void> _flushBatch({required final bool useArgFile}) async {
+    Future<void> _flushBatchGeneric(
+      List<MapEntry<File, Map<String, dynamic>>> queue, {
+      required bool useArgFile,
+      required bool isVideoBatch,
+    }) async {
       if (nativeOnly) return; // do not use exiftool in native mode
-      if (pendingBatch.isEmpty) return;
-
-      // If there is no exifWriter (no ExifTool), skip batch safely
+      if (queue.isEmpty) return;
       if (exifWriter == null) {
-        pendingBatch.clear();
+        queue.clear();
         return;
       }
 
-      // Pre-clean possible stale *_exiftool_tmp files for all files in this batch
+      // Cleanning of *_exiftool_tmp
       try {
-        for (final e in pendingBatch) {
+        for (final e in queue) {
           final tmp = File('${e.key.path}_exiftool_tmp');
           if (await tmp.exists()) {
             try {
               await tmp.delete();
-            } catch (_) {
-              // ignore cleanup failure
-            }
+            } catch (_) {}
           }
         }
-      } catch (_) {
-        // ignore pre-clean failures
-      }
+      } catch (_) {}
 
-      // Execute ExifTool once; on failure, try one cleanup+retry
+      // Intento 1: batch
       try {
         await exifWriter.writeBatchWithExifTool(
-          pendingBatch,
+          queue,
           useArgFileWhenLarge: useArgFile,
         );
       } catch (e) {
-        // Batch-level error is logged, but execution continues.
-        logError('Batch flush failed (${pendingBatch.length} files): $e', forcePrint: true);
-        // Retry after another cleanup of temps
-        try {
-          for (final e in pendingBatch) {
-            final tmp = File('${e.key.path}_exiftool_tmp');
-            if (await tmp.exists()) {
-              try {
-                await tmp.delete();
-              } catch (_) {
-                // ignore
-              }
-            }
+        logError(
+          (isVideoBatch
+              ? 'Video batch flush failed (${queue.length} files): $e'
+              : 'Batch flush failed (${queue.length} files): $e'),
+          forcePrint: true,
+        );
+
+        // Reintento por-fichero para no perder nada
+        for (final entry in queue) {
+          try {
+            await exifWriter.writeTagsWithExifTool(entry.key, entry.value);
+          } catch (e2) {
+            logError(
+              (isVideoBatch
+                  ? 'Per-file video write failed: ${entry.key.path} -> $e2'
+                  : 'Per-file write failed: ${entry.key.path} -> $e2'),
+              forcePrint: true,
+            );
           }
-          await exifWriter.writeBatchWithExifTool(
-            pendingBatch,
-            useArgFileWhenLarge: useArgFile,
-          );
-          logInfo('Batch flush retry succeeded (${pendingBatch.length} files).', forcePrint: true);
-        } catch (e2) {
-          logError('Batch flush retry failed (${pendingBatch.length} files): $e2', forcePrint: true);
         }
       } finally {
-        pendingBatch.clear();
+        queue.clear();
       }
     }
+
+    // Helpers for specific flush
+    Future<void> _flushImageBatch({required bool useArgFile}) =>
+        _flushBatchGeneric(pendingImagesBatch, useArgFile: useArgFile, isVideoBatch: false);
+
+    Future<void> _flushVideoBatch({required bool useArgFile}) =>
+        _flushBatchGeneric(pendingVideosBatch, useArgFile: useArgFile, isVideoBatch: true);
 
     // Wrap the whole loop so we guarantee a final flush even if an unexpected error occurs.
     try {
@@ -501,7 +506,7 @@ class MediaEntityCollection with LoggerMixin {
               logWarning('Failed to write DateTime for ${file.path}: $e');
             }
 
-            // 3) If there are pending tags → enqueue in exiftool batch (JPEG fallback or non-JPEG)
+            // 3) If there are pending tags → enqueue en la cola correcta (imágenes vs vídeos)
             try {
               if (!nativeOnly && tagsToWrite.isNotEmpty) {
                 // Avoid extension/content mismatch that would make exiftool fail
@@ -512,8 +517,12 @@ class MediaEntityCollection with LoggerMixin {
                 if (mimeExt == 'video/x-msvideo' || mimeHeader == 'video/x-msvideo') {
                   logWarning('Skipping AVI file - ExifTool cannot write RIFF AVI: ${file.path}');
                 } else {
-                  // Only enqueue; flushing is serialized outside to avoid concurrent ExifTool runs
-                  pendingBatch.add(MapEntry(file, tagsToWrite));
+                  final isVideo = (mimeHeader != null && mimeHeader.startsWith('video/'));
+                  if (isVideo) {
+                    pendingVideosBatch.add(MapEntry(file, tagsToWrite));
+                  } else {
+                    pendingImagesBatch.add(MapEntry(file, tagsToWrite));
+                  }
                 }
               }
             } catch (e) {
@@ -543,19 +552,28 @@ class MediaEntityCollection with LoggerMixin {
 
         onProgress?.call(completed, _media.length);
 
-        // Serialized flush: decide here, outside of per-file futures.
-        final int targetBatch = baseBatchSize;
-        if (!nativeOnly && pendingBatch.length >= targetBatch) {
-          await _flushBatch(useArgFile: true);
+        // Serialized Flushed: separated images and videos
+        if (!nativeOnly) {
+          final int targetImageBatch = baseBatchSize;
+          final int targetVideoBatch = 12; // smaller batches for videos
+          if (pendingImagesBatch.length >= targetImageBatch) {
+            await _flushImageBatch(useArgFile: true);
+          }
+          if (pendingVideosBatch.length >= targetVideoBatch) {
+            await _flushVideoBatch(useArgFile: true);
+          }
         }
       }
     } finally {
-      // Flush any remaining pending exiftool batch (argfile if large)
-      final bool flushWithArgfile = pendingBatch.length > (Platform.isWindows ? 30 : 60);
+      // Flush any remaining batches
       if (!nativeOnly) {
-        await _flushBatch(useArgFile: flushWithArgfile);
+        final bool flushImagesWithArg = pendingImagesBatch.length > (Platform.isWindows ? 30 : 60);
+        final bool flushVideosWithArg = pendingVideosBatch.length > 6;
+        await _flushImageBatch(useArgFile: flushImagesWithArg);
+        await _flushVideoBatch(useArgFile: flushVideosWithArg);
       } else {
-        pendingBatch.clear();
+        pendingImagesBatch.clear();
+        pendingVideosBatch.clear();
       }
     }
 
