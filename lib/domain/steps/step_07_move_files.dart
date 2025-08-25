@@ -163,21 +163,18 @@ class MoveFilesStep extends ProcessingStep {
         total: context.mediaCollection.length,
         width: 50,
       ); // Create modern moving context
-      final movingContext = MovingContext.fromConfig(
-        context.config,
-        context.outputDirectory,
+      final movingContext = MovingContext(
+        outputDirectory: context.outputDirectory,
+        dateDivision: context.config.dateDivision,
+        albumBehavior: context.config.albumBehavior,
       );
       // Create the moving service
       final movingService = MediaEntityMovingService();
 
-      int processedCount = 0; // entities
-      int operationCount = 0; // low-level operations (move/copy/symlink/json)
+      int processedCount = 0;
       await for (final _ in movingService.moveMediaEntities(
         context.mediaCollection,
         movingContext,
-        onOperation: (_) {
-          operationCount++;
-        },
       )) {
         processedCount++;
         progressBar.update(processedCount);
@@ -190,7 +187,6 @@ class MoveFilesStep extends ProcessingStep {
           'processedCount': processedCount,
           'transformedCount': transformedCount,
           'albumBehavior': context.config.albumBehavior.value,
-          'operationCount': operationCount,
         },
         message:
             'Moved $processedCount files to output directory${transformedCount > 0 ? ', transformed $transformedCount Pixel files to .mp4' : ''}',
