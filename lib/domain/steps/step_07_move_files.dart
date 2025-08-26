@@ -1,11 +1,11 @@
 import 'dart:io';
-
 import 'package:console_bars/console_bars.dart';
 
 import '../entities/media_entity.dart';
 import '../models/pipeline_step_model.dart';
 import '../services/file_operations/moving/media_entity_moving_service.dart';
 import '../services/file_operations/moving/moving_context_model.dart';
+import '../services/file_operations/moving/strategies/media_entity_moving_strategy.dart';
 import '../value_objects/media_files_collection.dart';
 
 /// Step 7: Move files to output directory
@@ -143,9 +143,10 @@ import '../value_objects/media_files_collection.dart';
 /// - **Performance Data**: Provides insights for future processing optimizations
 class MoveFilesStep extends ProcessingStep {
   const MoveFilesStep() : super('Move Files');
+
   @override
   Future<StepResult> execute(final ProcessingContext context) async {
-    print ('');
+    print('');
     final stopwatch = Stopwatch()..start();
 
     try {
@@ -163,14 +164,26 @@ class MoveFilesStep extends ProcessingStep {
         desc: 'Moving files',
         total: context.mediaCollection.length,
         width: 50,
-      ); // Create modern moving context
+      );
+
+      // Create modern moving context
       final movingContext = MovingContext(
         outputDirectory: context.outputDirectory,
         dateDivision: context.config.dateDivision,
         albumBehavior: context.config.albumBehavior,
       );
+
       // Create the moving service
       final movingService = MediaEntityMovingService();
+
+      // Collect original source files for post-run verification
+      final originalSourceFiles = <File>[];
+      for (final mediaEntity in context.mediaCollection.media) {
+        for (final entry in mediaEntity.files.files.entries) {
+          final file = entry.value;
+          originalSourceFiles.add(file);
+        }
+      }
 
       int processedCount = 0;
       await for (final _ in movingService.moveMediaEntities(
@@ -180,6 +193,14 @@ class MoveFilesStep extends ProcessingStep {
         processedCount++;
         progressBar.update(processedCount);
       }
+
+      // Post-run verification: diagnose leftovers in source
+      _diagnoseLeftovers(
+        originalSourceFiles: originalSourceFiles,
+        results: movingService.lastResults,
+        verbose: context.config.verbose,
+      );
+
       stopwatch.stop();
       return StepResult.success(
         stepName: name,
@@ -272,5 +293,101 @@ class MoveFilesStep extends ProcessingStep {
     context.mediaCollection.addAll(updatedEntities);
 
     return transformedCount;
+  }
+
+  /// Diagnose which source files remain after the move and why.
+  ///
+  /// This prints a clear list of leftovers with an error message when available.
+  void _diagnoseLeftovers({
+    required final List<File> originalSourceFiles,
+    required final List<MediaEntityMovingResult> results,
+    required final bool verbose,
+  }) {
+    // Build lookups for success/failure by source path
+    final movedOrCopiedSources = <String>{};
+    final failuresBySource = <String, List<MediaEntityMovingResult>>{};
+
+    for (final r in results) {
+      final src = r.operation.sourceFile.path;
+      if (r.success) {
+        movedOrCopiedSources.add(src);
+      } else {
+        failuresBySource.putIfAbsent(src, () => []).add(r);
+      }
+    }
+
+    final leftovers = <File>[];
+    for (final f in originalSourceFiles) {
+      final p = f.path;
+      final isAccounted = movedOrCopiedSources.contains(p);
+      final existsNow = f.existsSync();
+      if (!isAccounted && existsNow) {
+        leftovers.add(f);
+      }
+    }
+
+    if (leftovers.isEmpty) {
+      if (verbose) {
+        print('\n[Verification] No leftover source files detected.');
+      }
+      return;
+    }
+
+    print('\n[Verification] Leftovers diagnosis — files still present at source:');
+    for (final f in leftovers) {
+      final p = f.path;
+      final relatedFailures = failuresBySource[p] ?? const [];
+      final hint = _buildHeuristicHintForPath(p);
+      if (relatedFailures.isNotEmpty) {
+        // Show the first relevant error for the source
+        final first = relatedFailures.first;
+        final op = first.operation.operationType.name.toUpperCase();
+        final msg = first.errorMessage ?? 'Unknown error';
+        print('  • $p');
+        print('    - Last recorded operation: $op (FAILED): $msg');
+        if (hint != null) {
+          print('    - Heuristic hint: $hint');
+        }
+      } else {
+        // No recorded result for this source: it was never processed/emitted by strategy
+        print('  • $p');
+        print('    - No recorded operation for this source file.');
+        if (hint != null) {
+          print('    - Heuristic hint: $hint');
+        }
+      }
+    }
+
+    print('  Total leftovers: ${leftovers.length}\n');
+  }
+
+  /// Provide heuristics for typical filename/path issues seen on Windows takeouts.
+  String? _buildHeuristicHintForPath(final String path) {
+    final lower = path.toLowerCase();
+
+    // Mojibake: 'Ñ' turned into '¥' or similar, or 8.3 short names with '~'
+    final hasTilde = path.contains('~');
+    final hasYen = path.contains('¥');
+
+    // Suspicious folders often seen in Takeout structure
+    final looksLikeTakeout = lower.contains(r'takeout\google fotos');
+
+    final hints = <String>[];
+
+    if (hasYen) {
+      hints.add(
+          'Filename contains "¥" which often indicates codepage/zip encoding issues (mojibake of "Ñ"). Consider verifying unzip tool uses UTF‑8.');
+    }
+    if (hasTilde) {
+      hints.add(
+          'Filename contains "~" which can indicate 8.3 shortname artifacts. Collisions/normalization may cause mismatches.');
+    }
+    if (looksLikeTakeout) {
+      hints.add(
+          'Source under Takeout; ensure the path normalization and unzip preserved Unicode (NFC) correctly.');
+    }
+
+    if (hints.isEmpty) return null;
+    return hints.join(' ');
   }
 }

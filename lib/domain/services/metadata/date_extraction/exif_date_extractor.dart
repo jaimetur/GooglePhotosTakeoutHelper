@@ -162,7 +162,7 @@ class ExifDateExtractor with LoggerMixin {
       } else {
         _dictMiss++;
         // Also print the path of the file that was not found in the dictionary
-        logInfo('Dates dictionary miss for file: ${file.path}', forcePrint: true);
+        logInfo('Dates dictionary miss for file: ${file.path}');
       }
     }
 
