@@ -159,9 +159,9 @@ class MoveFilesStep extends ProcessingStep {
         }
       }
 
-      // Initialize progress bar - always visible
+      // Progress bar aligned with "primary files moved" (one per entity)
       final progressBar = FillingBar(
-        desc: 'Moving files',
+        desc: 'Moving primary files',
         total: context.mediaCollection.length,
         width: 50,
       );
@@ -180,18 +180,52 @@ class MoveFilesStep extends ProcessingStep {
       final originalSourceFiles = <File>[];
       for (final mediaEntity in context.mediaCollection.media) {
         for (final entry in mediaEntity.files.files.entries) {
-          final file = entry.value;
-          originalSourceFiles.add(file);
+          originalSourceFiles.add(entry.value);
         }
       }
 
-      int processedCount = 0;
+      int entitiesProcessed = 0;
       await for (final _ in movingService.moveMediaEntities(
         context.mediaCollection,
         movingContext,
       )) {
-        processedCount++;
-        progressBar.update(processedCount);
+        // One tick per entity (intended to match the primary move per entity)
+        entitiesProcessed++;
+        progressBar.update(entitiesProcessed);
+      }
+
+      // Compute headline counts from results
+      int primaryMovedCount = 0;
+      int duplicatesMovedCount = 0;
+      int symlinksCreated = 0;
+
+      String _norm(final String p) => p.replaceAll('\\', '/').toLowerCase();
+
+      for (final r in movingService.lastResults) {
+        if (!r.success) continue;
+
+        switch (r.operation.operationType) {
+          case MediaEntityOperationType.move:
+            final srcNorm = _norm(r.operation.sourceFile.path);
+            final primNorm = _norm(r.operation.mediaEntity.primaryFile.path);
+            if (srcNorm == primNorm) {
+              // Actual primary move for this entity
+              primaryMovedCount++;
+            } else {
+              // Any successful move whose source is not the entity's primary file
+              // is considered a duplicate move (e.g., sent to _Duplicates).
+              duplicatesMovedCount++;
+            }
+            break;
+          case MediaEntityOperationType.createSymlink:
+          case MediaEntityOperationType.createReverseSymlink:
+            symlinksCreated++;
+            break;
+          case MediaEntityOperationType.copy:
+          case MediaEntityOperationType.createJsonReference:
+            // Not included in the headline counters
+            break;
+        }
       }
 
       // Post-run verification: diagnose leftovers in source
@@ -206,12 +240,17 @@ class MoveFilesStep extends ProcessingStep {
         stepName: name,
         duration: stopwatch.elapsed,
         data: {
-          'processedCount': processedCount,
+          'entitiesProcessed': entitiesProcessed,
           'transformedCount': transformedCount,
           'albumBehavior': context.config.albumBehavior.value,
+          'primaryMovedCount': primaryMovedCount,
+          'duplicatesMovedCount': duplicatesMovedCount,
+          'symlinksCreated': symlinksCreated,
         },
         message:
-            'Moved $processedCount files to output directory${transformedCount > 0 ? ', transformed $transformedCount Pixel files to .mp4' : ''}',
+            'Moved $primaryMovedCount primary files, $duplicatesMovedCount duplicates, '
+            'and created $symlinksCreated symlinks'
+            '${transformedCount > 0 ? ', transformed $transformedCount Pixel files to .mp4' : ''}',
       );
     } catch (e) {
       stopwatch.stop();
@@ -223,6 +262,8 @@ class MoveFilesStep extends ProcessingStep {
       );
     }
   }
+
+
 
   @override
   bool shouldSkip(final ProcessingContext context) =>
