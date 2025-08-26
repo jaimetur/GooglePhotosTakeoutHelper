@@ -648,13 +648,13 @@ class MediaEntityCollection with LoggerMixin {
     try {
       // 1) Pre-batch phase: process multi-file entities and delay flush
       if (multiFileEntities.isNotEmpty) {
-        logInfo('Pre-batch phase: processing ${multiFileEntities.length} multi-file entities (delayed flush to keep groups together).', forcePrint: true);
+        print('Pre-batch phase: processing ${multiFileEntities.length} multi-file entities (delayed flush to keep groups together).');
         await processEntityList(multiFileEntities, delayFlushUntilEnd: true);
       }
 
       // 2) Normal phase: process single-file entities with regular threshold-based flushing
       if (singleFileEntities.isNotEmpty) {
-        logInfo('Normal phase: processing ${singleFileEntities.length} single-file entities (regular flushing).', forcePrint: true);
+        print('Normal phase: processing ${singleFileEntities.length} single-file entities (regular flushing).');
         await processEntityList(singleFileEntities, delayFlushUntilEnd: false);
       }
     } finally {
