@@ -260,27 +260,63 @@ class MediaEntityMovingService {
   }
 
   void _printSummary(
-    final List<MediaEntityMovingResult> results,
-    final MediaEntityMovingStrategy strategy,
-  ) {
-    final successful = results.where((final r) => r.success).length;
-    final failed = results.where((final r) => !r.success).length;
+  final List<MediaEntityMovingResult> results,
+  final MediaEntityMovingStrategy strategy)
+  {
+    int primaryMoves = 0;
+    int duplicateMoves = 0;
+    int symlinksCreated = 0;
+    int failures = 0;
+
+    for (final r in results) {
+      if (!r.success) {
+        failures++;
+        continue;
+      }
+
+      switch (r.operation.operationType) {
+        case MediaEntityOperationType.move:
+          final src = r.operation.sourceFile.path.replaceAll('\\', '/').toLowerCase();
+          final prim = r.operation.mediaEntity.primaryFile.path.replaceAll('\\', '/').toLowerCase();
+          if (src == prim) {
+            primaryMoves++;
+          } else {
+            duplicateMoves++;
+          }
+          break;
+        case MediaEntityOperationType.createSymlink:
+        case MediaEntityOperationType.createReverseSymlink:
+          symlinksCreated++;
+          break;
+        case MediaEntityOperationType.copy:
+          // Not requested for display, ignore in headline counts
+          break;
+        case MediaEntityOperationType.createJsonReference:
+          // Not requested for display
+          break;
+      }
+    }
+
+    final totalOps = results.length;
 
     print('\n=== Moving Summary (${strategy.name}) ===');
-    print('Successful operations: $successful');
-    print('Failed operations: $failed');
-    print('Total operations: ${results.length}');
+    print('Primary files moved: $primaryMoves');
+    print('Duplicate files moved: $duplicateMoves');
+    print('Symlinks created: $symlinksCreated');
+    print('Failures: $failures');
+    print('Total operations: $totalOps');
 
-    if (failed > 0) {
+    if (failures > 0) {
       print('\nErrors encountered:');
       results.where((final r) => !r.success).take(5).forEach((final result) {
         print('  • ${result.operation.sourceFile.path}: ${result.errorMessage}');
       });
-      if (failed > 5) {
-        print('  ... and ${failed - 5} more errors');
+      if (failures > 5) {
+        print('  ... and ${failures - 5} more errors');
       }
     }
   }
+
 }
 
 /// Simple semaphore implementation for controlling concurrency

@@ -238,7 +238,7 @@ class MediaEntityCollection with LoggerMixin {
   /// and coordinate data, tracking success statistics.
   Future<Map<String, int>> writeExifData({
     final void Function(int current, int total)? onProgress,
-    final bool exifToolBatching = false,
+    final bool exifToolBatching = true, // Change to false if you observe any date discrepancy on your output files
   }) async {
     // Check if ExifTool is available before proceeding
     final exifTool = ServiceContainer.instance.exifTool;
