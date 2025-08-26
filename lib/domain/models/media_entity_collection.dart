@@ -47,8 +47,11 @@ class MediaEntityCollection with LoggerMixin {
   void operator []=(final int index, final MediaEntity mediaEntity) => _media[index] = mediaEntity;
 
   // ─────────────────────────── Step 3: Remove duplicates ────────────────────────────
-  /// Uses content-based duplicate detection to identify and remove duplicate files,
-  /// keeping the best version of each duplicate group.
+  /// Uses content-based duplicate detection to identify and remove duplicate entities
+  /// across the whole collection (cross-album included), keeping the best entity of each
+  /// duplicate group and **merging all file associations** (album/year files) into it.
+  ///
+  /// This ensures Step 7 can place the kept media into every album it belonged to.
   Future<int> removeDuplicates({
     final void Function(int current, int total)? onProgress,
   }) async {
@@ -57,71 +60,72 @@ class MediaEntityCollection with LoggerMixin {
     final duplicateService = ServiceContainer.instance.duplicateDetectionService;
     int removedCount = 0;
 
-    // Group media by album association first to preserve cross-album duplicates
-    final albumGroups = <String?, List<MediaEntity>>{};
-    for (final media in _media) {
-      // Get the album key (null for year folder files, album name for album files)
-      final albumKey = media.files.getAlbumKey();
-      albumGroups.putIfAbsent(albumKey, () => []).add(media);
+    // Global duplicate grouping (no album partition → cross-album dedupe)
+    final hashGroups = await duplicateService.groupIdentical(_media);
+    final totalGroups = hashGroups.length;
+    int processedGroups = 0;
+
+    // Helper: merge all files from 'src' entity into 'dst' entity.
+    // It unions physical file references (including album files), avoiding duplicates by path.
+    void mergeEntityFiles(final MediaEntity dst, final MediaEntity src) {
+      try {
+        // Primary first to preserve deterministic order in dst
+        final File srcPrimary = src.primaryFile;
+        // Insert primary if not present in dst
+        final bool hasPrimaryAlready = dst.files.files.values.any((final f) => f.path == srcPrimary.path);
+        if (!hasPrimaryAlready) {
+          // Use file path as key to avoid collisions; adjust if your key scheme differs.
+          dst.files.files.putIfAbsent(srcPrimary.path, () => srcPrimary);
+        }
+
+        // Insert the rest of the files (album/year secondary files)
+        for (final f in src.files.files.values) {
+          if (!dst.files.files.values.any((final x) => x.path == f.path)) {
+            dst.files.files.putIfAbsent(f.path, () => f);
+          }
+        }
+      } catch (e) {
+        logWarning('Failed to merge files from duplicate entity: $e');
+      }
     }
 
-    // Process each album group separately to avoid removing cross-album duplicates
-    final entitiesToRemove = <MediaEntity>[];
-    int processed = 0;
-    final totalGroups = albumGroups.length;
-
-    for (final albumGroup in albumGroups.values) {
-      if (albumGroup.length <= 1) {
-        processed++;
-        onProgress?.call(processed, totalGroups);
+    // Process each duplicate group
+    for (final group in hashGroups.values) {
+      if (group.length <= 1) {
+        processedGroups++;
+        onProgress?.call(processedGroups, totalGroups);
         continue;
       }
 
-      // Find duplicates within this album group only
-      final hashGroups = await duplicateService.groupIdentical(albumGroup);
-
-      for (final group in hashGroups.values) {
-        if (group.length <= 1) {
-          continue; // No duplicates in this group
+      // Sort by best date extraction quality, then shortest file name (primary file path length)
+      group.sort((final MediaEntity a, final MediaEntity b) {
+        final aAccuracy = a.dateAccuracy?.value ?? 999;
+        final bAccuracy = b.dateAccuracy?.value ?? 999;
+        if (aAccuracy != bAccuracy) {
+          return aAccuracy.compareTo(bAccuracy);
         }
+        final aLen = a.primaryFile.path.length;
+        final bLen = b.primaryFile.path.length;
+        return aLen.compareTo(bLen);
+      });
 
-        // Sort by best date extraction quality, then file name length
-        group.sort((final MediaEntity a, final MediaEntity b) {
-          // Prefer files with dates from better extraction methods
-          final aAccuracy = a.dateAccuracy?.value ?? 999;
-          final bAccuracy = b.dateAccuracy?.value ?? 999;
-          if (aAccuracy != bAccuracy) {
-            return aAccuracy.compareTo(bAccuracy);
-          }
+      final MediaEntity kept = group.first;
+      final List<MediaEntity> toRemove = group.sublist(1);
 
-          // If equal accuracy, prefer shorter file names (typically original names)
-          final aLen = a.files.firstFile.path.length;
-          final bLen = b.files.firstFile.path.length;
-          return aLen.compareTo(bLen);
-        });
-
-        // Add all duplicates except the first (best) one to removal list
-        final duplicatesToRemove = group.sublist(1);
-
-        // Log which duplicates are being removed
-        if (duplicatesToRemove.isNotEmpty) {
-          final keptFile = group.first.primaryFile.path;
-          logDebug('Found ${group.length} identical files, keeping: $keptFile');
-          for (final duplicate in duplicatesToRemove) {
-            logDebug('  Removing duplicate: ${duplicate.primaryFile.path}');
-          }
-        }
-
-        entitiesToRemove.addAll(duplicatesToRemove);
-        removedCount += duplicatesToRemove.length;
+      logDebug('Found ${group.length} identical entities. Keeping: ${kept.primaryFile.path}');
+      for (final d in toRemove) {
+        logDebug('  Merging & removing duplicate entity: ${d.primaryFile.path}');
+        // 1) Merge all file associations (albums/year) into the kept entity
+        mergeEntityFiles(kept, d);
       }
 
-      processed++;
-      onProgress?.call(processed, totalGroups);
-    }
+      // 2) After merging files, remove the duplicates from the collection
+      toRemove.forEach(_media.remove);
+      removedCount += toRemove.length;
 
-    // Remove afterwards to avoid concurrent modification
-    entitiesToRemove.forEach(_media.remove);
+      processedGroups++;
+      onProgress?.call(processedGroups, totalGroups);
+    }
 
     return removedCount;
   }
@@ -238,7 +242,7 @@ class MediaEntityCollection with LoggerMixin {
   /// and coordinate data, tracking success statistics.
   Future<Map<String, int>> writeExifData({
     final void Function(int current, int total)? onProgress,
-    final bool exifToolBatching = false, // Change to false if you observe any date discrepancy on your output files
+    final bool exifToolBatching = true, // Change to false if you observe any date discrepancy on your output files
   }) async {
     // Check if ExifTool is available before proceeding
     final exifTool = ServiceContainer.instance.exifTool;
@@ -249,7 +253,6 @@ class MediaEntityCollection with LoggerMixin {
       return _writeExifDataParallel(onProgress, null, nativeOnly: true, enableExifToolBatch: false);
     }
 
-    // Always use parallel processing for optimal performance
     return _writeExifDataParallel(
       onProgress,
       exifTool,
@@ -259,10 +262,11 @@ class MediaEntityCollection with LoggerMixin {
   }
 
   /// Parallel + adaptive batch strategy:
-  /// - For JPEG: prefer native writes; combine Date+GPS when possible.
-  /// - For non-JPEG: gather tags and batch via exiftool. Uses argfile for very large batches.
-  /// - NEW: If native JPEG write fails → fall back to exiftool by enqueuing tags.
-  /// - IMPORTANT: Per-file try/catch ensures one failure does not abort the whole step.
+  /// - Native writer for JPEG is allowed regardless of batching (legacy behavior preserved).
+  /// - ExifTool per-file or batched is used for non-JPEG and as fallback when native fails.
+  /// - Multi-file entities are processed first; flushing is delayed until that phase ends
+  ///   so all files from the same entity land in the same ExifTool batch.
+  /// - Each future processes an entire entity to keep progress in terms of entities.
   Future<Map<String, int>> _writeExifDataParallel(
     final void Function(int current, int total)? onProgress,
     final ExifToolService? exifTool, {
@@ -274,15 +278,15 @@ class MediaEntityCollection with LoggerMixin {
     var completed = 0;
 
     if (nativeOnly) {
-      logInfo ('Exiftool disabled using argument nativeOnly=true', forcePrint: true);
+      logInfo('Exiftool disabled using argument nativeOnly=true', forcePrint: true);
     } else {
-      logInfo ('Exiftool enabled using argument nativeOnly=false', forcePrint: true);
+      logInfo('Exiftool enabled using argument nativeOnly=false', forcePrint: true);
     }
 
     if (enableExifToolBatch) {
-      logInfo ('Exiftool batch enabled using argument enableExifToolBatch=true. Exiftool will be called in batches with several files per batch', forcePrint: true);
+      logInfo('Exiftool batch enabled using argument enableExifToolBatch=true. Exiftool will be called in batches with several files per batch', forcePrint: true);
     } else {
-      logInfo ('Exiftool batch processing disabled using argument enableExifToolBatch=false. Exiftool will be called 1 time per file', forcePrint: true);
+      logInfo('Exiftool batch processing disabled using argument enableExifToolBatch=false. Exiftool will be called 1 time per file', forcePrint: true);
     }
 
     // Calculate optimal concurrency
@@ -290,8 +294,8 @@ class MediaEntityCollection with LoggerMixin {
 
     // Reuse writer and coordinate extractor across the batch
     final ExifWriterService? exifWriter = (exifTool != null) ? ExifWriterService(exifTool) : null;
-    final coordExtractor = exifTool != null ? ExifCoordinateExtractor(exifTool) : null;
-    final globalConfig = ServiceContainer.instance.globalConfig;
+    // final coordExtractor = exifTool != null ? ExifCoordinateExtractor(exifTool) : null;
+    // final globalConfig = ServiceContainer.instance.globalConfig;
 
     // Adaptive batch sizing
     final bool isWindows = Platform.isWindows;
@@ -306,14 +310,13 @@ class MediaEntityCollection with LoggerMixin {
       required final bool useArgFile,
       required final bool isVideoBatch,
     }) async {
-      if (nativeOnly || !enableExifToolBatch) return; // sin lotes en modo per-file
+      if (nativeOnly || !enableExifToolBatch) return;
       if (queue.isEmpty) return;
       if (exifWriter == null) {
         queue.clear();
         return;
       }
 
-      // Limpieza previa de *_exiftool_tmp
       try {
         for (final e in queue) {
           final tmp = File('${e.key.path}_exiftool_tmp');
@@ -325,7 +328,6 @@ class MediaEntityCollection with LoggerMixin {
         }
       } catch (_) {}
 
-      // Intento 1: batch
       try {
         await exifWriter.writeBatchWithExifTool(
           queue,
@@ -338,7 +340,6 @@ class MediaEntityCollection with LoggerMixin {
               : 'Batch flush failed (${queue.length} files): $e',
         );
 
-        // Reintento por-fichero para no perder nada
         for (final entry in queue) {
           try {
             await exifWriter.writeTagsWithExifTool(entry.key, entry.value);
@@ -355,236 +356,246 @@ class MediaEntityCollection with LoggerMixin {
       }
     }
 
-    // Helpers for specific flush
     Future<void> flushImageBatch({required final bool useArgFile}) =>
         flushBatchGeneric(pendingImagesBatch, useArgFile: useArgFile, isVideoBatch: false);
 
     Future<void> flushVideoBatch({required final bool useArgFile}) =>
         flushBatchGeneric(pendingVideosBatch, useArgFile: useArgFile, isVideoBatch: true);
 
-    // Wrap the whole loop so we guarantee a final flush even if an unexpected error occurs.
-    try {
-      for (int i = 0; i < _media.length; i += maxConcurrency) {
-        final batch = _media.skip(i).take(maxConcurrency).toList();
+    // Build processing order: multi-file entities first (pre-batch), then single-file entities
+    final List<MediaEntity> multiFileEntities = [];
+    final List<MediaEntity> singleFileEntities = [];
+    for (final e in _media) {
+      final int fileCount = e.files.files.length;
+      if (fileCount > 1) {
+        multiFileEntities.add(e);
+      } else {
+        singleFileEntities.add(e);
+      }
+    }
 
-        final futures = batch.map((final mediaEntity) async {
-          // Per-file safety net: never let a single failure abort the batch.
+    Future<void> processEntityList(
+      final List<MediaEntity> list, {
+      required final bool delayFlushUntilEnd,
+    }) async {
+      for (int i = 0; i < list.length; i += maxConcurrency) {
+        final batchEntities = list.skip(i).take(maxConcurrency).toList();
+
+        final futures = batchEntities.map((final mediaEntity) async {
+          int localGps = 0;
+          int localDate = 0;
+
           try {
-            final file = mediaEntity.files.firstFile;
-            // TODO: Remove this trace
-            // if (file.path.contains('HOJA1')) {
-            //   print("\nTRACE: contains 'HOJA1'");
-            // }
-            // Cache MIME/header once with protection against stream errors.
-            List<int> headerBytes = const [];
-            String? mimeHeader;
-            String? mimeExt;
-
+            DateTime? entityEffectiveDate;
             try {
-              headerBytes = await file.openRead(0, 128).first;
-              mimeHeader = lookupMimeType(file.path, headerBytes: headerBytes);
-              mimeExt = lookupMimeType(file.path);
-            } catch (e) {
-              // Header read failed; fall back to extension-based guess.
-              logWarning('Failed to read header for ${file.path}: $e (falling back to extension)');
-              mimeHeader = lookupMimeType(file.path);
-              mimeExt = mimeHeader;
+              final File primary = mediaEntity.primaryFile;
+              final DateTime? jsonDate = await _lateResolveDateFromJson(primary);
+              if (jsonDate != null) {
+                entityEffectiveDate = jsonDate;
+                logDebug('JSON sidecar date (entity-level) will be used for ${primary.path}: $entityEffectiveDate');
+              } else {
+                entityEffectiveDate = mediaEntity.dateTaken;
+              }
+            } catch (_) {
+              entityEffectiveDate = mediaEntity.dateTaken;
             }
 
-            bool gpsWritten = false;
-            bool dateTimeWrittenLocal = false;
-
-            // Accumulate tags for non-JPEG or for JPEG fallback to exiftool
-            final Map<String, dynamic> tagsToWrite = {};
-
-            // 0) Prefer JSON date if available (override any previous non-JSON date)
-            DateTime? effectiveDate;
-            final DateTime? jsonDate = await _lateResolveDateFromJson(file);
-            if (jsonDate != null) {
-              effectiveDate = jsonDate;
-              logDebug('JSON sidecar date will be used for ${file.path}: $effectiveDate');
-            } else {
-              effectiveDate = mediaEntity.dateTaken;
-            }
-
-            // 1) GPS coordinates Writter from JSON if EXIF lacks it
+            final List<File> filesInEntity = [];
             try {
-              final coordinates = await jsonCoordinatesExtractor(file);
-              if (coordinates != null) {
-                // Check if EXIF already has GPS
-                Map<String, dynamic>? existing;
-                if (coordExtractor != null) {
-                  existing = await coordExtractor.extractGPSCoordinates(
-                    file,
-                    globalConfig: globalConfig,
-                  );
-                }
-                final hasCoords = existing != null &&
-                    existing['GPSLatitude'] != null &&
-                    existing['GPSLongitude'] != null;
-
-                if (!hasCoords) {
-                  if (mimeHeader == 'image/jpeg') {
-                    // Try native combined; fallback a ExifTool si falla
-                    if (effectiveDate != null) {
-                      final ok = (exifWriter != null)
-                          ? await exifWriter.writeCombinedNativeJpeg(
-                              file,
-                              effectiveDate,
-                              coordinates,
-                            )
-                          : false;
-                      if (ok) {
-                        gpsWritten = true;
-                        dateTimeWrittenLocal = true;
-                      } else {
-                        if (!nativeOnly) {
-                          final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
-                          final dt = exifFormat.format(effectiveDate);
-                          tagsToWrite['DateTimeOriginal'] = '"$dt"';
-                          tagsToWrite['DateTimeDigitized'] = '"$dt"';
-                          tagsToWrite['DateTime'] = '"$dt"';
-                          tagsToWrite['GPSLatitude'] = coordinates.toDD().latitude.toString();
-                          tagsToWrite['GPSLongitude'] = coordinates.toDD().longitude.toString();
-                          tagsToWrite['GPSLatitudeRef'] = coordinates.latDirection.abbreviation.toString();
-                          tagsToWrite['GPSLongitudeRef'] = coordinates.longDirection.abbreviation.toString();
-                          gpsWritten = true;
-                          dateTimeWrittenLocal = true;
-                        }
-                      }
-                    } else {
-                      final ok = (exifWriter != null)
-                          ? await exifWriter.writeGpsNativeJpeg(file, coordinates)
-                          : false;
-                      if (ok) {
-                        gpsWritten = true;
-                      } else {
-                        if (!nativeOnly) {
-                          tagsToWrite['GPSLatitude'] = coordinates.toDD().latitude.toString();
-                          tagsToWrite['GPSLongitude'] = coordinates.toDD().longitude.toString();
-                          tagsToWrite['GPSLatitudeRef'] = coordinates.latDirection.abbreviation.toString();
-                          tagsToWrite['GPSLongitudeRef'] = coordinates.longDirection.abbreviation.toString();
-                          gpsWritten = true;
-                        }
-                      }
-                    }
-                  } else {
-                    // Non-JPEG → exiftool si no estamos en nativeOnly
-                    if (!nativeOnly) {
-                      tagsToWrite['GPSLatitude'] = coordinates.toDD().latitude.toString();
-                      tagsToWrite['GPSLongitude'] = coordinates.toDD().longitude.toString();
-                      tagsToWrite['GPSLatitudeRef'] = coordinates.latDirection.abbreviation.toString();
-                      tagsToWrite['GPSLongitudeRef'] = coordinates.longDirection.abbreviation.toString();
-                    }
-                  }
+              final File primary = mediaEntity.primaryFile;
+              filesInEntity.add(primary);
+              for (final f in mediaEntity.files.files.values) {
+                if (f.path != primary.path) {
+                  filesInEntity.add(f);
                 }
               }
-            } catch (e) {
-              // GPS extraction/writing failure for this file is logged; continue.
-              logWarning('Failed to extract/write GPS for ${file.path}: $e');
+            } catch (_) {
+              if (mediaEntity.files.files.isNotEmpty) {
+                filesInEntity.addAll(mediaEntity.files.files.values);
+              }
             }
 
-            // 2) Native Exif Writer (now also when originally null but resolved from JSON)
-            try {
-              if (effectiveDate != null) {
-                if (mimeHeader == 'image/jpeg') {
-                  if (!dateTimeWrittenLocal) {
-                    final ok = (exifWriter != null)
-                        ? await exifWriter.writeDateTimeNativeJpeg(file, effectiveDate)
-                        : false;
-                    if (ok) {
-                      dateTimeWrittenLocal = true;
+            for (final file in filesInEntity) {
+              try {
+                List<int> headerBytes = const [];
+                String? mimeHeader;
+                String? mimeExt;
+                try {
+                  headerBytes = await file.openRead(0, 128).first;
+                  mimeHeader = lookupMimeType(file.path, headerBytes: headerBytes);
+                  mimeExt = lookupMimeType(file.path);
+                } catch (e) {
+                  logWarning('Failed to read header for ${file.path}: $e (falling back to extension)');
+                  mimeHeader = lookupMimeType(file.path);
+                  mimeExt = mimeHeader;
+                }
+
+                bool gpsWritten = false;
+                bool dateTimeWrittenLocal = false;
+                final Map<String, dynamic> tagsToWrite = {};
+
+                try {
+                  final coordinates = await jsonCoordinatesExtractor(file);
+                  if (coordinates != null) {
+                    Map<String, dynamic>? existing;
+                    final coordExtractor = ExifCoordinateExtractor(ServiceContainer.instance.exifTool!);
+                    existing = await coordExtractor.extractGPSCoordinates(
+                      file,
+                      globalConfig: ServiceContainer.instance.globalConfig,
+                    );
+                    final hasCoords = existing != null &&
+                        existing['GPSLatitude'] != null &&
+                        existing['GPSLongitude'] != null;
+
+                    if (!hasCoords) {
+                      if (mimeHeader == 'image/jpeg') {
+                        if (entityEffectiveDate != null && !nativeOnly) {
+                          final exifWriter = ExifWriterService(ServiceContainer.instance.exifTool!);
+                          final ok = await exifWriter.writeCombinedNativeJpeg(
+                            file,
+                            entityEffectiveDate,
+                            coordinates,
+                          );
+                          if (ok) {
+                            gpsWritten = true;
+                            dateTimeWrittenLocal = true;
+                          } else {
+                            final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
+                            final dt = exifFormat.format(entityEffectiveDate);
+                            tagsToWrite['DateTimeOriginal'] = '"$dt"';
+                            tagsToWrite['DateTimeDigitized'] = '"$dt"';
+                            tagsToWrite['DateTime'] = '"$dt"';
+                            tagsToWrite['GPSLatitude'] = coordinates.toDD().latitude.toString();
+                            tagsToWrite['GPSLongitude'] = coordinates.toDD().longitude.toString();
+                            tagsToWrite['GPSLatitudeRef'] = coordinates.latDirection.abbreviation.toString();
+                            tagsToWrite['GPSLongitudeRef'] = coordinates.longDirection.abbreviation.toString();
+                            gpsWritten = true;
+                            dateTimeWrittenLocal = true;
+                          }
+                        } else if (entityEffectiveDate == null && !nativeOnly) {
+                          final exifWriter = ExifWriterService(ServiceContainer.instance.exifTool!);
+                          final ok = await exifWriter.writeGpsNativeJpeg(file, coordinates);
+                          if (ok) {
+                            gpsWritten = true;
+                          } else {
+                            tagsToWrite['GPSLatitude'] = coordinates.toDD().latitude.toString();
+                            tagsToWrite['GPSLongitude'] = coordinates.toDD().longitude.toString();
+                            tagsToWrite['GPSLatitudeRef'] = coordinates.latDirection.abbreviation.toString();
+                            tagsToWrite['GPSLongitudeRef'] = coordinates.longDirection.abbreviation.toString();
+                            gpsWritten = true;
+                          }
+                        }
+                      } else {
+                        if (!nativeOnly) {
+                          tagsToWrite['GPSLatitude'] = coordinates.toDD().latitude.toString();
+                          tagsToWrite['GPSLongitude'] = coordinates.toDD().longitude.toString();
+                          tagsToWrite['GPSLatitudeRef'] = coordinates.latDirection.abbreviation.toString();
+                          tagsToWrite['GPSLongitudeRef'] = coordinates.longDirection.abbreviation.toString();
+                        }
+                      }
+                    }
+                  }
+                } catch (e) {
+                  logWarning('Failed to extract/write GPS for ${file.path}: $e');
+                }
+
+                try {
+                  if (entityEffectiveDate != null) {
+                    if (mimeHeader == 'image/jpeg') {
+                      if (!dateTimeWrittenLocal && !nativeOnly) {
+                        final exifWriter = ExifWriterService(ServiceContainer.instance.exifTool!);
+                        final ok = await exifWriter.writeDateTimeNativeJpeg(file, entityEffectiveDate);
+                        if (ok) {
+                          dateTimeWrittenLocal = true;
+                        } else {
+                          final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
+                          final dt = exifFormat.format(entityEffectiveDate);
+                          if (!nativeOnly) {
+                            tagsToWrite['DateTimeOriginal'] = '"$dt"';
+                            tagsToWrite['DateTimeDigitized'] = '"$dt"';
+                            tagsToWrite['DateTime'] = '"$dt"';
+                            dateTimeWrittenLocal = true;
+                          }
+                        }
+                      }
                     } else {
                       if (!nativeOnly) {
                         final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
-                        final dt = exifFormat.format(effectiveDate);
+                        final dt = exifFormat.format(entityEffectiveDate);
                         tagsToWrite['DateTimeOriginal'] = '"$dt"';
                         tagsToWrite['DateTimeDigitized'] = '"$dt"';
                         tagsToWrite['DateTime'] = '"$dt"';
-                        dateTimeWrittenLocal = true;
                       }
                     }
                   }
-                } else {
-                  if (!nativeOnly) {
-                    final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
-                    final dt = exifFormat.format(effectiveDate);
-                    tagsToWrite['DateTimeOriginal'] = '"$dt"';
-                    tagsToWrite['DateTimeDigitized'] = '"$dt"';
-                    tagsToWrite['DateTime'] = '"$dt"';
-                  }
+                } catch (e) {
+                  logWarning('Failed to write DateTime for ${file.path}: $e');
                 }
-              }
-            } catch (e) {
-              // DateTime write failure for this file is logged; continue.
-              logWarning('Failed to write DateTime for ${file.path}: $e');
-            }
 
-            // 3) Encolar o escribir per-file con ExifTool según configuración
-            try {
-              if (!nativeOnly && tagsToWrite.isNotEmpty) {
-                // Avoid extension/content mismatch that would make exiftool fail
-                if (mimeExt != mimeHeader && mimeHeader != 'image/tiff') {
-                  logWarning("EXIF Writer - Extension indicates '$mimeExt' but header is '$mimeHeader'. Enqueuing for ExifTool batch.\n ${file.path}");
-                }
-                if (mimeExt == 'video/x-msvideo' || mimeHeader == 'video/x-msvideo') {
-                  logWarning('Skipping AVI file - ExifTool cannot write RIFF AVI: ${file.path}');
-                } else {
-                  final isVideo = mimeHeader != null && mimeHeader.startsWith('video/');
-                  if (!enableExifToolBatch) {
-                    // escritura por archivo (sin lotes)
-                    if (exifWriter != null) {
-                      try {
-                        await exifWriter.writeTagsWithExifTool(file, tagsToWrite);
-                      } catch (e) {
-                        logWarning(
-                          isVideo
-                              ? 'Per-file video write failed: ${file.path} -> $e'
-                              : 'Per-file write failed: ${file.path} -> $e',
-                        );
-                      }
+                try {
+                  if (!nativeOnly && tagsToWrite.isNotEmpty) {
+                    if (mimeExt != mimeHeader && mimeHeader != 'image/tiff') {
+                      logWarning("EXIF Writer - Extension indicates '$mimeExt' but header is '$mimeHeader'. Enqueuing for ExifTool batch.\n ${file.path}");
                     }
-                  } else {
-                    // escritura en lote (cola)
-                    if (isVideo) {
-                      pendingVideosBatch.add(MapEntry(file, tagsToWrite));
+                    if (mimeExt == 'video/x-msvideo' || mimeHeader == 'video/x-msvideo') {
+                      logWarning('Skipping AVI file - ExifTool cannot write RIFF AVI: ${file.path}');
                     } else {
-                      pendingImagesBatch.add(MapEntry(file, tagsToWrite));
+                      final isVideo = mimeHeader != null && mimeHeader.startsWith('video/');
+                      final exifWriter = ExifWriterService(ServiceContainer.instance.exifTool!);
+                      if (!enableExifToolBatch) {
+                        try {
+                          await exifWriter.writeTagsWithExifTool(file, tagsToWrite);
+                        } catch (e) {
+                          logWarning(
+                            isVideo
+                                ? 'Per-file video write failed: ${file.path} -> $e'
+                                : 'Per-file write failed: ${file.path} -> $e',
+                          );
+                        }
+                      } else {
+                        if (isVideo) {
+                          pendingVideosBatch.add(MapEntry(file, tagsToWrite));
+                        } else {
+                          pendingImagesBatch.add(MapEntry(file, tagsToWrite));
+                        }
+                      }
                     }
                   }
+                } catch (e) {
+                  logWarning('Failed to enqueue EXIF tags for ${file.path}: $e');
                 }
-              }
-            } catch (e) {
-              // Enqueue/flush preparation failed for this file; continue.
-              logWarning('Failed to enqueue EXIF tags for ${file.path}: $e');
-            }
 
-            return {'gps': gpsWritten, 'dateTime': dateTimeWrittenLocal};
+                if (gpsWritten) localGps++;
+                if (dateTimeWrittenLocal) localDate++;
+              } catch (e) {
+                final pathSafe = () {
+                  try { return file.path; } catch (_) { return '<unknown-file>'; }
+                }();
+                logError('EXIF write failed for $pathSafe: $e', forcePrint: true);
+              }
+            }
           } catch (e) {
-            // Defensive catch-all for any unexpected per-file error.
-            // This guarantees we continue with the next file.
             final pathSafe = () {
-              try { return mediaEntity.files.firstFile.path; } catch (_) { return '<unknown>'; }
+              try { return mediaEntity.primaryFile.path; } catch (_) { return '<unknown-entity>'; }
             }();
-            logError('EXIF write failed for $pathSafe: $e', forcePrint: true);
-            return {'gps': false, 'dateTime': false};
+            logError('Entity processing failed for $pathSafe: $e', forcePrint: true);
           }
+
+          return {'gps': localGps, 'date': localDate};
         });
 
         final results = await Future.wait(futures);
 
-        for (final result in results) {
-          if (result['gps'] == true) coordinatesWritten++;
-          if (result['dateTime'] == true) dateTimesWritten++;
+        for (final r in results) {
+          coordinatesWritten += r['gps'] ?? 0;
+          dateTimesWritten += r['date'] ?? 0;
           completed++;
+          onProgress?.call(completed, _media.length);
         }
 
-        onProgress?.call(completed, _media.length);
-
-        // Flushed serializados: imágenes y vídeos por separado (solo si hay lotes)
-        if (!nativeOnly && enableExifToolBatch) {
+        if (!nativeOnly && enableExifToolBatch && !delayFlushUntilEnd) {
           final int targetImageBatch = baseBatchSize;
-          const int targetVideoBatch = 12; // lotes pequeños para vídeos
+          const int targetVideoBatch = 12;
           if (pendingImagesBatch.length >= targetImageBatch) {
             await flushImageBatch(useArgFile: true);
           }
@@ -593,8 +604,26 @@ class MediaEntityCollection with LoggerMixin {
           }
         }
       }
+
+      if (!nativeOnly && enableExifToolBatch && delayFlushUntilEnd) {
+        final bool flushImagesWithArg = pendingImagesBatch.length > (Platform.isWindows ? 30 : 60);
+        final bool flushVideosWithArg = pendingVideosBatch.length > 6;
+        await flushImageBatch(useArgFile: flushImagesWithArg);
+        await flushVideoBatch(useArgFile: flushVideosWithArg);
+      }
+    }
+
+    try {
+      if (multiFileEntities.isNotEmpty) {
+        logInfo('Pre-batch phase: processing ${multiFileEntities.length} multi-file entities (delayed flush to keep groups together).', forcePrint: true);
+        await processEntityList(multiFileEntities, delayFlushUntilEnd: true);
+      }
+
+      if (singleFileEntities.isNotEmpty) {
+        logInfo('Normal phase: processing ${singleFileEntities.length} single-file entities (regular flushing).', forcePrint: true);
+        await processEntityList(singleFileEntities, delayFlushUntilEnd: false);
+      }
     } finally {
-      // Flush any remaining batches (solo si hay lotes)
       if (!nativeOnly && enableExifToolBatch) {
         final bool flushImagesWithArg = pendingImagesBatch.length > (Platform.isWindows ? 30 : 60);
         final bool flushVideosWithArg = pendingVideosBatch.length > 6;
@@ -613,9 +642,7 @@ class MediaEntityCollection with LoggerMixin {
       print('$dateTimesWritten files got DateTime set in EXIF data');
     }
 
-    // Final writer stats in seconds (no READ-EXIF lines here)
     ExifWriterService.dumpWriterStats(reset: true, logger: this);
-    // GPS extractor stats (includes GPS extraction timings and bracketed label)
     ExifCoordinateExtractor.dumpStats(reset: true, loggerMixin: this);
 
     return {
@@ -656,20 +683,14 @@ class MediaEntityCollection with LoggerMixin {
     final extractionMethodDistribution = <DateTimeExtractionMethod, int>{};
 
     for (final mediaEntity in _media) {
-      // Count media with dates
       if (mediaEntity.dateTaken != null) {
         mediaWithDates++;
       }
-
-      // Count media with album associations
       if (mediaEntity.files.hasAlbumFiles) {
         mediaWithAlbums++;
       }
-
-      // Count total files
       totalFiles += mediaEntity.files.files.length;
 
-      // Track extraction method distribution
       final method =
           mediaEntity.dateTimeExtractionMethod ?? DateTimeExtractionMethod.none;
       extractionMethodDistribution[method] =
@@ -706,7 +727,6 @@ class MediaEntityCollection with LoggerMixin {
       final int seconds = int.tryParse(ts.toString()) ?? 0;
       if (seconds <= 0) return null;
 
-      // JSON timestamps are UTC; convert to local for writing.
       final DateTime utc = DateTime.fromMillisecondsSinceEpoch(seconds * 1000, isUtc: true);
       return utc.toLocal();
     } catch (e) {
