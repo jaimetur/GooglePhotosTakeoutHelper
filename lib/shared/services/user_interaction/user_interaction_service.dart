@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:file_picker_desktop/file_picker_desktop.dart';
 
 import '../interactive_presenter/interactive_presenter.dart';
-import '../../models/pipeline_step_model.dart';
+import '../../../steps/pipeline_step_model.dart';
 import '../../models/processing_config_model.dart';
 import '../core/formatting_service.dart';
 import '../core/global_config_service.dart';

@@ -6,8 +6,8 @@ import 'package:path/path.dart' as p;
 import '../../../shared/file_extensions/file_extensions.dart';
 import '../../../shared/services/core/logging_service.dart';
 import '../../../shared/services/media/mime_type_service.dart';
-import '../../step_04_extract_dates/services/json_metadata_matcher_service.dart';
-import '../../step_02_discover_media/services/edited_version_detector_service.dart';
+import '../../../shared/services/json_metadata/json_metadata_matcher_service.dart';
+import '../../../shared/services/media/edited_version_detector_service.dart';
 
 /// Service for detecting and fixing incorrect file extensions
 ///
@@ -21,8 +21,7 @@ class FileExtensionCorrectorService with LoggerMixin {
   /// Creates a new file extension corrector service
   FileExtensionCorrectorService() : _mimeTypeService = const MimeTypeService();
   final MimeTypeService _mimeTypeService;
-  static const EditedVersionDetectorService _extrasService =
-      EditedVersionDetectorService();
+  static const EditedVersionDetectorService _extrasService = EditedVersionDetectorService();
 
   /// Fixes incorrectly named files by renaming them to match their actual MIME type
   ///

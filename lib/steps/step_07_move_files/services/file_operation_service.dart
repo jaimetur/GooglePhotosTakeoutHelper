@@ -3,8 +3,8 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
-import '../../../shared/concurrency_manager.dart';
-import '../../../shared/global_pools.dart';
+import '../../../shared/infraestructure/concurrency_manager.dart';
+import '../../../shared/services/core/global_pools.dart';
 import '../../../shared/services/core/logging_service.dart';
 import '../../../shared/services/core/service_container.dart';
 

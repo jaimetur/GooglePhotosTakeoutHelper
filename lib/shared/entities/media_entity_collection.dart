@@ -5,15 +5,15 @@ import 'package:intl/intl.dart';
 import 'package:mime/mime.dart';
 
 import '../infraestructure/exiftool_service.dart';
-import '../concurrency_manager.dart';
+import '../infraestructure/concurrency_manager.dart';
 import 'media_entity.dart';
 import '../services/core/logging_service.dart';
 import '../services/core/service_container.dart';
-import '../../steps/step_04_extract_dates/services/gps_extractors/exif_gps_extractor.dart';
+import '../../steps/step_05_write_exif/services/exif_gps_extractor.dart';
 import '../../steps/step_04_extract_dates/services/date_extractors/exif_date_extractor.dart';
 import '../../steps/step_04_extract_dates/services/date_extractors/json_date_extractor.dart';
 import '../../steps/step_05_write_exif/services/exif_writer_service.dart';
-import '../../steps/step_04_extract_dates/services/json_metadata_matcher_service.dart';
+import '../services/json_metadata/json_metadata_matcher_service.dart';
 import '../value_objects/date_time_extraction_method.dart';
 
 /// Modern domain model representing a collection of media entities.

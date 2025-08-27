@@ -1,4 +1,4 @@
-import '../../shared/models/pipeline_step_model.dart';
+import '../pipeline_step_model.dart';
 import '../../shared/models/processing_config_model.dart';
 import '../../shared/services/core/logging_service.dart';
 import 'services/file_extension_corrector_service.dart';

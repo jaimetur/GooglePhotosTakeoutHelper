@@ -1,8 +1,8 @@
 import 'dart:io';
 
-import '../../shared/concurrency_manager.dart';
+import '../shared/infraestructure/concurrency_manager.dart';
 import '../shared/entities/media_entity_collection.dart';
-import '../shared/models/pipeline_step_model.dart';
+import 'pipeline_step_model.dart';
 import '../shared/models/processing_config_model.dart';
 import '../shared/models/processing_result_model.dart';
 import '../shared/services/core/formatting_service.dart';
@@ -35,7 +35,7 @@ import '../shared/value_objects/date_time_extraction_method.dart';
 /// full flexibility through configuration.
 class ProcessingPipeline {
   /// Create a processing pipeline
-  const ProcessingPipeline({this.interactiveService});
+  const   ProcessingPipeline({this.interactiveService});
 
   /// Optional interactive service for displaying processing summaries and results
   final ConsolidatedInteractiveService? interactiveService;

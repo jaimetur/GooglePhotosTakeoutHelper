@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'services/core/logging_service.dart';
+import '../services/core/logging_service.dart';
 
 /// Canonical operation types for concurrency decisions (Phase 1 enum introduction)
 enum ConcurrencyOperation {

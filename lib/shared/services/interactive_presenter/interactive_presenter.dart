@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import '../../models/pipeline_step_model.dart';
+import '../../../steps/pipeline_step_model.dart';
 import '../core/logging_service.dart';
 import '../../constants/constants.dart';
 

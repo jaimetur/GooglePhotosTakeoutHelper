@@ -1,9 +1,9 @@
 import 'package:path/path.dart' as p;
 import 'package:unorm_dart/unorm_dart.dart' as unorm;
 
-import '../../../shared/constants/extra_formats.dart';
-import '../../../shared/entities/media_entity.dart';
-import '../../../shared/entities/media_entity_collection.dart';
+import '../../constants/extra_formats.dart';
+import '../../entities/media_entity.dart';
+import '../../entities/media_entity_collection.dart';
 
 /// Service for handling "extra" format files (edited versions)
 ///

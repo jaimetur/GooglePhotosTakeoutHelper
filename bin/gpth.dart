@@ -12,7 +12,7 @@ import 'package:gpth/shared/services/core/logging_service.dart';
 import 'package:gpth/shared/services/core/service_container.dart';
 import 'package:gpth/shared/services/user_interaction/path_resolver_service.dart';
 import 'package:gpth/shared/services/interactive_presenter/interactive_presenter.dart';
-import 'package:gpth/shared/concurrency_manager.dart';
+import 'package:gpth/shared/infraestructure/concurrency_manager.dart';
 import 'package:gpth/shared/constants/constants.dart';
 import 'package:path/path.dart' as p;
 

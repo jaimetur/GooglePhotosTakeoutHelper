@@ -5,10 +5,10 @@ import 'package:path/path.dart' as p;
 
 import '../../shared/file_extensions/file_extensions.dart';
 import '../../shared/entities/media_entity.dart';
-import '../../shared/models/pipeline_step_model.dart';
+import '../pipeline_step_model.dart';
 import '../../shared/models/processing_config_model.dart';
 import '../step_04_extract_dates/services/date_extractors/json_date_extractor.dart';
-import 'services/edited_version_detector_service.dart';
+import '../../shared/services/media/edited_version_detector_service.dart';
 import '../../shared/services/processing/takeout_folder_classifier_service.dart';
 
 /// Step 2: Discover and classify media files

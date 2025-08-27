@@ -4,11 +4,11 @@ import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
 import 'package:unorm_dart/unorm_dart.dart' as unorm;
 
-import '../../../shared/constants/extra_formats.dart';
-import '../../../shared/file_extensions/file_extensions.dart';
-import '../../../shared/services/core/logging_service.dart';
-import '../../../shared/services/core/service_container.dart';
-import '../../step_02_discover_media/services/edited_version_detector_service.dart';
+import '../../constants/extra_formats.dart';
+import '../../file_extensions/file_extensions.dart';
+import '../core/logging_service.dart';
+import '../core/service_container.dart';
+import '../media/edited_version_detector_service.dart';
 
 /// Service for finding corresponding JSON metadata files for media files
 ///
@@ -20,8 +20,7 @@ import '../../step_02_discover_media/services/edited_version_detector_service.da
 /// false matches while maximizing success rate.
 class JsonMetadataMatcherService with LoggerMixin {
   /// EditedVersionDetectorService instance for handling extra format operations
-  static const EditedVersionDetectorService _extrasService =
-      EditedVersionDetectorService();
+  static const EditedVersionDetectorService _extrasService = EditedVersionDetectorService();
 
   /// Attempts to find the corresponding JSON file for a media file
   ///

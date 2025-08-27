@@ -8,9 +8,9 @@ library;
 export 'services/core/logging_service.dart';
 export 'services/core/service_container.dart';
 export 'services/media/mime_type_service.dart';
-export '../steps/step_04_extract_dates/services/json_metadata_matcher_service.dart';
+export 'services/json_metadata/json_metadata_matcher_service.dart';
 // Concurrency management
-export 'concurrency_manager.dart';
+export 'infraestructure/concurrency_manager.dart';
 // Application constants
 export 'constants/constants.dart';
 // Extensions used by services
