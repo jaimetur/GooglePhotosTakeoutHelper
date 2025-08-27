@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:gpth/domain/main_pipeline.dart';
+import 'package:gpth/steps/main_pipeline.dart';
 import 'package:gpth/domain/models/processing_config_model.dart';
 import 'package:gpth/domain/models/processing_result_model.dart';
 import 'package:test/test.dart';

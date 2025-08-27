@@ -1,6 +1,6 @@
 import 'package:console_bars/console_bars.dart';
 
-import '../models/pipeline_step_model.dart';
+import '../../domain/models/pipeline_step_model.dart';
 
 /// Step 5: Write EXIF data to media files
 ///

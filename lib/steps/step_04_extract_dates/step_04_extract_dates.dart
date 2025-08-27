@@ -1,7 +1,7 @@
 import 'package:console_bars/console_bars.dart';
 
-import '../entities/media_entity.dart';
-import '../models/pipeline_step_model.dart';
+import '../../domain/entities/media_entity.dart';
+import '../../domain/models/pipeline_step_model.dart';
 
 /// Step 4: Extract dates from media files
 ///

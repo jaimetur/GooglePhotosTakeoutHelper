@@ -7,7 +7,7 @@ library;
 
 import 'dart:io';
 
-import 'package:gpth/domain/main_pipeline.dart';
+import 'package:gpth/steps/main_pipeline.dart';
 import 'package:gpth/domain/models/media_entity_collection.dart';
 import 'package:gpth/domain/models/processing_config_model.dart';
 import 'package:gpth/domain/services/core/service_container.dart';

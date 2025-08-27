@@ -4,12 +4,12 @@ import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
 
 import '../../shared/extensions/file_extensions.dart';
-import '../entities/media_entity.dart';
-import '../models/pipeline_step_model.dart';
-import '../models/processing_config_model.dart';
-import '../services/metadata/date_extraction/json_date_extractor.dart';
-import '../services/processing/edited_version_detector_service.dart';
-import '../services/processing/takeout_folder_classifier_service.dart';
+import '../../domain/entities/media_entity.dart';
+import '../../domain/models/pipeline_step_model.dart';
+import '../../domain/models/processing_config_model.dart';
+import '../../domain/services/metadata/date_extraction/json_date_extractor.dart';
+import '../../domain/services/processing/edited_version_detector_service.dart';
+import '../../domain/services/processing/takeout_folder_classifier_service.dart';
 
 /// Step 2: Discover and classify media files
 ///

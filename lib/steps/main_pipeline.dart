@@ -1,22 +1,22 @@
 import 'dart:io';
 
 import '../../shared/concurrency_manager.dart';
-import 'models/media_entity_collection.dart';
-import 'models/pipeline_step_model.dart';
-import 'models/processing_config_model.dart';
-import 'models/processing_result_model.dart';
-import 'services/core/formatting_service.dart';
-import 'services/core/logging_service.dart';
-import 'services/user_interaction/user_interaction_service.dart';
-import 'steps/step_01_fix_extensions.dart';
-import 'steps/step_02_discover_media.dart';
-import 'steps/step_03_remove_duplicates.dart';
-import 'steps/step_04_extract_dates.dart';
-import 'steps/step_05_write_exif.dart';
-import 'steps/step_06_find_albums.dart';
-import 'steps/step_07_move_files.dart';
-import 'steps/step_08_update_creation_time.dart';
-import 'value_objects/date_time_extraction_method.dart';
+import '../domain/models/media_entity_collection.dart';
+import '../domain/models/pipeline_step_model.dart';
+import '../domain/models/processing_config_model.dart';
+import '../domain/models/processing_result_model.dart';
+import '../domain/services/core/formatting_service.dart';
+import '../domain/services/core/logging_service.dart';
+import '../domain/services/user_interaction/user_interaction_service.dart';
+import 'step_01_fix_extensions/step_01_fix_extensions.dart';
+import 'step_02_discover_media/step_02_discover_media.dart';
+import 'step_03_remove_duplicates/step_03_remove_duplicates.dart';
+import 'step_04_extract_dates/step_04_extract_dates.dart';
+import 'step_05_write_exif/step_05_write_exif.dart';
+import 'step_06_find_albums/step_06_find_albums.dart';
+import 'step_07_move_files/step_07_move_files.dart';
+import 'step_08_update_creation_time/step_08_update_creation_time.dart';
+import '../domain/value_objects/date_time_extraction_method.dart';
 
 /// Processing Pipeline for Google Photos Takeout Helper
 ///
