@@ -2,6 +2,7 @@
 
 ### 🚀 **Improvements**
   - Improve Performance in Remove Duplicates Step
+  - Change README.md to add Star History & Contributors History
 
 
 ## 4.3.0-Xentraxx
