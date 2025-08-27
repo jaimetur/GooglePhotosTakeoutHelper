@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:gpth/domain/services/file_operations/file_extension_corrector_service.dart';
+import 'package:gpth/steps/step_01_fix_extensions/services/file_extension_corrector_service.dart';
 import 'package:test/test.dart';
 
 import '../setup/test_setup.dart';

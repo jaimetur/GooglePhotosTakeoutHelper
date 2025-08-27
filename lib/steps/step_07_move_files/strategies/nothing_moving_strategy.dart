@@ -1,27 +1,24 @@
-import 'dart:convert';
 import 'dart:io';
 
-import '../../../../entities/media_entity.dart';
-import '../file_operation_service.dart';
-import '../moving_context_model.dart';
-import '../path_generator_service.dart';
+import '../../../domain/entities/media_entity.dart';
+import '../services/file_operation_service.dart';
+import '../services/moving_context_model.dart';
+import '../services/path_generator_service.dart';
 import 'media_entity_moving_strategy.dart';
 
-/// JSON moving strategy implementation
+/// Nothing moving strategy implementation
 ///
-/// This strategy creates a single ALL_PHOTOS folder with all files and generates
-/// an albums-info.json file containing metadata about album associations.
-class JsonMovingStrategy extends MediaEntityMovingStrategy {
-  JsonMovingStrategy(this._fileService, this._pathService);
+/// This strategy ignores albums entirely and creates only ALL_PHOTOS with all files
+/// organized chronologically. All files are moved to ALL_PHOTOS regardless of their
+/// source location (year folders or albums) to ensure no data loss.
+class NothingMovingStrategy extends MediaEntityMovingStrategy {
+  const NothingMovingStrategy(this._fileService, this._pathService);
 
   final FileOperationService _fileService;
   final PathGeneratorService _pathService;
 
-  // Track album information for JSON generation
-  final Map<String, List<String>> _albumInfo = {};
-
   @override
-  String get name => 'JSON';
+  String get name => 'Nothing';
 
   @override
   bool get createsShortcuts => false;
@@ -34,6 +31,9 @@ class JsonMovingStrategy extends MediaEntityMovingStrategy {
     final MediaEntity entity,
     final MovingContext context,
   ) async* {
+    // Move ALL files to ALL_PHOTOS, regardless of their source location
+    // This ensures no data loss in move mode and provides transparent behavior
+
     // Move file to ALL_PHOTOS (or PARTNER_SHARED)
     final primaryFile = entity.primaryFile;
     final allPhotosDir = _pathService.generateTargetDirectory(
@@ -51,14 +51,7 @@ class JsonMovingStrategy extends MediaEntityMovingStrategy {
       );
 
       stopwatch.stop();
-
-      // Track album associations for JSON file
-      final fileName = movedFile.uri.pathSegments.last;
-      for (final albumName in entity.albumNames) {
-        _albumInfo.putIfAbsent(albumName, () => []).add(fileName);
-      }
-
-      final primaryResult = MediaEntityMovingResult.success(
+      yield MediaEntityMovingResult.success(
         operation: MediaEntityMovingOperation(
           sourceFile: primaryFile,
           targetDirectory: allPhotosDir,
@@ -68,10 +61,9 @@ class JsonMovingStrategy extends MediaEntityMovingStrategy {
         resultFile: movedFile,
         duration: stopwatch.elapsed,
       );
-      yield primaryResult;
     } catch (e) {
       stopwatch.stop();
-      final errorResult = MediaEntityMovingResult.failure(
+      yield MediaEntityMovingResult.failure(
         operation: MediaEntityMovingOperation(
           sourceFile: primaryFile,
           targetDirectory: allPhotosDir,
@@ -81,7 +73,6 @@ class JsonMovingStrategy extends MediaEntityMovingStrategy {
         errorMessage: 'Failed to move file: $e',
         duration: stopwatch.elapsed,
       );
-      yield errorResult;
     }
 
     // NEW: move non-primary physical files to _Duplicates preserving source structure
@@ -89,69 +80,8 @@ class JsonMovingStrategy extends MediaEntityMovingStrategy {
   }
 
   @override
-  Future<List<MediaEntityMovingResult>> finalize(
-    final MovingContext context,
-    final List<MediaEntity> processedEntities,
-  ) async {
-    // Generate albums-info.json file
-    final jsonPath = _pathService.generateAlbumsInfoJsonPath(
-      context.outputDirectory,
-    );
-    final jsonFile = File(jsonPath);
-
-    final stopwatch = Stopwatch()..start();
-    try {
-      final albumData = {
-        'albums': _albumInfo,
-        'metadata': {
-          'generated': DateTime.now().toIso8601String(),
-          'total_albums': _albumInfo.length,
-          'total_files': processedEntities.length,
-          'strategy': 'json',
-        },
-      };
-
-      await jsonFile.writeAsString(
-        const JsonEncoder.withIndent('  ').convert(albumData),
-      );
-
-      stopwatch.stop();
-      return [
-        MediaEntityMovingResult.success(
-          operation: MediaEntityMovingOperation(
-            sourceFile: jsonFile, // Placeholder for JSON generation
-            targetDirectory: context.outputDirectory,
-            operationType: MediaEntityOperationType.createJsonReference,
-            mediaEntity: processedEntities.isNotEmpty
-                ? processedEntities.first
-                : MediaEntity.single(file: jsonFile), // Fallback
-          ),
-          resultFile: jsonFile,
-          duration: stopwatch.elapsed,
-        ),
-      ];
-    } catch (e) {
-      stopwatch.stop();
-      return [
-        MediaEntityMovingResult.failure(
-          operation: MediaEntityMovingOperation(
-            sourceFile: jsonFile,
-            targetDirectory: context.outputDirectory,
-            operationType: MediaEntityOperationType.createJsonReference,
-            mediaEntity: processedEntities.isNotEmpty
-                ? processedEntities.first
-                : MediaEntity.single(file: jsonFile), // Fallback
-          ),
-          errorMessage: 'Failed to create albums-info.json: $e',
-          duration: stopwatch.elapsed,
-        ),
-      ];
-    }
-  }
-
-  @override
   void validateContext(final MovingContext context) {
-    // No special validation needed for JSON mode
+    // No special validation needed for nothing mode
   }
 
   // --- NEW helper: move all non-primary physical files to _Duplicates, preserving structure ---

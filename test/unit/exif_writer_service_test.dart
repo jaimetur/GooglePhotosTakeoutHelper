@@ -7,7 +7,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:coordinate_converter/coordinate_converter.dart';
-import 'package:gpth/domain/services/metadata/exif_writer_service.dart';
+import 'package:gpth/steps/step_05_write_exif/services/exif_writer_service.dart';
 import 'package:gpth/infrastructure/exiftool_service.dart';
 import 'package:test/test.dart';
 

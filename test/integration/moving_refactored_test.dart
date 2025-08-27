@@ -8,9 +8,9 @@ import 'dart:io';
 
 import 'package:gpth/domain/models/processing_config_model.dart';
 import 'package:gpth/domain/services/core/service_container.dart';
-import 'package:gpth/domain/services/file_operations/moving/file_operation_service.dart';
-import 'package:gpth/domain/services/file_operations/moving/moving_context_model.dart';
-import 'package:gpth/domain/services/file_operations/moving/path_generator_service.dart';
+import 'package:gpth/steps/step_07_move_files/services/file_operation_service.dart';
+import 'package:gpth/steps/step_07_move_files/services/moving_context_model.dart';
+import 'package:gpth/steps/step_07_move_files/services/path_generator_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 

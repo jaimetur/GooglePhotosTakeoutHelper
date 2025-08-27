@@ -2,12 +2,12 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:io';
 
-import '../../../models/media_entity_collection.dart';
+import '../../../domain/models/media_entity_collection.dart';
 import 'file_operation_service.dart';
 import 'moving_context_model.dart';
 import 'path_generator_service.dart';
-import 'strategies/media_entity_moving_strategy.dart';
-import 'strategies/media_entity_moving_strategy_factory.dart';
+import '../strategies/media_entity_moving_strategy.dart';
+import '../strategies/media_entity_moving_strategy_factory.dart';
 import 'symlink_service.dart';
 
 /// Modern media moving service using immutable MediaEntity

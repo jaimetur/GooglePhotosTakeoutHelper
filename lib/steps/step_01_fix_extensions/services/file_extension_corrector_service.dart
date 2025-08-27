@@ -4,10 +4,10 @@ import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../shared/extensions/file_extensions.dart';
-import '../core/logging_service.dart';
-import '../media/mime_type_service.dart';
-import '../metadata/json_metadata_matcher_service.dart';
-import '../processing/edited_version_detector_service.dart';
+import '../../../domain/services/core/logging_service.dart';
+import '../../../domain/services/media/mime_type_service.dart';
+import '../../step_04_extract_dates/services/json_metadata_matcher_service.dart';
+import '../../../domain/services/processing/edited_version_detector_service.dart';
 
 /// Service for detecting and fixing incorrect file extensions
 ///

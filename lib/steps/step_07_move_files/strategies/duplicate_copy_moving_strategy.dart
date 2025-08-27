@@ -1,73 +1,106 @@
 import 'dart:io';
 
-import '../../../../entities/media_entity.dart';
-import '../file_operation_service.dart';
-import '../moving_context_model.dart';
-import '../path_generator_service.dart';
-import '../symlink_service.dart';
+import '../../../domain/entities/media_entity.dart';
+import '../services/file_operation_service.dart';
+import '../services/moving_context_model.dart';
+import '../services/path_generator_service.dart';
 import 'media_entity_moving_strategy.dart';
 
-/// Shortcut moving strategy implementation
+/// Duplicate-copy moving strategy implementation
 ///
-/// This strategy creates shortcuts/symlinks from album folders to files in ALL_PHOTOS.
-/// Files are moved to ALL_PHOTOS organized by date, and shortcuts are created in album folders.
-class ShortcutMovingStrategy extends MediaEntityMovingStrategy {
-  const ShortcutMovingStrategy(
-    this._fileService,
-    this._pathService,
-    this._symlinkService,
-  );
+/// This strategy creates actual file copies in both ALL_PHOTOS and album folders.
+/// Files are moved to ALL_PHOTOS and copied to each album folder.
+class DuplicateCopyMovingStrategy extends MediaEntityMovingStrategy {
+  const DuplicateCopyMovingStrategy(this._fileService, this._pathService);
 
   final FileOperationService _fileService;
   final PathGeneratorService _pathService;
-  final SymlinkService _symlinkService;
 
   @override
-  String get name => 'Shortcut';
+  String get name => 'Duplicate Copy';
 
   @override
-  bool get createsShortcuts => true;
+  bool get createsShortcuts => false;
 
   @override
-  bool get createsDuplicates => false;
+  bool get createsDuplicates => true;
 
   @override
   Stream<MediaEntityMovingResult> processMediaEntity(
     final MediaEntity entity,
     final MovingContext context,
   ) async* {
-    final results = <MediaEntityMovingResult>[];
-
-    // Step 1: Move primary file to ALL_PHOTOS (or PARTNER_SHARED)
-    final primaryFile = entity.primaryFile;
+    // Step 1: Ensure we have (or create) the primary canonical file in ALL_PHOTOS (or PARTNER_SHARED)
+    final originalPrimaryFile = entity.primaryFile;
     final allPhotosDir = _pathService.generateTargetDirectory(
-      null, // null = ALL_PHOTOS (or PARTNER_SHARED if partner shared)
+      null, // null = ALL_PHOTOS or PARTNER_SHARED
       entity.dateTaken,
       context,
       isPartnerShared: entity.partnershared,
     );
+
+    // If the original file physically resides inside one of the album folders that we will later populate,
+    // we must MOVE it to the canonical ALL_PHOTOS folder instead of copying it, otherwise the original
+    // remains and causes leftover files. Heuristic: if its path contains any of the album directory target paths.
+    File canonicalFile = originalPrimaryFile;
+    // Track canonical file; no need for additional collections here.
     final stopwatch = Stopwatch()..start();
     try {
-      final movedFile = await _fileService.moveFile(
-        primaryFile,
-        allPhotosDir,
-        dateTaken: entity.dateTaken,
-      );
+      if (entity.albumNames.isNotEmpty) {
+        // Pre-generate album directories to test path containment cheaply
+        final albumDirs = <String, Directory>{};
+        for (final albumName in entity.albumNames) {
+          final dir = _pathService.generateTargetDirectory(
+            albumName,
+            entity.dateTaken,
+            context,
+            isPartnerShared: entity.partnershared,
+          );
+          albumDirs[albumName] = dir;
+        }
+
+        final originalPathLower = originalPrimaryFile.path.toLowerCase();
+        final isInsideAlbum = albumDirs.values.any(
+          (final d) => originalPathLower.startsWith(d.path.toLowerCase()),
+        );
+
+        if (isInsideAlbum) {
+          // Move the file out to canonical location
+          canonicalFile = await _fileService.moveFile(
+            originalPrimaryFile,
+            allPhotosDir,
+            dateTaken: entity.dateTaken,
+          );
+        } else {
+          // Regular flow: move (rename) into ALL_PHOTOS (if already there rename handles uniqueness)
+          canonicalFile = await _fileService.moveFile(
+            originalPrimaryFile,
+            allPhotosDir,
+            dateTaken: entity.dateTaken,
+          );
+        }
+      } else {
+        // No albums: just move
+        canonicalFile = await _fileService.moveFile(
+          originalPrimaryFile,
+          allPhotosDir,
+          dateTaken: entity.dateTaken,
+        );
+      }
+
       stopwatch.stop();
-      final primaryResult = MediaEntityMovingResult.success(
+      yield MediaEntityMovingResult.success(
         operation: MediaEntityMovingOperation(
-          sourceFile: primaryFile,
+          sourceFile: originalPrimaryFile,
           targetDirectory: allPhotosDir,
           operationType: MediaEntityOperationType.move,
           mediaEntity: entity,
         ),
-        resultFile: movedFile,
+        resultFile: canonicalFile,
         duration: stopwatch.elapsed,
       );
-      results.add(primaryResult);
-      yield primaryResult;
 
-      // Step 2: Create shortcuts for each album association
+      // Step 2: For each album, ensure a copy exists (unless the original file was already there and moved)
       for (final albumName in entity.albumNames) {
         final albumDir = _pathService.generateTargetDirectory(
           albumName,
@@ -75,58 +108,53 @@ class ShortcutMovingStrategy extends MediaEntityMovingStrategy {
           context,
           isPartnerShared: entity.partnershared,
         );
-        final shortcutStopwatch = Stopwatch()..start();
-        try {
-          final shortcutFile = await _symlinkService.createSymlink(
-            albumDir,
-            movedFile,
-          );
 
-          shortcutStopwatch.stop();
-          final shortcutResult = MediaEntityMovingResult.success(
+        final copyStopwatch = Stopwatch()..start();
+        try {
+          final copiedFile = await _fileService.copyFile(
+            canonicalFile,
+            albumDir,
+            dateTaken: entity.dateTaken,
+          );
+          copyStopwatch.stop();
+          yield MediaEntityMovingResult.success(
             operation: MediaEntityMovingOperation(
-              sourceFile: movedFile,
+              sourceFile: canonicalFile,
               targetDirectory: albumDir,
-              operationType: MediaEntityOperationType.createSymlink,
+              operationType: MediaEntityOperationType.copy,
               mediaEntity: entity,
               albumKey: albumName,
             ),
-            resultFile: shortcutFile,
-            duration: shortcutStopwatch.elapsed,
+            resultFile: copiedFile,
+            duration: copyStopwatch.elapsed,
           );
-          results.add(shortcutResult);
-          yield shortcutResult;
         } catch (e) {
-          shortcutStopwatch.stop();
-          final errorResult = MediaEntityMovingResult.failure(
+          copyStopwatch.stop();
+          yield MediaEntityMovingResult.failure(
             operation: MediaEntityMovingOperation(
-              sourceFile: movedFile,
+              sourceFile: canonicalFile,
               targetDirectory: albumDir,
-              operationType: MediaEntityOperationType.createSymlink,
+              operationType: MediaEntityOperationType.copy,
               mediaEntity: entity,
               albumKey: albumName,
             ),
-            errorMessage: 'Failed to create shortcut: $e',
-            duration: shortcutStopwatch.elapsed,
+            errorMessage: 'Failed to copy to album folder: $e',
+            duration: copyStopwatch.elapsed,
           );
-          results.add(errorResult);
-          yield errorResult;
         }
       }
     } catch (e) {
       stopwatch.stop();
-      final errorResult = MediaEntityMovingResult.failure(
+      yield MediaEntityMovingResult.failure(
         operation: MediaEntityMovingOperation(
-          sourceFile: primaryFile,
+          sourceFile: originalPrimaryFile,
           targetDirectory: allPhotosDir,
           operationType: MediaEntityOperationType.move,
           mediaEntity: entity,
         ),
-        errorMessage: 'Failed to move primary file: $e',
+        errorMessage: 'Failed to establish canonical file: $e',
         duration: stopwatch.elapsed,
       );
-      results.add(errorResult);
-      yield errorResult;
     }
 
     // NEW: move non-primary physical files to _Duplicates preserving source structure
@@ -135,7 +163,7 @@ class ShortcutMovingStrategy extends MediaEntityMovingStrategy {
 
   @override
   void validateContext(final MovingContext context) {
-    // No special validation needed for shortcut mode
+    // No special validation needed for duplicate-copy strategy
   }
 
   // --- NEW helper: move all non-primary physical files to _Duplicates, preserving structure ---
@@ -198,6 +226,7 @@ class ShortcutMovingStrategy extends MediaEntityMovingStrategy {
     }
   }
 
+  // Calculate a relative directory inside _Duplicates that mirrors the source tree.
   _RelInfo _computeDuplicatesRelativeInfo(final String sourcePath) {
     final normalized = sourcePath.replaceAll('\\', '/');
     final lower = normalized.toLowerCase();

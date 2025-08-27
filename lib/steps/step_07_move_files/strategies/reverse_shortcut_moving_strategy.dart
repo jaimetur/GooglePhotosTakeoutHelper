@@ -1,10 +1,10 @@
 import 'dart:io';
 
-import '../../../../entities/media_entity.dart';
-import '../file_operation_service.dart';
-import '../moving_context_model.dart';
-import '../path_generator_service.dart';
-import '../symlink_service.dart';
+import '../../../domain/entities/media_entity.dart';
+import '../services/file_operation_service.dart';
+import '../services/moving_context_model.dart';
+import '../services/path_generator_service.dart';
+import '../services/symlink_service.dart';
 import 'media_entity_moving_strategy.dart';
 
 /// Reverse shortcut moving strategy implementation

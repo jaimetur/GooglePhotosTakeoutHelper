@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
-import '../../../models/processing_config_model.dart';
+import '../../../domain/models/processing_config_model.dart';
 
 /// Domain model representing the context for moving operations
 ///

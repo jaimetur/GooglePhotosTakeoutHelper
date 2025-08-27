@@ -9,8 +9,8 @@ import 'package:mime/mime.dart';
 import '../../../../infrastructure/exiftool_service.dart';
 import '../../../../shared/constants.dart';
 import '../../../../shared/constants/exif_constants.dart';
-import '../../core/global_config_service.dart';
-import '../../core/logging_service.dart';
+import '../../../../domain/services/core/global_config_service.dart';
+import '../../../../domain/services/core/logging_service.dart';
 
 /// GPS extractor with instrumentation (time in seconds).
 class ExifCoordinateExtractor with LoggerMixin {

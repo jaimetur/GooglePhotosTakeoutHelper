@@ -6,7 +6,7 @@ import 'package:image/image.dart';
 import 'package:intl/intl.dart';
 
 import '../../../infrastructure/exiftool_service.dart';
-import '../core/logging_service.dart';
+import '../../../domain/services/core/logging_service.dart';
 
 /// Service that writes EXIF data (fast native JPEG path + adaptive exiftool batching).
 /// Includes detailed instrumentation of counts and durations (seconds).

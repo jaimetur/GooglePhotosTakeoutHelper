@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import '../services/core/service_container.dart';
-import '../services/metadata/date_extraction/date_extractor_service.dart';
+import '../../steps/step_04_extract_dates/services/date_extractors/date_extractor_service.dart';
 
 /// Enum representing different extension fixing modes
 enum ExtensionFixingMode {
