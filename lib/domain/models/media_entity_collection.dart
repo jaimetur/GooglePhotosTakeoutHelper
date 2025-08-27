@@ -64,7 +64,7 @@ class MediaEntityCollection with LoggerMixin {
     int removedCount = 0;
 
     // Global duplicate grouping (no album partition → cross-album dedupe)
-    // OPTIMIZATION: pre-bucket by primary file size to reduce candidate set per call.
+    // OPTIMIZATION LAYER 1: pre-bucket by primary file size to reduce candidate set per call.
     final Map<int, List<MediaEntity>> sizeBuckets = {};
     for (final e in _media) {
       int size;
@@ -76,8 +76,13 @@ class MediaEntityCollection with LoggerMixin {
       (sizeBuckets[size] ??= []).add(e);
     }
     final List<int> bucketKeys = sizeBuckets.keys.toList();
+
+    // We will report progress per processed size-bucket.
     final totalGroups = bucketKeys.length;
     int processedGroups = 0;
+
+    // Collect entities to remove and do a single removeWhere at the end (avoid O(n^2) removes).
+    final Set<MediaEntity> entitiesToRemove = <MediaEntity>{};
 
     // Helper: merge all files from 'src' entity into 'dst' entity.
     // It unions physical file references (including album files), avoiding duplicates by path.
@@ -108,59 +113,120 @@ class MediaEntityCollection with LoggerMixin {
       }
     }
 
-    // Process each size bucket independently; inside each bucket do content-based grouping.
-    for (final key in bucketKeys) {
+    // Helper: get lowercase extension from a path (no external deps).
+    String _extOf(final String path) {
+      final int slash = path.lastIndexOf(Platform.pathSeparator);
+      final String base = (slash >= 0) ? path.substring(slash + 1) : path;
+      final int dot = base.lastIndexOf('.');
+      if (dot <= 0) return ''; // no ext or hidden file like ".gitignore"
+      return base.substring(dot + 1).toLowerCase();
+    }
+
+    // Helper: quick signature using size + extension + FNV-1a32 of first up-to-64KB.
+    Future<String> _quickSignature(final File file, final int size, final String ext) async {
+      // Read first up-to-64KB deterministically. If file shorter, read all.
+      final int toRead = size > 0 ? (size < 65536 ? size : 65536) : 65536;
+      List<int> head = const [];
+      try {
+        final raf = await file.open();
+        try {
+          head = await raf.read(toRead);
+        } finally {
+          await raf.close();
+        }
+      } catch (_) {
+        head = const [];
+      }
+
+      // FNV-1a 32-bit
+      int hash = 0x811C9DC5;
+      for (final b in head) {
+        hash ^= (b & 0xFF);
+        hash = (hash * 0x01000193) & 0xFFFFFFFF;
+      }
+      // A string signature that keeps groups small but collision-safe thanks to later full check.
+      return '$size|$ext|$hash';
+    }
+
+    // Process one size bucket: ext sub-buckets → quickSig sub-buckets → groupIdentical
+    Future<void> _processSizeBucket(final int key) async {
       final List<MediaEntity> candidates = sizeBuckets[key]!;
-      if (candidates.length <= 1) {
-        processedGroups++;
-        onProgress?.call(processedGroups, totalGroups);
-        continue;
+      if (candidates.length <= 1) return;
+
+      // OPTIMIZATION LAYER 2: sub-bucket by extension to avoid mixing media types of same size.
+      final Map<String, List<MediaEntity>> extBuckets = {};
+      for (final e in candidates) {
+        final String ext = _extOf(e.primaryFile.path);
+        (extBuckets[ext] ??= []).add(e);
       }
 
-      final hashGroups = await duplicateService.groupIdentical(candidates);
+      for (final entry in extBuckets.entries) {
+        final List<MediaEntity> extGroup = entry.value;
+        if (extGroup.length <= 1) continue;
 
-      // Process each duplicate group
-      for (final group in hashGroups.values) {
-        if (group.length <= 1) {
-          continue; // No duplicates in this group
-        }
-
-        // Sort by best date extraction quality, then shortest file name (primary file path length)
-        group.sort((final MediaEntity a, final MediaEntity b) {
-          // Prefer files with dates from better extraction methods
-          final aAccuracy = a.dateAccuracy?.value ?? 999;
-          final bAccuracy = b.dateAccuracy?.value ?? 999;
-          if (aAccuracy != bAccuracy) {
-            return aAccuracy.compareTo(bAccuracy);
+        // OPTIMIZATION LAYER 3: quick signature to split large groups cheaply.
+        final Map<String, List<MediaEntity>> quickBuckets = {};
+        for (final e in extGroup) {
+          String sig;
+          try {
+            final int size = e.primaryFile.lengthSync();
+            final String ext = _extOf(e.primaryFile.path);
+            sig = await _quickSignature(e.primaryFile, size, ext);
+          } catch (_) {
+            sig = 'qsig-err';
           }
-          // If equal accuracy, prefer shorter file names (typically original names)
-          final aLen = a.primaryFile.path.length;
-          final bLen = b.primaryFile.path.length;
-          return aLen.compareTo(bLen);
-        });
-
-        final MediaEntity kept = group.first;
-        final List<MediaEntity> toRemove = group.sublist(1);
-
-        // Log which duplicates are being removed
-        logDebug(
-          'Found ${group.length} identical entities. Keeping: ${kept.primaryFile.path}',
-        );
-        for (final d in toRemove) {
-          logDebug(
-            '  Merging & removing duplicate entity: ${d.primaryFile.path}',
-          );
-          // 1) Merge all file associations (albums/year) into the kept entity
-          mergeEntityFiles(kept, d);
+          (quickBuckets[sig] ??= []).add(e);
         }
 
-        // 2) After merging files, remove the duplicates from the collection
-        toRemove.forEach(_media.remove);
-        removedCount += toRemove.length;
-      }
+        // Verify duplicates only inside the tiny quick-buckets.
+        for (final q in quickBuckets.values) {
+          if (q.length <= 1) continue;
 
-      processedGroups++;
+          final hashGroups = await duplicateService.groupIdentical(q);
+
+          for (final group in hashGroups.values) {
+            if (group.length <= 1) continue;
+
+            // Sort by best date extraction quality, then shortest file name (primary file path length)
+            group.sort((final MediaEntity a, final MediaEntity b) {
+              final aAccuracy = a.dateAccuracy?.value ?? 999;
+              final bAccuracy = b.dateAccuracy?.value ?? 999;
+              if (aAccuracy != bAccuracy) return aAccuracy.compareTo(bAccuracy);
+              final aLen = a.primaryFile.path.length;
+              final bLen = b.primaryFile.path.length;
+              return aLen.compareTo(bLen);
+            });
+
+            final MediaEntity kept = group.first;
+            final List<MediaEntity> toRemove = group.sublist(1);
+
+            // Log which duplicates are being removed (keep noise low implicitly).
+            logDebug('Found ${group.length} identical entities. Keeping: ${kept.primaryFile.path}');
+            for (final d in toRemove) {
+              logDebug('  Merging & removing duplicate entity: ${d.primaryFile.path}');
+              mergeEntityFiles(kept, d);
+            }
+
+            // Mark for removal (do not remove from _media here).
+            entitiesToRemove.addAll(toRemove);
+            removedCount += toRemove.length;
+          }
+        }
+      }
+    }
+
+    // Concurrency: process size buckets in parallel with a sensible cap.
+    final int maxWorkers = ConcurrencyManager().concurrencyFor(ConcurrencyOperation.exif).clamp(1, 8);
+    for (int i = 0; i < bucketKeys.length; i += maxWorkers) {
+      final slice = bucketKeys.skip(i).take(maxWorkers).toList();
+      await Future.wait(slice.map(_processSizeBucket));
+      processedGroups += slice.length;
       onProgress?.call(processedGroups, totalGroups);
+    }
+
+    // Apply removals in one pass (fast).
+    if (entitiesToRemove.isNotEmpty) {
+      _media.removeWhere(entitiesToRemove.contains);
     }
 
     return removedCount;
