@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import '../../../domain/entities/media_entity.dart';
+import '../../../shared/entities/media_entity.dart';
 import '../services/file_operation_service.dart';
 import '../services/moving_context_model.dart';
 import '../services/path_generator_service.dart';

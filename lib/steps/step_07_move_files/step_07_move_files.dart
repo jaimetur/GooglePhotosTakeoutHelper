@@ -1,8 +1,8 @@
 import 'dart:io';
 import 'package:console_bars/console_bars.dart';
 
-import '../../domain/entities/media_entity.dart';
-import '../../domain/models/pipeline_step_model.dart';
+import '../../shared/entities/media_entity.dart';
+import '../../shared/models/pipeline_step_model.dart';
 import 'services/media_entity_moving_service.dart';
 import 'services/moving_context_model.dart';
 import 'strategies/media_entity_moving_strategy.dart';

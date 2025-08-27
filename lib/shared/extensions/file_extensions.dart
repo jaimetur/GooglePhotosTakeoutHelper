@@ -8,7 +8,7 @@ import 'dart:io';
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
 
-import '../constants.dart';
+import '../constants/constants.dart';
 
 /// Extension methods for `Iterable<FileSystemEntity>`
 extension FileSystemEntityIterableExtension on Iterable<FileSystemEntity> {

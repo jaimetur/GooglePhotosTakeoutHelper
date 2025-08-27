@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'media_entity_collection.dart';
+import '../entities/media_entity_collection.dart';
 import 'processing_config_model.dart';
 
 /// Abstract base class for all GPTH processing steps

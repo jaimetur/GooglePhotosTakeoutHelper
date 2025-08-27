@@ -5,7 +5,7 @@ library;
 
 import 'dart:io';
 
-import 'package:gpth/domain/entities/media_entity.dart';
+import 'package:gpth/shared/entities/media_entity.dart';
 import 'package:gpth/domain/services/core/service_container.dart';
 import 'package:gpth/domain/services/media/album_relationship_service.dart';
 import 'package:test/test.dart';

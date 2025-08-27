@@ -7,8 +7,8 @@ library;
 
 import 'dart:typed_data';
 
-import 'package:gpth/domain/entities/media_entity.dart';
-import 'package:gpth/domain/models/media_entity_collection.dart';
+import 'package:gpth/shared/entities/media_entity.dart';
+import 'package:gpth/shared/entities/media_entity_collection.dart';
 import 'package:gpth/domain/services/core/service_container.dart';
 import 'package:gpth/domain/value_objects/date_accuracy.dart';
 import 'package:gpth/domain/value_objects/date_time_extraction_method.dart';

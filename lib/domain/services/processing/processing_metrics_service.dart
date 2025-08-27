@@ -4,8 +4,8 @@
 /// calculating expected outputs and processing statistics.
 library;
 
-import '../../entities/media_entity.dart';
-import '../../models/media_entity_collection.dart';
+import '../../../shared/entities/media_entity.dart';
+import '../../../shared/entities/media_entity_collection.dart';
 
 /// Service for calculating processing metrics
 class ProcessingMetricsService {

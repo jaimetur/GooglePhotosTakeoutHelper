@@ -6,7 +6,7 @@ library;
 
 import 'dart:io';
 
-import 'package:gpth/domain/entities/media_entity.dart';
+import 'package:gpth/shared/entities/media_entity.dart';
 import 'package:gpth/domain/services/core/logging_service.dart';
 import 'package:gpth/domain/services/media/duplicate_detection_service.dart';
 import 'package:gpth/domain/services/media/media_hash_service.dart';

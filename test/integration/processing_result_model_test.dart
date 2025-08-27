@@ -1,4 +1,4 @@
-import 'package:gpth/domain/models/processing_result_model.dart';
+import 'package:gpth/shared/models/processing_result_model.dart';
 import 'package:gpth/domain/value_objects/date_time_extraction_method.dart';
 import 'package:test/test.dart';
 

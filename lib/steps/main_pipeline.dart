@@ -1,13 +1,13 @@
 import 'dart:io';
 
 import '../../shared/concurrency_manager.dart';
-import '../domain/models/media_entity_collection.dart';
-import '../domain/models/pipeline_step_model.dart';
-import '../domain/models/processing_config_model.dart';
-import '../domain/models/processing_result_model.dart';
+import '../shared/entities/media_entity_collection.dart';
+import '../shared/models/pipeline_step_model.dart';
+import '../shared/models/processing_config_model.dart';
+import '../shared/models/processing_result_model.dart';
 import '../domain/services/core/formatting_service.dart';
 import '../domain/services/core/logging_service.dart';
-import '../domain/services/user_interaction/user_interaction_service.dart';
+import '../shared/services/user_interaction/user_interaction_service.dart';
 import 'step_01_fix_extensions/step_01_fix_extensions.dart';
 import 'step_02_discover_media/step_02_discover_media.dart';
 import 'step_03_remove_duplicates/step_03_remove_duplicates.dart';

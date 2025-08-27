@@ -1,8 +1,8 @@
 import 'dart:io';
 
-import '../value_objects/date_accuracy.dart';
-import '../value_objects/date_time_extraction_method.dart';
-import '../value_objects/media_files_collection.dart';
+import '../../domain/value_objects/date_accuracy.dart';
+import '../../domain/value_objects/date_time_extraction_method.dart';
+import '../../domain/value_objects/media_files_collection.dart';
 
 /// Immutable domain entity representing a media file (photo or video)
 ///

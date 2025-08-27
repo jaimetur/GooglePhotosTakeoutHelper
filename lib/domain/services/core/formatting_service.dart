@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:proper_filesize/proper_filesize.dart';
 
-import '../../entities/media_entity.dart';
+import '../../../shared/entities/media_entity.dart';
 
 /// Consolidated utility service for common formatting and utility operations
 ///

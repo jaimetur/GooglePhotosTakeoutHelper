@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import '../../../domain/entities/media_entity.dart';
+import '../../../shared/entities/media_entity.dart';
 import '../services/moving_context_model.dart';
 
 /// Modern abstract base class for different album moving strategies using MediaEntity

@@ -6,11 +6,11 @@ import 'package:file_picker_desktop/file_picker_desktop.dart';
 import '../../../presentation/interactive_presenter.dart';
 import '../../models/pipeline_step_model.dart';
 import '../../models/processing_config_model.dart';
-import '../core/formatting_service.dart';
-import '../core/global_config_service.dart';
-import '../core/logging_service.dart';
-import '../core/service_container.dart';
-import '../file_operations/archive_extraction_service.dart';
+import '../../../domain/services/core/formatting_service.dart';
+import '../../../domain/services/core/global_config_service.dart';
+import '../../../domain/services/core/logging_service.dart';
+import '../../../domain/services/core/service_container.dart';
+import '../../../domain/services/file_operations/archive_extraction_service.dart';
 
 /// Consolidated interactive service that combines all user interaction functionality
 ///

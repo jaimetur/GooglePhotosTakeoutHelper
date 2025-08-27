@@ -1,7 +1,7 @@
 /// Simple test to verify the MediaEntity moving strategies are working
 library;
 
-import 'package:gpth/domain/models/processing_config_model.dart';
+import 'package:gpth/shared/models/processing_config_model.dart';
 import 'package:gpth/steps/step_07_move_files/services/file_operation_service.dart';
 import 'package:gpth/steps/step_07_move_files/services/path_generator_service.dart';
 import 'package:gpth/steps/step_07_move_files/strategies/media_entity_moving_strategy_factory.dart';

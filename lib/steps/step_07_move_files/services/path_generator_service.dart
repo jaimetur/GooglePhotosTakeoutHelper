@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
-import '../../../domain/models/processing_config_model.dart';
+import '../../../shared/models/processing_config_model.dart';
 import 'moving_context_model.dart';
 
 /// Service responsible for generating file and directory paths

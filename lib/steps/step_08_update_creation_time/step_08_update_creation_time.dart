@@ -6,7 +6,7 @@ import 'package:console_bars/console_bars.dart';
 import 'package:ffi/ffi.dart';
 import 'package:win32/win32.dart';
 
-import '../../domain/models/pipeline_step_model.dart';
+import '../../shared/models/pipeline_step_model.dart';
 import '../../domain/services/core/logging_service.dart';
 
 /// Step 8: Update creation times (Windows only)

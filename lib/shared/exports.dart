@@ -12,6 +12,6 @@ export '../steps/step_04_extract_dates/services/json_metadata_matcher_service.da
 // Concurrency management
 export 'concurrency_manager.dart';
 // Application constants
-export 'constants.dart';
+export 'constants/constants.dart';
 // Extensions used by services
 export 'extensions/file_extensions.dart';

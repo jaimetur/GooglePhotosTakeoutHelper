@@ -1,4 +1,4 @@
-import '../../../domain/models/processing_config_model.dart';
+import '../../../shared/models/processing_config_model.dart';
 import '../services/file_operation_service.dart';
 import '../services/path_generator_service.dart';
 import '../services/symlink_service.dart';

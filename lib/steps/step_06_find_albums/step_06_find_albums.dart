@@ -1,4 +1,4 @@
-import '../../domain/models/pipeline_step_model.dart';
+import '../../shared/models/pipeline_step_model.dart';
 
 /// Step 6: Find and merge album relationships
 ///
