@@ -419,7 +419,7 @@ Standard file managers reset photo dates when moving files. Use **Simple Gallery
 
 ## 👥 Contributors
 <a href="https://github.com/Xentraxx/GooglePhotosTakeoutHelper/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=Xentraxx/GooglePhotosTakeoutHelper" width="75%"/>
+  <img src="https://contrib.rocks/image?repo=Xentraxx/GooglePhotosTakeoutHelper" width="100%"/>
 </a>
 
 ## Support This Project
