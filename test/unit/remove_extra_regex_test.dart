@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:gpth/domain/services/core/service_container.dart';
+import 'package:gpth/shared/services/core/service_container.dart';
 import 'package:gpth/steps/step_04_extract_dates/services/date_extractors/json_date_extractor.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';

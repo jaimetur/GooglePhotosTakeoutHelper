@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import '../../models/processing_config_model.dart';
-import '../../../domain/services/core/formatting_service.dart';
+import '../core/formatting_service.dart';
 
 /// Domain service for handling interactive configuration logic
 ///

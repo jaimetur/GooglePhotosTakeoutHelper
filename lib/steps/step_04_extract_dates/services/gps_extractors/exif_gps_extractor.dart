@@ -6,11 +6,11 @@ import 'dart:typed_data';
 import 'package:exif_reader/exif_reader.dart';
 import 'package:mime/mime.dart';
 
-import '../../../../infrastructure/exiftool_service.dart';
+import '../../../../shared/infraestructure/exiftool_service.dart';
 import '../../../../shared/constants/constants.dart';
 import '../../../../shared/constants/exif_constants.dart';
-import '../../../../domain/services/core/global_config_service.dart';
-import '../../../../domain/services/core/logging_service.dart';
+import '../../../../shared/services/core/global_config_service.dart';
+import '../../../../shared/services/core/logging_service.dart';
 
 /// GPS extractor with instrumentation (time in seconds).
 class ExifCoordinateExtractor with LoggerMixin {

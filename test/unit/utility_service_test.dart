@@ -6,8 +6,8 @@ library;
 import 'dart:io';
 
 import 'package:gpth/shared/entities/media_entity.dart';
-import 'package:gpth/domain/services/core/formatting_service.dart';
-import 'package:gpth/domain/value_objects/media_files_collection.dart';
+import 'package:gpth/shared/services/core/formatting_service.dart';
+import 'package:gpth/shared/value_objects/media_files_collection.dart';
 import 'package:test/test.dart';
 
 import '../setup/test_setup.dart';

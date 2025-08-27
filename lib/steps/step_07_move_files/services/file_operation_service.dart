@@ -5,8 +5,8 @@ import 'package:path/path.dart' as p;
 
 import '../../../shared/concurrency_manager.dart';
 import '../../../shared/global_pools.dart';
-import '../../../domain/services/core/logging_service.dart';
-import '../../../domain/services/core/service_container.dart';
+import '../../../shared/services/core/logging_service.dart';
+import '../../../shared/services/core/service_container.dart';
 
 /// High-performance file operation service with optimized I/O and concurrency control
 ///

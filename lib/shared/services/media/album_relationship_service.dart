@@ -4,7 +4,7 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 
-import '../../../shared/entities/media_entity.dart';
+import '../../entities/media_entity.dart';
 import '../core/logging_service.dart';
 
 /// Service for detecting and managing album relationships between media files

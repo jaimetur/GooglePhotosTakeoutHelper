@@ -1,7 +1,7 @@
 import 'dart:io';
 
-import '../domain/services/core/logging_service.dart';
-import '../shared/concurrency_manager.dart';
+import '../services/core/logging_service.dart';
+import '../concurrency_manager.dart';
 
 /// Consolidated service for all disk space operations across different platforms
 ///

@@ -6,9 +6,9 @@ library;
 
 import 'dart:io';
 
-import 'package:gpth/domain/services/core/formatting_service.dart';
-import 'package:gpth/domain/services/core/service_container.dart';
-import 'package:gpth/infrastructure/consolidated_disk_space_service.dart';
+import 'package:gpth/shared/services/core/formatting_service.dart';
+import 'package:gpth/shared/services/core/service_container.dart';
+import 'package:gpth/shared/infraestructure/consolidated_disk_space_service.dart';
 import 'package:test/test.dart';
 
 void main() {

@@ -7,10 +7,10 @@ library;
 import 'dart:io';
 
 import 'package:gpth/shared/entities/media_entity.dart';
-import 'package:gpth/domain/services/core/logging_service.dart';
-import 'package:gpth/domain/services/media/duplicate_detection_service.dart';
-import 'package:gpth/domain/services/media/media_hash_service.dart';
-import 'package:gpth/domain/value_objects/date_accuracy.dart';
+import 'package:gpth/shared/services/core/logging_service.dart';
+import 'package:gpth/shared/services/media/duplicate_detection_service.dart';
+import 'package:gpth/shared/services/media/media_hash_service.dart';
+import 'package:gpth/shared/value_objects/date_accuracy.dart';
 import 'package:test/test.dart';
 
 import '../setup/test_setup.dart';

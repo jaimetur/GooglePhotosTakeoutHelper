@@ -1,5 +1,5 @@
 import 'dart:io';
-import '../../../shared/models/processing_config_model.dart';
+import '../../models/processing_config_model.dart';
 
 /// Service for application logging with colored output and level filtering
 ///

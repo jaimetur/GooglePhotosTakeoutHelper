@@ -1,5 +1,5 @@
-import '../../../shared/concurrency_manager.dart';
-import '../../../shared/entities/media_entity.dart';
+import '../../concurrency_manager.dart';
+import '../../entities/media_entity.dart';
 import '../core/logging_service.dart';
 import 'media_hash_service.dart';
 

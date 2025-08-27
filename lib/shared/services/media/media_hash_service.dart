@@ -4,8 +4,8 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 
-import '../../../shared/concurrency_manager.dart';
-import '../../../shared/global_pools.dart';
+import '../../concurrency_manager.dart';
+import '../../global_pools.dart';
 import '../core/logging_service.dart';
 // pool package used indirectly via GlobalPools
 

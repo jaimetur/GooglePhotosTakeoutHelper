@@ -1,8 +1,8 @@
 import 'dart:io';
 
-import '../shared/models/pipeline_step_model.dart';
-import '../domain/services/core/logging_service.dart';
-import '../shared/constants/constants.dart';
+import '../../models/pipeline_step_model.dart';
+import '../core/logging_service.dart';
+import '../../constants/constants.dart';
 
 /// Service for handling interactive user interface and console interactions
 ///

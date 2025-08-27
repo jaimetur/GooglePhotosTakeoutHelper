@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:ffi/ffi.dart';
 import 'package:win32/win32.dart';
 
-import '../shared/concurrency_manager.dart';
+import '../concurrency_manager.dart';
 
 /// Service for platform-specific operations and disk space detection
 ///

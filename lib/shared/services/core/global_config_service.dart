@@ -1,4 +1,4 @@
-import '../../../shared/models/processing_config_model.dart';
+import '../../models/processing_config_model.dart';
 
 /// Service for managing global application configuration and state
 ///

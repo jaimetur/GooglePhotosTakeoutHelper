@@ -5,7 +5,7 @@ import 'package:ffi/ffi.dart';
 import 'package:path/path.dart' as p;
 import 'package:win32/win32.dart';
 
-import '../domain/services/core/logging_service.dart';
+import '../services/core/logging_service.dart';
 
 /// Service for creating Windows symbolic links using Win32 API
 ///

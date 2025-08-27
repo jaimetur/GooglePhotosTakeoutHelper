@@ -38,7 +38,7 @@ library;
 // Tests for folder classification: year folders, album folders, and edge cases.
 
 import 'dart:io';
-import 'package:gpth/domain/services/processing/takeout_folder_classifier_service.dart';
+import 'package:gpth/shared/services/processing/takeout_folder_classifier_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import '../setup/test_setup.dart';

@@ -6,7 +6,7 @@ import '../../shared/models/pipeline_step_model.dart';
 import 'services/media_entity_moving_service.dart';
 import 'services/moving_context_model.dart';
 import 'strategies/media_entity_moving_strategy.dart';
-import '../../domain/value_objects/media_files_collection.dart';
+import '../../shared/value_objects/media_files_collection.dart';
 
 /// Step 7: Move files to output directory
 ///

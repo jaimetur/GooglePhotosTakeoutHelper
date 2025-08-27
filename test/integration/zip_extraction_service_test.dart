@@ -7,8 +7,8 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
-import 'package:gpth/domain/services/file_operations/archive_extraction_service.dart';
-import 'package:gpth/presentation/interactive_presenter.dart';
+import 'package:gpth/shared/services/file_operations/archive_extraction_service.dart';
+import 'package:gpth/shared/services/interactive_presenter/interactive_presenter.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 

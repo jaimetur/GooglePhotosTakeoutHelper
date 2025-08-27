@@ -7,7 +7,7 @@ import 'package:ffi/ffi.dart';
 import 'package:win32/win32.dart';
 
 import '../../shared/models/pipeline_step_model.dart';
-import '../../domain/services/core/logging_service.dart';
+import '../../shared/services/core/logging_service.dart';
 
 /// Step 8: Update creation times (Windows only)
 ///

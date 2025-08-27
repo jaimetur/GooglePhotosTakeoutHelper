@@ -1,6 +1,6 @@
-import 'package:gpth/domain/services/core/global_config_service.dart';
+import 'package:gpth/shared/services/core/global_config_service.dart';
 import 'package:gpth/shared/services/user_interaction/user_interaction_service.dart';
-import 'package:gpth/presentation/interactive_presenter.dart';
+import 'package:gpth/shared/services/interactive_presenter/interactive_presenter.dart';
 import 'package:test/test.dart';
 
 /// Mock presenter for testing that captures interactions
