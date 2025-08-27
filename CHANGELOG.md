@@ -1,3 +1,9 @@
+## 4.3.1-Xentraxx
+
+### 🚀 **Improvements**
+  - Improve Performance in Remove Duplicates Step
+
+
 ## 4.3.0-Xentraxx
 
 ### ✨ **New Features**

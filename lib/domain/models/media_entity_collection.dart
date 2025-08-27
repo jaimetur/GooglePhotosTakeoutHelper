@@ -64,29 +64,43 @@ class MediaEntityCollection with LoggerMixin {
     int removedCount = 0;
 
     // Global duplicate grouping (no album partition → cross-album dedupe)
-    final hashGroups = await duplicateService.groupIdentical(_media);
-    final totalGroups = hashGroups.length;
+    // OPTIMIZATION: pre-bucket by primary file size to reduce candidate set per call.
+    final Map<int, List<MediaEntity>> sizeBuckets = {};
+    for (final e in _media) {
+      int size;
+      try {
+        size = e.primaryFile.lengthSync();
+      } catch (_) {
+        size = -1; // unknown size bucket
+      }
+      (sizeBuckets[size] ??= []).add(e);
+    }
+    final List<int> bucketKeys = sizeBuckets.keys.toList();
+    final totalGroups = bucketKeys.length;
     int processedGroups = 0;
 
     // Helper: merge all files from 'src' entity into 'dst' entity.
     // It unions physical file references (including album files), avoiding duplicates by path.
     void mergeEntityFiles(final MediaEntity dst, final MediaEntity src) {
       try {
+        // Build a fast lookup of already present paths to get O(1) membership checks.
+        final Set<String> existing = {
+          for (final f in dst.files.files.values) f.path,
+        };
+
         // Primary first to preserve deterministic order in dst
         final File srcPrimary = src.primaryFile;
-        // Insert primary if not present in dst
-        final bool hasPrimaryAlready = dst.files.files.values.any(
-          (final f) => f.path == srcPrimary.path,
-        );
-        if (!hasPrimaryAlready) {
-          // Use file path as key to avoid collisions; adjust if your key scheme differs.
+        if (!existing.contains(srcPrimary.path)) {
           dst.files.files.putIfAbsent(srcPrimary.path, () => srcPrimary);
+          existing.add(srcPrimary.path);
         }
 
         // Insert the rest of the files (album/year secondary files)
         for (final f in src.files.files.values) {
-          if (!dst.files.files.values.any((final x) => x.path == f.path)) {
-            dst.files.files.putIfAbsent(f.path, () => f);
+          final String p = f.path;
+          if (!existing.contains(p)) {
+            dst.files.files.putIfAbsent(p, () => f);
+            existing.add(p);
           }
         }
       } catch (e) {
@@ -94,46 +108,56 @@ class MediaEntityCollection with LoggerMixin {
       }
     }
 
-    // Process each duplicate group
-    for (final group in hashGroups.values) {
-      if (group.length <= 1) {
+    // Process each size bucket independently; inside each bucket do content-based grouping.
+    for (final key in bucketKeys) {
+      final List<MediaEntity> candidates = sizeBuckets[key]!;
+      if (candidates.length <= 1) {
         processedGroups++;
         onProgress?.call(processedGroups, totalGroups);
-        continue; // No duplicates in this group
+        continue;
       }
 
-      // Sort by best date extraction quality, then shortest file name (primary file path length)
-      group.sort((final MediaEntity a, final MediaEntity b) {
-        // Prefer files with dates from better extraction methods
-        final aAccuracy = a.dateAccuracy?.value ?? 999;
-        final bAccuracy = b.dateAccuracy?.value ?? 999;
-        if (aAccuracy != bAccuracy) {
-          return aAccuracy.compareTo(bAccuracy);
+      final hashGroups = await duplicateService.groupIdentical(candidates);
+
+      // Process each duplicate group
+      for (final group in hashGroups.values) {
+        if (group.length <= 1) {
+          continue; // No duplicates in this group
         }
-        // If equal accuracy, prefer shorter file names (typically original names)
-        final aLen = a.primaryFile.path.length;
-        final bLen = b.primaryFile.path.length;
-        return aLen.compareTo(bLen);
-      });
 
-      final MediaEntity kept = group.first;
-      final List<MediaEntity> toRemove = group.sublist(1);
+        // Sort by best date extraction quality, then shortest file name (primary file path length)
+        group.sort((final MediaEntity a, final MediaEntity b) {
+          // Prefer files with dates from better extraction methods
+          final aAccuracy = a.dateAccuracy?.value ?? 999;
+          final bAccuracy = b.dateAccuracy?.value ?? 999;
+          if (aAccuracy != bAccuracy) {
+            return aAccuracy.compareTo(bAccuracy);
+          }
+          // If equal accuracy, prefer shorter file names (typically original names)
+          final aLen = a.primaryFile.path.length;
+          final bLen = b.primaryFile.path.length;
+          return aLen.compareTo(bLen);
+        });
 
-      // Log which duplicates are being removed
-      logDebug(
-        'Found ${group.length} identical entities. Keeping: ${kept.primaryFile.path}',
-      );
-      for (final d in toRemove) {
+        final MediaEntity kept = group.first;
+        final List<MediaEntity> toRemove = group.sublist(1);
+
+        // Log which duplicates are being removed
         logDebug(
-          '  Merging & removing duplicate entity: ${d.primaryFile.path}',
+          'Found ${group.length} identical entities. Keeping: ${kept.primaryFile.path}',
         );
-        // 1) Merge all file associations (albums/year) into the kept entity
-        mergeEntityFiles(kept, d);
-      }
+        for (final d in toRemove) {
+          logDebug(
+            '  Merging & removing duplicate entity: ${d.primaryFile.path}',
+          );
+          // 1) Merge all file associations (albums/year) into the kept entity
+          mergeEntityFiles(kept, d);
+        }
 
-      // 2) After merging files, remove the duplicates from the collection
-      toRemove.forEach(_media.remove);
-      removedCount += toRemove.length;
+        // 2) After merging files, remove the duplicates from the collection
+        toRemove.forEach(_media.remove);
+        removedCount += toRemove.length;
+      }
 
       processedGroups++;
       onProgress?.call(processedGroups, totalGroups);
