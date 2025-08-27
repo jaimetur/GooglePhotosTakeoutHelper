@@ -17,11 +17,11 @@ import 'symlink_service.dart';
 /// Uses MediaEntity exclusively for better performance and immutability.
 class MediaEntityMovingService {
   MediaEntityMovingService()
-      : _strategyFactory = MediaEntityMovingStrategyFactory(
-          FileOperationService(),
-          PathGeneratorService(),
-          SymlinkService(),
-        );
+    : _strategyFactory = MediaEntityMovingStrategyFactory(
+        FileOperationService(),
+        PathGeneratorService(),
+        SymlinkService(),
+      );
 
   /// Custom constructor for dependency injection (useful for testing)
   MediaEntityMovingService.withDependencies({
@@ -29,10 +29,10 @@ class MediaEntityMovingService {
     required final PathGeneratorService pathService,
     required final SymlinkService symlinkService,
   }) : _strategyFactory = MediaEntityMovingStrategyFactory(
-          fileService,
-          pathService,
-          symlinkService,
-        );
+         fileService,
+         pathService,
+         symlinkService,
+       );
 
   final MediaEntityMovingStrategyFactory _strategyFactory;
 
@@ -68,7 +68,7 @@ class MediaEntityMovingService {
     for (final entity in entityCollection.entities) {
       // Track which source files got an emitted operation by the strategy
       final expectedSources = entity.files.files.values
-          .map((f) => f.path)
+          .map((final f) => f.path)
           .toSet(); // all source paths in the entity
       final coveredSources = <String>{};
 
@@ -92,7 +92,6 @@ class MediaEntityMovingService {
             targetDirectory: Directory(context.outputDirectory.path),
             operationType: MediaEntityOperationType.move, // nominal intent
             mediaEntity: entity,
-            albumKey: null,
           );
           final synthetic = MediaEntityMovingResult.failure(
             operation: syntheticOp,
@@ -174,8 +173,9 @@ class MediaEntityMovingService {
           semaphore.acquire().then((_) async {
             try {
               final results = <MediaEntityMovingResult>[];
-              final expectedSources =
-                  entity.files.files.values.map((f) => f.path).toSet();
+              final expectedSources = entity.files.files.values
+                  .map((final f) => f.path)
+                  .toSet();
               final coveredSources = <String>{};
 
               // ignore: prefer_foreach
@@ -195,11 +195,11 @@ class MediaEntityMovingService {
                     MediaEntityMovingResult.failure(
                       operation: MediaEntityMovingOperation(
                         sourceFile: File(missingPath),
-                        targetDirectory:
-                            Directory(context.outputDirectory.path),
+                        targetDirectory: Directory(
+                          context.outputDirectory.path,
+                        ),
                         operationType: MediaEntityOperationType.move,
                         mediaEntity: entity,
-                        albumKey: null,
                       ),
                       errorMessage:
                           'No operation emitted by strategy for this source file',
@@ -260,9 +260,9 @@ class MediaEntityMovingService {
   }
 
   void _printSummary(
-  final List<MediaEntityMovingResult> results,
-  final MediaEntityMovingStrategy strategy)
-  {
+    final List<MediaEntityMovingResult> results,
+    final MediaEntityMovingStrategy strategy,
+  ) {
     int primaryMoves = 0;
     int duplicateMoves = 0;
     int symlinksCreated = 0;
@@ -276,8 +276,12 @@ class MediaEntityMovingService {
 
       switch (r.operation.operationType) {
         case MediaEntityOperationType.move:
-          final src = r.operation.sourceFile.path.replaceAll('\\', '/').toLowerCase();
-          final prim = r.operation.mediaEntity.primaryFile.path.replaceAll('\\', '/').toLowerCase();
+          final src = r.operation.sourceFile.path
+              .replaceAll('\\', '/')
+              .toLowerCase();
+          final prim = r.operation.mediaEntity.primaryFile.path
+              .replaceAll('\\', '/')
+              .toLowerCase();
           if (src == prim) {
             primaryMoves++;
           } else {
@@ -309,14 +313,15 @@ class MediaEntityMovingService {
     if (failures > 0) {
       print('\nErrors encountered:');
       results.where((final r) => !r.success).take(5).forEach((final result) {
-        print('  • ${result.operation.sourceFile.path}: ${result.errorMessage}');
+        print(
+          '  • ${result.operation.sourceFile.path}: ${result.errorMessage}',
+        );
       });
       if (failures > 5) {
         print('  ... and ${failures - 5} more errors');
       }
     }
   }
-
 }
 
 /// Simple semaphore implementation for controlling concurrency

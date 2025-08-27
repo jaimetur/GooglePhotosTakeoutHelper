@@ -241,16 +241,22 @@ class ReverseShortcutMovingStrategy extends MediaEntityMovingStrategy {
     final MediaEntity entity,
     final MovingContext context,
   ) async* {
-    final duplicatesRoot = Directory('${context.outputDirectory.path}/_Duplicates');
+    final duplicatesRoot = Directory(
+      '${context.outputDirectory.path}/_Duplicates',
+    );
     final primaryPath = entity.primaryFile.path;
-    final allSources = entity.files.files.values.map((f) => f.path).toSet();
+    final allSources = entity.files.files.values
+        .map((final f) => f.path)
+        .toSet();
 
     for (final srcPath in allSources) {
       if (srcPath == primaryPath) continue;
 
       final sourceFile = File(srcPath);
       final relInfo = _computeDuplicatesRelativeInfo(srcPath);
-      final targetDir = Directory('${duplicatesRoot.path}/${relInfo.relativeDir}');
+      final targetDir = Directory(
+        '${duplicatesRoot.path}/${relInfo.relativeDir}',
+      );
       if (!targetDir.existsSync()) {
         targetDir.createSync(recursive: true);
       }
@@ -297,16 +303,26 @@ class ReverseShortcutMovingStrategy extends MediaEntityMovingStrategy {
     final idxTakeout = lower.indexOf('/takeout/');
     if (idxTakeout >= 0) {
       final rel = normalized.substring(idxTakeout + '/takeout/'.length);
-      final relDir = rel.contains('/') ? rel.substring(0, rel.lastIndexOf('/')) : '';
-      return _RelInfo(relativeDir: relDir.isEmpty ? '.' : relDir, hint: 'anchored by /Takeout/');
+      final relDir = rel.contains('/')
+          ? rel.substring(0, rel.lastIndexOf('/'))
+          : '';
+      return _RelInfo(
+        relativeDir: relDir.isEmpty ? '.' : relDir,
+        hint: 'anchored by /Takeout/',
+      );
     }
 
     for (final anchor in const ['/google fotos/', '/google photos/']) {
       final idx = lower.indexOf(anchor);
       if (idx >= 0) {
         final rel = normalized.substring(idx + anchor.length);
-        final relDir = rel.contains('/') ? rel.substring(0, rel.lastIndexOf('/')) : '';
-        return _RelInfo(relativeDir: relDir.isEmpty ? '.' : relDir, hint: 'anchored by $anchor');
+        final relDir = rel.contains('/')
+            ? rel.substring(0, rel.lastIndexOf('/'))
+            : '';
+        return _RelInfo(
+          relativeDir: relDir.isEmpty ? '.' : relDir,
+          hint: 'anchored by $anchor',
+        );
       }
     }
 

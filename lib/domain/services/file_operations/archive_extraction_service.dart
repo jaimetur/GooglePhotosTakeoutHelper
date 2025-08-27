@@ -182,7 +182,9 @@ class ZipExtractionService {
       final fixedName = _fixMojibakeYenToEnye(entry.name);
 
       // Diagnostics: log fixed form
-      if (enableNameDiagnostics && fixedName != entry.name && _looksSuspicious(fixedName)) {
+      if (enableNameDiagnostics &&
+          fixedName != entry.name &&
+          _looksSuspicious(fixedName)) {
         _logNameDiagnostics('fixed', fixedName);
       }
 
@@ -233,7 +235,6 @@ class ZipExtractionService {
     }
   }
 
-
   /// Heuristic to fix mojibake where 'Ñ/ñ' shows up as '¥'.
   ///
   /// Rules:
@@ -246,14 +247,16 @@ class ZipExtractionService {
     final runes = name.runes.toList();
     final buffer = StringBuffer();
 
-    bool _isLatinUpper(int r) => (r >= 0x41 && r <= 0x5A) || r == 0x00D1; // A-Z or Ñ
+    bool isLatinUpper(final int r) =>
+        (r >= 0x41 && r <= 0x5A) || r == 0x00D1; // A-Z or Ñ
     for (int i = 0; i < runes.length; i++) {
       final r = runes[i];
       if (r == 0x00A5) {
         final prev = i > 0 ? runes[i - 1] : null;
         final next = i + 1 < runes.length ? runes[i + 1] : null;
-        final upperContext = (prev != null && _isLatinUpper(prev)) ||
-            (next != null && _isLatinUpper(next));
+        final upperContext =
+            (prev != null && isLatinUpper(prev)) ||
+            (next != null && isLatinUpper(next));
         buffer.write(upperContext ? 'Ñ' : 'ñ');
       } else {
         buffer.write(String.fromCharCode(r));
@@ -311,12 +314,14 @@ class ZipExtractionService {
     }
 
     // Remove ASCII control characters from the full path
+    // ignore: join_return_with_assignment
     result = result.replaceAll(RegExp(r'[\x00-\x1F]'), '_');
 
     return result;
   }
 
   /// Returns true if the name contains characters that usually indicate encoding issues.
+  // ignore: prefer_expression_function_bodies
   bool _looksSuspicious(final String name) {
     return name.contains('¥') || name.contains('�') || name.contains('~');
     // The tilde (~) often appears in DOS 8.3 short names (e.g., RESIDE~4).
@@ -325,9 +330,14 @@ class ZipExtractionService {
   /// Logs the name with code points for diagnostics.
   void _logNameDiagnostics(final String stage, final String name) {
     final codePoints = name.runes
-        .map((r) => 'U+${r.toRadixString(16).toUpperCase().padLeft(4, '0')}')
+        .map(
+          (final r) => 'U+${r.toRadixString(16).toUpperCase().padLeft(4, '0')}',
+        )
         .join(' ');
-    _logger.info('[NameDiag][$stage] "$name"  ->  $codePoints', forcePrint: true);
+    _logger.info(
+      '[NameDiag][$stage] "$name"  ->  $codePoints',
+      forcePrint: true,
+    );
   }
 
   /// Handles extraction errors with detailed error messages and user guidance.

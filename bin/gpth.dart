@@ -1,7 +1,7 @@
 // ignore_for_file: unintended_html_in_doc_comment
 
-import 'dart:io';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:gpth/domain/main_pipeline.dart';
@@ -482,7 +482,9 @@ Future<ProcessingConfig> _buildConfigFromArgs(final ArgResults res) async {
 /// @param res Parsed command line arguments containing fix path
 /// @returns ProcessingConfig configured for fix mode operation
 Future<ProcessingConfig> _handleFixMode(final ArgResults res) async {
-  final fixPath = res['fix'] as String; // For fix mode, we use the same directory as input and output
+  final fixPath =
+      res['fix']
+          as String; // For fix mode, we use the same directory as input and output
   final builder = ProcessingConfig.builder(
     inputPath: fixPath,
     outputPath: fixPath,
@@ -552,7 +554,8 @@ Future<InputOutputPaths> _getInputOutputPaths(
           .map((final e) => e.lengthSync())
           .reduce((final a, final b) => a + b);
       final requiredSpace =
-          (cumZipsSize * 2) + 256 * 1024 * 1024; // Double because original ZIPs remain
+          (cumZipsSize * 2) +
+          256 * 1024 * 1024; // Double because original ZIPs remain
       await ServiceContainer.instance.interactiveService.freeSpaceNotice(
         requiredSpace,
         extractDir,
@@ -972,32 +975,43 @@ Future<void> _loadFileDatesIntoGlobalConfigFromArgs(
     final res = parser.parse(parsedArguments);
     final String? jsonPath = res['fileDates'] as String?;
     if (jsonPath == null) {
-      _logger.info('--fileDates not provided; skipping external dictionary load.', forcePrint: true);
+      _logger.info(
+        '--fileDates not provided; skipping external dictionary load.',
+        forcePrint: true,
+      );
       return;
     }
 
-    _logger.info('Attempting to load fileDates JSON from: $jsonPath', forcePrint: true);
+    _logger.info(
+      'Attempting to load fileDates JSON from: $jsonPath',
+      forcePrint: true,
+    );
 
     final file = File(jsonPath);
     if (!await file.exists()) {
-      _logger.error('Failed to load fileDates JSON: file does not exist at "$jsonPath"', forcePrint: true);
+      _logger.error(
+        'Failed to load fileDates JSON: file does not exist at "$jsonPath"',
+        forcePrint: true,
+      );
       return;
     }
 
     final jsonString = await file.readAsString();
     final dynamic raw = jsonDecode(jsonString);
     if (raw is! Map<String, dynamic>) {
-      throw const FormatException('Top-level JSON must be an object/dictionary.');
+      throw const FormatException(
+        'Top-level JSON must be an object/dictionary.',
+      );
     }
 
     // Ensure Map<String, Map<String, dynamic>>-like structure (skip non-map values)
     final Map<String, Map<String, dynamic>> normalized = {};
-    raw.forEach((k, v) {
+    raw.forEach((final k, final v) {
       if (v is Map<String, dynamic>) {
         normalized[k] = v;
       } else if (v is Map) {
         final m = <String, dynamic>{};
-        v.forEach((kk, vv) => m[kk.toString()] = vv);
+        v.forEach((final kk, final vv) => m[kk.toString()] = vv);
         normalized[k] = m;
       } else {
         // skip non-map entries
@@ -1005,9 +1019,11 @@ Future<void> _loadFileDatesIntoGlobalConfigFromArgs(
     });
 
     ServiceContainer.instance.globalConfig.fileDatesDictionary = normalized;
-    _logger.info('Loaded ${normalized.length} entries from $jsonPath', forcePrint: true);
+    _logger.info(
+      'Loaded ${normalized.length} entries from $jsonPath',
+      forcePrint: true,
+    );
   } catch (e) {
     _logger.error('Failed to load fileDates JSON: $e', forcePrint: true);
   }
 }
-

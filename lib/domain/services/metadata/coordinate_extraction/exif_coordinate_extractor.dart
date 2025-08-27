@@ -28,10 +28,14 @@ class ExifCoordinateExtractor with LoggerMixin {
   static Duration exiftoolDur = Duration.zero;
 
   static String _fmtSec(final Duration d) =>
-      (d.inMilliseconds / 1000.0).toStringAsFixed(3) + 's';
+      '${(d.inMilliseconds / 1000.0).toStringAsFixed(3)}s';
 
-  static void dumpStats({final bool reset = false, final LoggerMixin? loggerMixin}) {
-    final line = '[GPS-EXTRACT]: '
+  static void dumpStats({
+    final bool reset = false,
+    final LoggerMixin? loggerMixin,
+  }) {
+    final line =
+        '[GPS-EXTRACT]: '
         'nativeHit=$nativeHit, nativeMiss=$nativeMiss, fallbackTried=$fallbackTried, '
         'exifToolHit=$exifToolHit, exifToolMiss=$exifToolMiss, '
         'nativeTime=${_fmtSec(nativeDur)}, exiftoolTime=${_fmtSec(exiftoolDur)}';
@@ -55,7 +59,8 @@ class ExifCoordinateExtractor with LoggerMixin {
     }
   }
 
-  bool _isValidCoord(final dynamic v) {
+  // ignore: strict_top_level_inference
+  bool _isValidCoord(final v) {
     if (v == null) return false;
     final s = v.toString().trim();
     if (s.isEmpty) return false;
@@ -148,6 +153,7 @@ class ExifCoordinateExtractor with LoggerMixin {
       final int fileLength = await file.length();
       final int end = fileLength < exifScanWindow ? fileLength : exifScanWindow;
       final bytesBuilder = BytesBuilder(copy: false);
+      // ignore: prefer_foreach
       await for (final chunk in file.openRead(0, end)) {
         bytesBuilder.add(chunk);
       }
@@ -176,7 +182,8 @@ class ExifCoordinateExtractor with LoggerMixin {
     if (exiftool == null) return null;
     try {
       final tags = await exiftool!.readExifData(file);
-      if (_isValidCoord(tags['GPSLatitude']) && _isValidCoord(tags['GPSLongitude'])) {
+      if (_isValidCoord(tags['GPSLatitude']) &&
+          _isValidCoord(tags['GPSLongitude'])) {
         return {
           'GPSLatitude': tags['GPSLatitude'],
           'GPSLongitude': tags['GPSLongitude'],

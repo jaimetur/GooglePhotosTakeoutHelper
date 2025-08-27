@@ -32,6 +32,7 @@ class AlbumRelationshipService with LoggerMixin {
   final int fastHashBytesPerEdge;
 
   /// Simple in-memory cache for file hashes within the same execution
+  // ignore: unintended_html_in_doc_comment
   /// Key format: '<path>|<size>|<mtime_ms>' → md5 hex
   final Map<String, String> _hashCache = <String, String>{};
 
@@ -80,13 +81,15 @@ class AlbumRelationshipService with LoggerMixin {
   /// Optimized grouping strategy:
   /// 1) Pre-group by file size (cheap): unique sizes are not duplicates → no hash
   /// 2) For size groups with >1 items, compute md5 in streaming with limited concurrency
+  // ignore: unintended_html_in_doc_comment
   /// 3) Build content groups keyed by '<size>_<md5>'
   Future<Map<String, List<MediaEntity>>> _groupIdenticalMediaOptimized(
     final List<MediaEntity> mediaList,
   ) async {
     // Decide concurrency
-    final int concurrency =
-        (maxConcurrent != 0) ? maxConcurrent : (Platform.numberOfProcessors > 0 ? Platform.numberOfProcessors : 4);
+    final int concurrency = (maxConcurrent != 0)
+        ? maxConcurrent
+        : (Platform.numberOfProcessors > 0 ? Platform.numberOfProcessors : 4);
     logInfo('Album detection: using concurrency = $concurrency');
 
     // 1) Collect file sizes (concurrently with a semaphore)
@@ -143,8 +146,10 @@ class AlbumRelationshipService with LoggerMixin {
           await semHash.acquire();
           try {
             final File file = entity.primaryFile;
-            final String md5hex =
-                await _md5ForFileWithCache(file, expectedSize: size);
+            final String md5hex = await _md5ForFileWithCache(
+              file,
+              expectedSize: size,
+            );
             final String contentKey = '${size}_$md5hex';
             groups.putIfAbsent(contentKey, () => <MediaEntity>[]).add(entity);
           } catch (e) {
@@ -206,8 +211,9 @@ class AlbumRelationshipService with LoggerMixin {
     required final int readBytes,
   }) async {
     try {
-      final Digest digest =
-          await md5.bind(file.openRead(0, readBytes > 0 ? readBytes : null)).first;
+      final Digest digest = await md5
+          .bind(file.openRead(0, readBytes > 0 ? readBytes : null))
+          .first;
       return digest.toString();
     } catch (e) {
       // If fast mode fails, fallback to full streaming

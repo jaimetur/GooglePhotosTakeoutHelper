@@ -38,49 +38,61 @@ class ExifDateExtractor with LoggerMixin {
   // ────────────────────────────────────────────────────────────────────────────
   // Instrumentation (per-process static counters + timers)
   // ────────────────────────────────────────────────────────────────────────────
-  static int _total = 0;                  // files attempted by this extractor
-  static int _videoDirect = 0;            // direct exiftool route due to video/*
+  static int _total = 0; // files attempted by this extractor
+  static int _videoDirect = 0; // direct exiftool route due to video/*
 
-  static int _dictTried = 0;              // tries of dictionary lookups
-  static int _dictHit = 0;                // found a valid date
-  static int _dictMiss = 0;               // not found or not valid date
+  static int _dictTried = 0; // tries of dictionary lookups
+  static int _dictHit = 0; // found a valid date
+  static int _dictMiss = 0; // not found or not valid date
   static Duration _dictDuration = Duration.zero;
 
-  static int _nativeSupported = 0;        // files with a native-supported MIME
-  static int _nativeUnsupported = 0;      // files routed to exiftool due to unsupported/unknown MIME
-  static int _nativeHeadReads = 0;        // native fast head-only reads
-  static int _nativeFullReads = 0;        // native full-file reads
-  static int _nativeTried = 0;            // equals _mimeNativeSupported
-  static int _nativeHit = 0;              // native returned a valid DateTime
-  static int _nativeMiss = 0;             // native returned null
+  static int _nativeSupported = 0; // files with a native-supported MIME
+  static int _nativeUnsupported =
+      0; // files routed to exiftool due to unsupported/unknown MIME
+  static int _nativeHeadReads = 0; // native fast head-only reads
+  static int _nativeFullReads = 0; // native full-file reads
+  static int _nativeTried = 0; // equals _mimeNativeSupported
+  static int _nativeHit = 0; // native returned a valid DateTime
+  static int _nativeMiss = 0; // native returned null
 
-  static int _exiftoolDirectTried = 0;    // tried exiftool directly (videos/unsupported)
-  static int _exiftoolDirectHit = 0;      // exiftool direct found a date
-  static int _exiftoolFallbackTried = 0;  // native miss re-tried via exiftool
-  static int _exiftoolFallbackHit = 0;    // fallback succeeded
-  static int _exiftoolFail = 0;           // exiftool returned null or threw
+  static int _exiftoolDirectTried =
+      0; // tried exiftool directly (videos/unsupported)
+  static int _exiftoolDirectHit = 0; // exiftool direct found a date
+  static int _exiftoolFallbackTried = 0; // native miss re-tried via exiftool
+  static int _exiftoolFallbackHit = 0; // fallback succeeded
+  static int _exiftoolFail = 0; // exiftool returned null or threw
 
-  static int _nativeBytes = 0;            // total bytes read by native
+  static int _nativeBytes = 0; // total bytes read by native
 
   static Duration _nativeDuration = Duration.zero;
   static Duration _exiftoolDuration = Duration.zero;
 
   static String _fmtSec(final Duration d) =>
-      (d.inMilliseconds / 1000.0).toStringAsFixed(3) + 's';
+      '${(d.inMilliseconds / 1000.0).toStringAsFixed(3)}s';
 
   // Cache of dictionary indices (one index per dictionary instance)
-  static final Map<Map<String, dynamic>, Map<String, Map<String, dynamic>>> _dictIndexCache = {};
+  static final Map<Map<String, dynamic>, Map<String, Map<String, dynamic>>>
+  _dictIndexCache = {};
 
-  static void dumpStats({final bool reset = false, final LoggerMixin? loggerMixin, final bool exiftoolFallbackEnabled = false}) {
-    final line_calls = '[READ-EXIF] Calls=$_total | videos=$_videoDirect | nativeSupported=$_nativeSupported | unsupported=$_nativeUnsupported | exiftoolFallbackEnabled=$exiftoolFallbackEnabled';
-    final line_dict = '[READ-EXIF] ExternalDict: tried=$_dictTried, hit=$_dictHit, miss=$_dictMiss, time=${_fmtSec(_dictDuration)}';
-    final line_native = '[READ-EXIF] Native: tried=$_nativeTried, hit=$_nativeHit, miss=$_nativeMiss, headReads=$_nativeHeadReads, fullReads=$_nativeFullReads, time=${_fmtSec(_nativeDuration)}, bytes=$_nativeBytes';
-    final line_exiftool = '[READ-EXIF] Exiftool: directTried=$_exiftoolDirectTried , directHit=$_exiftoolDirectHit, fallbackTried=$_exiftoolFallbackTried, fallbackHit=$_exiftoolFallbackHit, time=${_fmtSec(_exiftoolDuration)}, errors=$_exiftoolFail';
+  static void dumpStats({
+    final bool reset = false,
+    final LoggerMixin? loggerMixin,
+    final bool exiftoolFallbackEnabled = false,
+  }) {
+    final line_calls =
+        '[READ-EXIF] Calls=$_total | videos=$_videoDirect | nativeSupported=$_nativeSupported | unsupported=$_nativeUnsupported | exiftoolFallbackEnabled=$exiftoolFallbackEnabled';
+    final line_dict =
+        '[READ-EXIF] ExternalDict: tried=$_dictTried, hit=$_dictHit, miss=$_dictMiss, time=${_fmtSec(_dictDuration)}';
+    final line_native =
+        '[READ-EXIF] Native: tried=$_nativeTried, hit=$_nativeHit, miss=$_nativeMiss, headReads=$_nativeHeadReads, fullReads=$_nativeFullReads, time=${_fmtSec(_nativeDuration)}, bytes=$_nativeBytes';
+    final line_exiftool =
+        '[READ-EXIF] Exiftool: directTried=$_exiftoolDirectTried , directHit=$_exiftoolDirectHit, fallbackTried=$_exiftoolFallbackTried, fallbackHit=$_exiftoolFallbackHit, time=${_fmtSec(_exiftoolDuration)}, errors=$_exiftoolFail';
 
     // Only show the dictionary stats line when a global fileDatesDictionary is present
     bool showDictLine = false;
     try {
-      showDictLine = ServiceContainer.instance.globalConfig.fileDatesDictionary != null;
+      showDictLine =
+          ServiceContainer.instance.globalConfig.fileDatesDictionary != null;
     } catch (_) {
       showDictLine = false;
     }
@@ -219,9 +231,13 @@ class ExifDateExtractor with LoggerMixin {
       _nativeMiss++;
 
       // Optional fallback to ExifTool when native misses
-      if (globalConfig.exifToolInstalled == true && globalConfig.fallbackToExifToolOnNativeMiss == true && exiftool != null) {
+      if (globalConfig.exifToolInstalled == true &&
+          globalConfig.fallbackToExifToolOnNativeMiss == true &&
+          exiftool != null) {
         _exiftoolFallbackTried++;
-        logWarning('Native exif_reader failed to extract DateTime from ${file.path} ($mimeType). Falling back to ExifTool.');
+        logWarning(
+          'Native exif_reader failed to extract DateTime from ${file.path} ($mimeType). Falling back to ExifTool.',
+        );
         final sw2 = Stopwatch()..start();
         result = await _exifToolExtractor(file);
         _exiftoolDuration += sw2.elapsed;
@@ -251,11 +267,17 @@ class ExifDateExtractor with LoggerMixin {
     }
 
     if (mimeType == 'image/jpeg') {
-      logWarning('${file.path} has a mimeType of $mimeType. However, could not read it with exif_reader. The file may be corrupt.');
+      logWarning(
+        '${file.path} has a mimeType of $mimeType. However, could not read it with exif_reader. The file may be corrupt.',
+      );
     } else if (globalConfig.exifToolInstalled == true) {
-      logError("$mimeType is an unusual mime type we can't handle natively. Please create an issue if you get this often.");
+      logError(
+        "$mimeType is an unusual mime type we can't handle natively. Please create an issue if you get this often.",
+      );
     } else {
-      logWarning('Reading exif from ${file.path} with mimeType $mimeType skipped. Reading from this kind of file is likely only supported with exiftool.');
+      logWarning(
+        'Reading exif from ${file.path} with mimeType $mimeType skipped. Reading from this kind of file is likely only supported with exiftool.',
+      );
     }
     return null;
   }
@@ -279,11 +301,7 @@ class ExifDateExtractor with LoggerMixin {
         // ignore if cannot resolve symlinks
       }
 
-      final candidates = <String>{
-        p1,
-        p2,
-        if (p3 != null && p3.isNotEmpty) p3,
-      };
+      final candidates = <String>{p1, p2, if (p3 != null && p3.isNotEmpty) p3};
 
       for (final key in candidates) {
         final Map<String, dynamic>? entry = idx[key];
@@ -300,7 +318,7 @@ class ExifDateExtractor with LoggerMixin {
           return dt;
         } catch (_) {
           // Fallback to robust parser if string is not strictly ISO.
-          final DateTime? p = _parseExifDateString(oldest.trim(), noOffsetPolicy: _NoOffsetPolicy.treatAsLocal);
+          final DateTime? p = _parseExifDateString(oldest.trim());
           if (p == null) continue;
           final DateTime utc = p.toUtc();
           if (_isInvalidOrSentinel(utc)) continue;
@@ -311,7 +329,9 @@ class ExifDateExtractor with LoggerMixin {
       // Not found
       return null;
     } catch (e) {
-      logWarning('Failed to read from dates dictionary for "${file.path}": $e. Continuing with normal extraction.');
+      logWarning(
+        'Failed to read from dates dictionary for "${file.path}": $e. Continuing with normal extraction.',
+      );
       return null;
     }
   }
@@ -329,21 +349,21 @@ class ExifDateExtractor with LoggerMixin {
 
     final idx = <String, Map<String, dynamic>>{};
 
-    void _add(final String? k, final Map<String, dynamic> v) {
+    void add(final String? k, final Map<String, dynamic> v) {
       if (k == null || k.isEmpty) return;
       idx[k.replaceAll('\\', '/')] = v;
     }
 
-    dict.forEach((final String key, final dynamic val) {
+    dict.forEach((final String key, final val) {
       if (val is Map<String, dynamic>) {
         // original key
-        _add(key, val);
+        add(key, val);
 
         // also index by TargetFile/SourceFile if present
         final tf = val['TargetFile'];
         final sf = val['SourceFile'];
-        if (tf is String) _add(tf, val);
-        if (sf is String) _add(sf, val);
+        if (tf is String) add(tf, val);
+        if (sf is String) add(sf, val);
       }
     });
 
@@ -392,7 +412,7 @@ class ExifDateExtractor with LoggerMixin {
           parsed = DateTime.parse(raw);
         } catch (_) {
           // Fallback to robust normalizer that preserves timezone.
-          parsed = _parseExifDateString(raw, noOffsetPolicy: _NoOffsetPolicy.treatAsLocal);
+          parsed = _parseExifDateString(raw);
         }
 
         if (parsed == null) continue;
@@ -406,7 +426,9 @@ class ExifDateExtractor with LoggerMixin {
       }
 
       if (bestUtc == null) {
-        logWarning('ExifTool did not return an acceptable DateTime for ${file.path}.');
+        logWarning(
+          'ExifTool did not return an acceptable DateTime for ${file.path}.',
+        );
         return null;
       }
 
@@ -464,7 +486,9 @@ class ExifDateExtractor with LoggerMixin {
 
       final parsed = DateTime.tryParse(s);
       if (parsed != null) {
-        if (parsed == DateTime.parse('2036-01-01T23:59:59.000000Z')) return null;
+        if (parsed == DateTime.parse('2036-01-01T23:59:59.000000Z')) {
+          return null;
+        }
         return parsed;
       }
     }
@@ -478,7 +502,8 @@ class ExifDateExtractor with LoggerMixin {
     const int head = 64 * 1024;
     final int len = await file.length();
 
-    final bool likelyTail = mimeType == 'image/png' ||
+    final bool likelyTail =
+        mimeType == 'image/png' ||
         mimeType == 'image/webp' ||
         mimeType == 'image/heic' ||
         mimeType == 'image/jxl';
@@ -489,6 +514,7 @@ class ExifDateExtractor with LoggerMixin {
     }
 
     final builder = BytesBuilder(copy: false);
+    // ignore: prefer_foreach
     await for (final chunk in file.openRead(0, head)) {
       builder.add(chunk);
     }
@@ -501,7 +527,7 @@ class ExifDateExtractor with LoggerMixin {
 
   /// Returns true if the datetime is a known invalid/sentinel value to skip.
   /// Compare in UTC to avoid local/UTC mismatches.
-  bool _isInvalidOrSentinel(DateTime dtUtc) {
+  bool _isInvalidOrSentinel(final DateTime dtUtc) {
     // ExifTool sentinel for pre-1970
     final DateTime sentinelUtc = DateTime.parse('2036-01-01T23:59:59Z');
     if (dtUtc.isAtSameMomentAs(sentinelUtc)) return true;
@@ -513,7 +539,12 @@ class ExifDateExtractor with LoggerMixin {
     if (dtUtc.year == 1904 && dtUtc.month == 1 && dtUtc.day == 1) return true;
 
     // Exact Unix epoch start is often a placeholder when info is missing.
-    if (dtUtc.year == 1970 && dtUtc.month == 1 && dtUtc.day == 1 && dtUtc.hour == 0 && dtUtc.minute == 0 && dtUtc.second == 0) {
+    if (dtUtc.year == 1970 &&
+        dtUtc.month == 1 &&
+        dtUtc.day == 1 &&
+        dtUtc.hour == 0 &&
+        dtUtc.minute == 0 &&
+        dtUtc.second == 0) {
       return true;
     }
     return false;
@@ -524,8 +555,8 @@ class ExifDateExtractor with LoggerMixin {
   /// - If no timezone info is present, applies [_NoOffsetPolicy.treatAsLocal].
   /// Returns null if parsing fails or the value is clearly invalid.
   DateTime? _parseExifDateString(
-    String raw, {
-    _NoOffsetPolicy noOffsetPolicy = _NoOffsetPolicy.treatAsLocal,
+    final String raw, {
+    final _NoOffsetPolicy noOffsetPolicy = _NoOffsetPolicy.treatAsLocal,
   }) {
     if (raw.isEmpty) return null;
 
@@ -542,7 +573,7 @@ class ExifDateExtractor with LoggerMixin {
     }
 
     // Normalize whitespace
-    String s = raw.trim();
+    final String s = raw.trim();
 
     // If string is already ISO 8601, try fast path first.
     try {
@@ -553,13 +584,15 @@ class ExifDateExtractor with LoggerMixin {
     }
 
     // Extract potential timezone suffix: Z, ±HH, ±HHMM, ±HH:MM
-    final tzMatch = RegExp(r'(Z|[+\-]\d{2}:\d{2}|[+\-]\d{4}|[+\-]\d{2})$')
-        .firstMatch(s.replaceAll(' ', ''));
+    final tzMatch = RegExp(
+      r'(Z|[+\-]\d{2}:\d{2}|[+\-]\d{4}|[+\-]\d{2})$',
+    ).firstMatch(s.replaceAll(' ', ''));
     String? tz = tzMatch?.group(1);
 
     if (tz == null) {
-      final tzSpaceMatch = RegExp(r'(Z|[+\-]\d{2}:\d{2}|[+\-]\d{4}|[+\-]\d{2})$')
-          .firstMatch(s);
+      final tzSpaceMatch = RegExp(
+        r'(Z|[+\-]\d{2}:\d{2}|[+\-]\d{4}|[+\-]\d{2})$',
+      ).firstMatch(s);
       tz = tzSpaceMatch?.group(1);
     }
 
@@ -583,7 +616,7 @@ class ExifDateExtractor with LoggerMixin {
     final dateNums = datePart
         .replaceAll(RegExp(r'[\/\.\:\\-]'), '-')
         .split('-')
-        .where((x) => x.trim().isNotEmpty)
+        .where((final x) => x.trim().isNotEmpty)
         .toList();
 
     if (dateNums.length < 3) return null;
@@ -614,7 +647,9 @@ class ExifDateExtractor with LoggerMixin {
       final t = timePart.replaceAll(RegExp(r'[\/\.\-]'), ':').trim();
 
       // Extract hh:mm:ss(.fraction)?
-      final timeRe = RegExp(r'^(\d{1,2})(?::(\d{1,2}))?(?::(\d{1,2}))?(?:\.(\d+))?$');
+      final timeRe = RegExp(
+        r'^(\d{1,2})(?::(\d{1,2}))?(?::(\d{1,2}))?(?:\.(\d+))?$',
+      );
       final m = timeRe.firstMatch(t);
       if (m != null) {
         hh = (int.tryParse(m.group(1) ?? '0') ?? 0).toString().padLeft(2, '0');
@@ -622,7 +657,8 @@ class ExifDateExtractor with LoggerMixin {
         ss = (int.tryParse(m.group(3) ?? '0') ?? 0).toString().padLeft(2, '0');
         if (m.group(4) != null && m.group(4)!.isNotEmpty) {
           // Keep up to 6 fractional digits to be safe for microseconds
-          fraction = '.' + m.group(4)!.substring(0, math.min(6, m.group(4)!.length));
+          fraction =
+              '.${m.group(4)!.substring(0, math.min(6, m.group(4)!.length))}';
         }
       } else {
         // If time is present but not parseable, consider the whole value invalid.

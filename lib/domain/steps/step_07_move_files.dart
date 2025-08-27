@@ -76,15 +76,15 @@ class MoveFilesStep extends ProcessingStep {
       int duplicatesMovedCount = 0;
       int symlinksCreated = 0;
 
-      String _norm(final String p) => p.replaceAll('\\', '/').toLowerCase();
+      String norm(final String p) => p.replaceAll('\\', '/').toLowerCase();
 
       // Count operations (but do NOT read any "destination" from results)
       for (final r in movingService.lastResults) {
         if (!r.success) continue;
         switch (r.operation.operationType) {
           case MediaEntityOperationType.move:
-            final srcNorm = _norm(r.operation.sourceFile.path);
-            final primNorm = _norm(r.operation.mediaEntity.primaryFile.path);
+            final srcNorm = norm(r.operation.sourceFile.path);
+            final primNorm = norm(r.operation.mediaEntity.primaryFile.path);
             if (srcNorm == primNorm) {
               primaryMovedCount++;
             } else {
@@ -112,10 +112,12 @@ class MoveFilesStep extends ProcessingStep {
           albumBehaviorValue == 'reverse-shortcut';
 
       if (buildAlbumFolders) {
-        final Directory albumsRoot =
-            Directory(_join(context.outputDirectory.path, 'ALBUMS'));
-        final Directory allPhotosRoot =
-            Directory(_join(context.outputDirectory.path, 'ALL_PHOTOS'));
+        final Directory albumsRoot = Directory(
+          _join(context.outputDirectory.path, 'ALBUMS'),
+        );
+        final Directory allPhotosRoot = Directory(
+          _join(context.outputDirectory.path, 'ALL_PHOTOS'),
+        );
 
         if (!albumsRoot.existsSync()) {
           albumsRoot.createSync(recursive: true);
@@ -126,12 +128,16 @@ class MoveFilesStep extends ProcessingStep {
 
         for (final entity in context.mediaCollection.media) {
           // Albums where the entity belonged (keys on files map where key != null)
-          final List<String> albumNames = entity.files.files.keys
-              .where((k) => k != null && k.trim().isNotEmpty)
-              .map((k) => k!.trim())
-              .toSet()
-              .toList()
-            ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+          final List<String> albumNames =
+              entity.files.files.keys
+                  .where((final k) => k != null && k.trim().isNotEmpty)
+                  .map((final k) => k!.trim())
+                  .toSet()
+                  .toList()
+                ..sort(
+                  (final a, final b) =>
+                      a.toLowerCase().compareTo(b.toLowerCase()),
+                );
 
           if (albumNames.isEmpty) continue;
 
@@ -140,7 +146,8 @@ class MoveFilesStep extends ProcessingStep {
           if (!primaryDest.existsSync()) {
             if (context.config.verbose) {
               print(
-                  'Warning: Primary destination not found on disk for ${entity.primaryFile.path}. Skipping album restore.');
+                'Warning: Primary destination not found on disk for ${entity.primaryFile.path}. Skipping album restore.',
+              );
             }
             continue;
           }
@@ -154,10 +161,9 @@ class MoveFilesStep extends ProcessingStep {
           // Prepare canonical physical target path when needed
           File? canonicalPhysical;
           if (albumBehaviorValue == 'reverse-shortcut') {
-            final Directory canonicalDir = Directory(_join(
-              albumsRoot.path,
-              _sanitizeAlbum(canonicalAlbum!),
-            ));
+            final Directory canonicalDir = Directory(
+              _join(albumsRoot.path, _sanitizeAlbum(canonicalAlbum!)),
+            );
             if (!canonicalDir.existsSync()) {
               canonicalDir.createSync(recursive: true);
             }
@@ -167,10 +173,9 @@ class MoveFilesStep extends ProcessingStep {
                   ? primaryDest.uri.pathSegments.last
                   : primaryDest.path.split(Platform.pathSeparator).last,
             );
-            final File newPhysical =
-                File(_join(canonicalDir.path, targetName));
+            final File newPhysical = File(_join(canonicalDir.path, targetName));
 
-            if (_norm(primaryDest.path) != _norm(newPhysical.path)) {
+            if (norm(primaryDest.path) != norm(newPhysical.path)) {
               try {
                 _ensureParentDir(newPhysical);
                 if (newPhysical.existsSync()) {
@@ -186,7 +191,8 @@ class MoveFilesStep extends ProcessingStep {
                 canonicalPhysical = primaryDest;
                 if (context.config.verbose) {
                   print(
-                      'Warning: Reverse move failed (${primaryDest.path} -> ${newPhysical.path}): $e');
+                    'Warning: Reverse move failed (${primaryDest.path} -> ${newPhysical.path}): $e',
+                  );
                 }
               }
             } else {
@@ -196,8 +202,9 @@ class MoveFilesStep extends ProcessingStep {
             // Create shortcut in ALL_PHOTOS pointing back to canonicalPhysical
             try {
               final String linkName = canonicalPhysical.uri.pathSegments.last;
-              final File linkAtAllPhotos =
-                  File(_join(allPhotosRoot.path, linkName));
+              final File linkAtAllPhotos = File(
+                _join(allPhotosRoot.path, linkName),
+              );
               final created = await _createShortcutOrLink(
                 target: canonicalPhysical,
                 link: linkAtAllPhotos,
@@ -207,7 +214,8 @@ class MoveFilesStep extends ProcessingStep {
             } catch (e) {
               if (context.config.verbose) {
                 print(
-                    'Warning: Failed to create ALL_PHOTOS reverse shortcut: $e');
+                  'Warning: Failed to create ALL_PHOTOS reverse shortcut: $e',
+                );
               }
             }
           }
@@ -215,19 +223,20 @@ class MoveFilesStep extends ProcessingStep {
           // For each album, create either shortcut/hardlink or copy
           for (final rawAlbum in albumNames) {
             final String albumName = _sanitizeAlbum(rawAlbum);
-            final Directory albumDir =
-                Directory(_join(albumsRoot.path, albumName));
+            final Directory albumDir = Directory(
+              _join(albumsRoot.path, albumName),
+            );
             if (!albumDir.existsSync()) {
               albumDir.createSync(recursive: true);
             }
 
-            final File sourceFile =
-                (albumBehaviorValue == 'reverse-shortcut')
-                    ? (canonicalPhysical ?? primaryDest)
-                    : primaryDest;
+            final File sourceFile = (albumBehaviorValue == 'reverse-shortcut')
+                ? (canonicalPhysical ?? primaryDest)
+                : primaryDest;
 
-            final File albumTarget =
-                File(_join(albumDir.path, sourceFile.uri.pathSegments.last));
+            final File albumTarget = File(
+              _join(albumDir.path, sourceFile.uri.pathSegments.last),
+            );
 
             switch (albumBehaviorValue) {
               case 'shortcut':
@@ -250,7 +259,8 @@ class MoveFilesStep extends ProcessingStep {
                     }
                   } catch (e) {
                     print(
-                        'Warning: Failed to copy primary to album "$albumName": $e');
+                      'Warning: Failed to copy primary to album "$albumName": $e',
+                    );
                   }
                   break;
                 }
@@ -401,7 +411,9 @@ class MoveFilesStep extends ProcessingStep {
       return;
     }
 
-    print('\n[Verification] Leftovers diagnosis — files still present at source:');
+    print(
+      '\n[Verification] Leftovers diagnosis — files still present at source:',
+    );
     for (final f in leftovers) {
       final p = f.path;
       final relatedFailures = failuresBySource[p] ?? const [];
@@ -436,15 +448,18 @@ class MoveFilesStep extends ProcessingStep {
     final hints = <String>[];
     if (hasYen) {
       hints.add(
-          'Filename contains "¥" which often indicates codepage/zip encoding issues (mojibake of "Ñ"). Consider verifying unzip tool uses UTF-8.');
+        'Filename contains "¥" which often indicates codepage/zip encoding issues (mojibake of "Ñ"). Consider verifying unzip tool uses UTF-8.',
+      );
     }
     if (hasTilde) {
       hints.add(
-          'Filename contains "~" which can indicate 8.3 shortname artifacts. Collisions/normalization may cause mismatches.');
+        'Filename contains "~" which can indicate 8.3 shortname artifacts. Collisions/normalization may cause mismatches.',
+      );
     }
     if (looksLikeTakeout) {
       hints.add(
-          'Source under Takeout; ensure the path normalization and unzip preserved Unicode (NFC) correctly.');
+        'Source under Takeout; ensure the path normalization and unzip preserved Unicode (NFC) correctly.',
+      );
     }
     if (hints.isEmpty) return null;
     return hints.join(' ');
@@ -452,19 +467,19 @@ class MoveFilesStep extends ProcessingStep {
 
   // ───────────────────────────── Helpers (albums) ─────────────────────────────
 
-  static String _join(String a, String b) =>
+  static String _join(final String a, final String b) =>
       a.endsWith(Platform.pathSeparator)
-          ? '$a$b'
-          : '$a${Platform.pathSeparator}$b';
+      ? '$a$b'
+      : '$a${Platform.pathSeparator}$b';
 
-  static void _ensureParentDir(File f) {
+  static void _ensureParentDir(final File f) {
     final dir = f.parent;
     if (!dir.existsSync()) {
       dir.createSync(recursive: true);
     }
   }
 
-  static String _sanitizeAlbum(String s) {
+  static String _sanitizeAlbum(final String s) {
     var out = s.trim();
     const illegal = r'<>:"/\|?*';
     for (final ch in illegal.split('')) {
@@ -474,7 +489,7 @@ class MoveFilesStep extends ProcessingStep {
     return out;
   }
 
-  static String _sanitizeFileName(String s) {
+  static String _sanitizeFileName(final String s) {
     var out = s.trim();
     const illegal = r'<>:"/\|?*';
     for (final ch in illegal.split('')) {
@@ -484,7 +499,7 @@ class MoveFilesStep extends ProcessingStep {
     return out;
   }
 
-  static File _uniquePath(File desired) {
+  static File _uniquePath(final File desired) {
     if (!desired.existsSync()) return desired;
     final dir = desired.parent.path;
     final name = desired.uri.pathSegments.isNotEmpty
@@ -505,9 +520,9 @@ class MoveFilesStep extends ProcessingStep {
   /// - On Unix: create a symlink.
   /// - On Windows: try hardlink via `mklink /H`. If it fails, fallback to copying.
   static Future<bool> _createShortcutOrLink({
-    required File target,
-    required File link,
-    required bool verbose,
+    required final File target,
+    required final File link,
+    required final bool verbose,
   }) async {
     try {
       _ensureParentDir(link);
@@ -516,17 +531,20 @@ class MoveFilesStep extends ProcessingStep {
       }
 
       if (Platform.isWindows) {
-        final result = await Process.run(
-          'cmd',
-          ['/c', 'mklink', '/H', link.path, target.path],
-          runInShell: true,
-        );
+        final result = await Process.run('cmd', [
+          '/c',
+          'mklink',
+          '/H',
+          link.path,
+          target.path,
+        ], runInShell: true);
         if (result.exitCode == 0) {
           return true;
         } else {
           if (verbose) {
             print(
-                'mklink /H failed (${result.exitCode}): ${result.stderr ?? result.stdout}');
+              'mklink /H failed (${result.exitCode}): ${result.stderr ?? result.stdout}',
+            );
             print('Falling back to copy for Windows shortcut.');
           }
           target.copySync(link.path);
@@ -538,7 +556,9 @@ class MoveFilesStep extends ProcessingStep {
       }
     } catch (e) {
       if (verbose) {
-        print('Warning: Failed to create shortcut/link (${link.path} -> ${target.path}): $e');
+        print(
+          'Warning: Failed to create shortcut/link (${link.path} -> ${target.path}): $e',
+        );
       }
       return false;
     }
