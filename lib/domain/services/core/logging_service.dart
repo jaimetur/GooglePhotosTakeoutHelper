@@ -17,6 +17,9 @@ class LoggingService {
             !Platform.isWindows || Platform.environment['TERM'] != null,
       );
 
+  /// Test override for quit/exit to prevent actual process termination in tests
+  static void Function(int code)? testExitOverride;
+
   /// Whether verbose logging is enabled
   final bool isVerbose;
 
@@ -115,6 +118,13 @@ class LoggingService {
   ///
   /// [code] Exit code (default: 1)
   Never quit([final int code = 1]) {
+    // Allow tests to intercept exit to avoid terminating the test process
+    final override = testExitOverride;
+    if (override != null) {
+      override(code);
+      throw _LoggingTestExitException(code);
+    }
+
     if (Platform.environment['INTERACTIVE'] == 'true') {
       print(
         '[gpth ${code != 0 ? 'quitted :(' : 'finished :)'} (code $code) - '
@@ -160,4 +170,17 @@ mixin LoggerMixin {
   void logDebug(final String message, {final bool forcePrint = false}) {
     logger.debug(message, forcePrint: forcePrint);
   }
+}
+
+/// Exception thrown by quit when test override is active
+class _LoggingTestExitException implements Exception {
+  const _LoggingTestExitException(this.code);
+  final int code;
+
+  @override
+  String toString() =>
+      'Application attempted to quit with exit code $code. '
+      'This indicates a fatal error or completion condition was reached. '
+      'In production, this would terminate the application immediately. '
+      'Review the logs above for the specific reason for termination.';
 }

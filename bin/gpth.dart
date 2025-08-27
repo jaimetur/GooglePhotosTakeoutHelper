@@ -1,5 +1,6 @@
 // ignore_for_file: unintended_html_in_doc_comment
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/args.dart';
@@ -11,8 +12,45 @@ import 'package:gpth/domain/services/core/logging_service.dart';
 import 'package:gpth/domain/services/core/service_container.dart';
 import 'package:gpth/domain/services/user_interaction/path_resolver_service.dart';
 import 'package:gpth/presentation/interactive_presenter.dart';
+import 'package:gpth/shared/concurrency_manager.dart';
 import 'package:gpth/shared/constants.dart';
 import 'package:path/path.dart' as p;
+
+// Parses hidden test-only flags from argv, applies them, and returns a list
+// with those flags removed so ArgParser won't choke on unknown options.
+// Supported examples:
+//   --_test-standard-multiplier=2
+//   --_test-conservative-multiplier=4
+//   --_test-disk-optimized-multiplier=8
+List<String> _applyAndStripTestMultipliers(final List<String> args) {
+  final re = RegExp(r'^--_test-([a-z0-9-]+)=(\d+)$', caseSensitive: false);
+  final cleaned = <String>[];
+  for (final arg in args) {
+    final m = re.firstMatch(arg);
+    if (m == null) {
+      cleaned.add(arg);
+      continue;
+    }
+    final name = m.group(1)!.toLowerCase();
+    final val = int.tryParse(m.group(2)!);
+    if (val == null) continue; // silently ignore malformed
+    switch (name) {
+      case 'standard-multiplier':
+        ConcurrencyManager.setMultipliers(standard: val);
+        break;
+      case 'conservative-multiplier':
+        ConcurrencyManager.setMultipliers(conservative: val);
+        break;
+      case 'disk-optimized-multiplier':
+        ConcurrencyManager.setMultipliers(diskOptimized: val);
+        break;
+      default:
+        // Unknown hidden flag -> ignore (do not forward to parser)
+        break;
+    }
+  }
+  return cleaned;
+}
 
 /// ############################### GOOGLE PHOTOS TAKEOUT HELPER #############################
 ///
@@ -69,12 +107,14 @@ import 'package:path/path.dart' as p;
 Future<void> main(final List<String> arguments) async {
   // Initialize logger early with default settings
   _logger = LoggingService();
+  // Apply & strip hidden test-only concurrency multiplier flags before parsing normal args.
+  final parsedArguments = _applyAndStripTestMultipliers(arguments);
   try {
     // Initialize ServiceContainer early to support interactive mode during argument parsing
     await ServiceContainer.instance.initialize();
 
     // Parse command line arguments
-    final config = await _parseArguments(arguments);
+    final config = await _parseArguments(parsedArguments);
     if (config == null) {
       return; // Help was shown or other early exit
     }
@@ -87,6 +127,9 @@ Future<void> main(final List<String> arguments) async {
 
     // Configure dependencies with the parsed config
     await _configureDependencies(config);
+
+    // Load optional fileDates dictionary AFTER the second initialize
+    await _loadFileDatesIntoGlobalConfigFromArgs(parsedArguments);
 
     // Execute the processing pipeline
     final result = await _executeProcessing(config);
@@ -104,6 +147,48 @@ Future<void> main(final List<String> arguments) async {
 
 /// Global logger instance
 late LoggingService _logger;
+
+/// Print a helpful message and exit with given code.
+/// Uses stderr and the logger when available. Optionally shows an interactive
+/// prompt before exit when `showInteractivePrompt` is true and INTERACTIVE
+/// environment variable is set.
+///
+/// Exit codes:
+/// - 0: Success
+/// - 1: General failure/processing error
+/// - 11: Input validation error (folder doesn't exist, etc.)
+/// - Other codes: Specific error conditions
+Never _exitWithMessage(
+  final int code,
+  final String message, {
+  final bool showInteractivePrompt = false,
+}) {
+  final errorType = switch (code) {
+    0 => 'SUCCESS',
+    1 => 'PROCESSING_ERROR',
+    11 => 'INPUT_VALIDATION_ERROR',
+    _ => 'ERROR_CODE_$code',
+  };
+
+  final fullMessage = '[$errorType] $message';
+
+  try {
+    stderr.writeln(fullMessage);
+  } catch (_) {}
+  try {
+    // logger may not be set early in startup, guard against that
+    _logger.error(fullMessage);
+  } catch (_) {}
+
+  if (showInteractivePrompt && Platform.environment['INTERACTIVE'] == 'true') {
+    print(
+      '[gpth ${code != 0 ? 'quitted :(' : 'finished :)'} (code $code) - press enter to close]',
+    );
+    stdin.readLineSync();
+  }
+
+  exit(code);
+}
 
 /// **ARGUMENT PARSING & CONFIGURATION BUILDING**
 ///
@@ -141,7 +226,10 @@ Future<ProcessingConfig?> _parseArguments(final List<String> arguments) async {
     return await _buildConfigFromArgs(res);
   } on FormatException catch (e) {
     _logger.error('$e');
-    exit(2);
+    _exitWithMessage(
+      2,
+      'Argument parsing failed: ${e.toString()}. Run `gpth --help` for usage.',
+    );
   }
 }
 
@@ -220,6 +308,11 @@ ArgParser _createArgumentParser() => ArgParser()
   ..addFlag(
     'divide-partner-shared',
     help: 'Move partner shared media to separate folder (PARTNER_SHARED)',
+  )
+  // NEW: allow a JSON with precomputed dates
+  ..addOption(
+    'fileDates',
+    help: 'Path to a JSON file with a date dictionary (OldestDate per file)',
   );
 
 /// **HELP TEXT DISPLAY**
@@ -282,6 +375,10 @@ Future<ProcessingConfig> _buildConfigFromArgs(final ArgResults res) async {
       res['interactive'] || (res.arguments.isEmpty && stdin.hasTerminal);
   // Get input/output paths (interactive or from args)
   final paths = await _getInputOutputPaths(res, isInteractiveMode);
+
+  // NOTE: the --fileDates JSON is now loaded AFTER ServiceContainer re-init,
+  // inside _loadFileDatesIntoGlobalConfigFromArgs() in main(), to avoid being reset.
+
   // Build configuration using the builder pattern
   final configBuilder = ProcessingConfig.builder(
     inputPath: paths.inputPath,
@@ -486,7 +583,10 @@ Future<InputOutputPaths> _getInputOutputPaths(
         _logger.warning('');
         _logger.warning('Please restart the program with CLI options instead.');
         _logger.error('No input directory could be selected');
-        exit(2); // Use standard argument error exit code instead of 69
+        _exitWithMessage(
+          2,
+          'Interactive input directory selection failed. If you are running headless or on a NAS, run with CLI options: `gpth --input <path> --output <path>`',
+        );
       }
       print('');
       final out = await ServiceContainer.instance.interactiveService
@@ -498,21 +598,100 @@ Future<InputOutputPaths> _getInputOutputPaths(
     inputPath = inDir.path;
   }
 
+  // If running in non-interactive CLI mode and the provided input path
+  // points to a ZIP file or contains ZIP files, automatically extract them
+  // into a local `.gpth-unzipped` directory and use that as the input.
+  if (!isInteractiveMode && inputPath != null) {
+    try {
+      final provided = File(inputPath);
+      final Directory extractDir;
+      final List<File> zips = [];
+
+      if (await provided.exists() &&
+          provided.statSync().type == FileSystemEntityType.file &&
+          p.extension(provided.path).toLowerCase() == '.zip') {
+        // Single zip file provided as --input
+        zips.add(provided);
+        extractDir = Directory(
+          p.join(p.dirname(provided.path), '.gpth-unzipped'),
+        );
+      } else {
+        final providedDir = Directory(inputPath);
+        if (await providedDir.exists()) {
+          // Find zip files in directory (non-recursive)
+          for (final ent in providedDir.listSync()) {
+            if (ent is File && p.extension(ent.path).toLowerCase() == '.zip') {
+              zips.add(ent);
+            }
+          }
+        }
+        extractDir = Directory(p.join(inputPath, '.gpth-unzipped'));
+      }
+
+      if (zips.isNotEmpty) {
+        _logger.info(
+          'Detected ${zips.length} ZIP file(s) in input path - extracting before processing...',
+        );
+
+        // Compute rough required space and warn
+        var cumZipsSize = 0;
+        for (final z in zips) {
+          try {
+            cumZipsSize += z.lengthSync();
+          } catch (_) {}
+        }
+        final requiredSpace = (cumZipsSize * 2) + 256 * 1024 * 1024;
+        _logger.info(
+          'Estimated required temporary space for extraction: ${requiredSpace ~/ (1024 * 1024)} MB',
+        );
+
+        try {
+          await ServiceContainer.instance.interactiveService.extractAll(
+            zips,
+            extractDir,
+          );
+          inputPath = extractDir.path;
+          _logger.info(
+            'Extraction complete. Using extracted folder: $inputPath',
+          );
+        } catch (e) {
+          _logger.error('Automatic ZIP extraction failed: $e');
+          _exitWithMessage(
+            12,
+            'Automatic ZIP extraction failed: ${e.toString()}. Try extracting manually and run again with the extracted folder as --input.',
+          );
+        }
+      }
+    } catch (e) {
+      // Non-fatal: log and continue; failure here will be caught later by path resolution
+      _logger.warning('ZIP auto-detection/extraction encountered an error: $e');
+    }
+  }
+
   // Validate required paths
   if (inputPath == null) {
     _logger.error('No --input folder specified :/');
-    exit(10);
+    _exitWithMessage(
+      10,
+      'Missing required --input path. Provide --input <folder> or run interactive mode.',
+    );
   }
   if (outputPath == null) {
     _logger.error('No --output folder specified :/');
-    exit(10);
+    _exitWithMessage(
+      10,
+      'Missing required --output path. Provide --output <folder> or run interactive mode.',
+    );
   }
   // Resolve input path to Google Photos directory using the domain service
   try {
     inputPath = PathResolverService.resolveGooglePhotosPath(inputPath);
   } catch (e) {
     _logger.error('Path resolution failed: $e');
-    exit(12);
+    _exitWithMessage(
+      12,
+      'Could not resolve Google Photos directory from input path: ${e.toString()}. Make sure the folder contains a Takeout/Google Photos structure or pass the correct --input path.',
+    );
   }
 
   return InputOutputPaths(inputPath: inputPath, outputPath: outputPath);
@@ -562,6 +741,15 @@ Future<void> _configureDependencies(final ProcessingConfig config) async {
   } else {
     print('Exiftool not found! Continuing without EXIF support...');
   }
+
+  // EXTRA: let the user know if we have a file dates dictionary loaded
+  final dict = ServiceContainer.instance.globalConfig.fileDatesDictionary;
+  if (dict != null) {
+    _logger.info('fileDates dictionary is loaded with ${dict.length} entries.');
+  } else {
+    _logger.info('fileDates dictionary not loaded.');
+  }
+
   sleep(const Duration(seconds: 3));
 }
 
@@ -609,7 +797,7 @@ Future<ProcessingResult> _executeProcessing(
   // Validate directories
   if (!await inputDir.exists()) {
     _logger.error('Input folder does not exist :/');
-    exit(11);
+    _exitWithMessage(11, 'Input folder does not exist: ${inputDir.path}');
   }
   // Handle output directory cleanup if needed
   if (await outputDir.exists() &&
@@ -758,16 +946,84 @@ void _showResults(
   }
 
   final totalMinutes = result.totalProcessingTime.inMinutes;
-  print('In total the script took $totalMinutes minutes to complete');
+  print('In total GPTH took $totalMinutes minutes to complete');
 
-  print(
-    "Last thing - I've spent *a ton* of time on this script - \n"
-    'if I saved your time and you want to say thanks, you can send me a tip:\n'
-    'https://www.paypal.me/TheLastGimbus\n'
-    'https://ko-fi.com/thelastgimbus\n'
-    'Thank you ❤',
-  );
   print('=' * barWidth);
 
-  exit(result.isSuccess ? 0 : 1);
+  // Final exit with descriptive message based on processing result
+  final exitCode = result.isSuccess ? 0 : 1;
+  final exitMessage = result.isSuccess
+      ? 'Processing completed successfully'
+      : 'Processing completed with errors - check logs above for details';
+
+  if (!result.isSuccess) {
+    stderr.writeln('[PROCESSING_RESULT] $exitMessage');
+  } else {
+    print('[SUCCESS] $exitMessage');
+  }
+
+  exit(exitCode);
+}
+
+/// Helper to load the optional external dates dictionary into GlobalConfig
+/// after the ServiceContainer has been re-initialized with the final logger.
+Future<void> _loadFileDatesIntoGlobalConfigFromArgs(
+  final List<String> parsedArguments,
+) async {
+  try {
+    final parser = _createArgumentParser();
+    final res = parser.parse(parsedArguments);
+    final String? jsonPath = res['fileDates'] as String?;
+    if (jsonPath == null) {
+      _logger.info(
+        '--fileDates not provided; skipping external dictionary load.',
+        forcePrint: true,
+      );
+      return;
+    }
+
+    _logger.info(
+      'Attempting to load fileDates JSON from: $jsonPath',
+      forcePrint: true,
+    );
+
+    final file = File(jsonPath);
+    if (!await file.exists()) {
+      _logger.error(
+        'Failed to load fileDates JSON: file does not exist at "$jsonPath"',
+        forcePrint: true,
+      );
+      return;
+    }
+
+    final jsonString = await file.readAsString();
+    final dynamic raw = jsonDecode(jsonString);
+    if (raw is! Map<String, dynamic>) {
+      throw const FormatException(
+        'Top-level JSON must be an object/dictionary.',
+      );
+    }
+
+    // Ensure Map<String, Map<String, dynamic>>-like structure (skip non-map values)
+    final Map<String, Map<String, dynamic>> normalized = {};
+    raw.forEach((final k, final v) {
+      if (v is Map<String, dynamic>) {
+        normalized[k] = v;
+      } else if (v is Map) {
+        final m = <String, dynamic>{};
+        v.forEach((final kk, final vv) => m[kk.toString()] = vv);
+        normalized[k] = m;
+      } else {
+        // skip non-map entries
+      }
+    });
+
+    ServiceContainer.instance.globalConfig.fileDatesDictionary = normalized;
+    _logger.info(
+      'Loaded ${normalized.length} entries from $jsonPath',
+      forcePrint: true,
+    );
+  } catch (e) {
+    _logger.error('Failed to load fileDates JSON: $e', forcePrint: true);
+  }
 }

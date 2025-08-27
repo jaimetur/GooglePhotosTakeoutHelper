@@ -83,6 +83,9 @@ class JsonMovingStrategy extends MediaEntityMovingStrategy {
       );
       yield errorResult;
     }
+
+    // NEW: move non-primary physical files to _Duplicates preserving source structure
+    yield* _moveNonPrimaryFilesToDuplicates(entity, context);
   }
 
   @override
@@ -150,4 +153,106 @@ class JsonMovingStrategy extends MediaEntityMovingStrategy {
   void validateContext(final MovingContext context) {
     // No special validation needed for JSON mode
   }
+
+  // --- NEW helper: move all non-primary physical files to _Duplicates, preserving structure ---
+  Stream<MediaEntityMovingResult> _moveNonPrimaryFilesToDuplicates(
+    final MediaEntity entity,
+    final MovingContext context,
+  ) async* {
+    final duplicatesRoot = Directory(
+      '${context.outputDirectory.path}/_Duplicates',
+    );
+    final primaryPath = entity.primaryFile.path;
+    final allSources = entity.files.files.values
+        .map((final f) => f.path)
+        .toSet();
+
+    for (final srcPath in allSources) {
+      if (srcPath == primaryPath) continue;
+
+      final sourceFile = File(srcPath);
+      final relInfo = _computeDuplicatesRelativeInfo(srcPath);
+      final targetDir = Directory(
+        '${duplicatesRoot.path}/${relInfo.relativeDir}',
+      );
+      if (!targetDir.existsSync()) {
+        targetDir.createSync(recursive: true);
+      }
+
+      final sw = Stopwatch()..start();
+      try {
+        final moved = await _fileService.moveFile(
+          sourceFile,
+          targetDir,
+          dateTaken: entity.dateTaken,
+        );
+        sw.stop();
+        yield MediaEntityMovingResult.success(
+          operation: MediaEntityMovingOperation(
+            sourceFile: sourceFile,
+            targetDirectory: targetDir,
+            operationType: MediaEntityOperationType.move,
+            mediaEntity: entity,
+          ),
+          resultFile: moved,
+          duration: sw.elapsed,
+        );
+      } catch (e) {
+        sw.stop();
+        yield MediaEntityMovingResult.failure(
+          operation: MediaEntityMovingOperation(
+            sourceFile: sourceFile,
+            targetDirectory: targetDir,
+            operationType: MediaEntityOperationType.move,
+            mediaEntity: entity,
+          ),
+          errorMessage:
+              'Failed to move non-primary file to _Duplicates: $e (hint: ${relInfo.hint})',
+          duration: sw.elapsed,
+        );
+      }
+    }
+  }
+
+  _RelInfo _computeDuplicatesRelativeInfo(final String sourcePath) {
+    final normalized = sourcePath.replaceAll('\\', '/');
+    final lower = normalized.toLowerCase();
+
+    final idxTakeout = lower.indexOf('/takeout/');
+    if (idxTakeout >= 0) {
+      final rel = normalized.substring(idxTakeout + '/takeout/'.length);
+      final relDir = rel.contains('/')
+          ? rel.substring(0, rel.lastIndexOf('/'))
+          : '';
+      return _RelInfo(
+        relativeDir: relDir.isEmpty ? '.' : relDir,
+        hint: 'anchored by /Takeout/',
+      );
+    }
+
+    for (final anchor in const ['/google fotos/', '/google photos/']) {
+      final idx = lower.indexOf(anchor);
+      if (idx >= 0) {
+        final rel = normalized.substring(idx + anchor.length);
+        final relDir = rel.contains('/')
+            ? rel.substring(0, rel.lastIndexOf('/'))
+            : '';
+        return _RelInfo(
+          relativeDir: relDir.isEmpty ? '.' : relDir,
+          hint: 'anchored by $anchor',
+        );
+      }
+    }
+
+    final lastSlash = normalized.lastIndexOf('/');
+    final parent = lastSlash >= 0 ? normalized.substring(0, lastSlash) : '';
+    final leaf = parent.isEmpty ? 'Uncategorized' : parent.split('/').last;
+    return _RelInfo(relativeDir: leaf, hint: 'fallback: no anchor found');
+  }
+}
+
+class _RelInfo {
+  const _RelInfo({required this.relativeDir, required this.hint});
+  final String relativeDir;
+  final String hint;
 }

@@ -161,6 +161,7 @@ class WriteExifStep extends ProcessingStep {
     final stopwatch = Stopwatch()..start();
 
     try {
+      print('\n[Step 5/8] Starting EXIF data writing for ${context.mediaCollection.length} files (this may take a while)...');
       if (!context.config.writeExif) {
         stopwatch.stop();
         return StepResult.success(
@@ -180,7 +181,6 @@ class WriteExifStep extends ProcessingStep {
         width: 50,
       );
       final result = await context.mediaCollection.writeExifData(
-        performanceConfig: context.config.performanceConfig,
         onProgress: (final current, final total) {
           progressBar.update(current);
           if (current == total) {

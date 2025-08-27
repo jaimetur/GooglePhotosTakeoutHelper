@@ -38,7 +38,8 @@ abstract class MediaEntityMovingStrategy {
   Future<List<MediaEntityMovingResult>> finalize(
     final MovingContext context,
     final List<MediaEntity> processedEntities,
-  ) async => []; // Default: no finalization needed
+  ) async =>
+      []; // Default: no finalization needed
 
   /// Validates that this strategy can be used with the given context
   ///
@@ -99,23 +100,25 @@ class MediaEntityMovingResult {
     required final MediaEntityMovingOperation operation,
     required final File resultFile,
     required final Duration duration,
-  }) => MediaEntityMovingResult(
-    operation: operation,
-    resultFile: resultFile,
-    success: true,
-    duration: duration,
-  );
+  }) =>
+      MediaEntityMovingResult(
+        operation: operation,
+        resultFile: resultFile,
+        success: true,
+        duration: duration,
+      );
 
   factory MediaEntityMovingResult.failure({
     required final MediaEntityMovingOperation operation,
     required final String errorMessage,
     required final Duration duration,
-  }) => MediaEntityMovingResult(
-    operation: operation,
-    success: false,
-    errorMessage: errorMessage,
-    duration: duration,
-  );
+  }) =>
+      MediaEntityMovingResult(
+        operation: operation,
+        success: false,
+        errorMessage: errorMessage,
+        duration: duration,
+      );
 
   final MediaEntityMovingOperation operation;
   final File? resultFile;

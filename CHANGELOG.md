@@ -1,9 +1,89 @@
+## 4.3.0-Xentraxx
+
+### ✨ **New Features**
+
+  - New flag `--fileDates` to provide a JSON dictionary with the date per file to void reading it from EXIF when any file does not associated sidecar. (PhotoMigrator creates this file and can now be used by GPTH Tool).
+  - Improved log/print messages in all Steps.
+  - Added Move Files Summary to the log messages.
+  - Now Album's folders are moved into `Albums` folder and No-Album's files are moved into `ALL_PHOTOS` folder using the selected date organization.
+
+### 🚀 **Improvements**
+
+  - #### Step 4 (Extract Dates) & 5 (Write EXIF) Optimization
+    - ##### ⚡ Performance
+      - Step 4 (READ-EXIF) now uses batch reads and a fast native mode, with ExifTool only as fallback → about 3x faster metadata extraction.  
+      - Step 5 (WRITE-EXIF) supports batch writes and argfile mode, plus native JPEG writers → up to 5x faster on large collections.
+        - The function `writeExifData()` now accepts a parameter called `exifToolBatching` to Enable/Disable Batch processing with Exiftool.
+    - ##### 🔧 API
+      - Added batch write methods in `ExifToolService`.  
+      - Updated `MediaEntityCollection` to use new helpers for counting written tags.
+    - ##### 📊 Logging
+      - Statistics are clearer: calls, hits, misses, fallback attempts, timings.  
+      - Date, GPS, and combined writes are reported separately.  
+      - Removed extra blank lines for cleaner output.
+    - ##### 🧪 Testing
+      - Extended mocks with batch support and error simulation.  
+      - Added tests for GPS writing, batch operations, and non-image handling.
+    - ##### ✅ Benefits
+      - Much faster EXIF processing with less ExifTool overhead.  
+      - More reliable and structured API.  
+      - Logging is easier to read and interpret.  
+      - Stronger test coverage across edge cases.  
+
+  - #### Step 6 (Find Albums) Optimization
+    - ##### ⚡ Performance
+      - Replaced `_groupIdenticalMedia` with `_groupIdenticalMediaOptimized`.  
+        - Two-phase strategy:  
+          - First group by file **size** (cheap).  
+          - Only hash files that share the same size.  
+        - Switched from `readAsBytes()` (full memory load) to **streaming hashing** with `md5.bind(file.openRead())`.  
+        - Files are processed in **parallel batches** instead of sequentially.  
+        - Concurrency defaults to number of CPU cores, configurable via `maxConcurrent`.
+    - ##### 🔧 Implementation
+      - Added an in-memory **hash cache** keyed by `(path|size|mtime)` to avoid recalculating.  
+        - Introduced a custom **semaphore** to limit concurrent hashing and prevent I/O overload.  
+        - Errors are handled gracefully: unprocessable files go into dedicated groups without breaking the process.
+    - ##### ✅ Benefits
+      - Processing time reduced from **1m20s → 4s** on large collections.  
+        - Greatly reduced memory usage.  
+        - Scales better on multi-core systems.  
+        - More robust and fault-tolerant album detection.  
+
+### 🐛 **Bug Fixes**
+
+  - Handle per file exception in WriteExif Step. Now the flow continues if any file fails to write EXIF.
+  - Fixed interactive mode when asking to limit the file size.
+  - Show dictMiss files in log to see those files that have not been found in dates dictionary when it was passed as argument using --fileDates
+  - Fix missing JSON match when the length of the original JSON filename is higher than 51. Now try first with the full filename even if its length is longer than 51 chars, if not match, then try the different truncations variants.
+  - Fix Progress bar on Step 7: Move files. Now counts the number of real operations instead of number of move instances.
+  - Fixed some other silent exceptions.
+
+## 4.1.1-Xentraxx
+
+### 🐛 **Bug Fixes**
+
+  - **changed exif tags to be utilized** - Before we used the following lists of tags in this exact order to find a date to set: 
+    - Exiftool reading: 'DateTimeOriginal', 'MediaCreateDate', 'CreationDate', 'TrackCreateDate', 'CreateDate', 'DateTimeDigitized', 'GPSDateStamp' and 'DateTime'.
+    - Native dart exif reading: 'Image DateTime', 'EXIF DateTimeOriginal', 'EXIF DateTimeDigitized'.
+  Some of those values are prone to deliver wrong dates (e.g. DateTimeDigitized) and the order did not completely make sense.
+  We therefore now read those tags and the the oldest DateTime we can find:
+    - Exiftool reading: 'DateTimeOriginal','DateTime','CreateDate','DateCreated','CreationDate','MediaCreateDate','TrackCreateDate','EncodedDate','MetadataDate','ModifyDate'.
+    - Native dart exif reading: same as above.
+  - **Fixed typo in partner sharing** - Functionality was fundamentally broken due to a typo.
+  - **Fixed small bug in interactive mode in the options of the limit filezise dialogue**
+  - **Fixed unzipping through command line by automatically detecting if input directory contains zip files**
+
+### 🚀 **Improvements**
+
+  - **Improved non-zero exit code quitting behaviour** - Now with nice descriptive error messages because I was tired of looking up what is responsible for a certain exit code.
+  - **Standardized concurrency & logging** - All parallel operations now obtain limits exclusively through `ConcurrencyManager` / `GlobalPools` (hashing, EXIF extraction/writing, duplicate detection, grouping, moving, file I/O). Added consistent one-time or operation-start log lines like `Starting N threads (<operation> concurrency)`; removed deprecated `maxConcurrency` parameters and legacy random placeholder logic from `ProcessingLimits`. Lightweight operations (e.g. disk space checks) intentionally left sequential to avoid overhead.
+
 ## 4.1.0-Xentraxx - Bug Fixes and Performance Improvements
 
 ### ✨ **New Features**
 
 - **Partner Sharing Support** - Added `--divide-partner-shared` flag to separate partner shared media from personal uploads into dedicated `PARTNER_SHARED` folder (Issue #56)
-  - Automatically detects partner shared photos from JSON metadata (`googlePhotoOrigin.fromPartnerSharing`)
+  - Automatically detects partner shared photos from JSON metadata (`googlePhotosOrigin.fromPartnerSharing`)
   - Creates separate folder structure while maintaining date division and album organization
   - Works with all album handling modes (shortcut, duplicate-copy, reverse-shortcut, json, nothing)
   - Preserves album relationships for partner shared media
@@ -692,3 +772,5 @@ You get **_🔥FOUR🔥_** different options on how you want your albums 😱 - 
 - `--skip-extras-harder` is missing for now
 - `--divide-to-dates` is missing for now
 - End-to-end tests are gone, but they're not as required since we have a lod of Units instead 👍
+
+</details>

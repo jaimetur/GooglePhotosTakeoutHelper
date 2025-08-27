@@ -7,22 +7,19 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:coordinate_converter/coordinate_converter.dart';
-import 'package:gpth/domain/services/core/global_config_service.dart';
-import 'package:gpth/domain/services/core/logging_service.dart';
 import 'package:gpth/domain/services/metadata/exif_writer_service.dart';
 import 'package:gpth/infrastructure/exiftool_service.dart';
 import 'package:test/test.dart';
 
 import '../setup/test_setup.dart';
 
-/// Mock ExifTool service for testing
-class MockExifToolService with LoggerMixin implements ExifToolService {
+/// Mock ExifTool service for testing (extends concrete class)
+class MockExifToolService extends ExifToolService {
+  MockExifToolService() : super('/mock/path/exiftool');
+
   bool shouldFail = false;
   Map<String, dynamic>? lastWrittenData;
   File? lastWrittenFile;
-
-  @override
-  final String exiftoolPath = '/mock/path/exiftool';
 
   @override
   Future<void> writeExifData(
@@ -31,9 +28,35 @@ class MockExifToolService with LoggerMixin implements ExifToolService {
   ) async {
     lastWrittenFile = file;
     lastWrittenData = exifData;
-
     if (shouldFail) {
       throw Exception('Mock ExifTool failure');
+    }
+    // no-op success
+  }
+
+  @override
+  Future<void> writeExifDataBatch(
+    final List<MapEntry<File, Map<String, dynamic>>> batch,
+  ) async {
+    if (shouldFail) {
+      throw Exception('Mock ExifTool batch failure');
+    }
+    if (batch.isNotEmpty) {
+      lastWrittenFile = batch.last.key;
+      lastWrittenData = batch.last.value;
+    }
+  }
+
+  @override
+  Future<void> writeExifDataBatchViaArgFile(
+    final List<MapEntry<File, Map<String, dynamic>>> batch,
+  ) async {
+    if (shouldFail) {
+      throw Exception('Mock ExifTool argfile batch failure');
+    }
+    if (batch.isNotEmpty) {
+      lastWrittenFile = batch.last.key;
+      lastWrittenData = batch.last.value;
     }
   }
 
@@ -62,14 +85,12 @@ class MockExifToolService with LoggerMixin implements ExifToolService {
 
   @override
   Future<void> dispose() async {
-    // Mock cleanup
+    // no-op
   }
 }
 
 void main() {
-  /// Test helper for writing EXIF data to both file and JSON
-  ///
-  /// This was moved from the main service since it's only used in tests
+  /// Helper only used in this test: writes EXIF with exiftool and mirrors it to JSON
   Future<bool> writeExifDataWithJsonHelper(
     final ExifWriterService service,
     final ExifToolService exifTool,
@@ -78,17 +99,15 @@ void main() {
     final Map<String, dynamic> exifData,
   ) async {
     try {
-      // Write EXIF data to the media file
       await exifTool.writeExifData(file, exifData);
 
-      // Update the JSON file with the same data
       final jsonData = await jsonFile.readAsString();
       final Map<String, dynamic> jsonMap = jsonDecode(jsonData);
       jsonMap.addAll(exifData);
       await jsonFile.writeAsString(jsonEncode(jsonMap));
 
       return true;
-    } catch (e) {
+    } catch (_) {
       return false;
     }
   }
@@ -109,14 +128,18 @@ void main() {
       await fixture.tearDown();
     });
 
-    group('writeExifData', () {
+    group('writeTagsWithExifTool', () {
       test('returns true when exiftool succeeds', () async {
         final file = fixture.createImageWithExif('test.jpg');
         final exifData = {'DateTimeOriginal': '2023:01:01 12:00:00'};
 
         mockExifTool.shouldFail = false;
 
-        final result = await service.writeExifData(file, exifData);
+        final result = await service.writeTagsWithExifTool(
+          file,
+          exifData,
+          isDate: true,
+        );
 
         expect(result, isTrue);
         expect(mockExifTool.lastWrittenFile?.path, equals(file.path));
@@ -129,25 +152,33 @@ void main() {
 
         mockExifTool.shouldFail = true;
 
-        final result = await service.writeExifData(file, exifData);
+        final result = await service.writeTagsWithExifTool(
+          file,
+          exifData,
+          isDate: true,
+        );
 
         expect(result, isFalse);
       });
 
-      test('handles empty exif data', () async {
+      test('returns false when exif data is empty', () async {
         final file = fixture.createImageWithExif('test.jpg');
         final exifData = <String, dynamic>{};
 
         mockExifTool.shouldFail = false;
 
-        final result = await service.writeExifData(file, exifData);
+        final result = await service.writeTagsWithExifTool(
+          file,
+          exifData,
+          isDate: true,
+        );
 
-        expect(result, isTrue);
-        expect(mockExifTool.lastWrittenData, equals(exifData));
+        expect(result, isFalse);
+        expect(mockExifTool.lastWrittenData, isNull);
       });
     });
 
-    group('writeExifDataWithJson', () {
+    group('writeExifDataWithJson (helper)', () {
       test('writes to both file and JSON when successful', () async {
         final file = fixture.createImageWithExif('test.jpg');
         final jsonFile = fixture.createFile(
@@ -169,7 +200,6 @@ void main() {
         expect(result, isTrue);
         expect(mockExifTool.lastWrittenFile?.path, equals(file.path));
 
-        // Verify JSON was updated
         final updatedJson = await jsonFile.readAsString();
         final jsonMap = jsonDecode(updatedJson);
         expect(jsonMap['title'], equals('test'));
@@ -219,47 +249,35 @@ void main() {
       });
     });
 
-    group('writeDateTimeToExif', () {
-      test('handles datetime writing attempt', () async {
+    group('native JPEG writes', () {
+      test('writeDateTimeNativeJpeg returns bool', () async {
         final file = fixture.createImageWithExif('test.jpg');
         final dateTime = DateTime(2023, 1, 1, 12);
-        final globalConfig = GlobalConfigService();
 
         mockExifTool.shouldFail = false;
 
-        final result = await service.writeDateTimeToExif(
+        final result = await service.writeDateTimeNativeJpeg(
+          file,
           dateTime,
-          file,
-          globalConfig,
         );
 
-        // Note: This method has complex logic that may return false due to
-        // existing date checks, file format checks, etc.
         expect(result, isA<bool>());
       });
-    });
-    group('writeGpsToExif', () {
-      test('handles GPS coordinate writing attempt', () async {
+
+      test('writeGpsNativeJpeg returns bool', () async {
         final file = fixture.createImageWithExif('test.jpg');
-        // Create coordinates using DD first, then convert to DMS (same pattern as in the actual service)
-        final ddCoordinates = DDCoordinates(
-          latitude: 40.713,
-          longitude: -74.006,
-        );
+        final ddCoordinates = DDCoordinates(latitude: 40.713, longitude: -74.006);
         final coordinates = DMSCoordinates.fromDD(ddCoordinates);
-        final globalConfig = GlobalConfigService();
 
-        final result = await service.writeGpsToExif(
-          coordinates,
+        final result = await service.writeGpsNativeJpeg(
           file,
-          globalConfig,
+          coordinates,
         );
 
-        // Complex method that depends on file format and exiftool availability
         expect(result, isA<bool>());
       });
 
-      test('writes coordinates to image without existing GPS data', () async {
+      test('writeGpsNativeJpeg works on image without existing EXIF', () async {
         final file = fixture.createImageWithoutExif('no_gps.jpg');
         final coordinates = DMSCoordinates(
           latDegrees: 41,
@@ -271,88 +289,63 @@ void main() {
           latDirection: DirectionY.north,
           longDirection: DirectionX.east,
         );
-        final globalConfig = GlobalConfigService();
 
-        final result = await service.writeGpsToExif(
-          coordinates,
+        final result = await service.writeGpsNativeJpeg(
           file,
-          globalConfig,
+          coordinates,
         );
 
         expect(result, isA<bool>());
-        // Verify that the GPS writing attempt was logged
-        print('GPS coordinate writing result: $result');
-        print('Coordinates: ${coordinates.toString()}');
+        // Log for manual inspection in CI output
+        // ignore: avoid_print
+        print('GPS writing result: $result - ${coordinates.toString()}');
       });
 
-      test('handles different coordinate formats and directions', () async {
-        // Test coordinates in different hemispheres
-        final testCases = [
-          {
-            'name': 'Northern/Eastern coordinates',
-            'coordinates': DMSCoordinates(
-              latDegrees: 48,
-              latMinutes: 8,
-              latSeconds: 34.2,
-              longDegrees: 11,
-              longMinutes: 34,
-              longSeconds: 12.7,
-              latDirection: DirectionY.north,
-              longDirection: DirectionX.east,
-            ),
-          },
-          {
-            'name': 'Southern/Western coordinates',
-            'coordinates': DMSCoordinates(
-              latDegrees: 33,
-              latMinutes: 55,
-              latSeconds: 11.09,
-              longDegrees: 118,
-              longMinutes: 24,
-              longSeconds: 7.35,
-              latDirection: DirectionY.south,
-              longDirection: DirectionX.west,
-            ),
-          },
-          {
-            'name': 'Zero coordinates (edge case)',
-            'coordinates': DMSCoordinates(
-              latDegrees: 0,
-              latMinutes: 0,
-              latSeconds: 0,
-              longDegrees: 0,
-              longMinutes: 0,
-              longSeconds: 0,
-              latDirection: DirectionY.north,
-              longDirection: DirectionX.east,
-            ),
-          },
+      test('writeGpsNativeJpeg handles different hemispheres', () async {
+        final cases = [
+          DMSCoordinates(
+            latDegrees: 48,
+            latMinutes: 8,
+            latSeconds: 34.2,
+            longDegrees: 11,
+            longMinutes: 34,
+            longSeconds: 12.7,
+            latDirection: DirectionY.north,
+            longDirection: DirectionX.east,
+          ),
+          DMSCoordinates(
+            latDegrees: 33,
+            latMinutes: 55,
+            latSeconds: 11.09,
+            longDegrees: 118,
+            longMinutes: 24,
+            longSeconds: 7.35,
+            latDirection: DirectionY.south,
+            longDirection: DirectionX.west,
+          ),
+          DMSCoordinates(
+            latDegrees: 0,
+            latMinutes: 0,
+            latSeconds: 0,
+            longDegrees: 0,
+            longMinutes: 0,
+            longSeconds: 0,
+            latDirection: DirectionY.north,
+            longDirection: DirectionX.east,
+          ),
         ];
 
-        for (final testCase in testCases) {
-          final file = fixture.createImageWithoutExif(
-            '${testCase['name']}.jpg',
-          );
-          final coordinates = testCase['coordinates'] as DMSCoordinates;
-          final globalConfig = GlobalConfigService();
-
-          final result = await service.writeGpsToExif(
-            coordinates,
-            file,
-            globalConfig,
-          );
-
-          expect(result, isA<bool>(), reason: 'Failed for ${testCase['name']}');
-          print('✓ ${testCase['name']}: ${coordinates.toString()}');
+        for (final coords in cases) {
+          final file = fixture.createImageWithoutExif('case_${coords.hashCode}.jpg');
+          final ok = await service.writeGpsNativeJpeg(file, coords);
+          expect(ok, isA<bool>());
+          // ignore: avoid_print
+          print('✓ GPS case ${coords.hashCode}: ${coords.toString()}');
         }
       });
 
-      test('handles error cases gracefully', () async {
-        final file = fixture.createFile('invalid.txt', [
-          1,
-          2,
-          3,
-        ]); // Non-image file
+      test('writeGpsNativeJpeg returns false on non-image', () async {
+        final file = fixture.createFile('invalid.txt', [1, 2, 3]); // Non-image
         final coordinates = DMSCoordinates(
           latDegrees: 40,
           latMinutes: 42,
@@ -363,30 +356,30 @@ void main() {
           latDirection: DirectionY.north,
           longDirection: DirectionX.west,
         );
-        final globalConfig = GlobalConfigService();
 
-        final result = await service.writeGpsToExif(
-          coordinates,
+        final result = await service.writeGpsNativeJpeg(
           file,
-          globalConfig,
+          coordinates,
         );
 
-        // Should return false for unsupported file types
         expect(result, isFalse);
-        print('✓ Correctly handled unsupported file type');
       });
     });
 
     group('error handling', () {
-      test('handles exiftool errors gracefully', () async {
+      test('exiftool write error bubbles as false in high-level wrapper', () async {
         final file = fixture.createImageWithExif('test.jpg');
         final exifData = {'DateTimeOriginal': '2023:01:01 12:00:00'};
 
         mockExifTool.shouldFail = true;
 
-        final result = await service.writeExifData(file, exifData);
+        final ok = await service.writeTagsWithExifTool(
+          file,
+          exifData,
+          isDate: true,
+        );
 
-        expect(result, isFalse);
+        expect(ok, isFalse);
       });
     });
   });

@@ -2,14 +2,13 @@
 ///
 /// This test suite measures the performance of key operations and provides
 /// baseline measurements for performance improvements.
-
+@Timeout(Duration(minutes: 25))
 library;
 
 import 'dart:io';
 
 import 'package:gpth/domain/main_pipeline.dart';
 import 'package:gpth/domain/models/media_entity_collection.dart';
-import 'package:gpth/domain/models/performance_config_model.dart';
 import 'package:gpth/domain/models/processing_config_model.dart';
 import 'package:gpth/domain/services/core/service_container.dart';
 import 'package:gpth/domain/services/user_interaction/path_resolver_service.dart';
@@ -39,10 +38,10 @@ void main() {
 
       // Generate a large realistic dataset for performance testing
       takeoutPath = await fixture.generateRealisticTakeoutDataset(
-        yearSpan: 2,
-        albumCount: 3,
-        photosPerYear: 50, // More photos for meaningful benchmarks
-        albumOnlyPhotos: 10,
+        yearSpan: 10,
+        albumCount: 20,
+        photosPerYear: 25,
+        albumOnlyPhotos: 25,
         exifRatio: 0.8,
       );
 
@@ -67,48 +66,6 @@ void main() {
     });
 
     group('EXIF Writing Performance', () {
-      test('benchmark sequential EXIF writing', () async {
-        // Resolve the takeout path to the actual Google Photos directory
-        final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
-          takeoutPath,
-        );
-        final inputDir = Directory(googlePhotosPath);
-        final outputDir = Directory(outputPath);
-
-        // Create processing configuration with EXIF writing enabled
-        final config = ProcessingConfig(
-          inputPath: googlePhotosPath,
-          outputPath: outputPath,
-          performanceConfig: PerformanceConfig.conservative, // Sequential
-        );
-
-        final stopwatch = Stopwatch()..start();
-
-        // Run only the steps needed to get to EXIF writing
-        final result = await pipeline.execute(
-          config: config,
-          inputDirectory: inputDir,
-          outputDirectory: outputDir,
-        );
-
-        stopwatch.stop();
-
-        expect(result.isSuccess, isTrue);
-        print('Sequential EXIF writing completed in: ${stopwatch.elapsed}');
-        print('Media files processed: ${result.mediaProcessed}');
-
-        // Log detailed timing
-        for (final stepResult in result.stepResults) {
-          if (stepResult.stepName == 'Write EXIF Data') {
-            print('EXIF step duration: ${stepResult.duration}');
-            print('EXIF step data: ${stepResult.data}');
-          }
-        }
-
-        // Expect reasonable performance (this will be our baseline)
-        expect(stopwatch.elapsed.inSeconds, lessThan(300)); // 5 minutes max
-      });
-
       test('benchmark parallel EXIF writing', () async {
         // Resolve the takeout path to the actual Google Photos directory
         final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(

@@ -402,9 +402,8 @@ class MockMediaHashService implements MediaHashService {
 
   @override
   Future<Map<String, String>> calculateMultipleHashes(
-    final List<File> files, {
-    final int? maxConcurrency,
-  }) async {
+    final List<File> files,
+  ) async {
     final results = <String, String>{};
     for (final file in files) {
       try {
@@ -430,10 +429,7 @@ class MockMediaHashService implements MediaHashService {
 
   @override
   Future<List<({String path, String hash, int size, bool success})>>
-  calculateHashAndSizeBatch(
-    final List<File> files, {
-    final int? maxConcurrency,
-  }) async {
+  calculateHashAndSizeBatch(final List<File> files) async {
     final results = <({String path, String hash, int size, bool success})>[];
     for (final file in files) {
       try {

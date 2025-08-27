@@ -7,7 +7,7 @@
 /// 4. Pipeline step-by-step verification
 
 // ignore_for_file: avoid_redundant_argument_values
-
+@Timeout(Duration(seconds: 120))
 library;
 
 import 'dart:convert';
@@ -46,6 +46,7 @@ void main() {
         photosPerYear: 5,
         albumOnlyPhotos: 2,
         exifRatio: 0.6,
+        includeRawSamples: true,
       );
 
       // Create unique output path for each test
@@ -303,13 +304,29 @@ void main() {
 
         // Verify JSON content
         final jsonContent = await albumJsonFile.readAsString();
-        final albumData = jsonDecode(jsonContent) as Map<String, dynamic>;
+        final root = jsonDecode(jsonContent) as Map<String, dynamic>;
+
+        // New structure: { "albums": { albumName: [files...] }, "metadata": {...} }
         expect(
-          result
-              .duplicatesRemoved, // There might not be an albums count in result
-          equals(albumData.keys.length),
-          reason: 'Result should reflect album processing',
+          root.containsKey('albums'),
+          isTrue,
+          reason: 'albums key should exist in JSON structure',
         );
+        final albums = root['albums'] as Map<String, dynamic>;
+        expect(albums, isNotEmpty, reason: 'Should contain at least one album');
+
+        for (final entry in albums.entries) {
+          expect(
+            entry.value,
+            isA<List<dynamic>>(),
+            reason: 'Album ${entry.key} should map to a list of media items',
+          );
+          expect(
+            (entry.value as List).length,
+            greaterThan(0),
+            reason: 'Album ${entry.key} should contain media',
+          );
+        }
       });
       test('result should accurately count moved vs copied files', () async {
         final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(
@@ -332,23 +349,38 @@ void main() {
 
         expect(result.isSuccess, isTrue);
 
-        // Count output files
+        // Count output media files (include RAW formats now present when includeRawSamples=true)
+        final mediaExtensions = [
+          '.jpg',
+          '.jpeg',
+          '.png',
+          '.cr2',
+          '.raf',
+          '.nef',
+          '.arw',
+          '.rw2',
+          '.dng',
+        ];
         final outputFiles = await Directory(outputPath)
             .list(recursive: true)
             .where(
               (final entity) =>
                   entity is File &&
-                  (entity.path.endsWith('.jpg') ||
-                      entity.path.endsWith('.png')),
+                  mediaExtensions.any(
+                    (final ext) => entity.path.toLowerCase().endsWith(ext),
+                  ),
             )
             .toList();
 
-        // In nothing mode, the result.mediaProcessed should match the actual files moved
+        // In nothing mode, ALL media (after duplicate removal) should be physically moved to output.
+        // Therefore mediaProcessed must match the number of media files we detect in output exactly.
+        expect(outputFiles.length, greaterThan(0));
         expect(
           outputFiles.length,
           equals(result.mediaProcessed),
-          reason: 'Output files should match the number reported as processed',
-        ); // Verify that files were processed successfully
+          reason:
+              'Output media file count (${outputFiles.length}) must equal reported processed (${result.mediaProcessed}).',
+        );
         // Note: With album merging, some files may remain in original location
         // while unique versions are moved to output
         expect(
@@ -414,6 +446,7 @@ void main() {
           photosPerYear: 20,
           albumOnlyPhotos: 5,
           exifRatio: 0.8,
+          includeRawSamples: true,
         );
 
         final googlePhotosPath = PathResolverService.resolveGooglePhotosPath(

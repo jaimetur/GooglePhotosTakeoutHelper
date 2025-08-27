@@ -91,18 +91,28 @@ void main() {
         expect(modTime.day, equals(15));
       });
 
-      test('setFileTimestamp handles Windows date limitations', () async {
-        final file = fixture.createFile('test.jpg', [1, 2, 3]);
-        final earlyTimestamp = DateTime(1960); // Before 1970
+      test(
+        'setFileTimestamp handles Windows date limitations',
+        () async {
+          final file = fixture.createFile('test.jpg', [1, 2, 3]);
+          final earlyTimestamp = DateTime(1960); // Before 1970
 
-        // Should not throw and should adjust to 1970 on Windows
-        await service.setFileTimestamp(file, earlyTimestamp);
+          // Should not throw and should adjust to 1970 on Windows
+          await service.setFileTimestamp(file, earlyTimestamp);
 
-        final modTime = await file.lastModified();
-        if (Platform.isWindows) {
-          expect(modTime.year, greaterThanOrEqualTo(1970));
-        }
-      });
+          final modTime = await file.lastModified();
+          if (Platform.isWindows) {
+            expect(modTime.year, greaterThanOrEqualTo(1970));
+          } else {
+            // On non-Windows platforms we just assert the file still exists; some
+            // *nix filesystems may not support negative (pre-epoch) mtimes reliably.
+            expect(file.existsSync(), isTrue);
+          }
+        },
+        skip: !Platform.isWindows
+            ? 'Windows-specific behavior (date clamped to >= 1970)'
+            : null,
+      );
 
       test(
         'ensureDirectoryExists creates directory if it does not exist',

@@ -3,7 +3,7 @@
 /// This test file uses generateRealisticTakeoutDataset() to create comprehensive
 /// test scenarios that closely mirror real-world Google Photos exports.
 // ignore_for_file: avoid_redundant_argument_values
-
+@Timeout(Duration(seconds: 120))
 library;
 
 import 'dart:io';
@@ -42,6 +42,7 @@ void main() {
         photosPerYear: 10,
         albumOnlyPhotos: 3,
         exifRatio: 0.7,
+        includeRawSamples: true,
       );
 
       // Create unique output path for each test
@@ -558,6 +559,7 @@ void main() {
         photosPerYear: 20,
         albumOnlyPhotos: 10,
         exifRatio: 0.8,
+        includeRawSamples: true,
       );
 
       final largeOutputPath = p.join(fixture.basePath, 'large_output');
@@ -600,14 +602,17 @@ void main() {
       expect(
         outputFiles.length,
         greaterThan(50),
-        reason: 'Should process large number of files',
+        reason:
+            'Large dataset output size too small. Expected > 50 JPGs. Actual: ${outputFiles.length}\nFiles sample: ${outputFiles.take(10).map((final f) => p.basename(f.path)).toList()}',
       );
 
-      // Performance should be reasonable (adjust threshold as needed)
+      // Performance should be reasonable; provide detailed diagnostics on failure
+      const thresholdMs = 60000; // 60s baseline
       expect(
-        stopwatch.elapsedMilliseconds,
-        lessThan(60000),
-        reason: 'Processing should complete within reasonable time',
+        stopwatch.elapsedMilliseconds < thresholdMs,
+        isTrue,
+        reason:
+            'Performance threshold exceeded. Elapsed: ${stopwatch.elapsedMilliseconds}ms (threshold: ${thresholdMs}ms)\nInput: $largeGooglePhotosPath\nOutput: $largeOutputPath\nProcessed JPG count: ${outputFiles.length}',
       );
     });
     test('should actually move files in move mode (move logic verification)', () async {

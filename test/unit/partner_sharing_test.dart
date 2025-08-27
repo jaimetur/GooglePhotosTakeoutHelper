@@ -32,7 +32,7 @@ void main() {
               'timestamp': '1609459200',
               'formatted': '01.01.2021, 00:00:00 UTC',
             },
-            'googlePhotoOrigin': {'fromPartnerSharing': {}},
+            'googlePhotosOrigin': {'fromPartnerSharing': {}},
             'url': 'https://photos.google.com/photo/partner_shared_photo',
           }),
         );
@@ -55,7 +55,7 @@ void main() {
               'timestamp': '1609459200',
               'formatted': '01.01.2021, 00:00:00 UTC',
             },
-            'googlePhotoOrigin': {
+            'googlePhotosOrigin': {
               'mobileUpload': {
                 'deviceFolder': {'localFolderName': ''},
                 'deviceType': 'ANDROID_PHONE',
@@ -80,7 +80,7 @@ void main() {
         expect(isPartnerShared, isFalse);
       });
 
-      test('returns false when JSON has no googlePhotoOrigin', () async {
+      test('returns false when JSON has no googlePhotosOrigin', () async {
         final imageFile = fixture.createImageWithoutExif('no_origin.jpg');
         final jsonFile = File('${imageFile.path}.json');
 

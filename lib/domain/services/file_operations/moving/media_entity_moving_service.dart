@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:collection';
+import 'dart:io';
 
 import '../../../models/media_entity_collection.dart';
 import 'file_operation_service.dart';
@@ -35,6 +36,13 @@ class MediaEntityMovingService {
 
   final MediaEntityMovingStrategyFactory _strategyFactory;
 
+  // Keeps the last full set of results for verification/reporting purposes
+  final List<MediaEntityMovingResult> _lastResults = [];
+
+  /// Expose an immutable view of the last results after a run
+  List<MediaEntityMovingResult> get lastResults =>
+      List.unmodifiable(_lastResults);
+
   /// Moves media entities according to the provided context
   ///
   /// [entityCollection] Collection of media entities to process
@@ -44,6 +52,9 @@ class MediaEntityMovingService {
     final MediaEntityCollection entityCollection,
     final MovingContext context,
   ) async* {
+    // Reset previous results
+    _lastResults.clear();
+
     // Create the appropriate strategy for the album behavior
     final strategy = _strategyFactory.createStrategy(context.albumBehavior);
 
@@ -55,13 +66,43 @@ class MediaEntityMovingService {
 
     // Process each media entity
     for (final entity in entityCollection.entities) {
+      // Track which source files got an emitted operation by the strategy
+      final expectedSources = entity.files.files.values
+          .map((final f) => f.path)
+          .toSet(); // all source paths in the entity
+      final coveredSources = <String>{};
+
       await for (final result in strategy.processMediaEntity(entity, context)) {
         allResults.add(result);
+        coveredSources.add(result.operation.sourceFile.path);
 
         if (!result.success && context.verbose) {
           _logError(result);
         } else if (context.verbose) {
           _logResult(result);
+        }
+      }
+
+      // Inject synthetic failures for files with no emitted operation
+      final missing = expectedSources.difference(coveredSources);
+      if (missing.isNotEmpty) {
+        for (final missingPath in missing) {
+          final syntheticOp = MediaEntityMovingOperation(
+            sourceFile: File(missingPath),
+            targetDirectory: Directory(context.outputDirectory.path),
+            operationType: MediaEntityOperationType.move, // nominal intent
+            mediaEntity: entity,
+          );
+          final synthetic = MediaEntityMovingResult.failure(
+            operation: syntheticOp,
+            errorMessage:
+                'No operation emitted by strategy for this source file',
+            duration: Duration.zero,
+          );
+          allResults.add(synthetic);
+          if (context.verbose) {
+            _logError(synthetic);
+          }
         }
       }
 
@@ -90,10 +131,13 @@ class MediaEntityMovingService {
       }
     }
 
-    // Print summary if verbose
-    if (context.verbose) {
-      _printSummary(allResults, strategy);
-    }
+    // Store results for external verification (MoveFilesStep)
+    _lastResults
+      ..clear()
+      ..addAll(allResults);
+
+    // Print summary
+    _printSummary(allResults, strategy);
   }
 
   /// High-performance parallel media moving with batched operations
@@ -106,6 +150,9 @@ class MediaEntityMovingService {
     final int maxConcurrent = 10,
     final int batchSize = 100,
   }) async* {
+    // Reset previous results
+    _lastResults.clear();
+
     final strategy = _strategyFactory.createStrategy(context.albumBehavior);
     strategy.validateContext(context);
 
@@ -126,13 +173,42 @@ class MediaEntityMovingService {
           semaphore.acquire().then((_) async {
             try {
               final results = <MediaEntityMovingResult>[];
+              final expectedSources = entity.files.files.values
+                  .map((final f) => f.path)
+                  .toSet();
+              final coveredSources = <String>{};
+
               // ignore: prefer_foreach
               await for (final result in strategy.processMediaEntity(
                 entity,
                 context,
               )) {
                 results.add(result);
+                coveredSources.add(result.operation.sourceFile.path);
               }
+
+              // Inject synthetic failures for files with no emitted operation
+              final missing = expectedSources.difference(coveredSources);
+              if (missing.isNotEmpty) {
+                for (final missingPath in missing) {
+                  results.add(
+                    MediaEntityMovingResult.failure(
+                      operation: MediaEntityMovingOperation(
+                        sourceFile: File(missingPath),
+                        targetDirectory: Directory(
+                          context.outputDirectory.path,
+                        ),
+                        operationType: MediaEntityOperationType.move,
+                        mediaEntity: entity,
+                      ),
+                      errorMessage:
+                          'No operation emitted by strategy for this source file',
+                      duration: Duration.zero,
+                    ),
+                  );
+                }
+              }
+
               return results;
             } finally {
               semaphore.release();
@@ -155,9 +231,13 @@ class MediaEntityMovingService {
     final finalizationResults = await strategy.finalize(context, entities);
     allResults.addAll(finalizationResults);
 
-    if (context.verbose) {
-      _printSummary(allResults, strategy);
-    }
+    // Store results for external verification (MoveFilesStep)
+    _lastResults
+      ..clear()
+      ..addAll(allResults);
+
+    // Print summary
+    _printSummary(allResults, strategy);
   }
 
   void _logResult(final MediaEntityMovingResult result) {
@@ -183,23 +263,62 @@ class MediaEntityMovingService {
     final List<MediaEntityMovingResult> results,
     final MediaEntityMovingStrategy strategy,
   ) {
-    final successful = results.where((final r) => r.success).length;
-    final failed = results.where((final r) => !r.success).length;
+    int primaryMoves = 0;
+    int duplicateMoves = 0;
+    int symlinksCreated = 0;
+    int failures = 0;
+
+    for (final r in results) {
+      if (!r.success) {
+        failures++;
+        continue;
+      }
+
+      switch (r.operation.operationType) {
+        case MediaEntityOperationType.move:
+          final src = r.operation.sourceFile.path
+              .replaceAll('\\', '/')
+              .toLowerCase();
+          final prim = r.operation.mediaEntity.primaryFile.path
+              .replaceAll('\\', '/')
+              .toLowerCase();
+          if (src == prim) {
+            primaryMoves++;
+          } else {
+            duplicateMoves++;
+          }
+          break;
+        case MediaEntityOperationType.createSymlink:
+        case MediaEntityOperationType.createReverseSymlink:
+          symlinksCreated++;
+          break;
+        case MediaEntityOperationType.copy:
+          // Not requested for display, ignore in headline counts
+          break;
+        case MediaEntityOperationType.createJsonReference:
+          // Not requested for display
+          break;
+      }
+    }
+
+    final totalOps = results.length;
 
     print('\n=== Moving Summary (${strategy.name}) ===');
-    print('Successful operations: $successful');
-    print('Failed operations: $failed');
-    print('Total operations: ${results.length}');
+    print('Primary files moved: $primaryMoves');
+    print('Duplicate files moved: $duplicateMoves');
+    print('Symlinks created: $symlinksCreated');
+    print('Failures: $failures');
+    print('Total operations: $totalOps');
 
-    if (failed > 0) {
+    if (failures > 0) {
       print('\nErrors encountered:');
       results.where((final r) => !r.success).take(5).forEach((final result) {
         print(
           '  • ${result.operation.sourceFile.path}: ${result.errorMessage}',
         );
       });
-      if (failed > 5) {
-        print('  ... and ${failed - 5} more errors');
+      if (failures > 5) {
+        print('  ... and ${failures - 5} more errors');
       }
     }
   }

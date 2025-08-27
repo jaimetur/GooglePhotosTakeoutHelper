@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import '../../../../entities/media_entity.dart';
 import '../file_operation_service.dart';
 import '../moving_context_model.dart';
@@ -28,39 +30,77 @@ class DuplicateCopyMovingStrategy extends MediaEntityMovingStrategy {
     final MediaEntity entity,
     final MovingContext context,
   ) async* {
-    final results = <MediaEntityMovingResult>[];
-
-    // Step 1: Move primary file to ALL_PHOTOS (or PARTNER_SHARED)
-    final primaryFile = entity.primaryFile;
+    // Step 1: Ensure we have (or create) the primary canonical file in ALL_PHOTOS (or PARTNER_SHARED)
+    final originalPrimaryFile = entity.primaryFile;
     final allPhotosDir = _pathService.generateTargetDirectory(
       null, // null = ALL_PHOTOS or PARTNER_SHARED
       entity.dateTaken,
       context,
       isPartnerShared: entity.partnershared,
     );
+
+    // If the original file physically resides inside one of the album folders that we will later populate,
+    // we must MOVE it to the canonical ALL_PHOTOS folder instead of copying it, otherwise the original
+    // remains and causes leftover files. Heuristic: if its path contains any of the album directory target paths.
+    File canonicalFile = originalPrimaryFile;
+    // Track canonical file; no need for additional collections here.
     final stopwatch = Stopwatch()..start();
     try {
-      final movedFile = await _fileService.moveFile(
-        primaryFile,
-        allPhotosDir,
-        dateTaken: entity.dateTaken,
-      );
+      if (entity.albumNames.isNotEmpty) {
+        // Pre-generate album directories to test path containment cheaply
+        final albumDirs = <String, Directory>{};
+        for (final albumName in entity.albumNames) {
+          final dir = _pathService.generateTargetDirectory(
+            albumName,
+            entity.dateTaken,
+            context,
+            isPartnerShared: entity.partnershared,
+          );
+          albumDirs[albumName] = dir;
+        }
+
+        final originalPathLower = originalPrimaryFile.path.toLowerCase();
+        final isInsideAlbum = albumDirs.values.any(
+          (final d) => originalPathLower.startsWith(d.path.toLowerCase()),
+        );
+
+        if (isInsideAlbum) {
+          // Move the file out to canonical location
+          canonicalFile = await _fileService.moveFile(
+            originalPrimaryFile,
+            allPhotosDir,
+            dateTaken: entity.dateTaken,
+          );
+        } else {
+          // Regular flow: move (rename) into ALL_PHOTOS (if already there rename handles uniqueness)
+          canonicalFile = await _fileService.moveFile(
+            originalPrimaryFile,
+            allPhotosDir,
+            dateTaken: entity.dateTaken,
+          );
+        }
+      } else {
+        // No albums: just move
+        canonicalFile = await _fileService.moveFile(
+          originalPrimaryFile,
+          allPhotosDir,
+          dateTaken: entity.dateTaken,
+        );
+      }
 
       stopwatch.stop();
-      final primaryResult = MediaEntityMovingResult.success(
+      yield MediaEntityMovingResult.success(
         operation: MediaEntityMovingOperation(
-          sourceFile: primaryFile,
+          sourceFile: originalPrimaryFile,
           targetDirectory: allPhotosDir,
           operationType: MediaEntityOperationType.move,
           mediaEntity: entity,
         ),
-        resultFile: movedFile,
+        resultFile: canonicalFile,
         duration: stopwatch.elapsed,
       );
-      results.add(primaryResult);
-      yield primaryResult;
 
-      // Step 2: Copy file to each album folder
+      // Step 2: For each album, ensure a copy exists (unless the original file was already there and moved)
       for (final albumName in entity.albumNames) {
         final albumDir = _pathService.generateTargetDirectory(
           albumName,
@@ -72,15 +112,14 @@ class DuplicateCopyMovingStrategy extends MediaEntityMovingStrategy {
         final copyStopwatch = Stopwatch()..start();
         try {
           final copiedFile = await _fileService.copyFile(
-            movedFile,
+            canonicalFile,
             albumDir,
             dateTaken: entity.dateTaken,
           );
-
           copyStopwatch.stop();
-          final copyResult = MediaEntityMovingResult.success(
+          yield MediaEntityMovingResult.success(
             operation: MediaEntityMovingOperation(
-              sourceFile: movedFile,
+              sourceFile: canonicalFile,
               targetDirectory: albumDir,
               operationType: MediaEntityOperationType.copy,
               mediaEntity: entity,
@@ -89,13 +128,11 @@ class DuplicateCopyMovingStrategy extends MediaEntityMovingStrategy {
             resultFile: copiedFile,
             duration: copyStopwatch.elapsed,
           );
-          results.add(copyResult);
-          yield copyResult;
         } catch (e) {
           copyStopwatch.stop();
-          final errorResult = MediaEntityMovingResult.failure(
+          yield MediaEntityMovingResult.failure(
             operation: MediaEntityMovingOperation(
-              sourceFile: movedFile,
+              sourceFile: canonicalFile,
               targetDirectory: albumDir,
               operationType: MediaEntityOperationType.copy,
               mediaEntity: entity,
@@ -104,29 +141,131 @@ class DuplicateCopyMovingStrategy extends MediaEntityMovingStrategy {
             errorMessage: 'Failed to copy to album folder: $e',
             duration: copyStopwatch.elapsed,
           );
-          results.add(errorResult);
-          yield errorResult;
         }
       }
     } catch (e) {
       stopwatch.stop();
-      final errorResult = MediaEntityMovingResult.failure(
+      yield MediaEntityMovingResult.failure(
         operation: MediaEntityMovingOperation(
-          sourceFile: primaryFile,
+          sourceFile: originalPrimaryFile,
           targetDirectory: allPhotosDir,
           operationType: MediaEntityOperationType.move,
           mediaEntity: entity,
         ),
-        errorMessage: 'Failed to move primary file: $e',
+        errorMessage: 'Failed to establish canonical file: $e',
         duration: stopwatch.elapsed,
       );
-      results.add(errorResult);
-      yield errorResult;
     }
+
+    // NEW: move non-primary physical files to _Duplicates preserving source structure
+    yield* _moveNonPrimaryFilesToDuplicates(entity, context);
   }
 
   @override
   void validateContext(final MovingContext context) {
     // No special validation needed for duplicate-copy strategy
   }
+
+  // --- NEW helper: move all non-primary physical files to _Duplicates, preserving structure ---
+  Stream<MediaEntityMovingResult> _moveNonPrimaryFilesToDuplicates(
+    final MediaEntity entity,
+    final MovingContext context,
+  ) async* {
+    final duplicatesRoot = Directory(
+      '${context.outputDirectory.path}/_Duplicates',
+    );
+    final primaryPath = entity.primaryFile.path;
+    final allSources = entity.files.files.values
+        .map((final f) => f.path)
+        .toSet();
+
+    for (final srcPath in allSources) {
+      if (srcPath == primaryPath) continue;
+
+      final sourceFile = File(srcPath);
+      final relInfo = _computeDuplicatesRelativeInfo(srcPath);
+      final targetDir = Directory(
+        '${duplicatesRoot.path}/${relInfo.relativeDir}',
+      );
+      if (!targetDir.existsSync()) {
+        targetDir.createSync(recursive: true);
+      }
+
+      final sw = Stopwatch()..start();
+      try {
+        final moved = await _fileService.moveFile(
+          sourceFile,
+          targetDir,
+          dateTaken: entity.dateTaken,
+        );
+        sw.stop();
+        yield MediaEntityMovingResult.success(
+          operation: MediaEntityMovingOperation(
+            sourceFile: sourceFile,
+            targetDirectory: targetDir,
+            operationType: MediaEntityOperationType.move,
+            mediaEntity: entity,
+          ),
+          resultFile: moved,
+          duration: sw.elapsed,
+        );
+      } catch (e) {
+        sw.stop();
+        yield MediaEntityMovingResult.failure(
+          operation: MediaEntityMovingOperation(
+            sourceFile: sourceFile,
+            targetDirectory: targetDir,
+            operationType: MediaEntityOperationType.move,
+            mediaEntity: entity,
+          ),
+          errorMessage:
+              'Failed to move non-primary file to _Duplicates: $e (hint: ${relInfo.hint})',
+          duration: sw.elapsed,
+        );
+      }
+    }
+  }
+
+  // Calculate a relative directory inside _Duplicates that mirrors the source tree.
+  _RelInfo _computeDuplicatesRelativeInfo(final String sourcePath) {
+    final normalized = sourcePath.replaceAll('\\', '/');
+    final lower = normalized.toLowerCase();
+
+    final idxTakeout = lower.indexOf('/takeout/');
+    if (idxTakeout >= 0) {
+      final rel = normalized.substring(idxTakeout + '/takeout/'.length);
+      final relDir = rel.contains('/')
+          ? rel.substring(0, rel.lastIndexOf('/'))
+          : '';
+      return _RelInfo(
+        relativeDir: relDir.isEmpty ? '.' : relDir,
+        hint: 'anchored by /Takeout/',
+      );
+    }
+
+    for (final anchor in const ['/google fotos/', '/google photos/']) {
+      final idx = lower.indexOf(anchor);
+      if (idx >= 0) {
+        final rel = normalized.substring(idx + anchor.length);
+        final relDir = rel.contains('/')
+            ? rel.substring(0, rel.lastIndexOf('/'))
+            : '';
+        return _RelInfo(
+          relativeDir: relDir.isEmpty ? '.' : relDir,
+          hint: 'anchored by $anchor',
+        );
+      }
+    }
+
+    final lastSlash = normalized.lastIndexOf('/');
+    final parent = lastSlash >= 0 ? normalized.substring(0, lastSlash) : '';
+    final leaf = parent.isEmpty ? 'Uncategorized' : parent.split('/').last;
+    return _RelInfo(relativeDir: leaf, hint: 'fallback: no anchor found');
+  }
+}
+
+class _RelInfo {
+  const _RelInfo({required this.relativeDir, required this.hint});
+  final String relativeDir;
+  final String hint;
 }

@@ -259,7 +259,7 @@ void main() {
       });
 
       test('should ask for file size limit', () async {
-        mockPresenter.setInputs(['y']);
+        mockPresenter.setInputs(['2']);
 
         final result = await service.askIfLimitFileSize();
 

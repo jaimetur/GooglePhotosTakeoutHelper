@@ -1,4 +1,15 @@
 import 'dart:io';
+import '../domain/services/core/logging_service.dart';
+
+/// Canonical operation types for concurrency decisions (Phase 1 enum introduction)
+enum ConcurrencyOperation {
+  hash,
+  exif,
+  duplicate,
+  fileIO,
+  moveCopy,
+  other, // fallback
+}
 
 /// Centralized concurrency management for the entire application
 ///
@@ -7,6 +18,11 @@ import 'dart:io';
 class ConcurrencyManager {
   factory ConcurrencyManager() => _instance;
   const ConcurrencyManager._internal();
+
+  /// Logger used by ConcurrencyManager. Can be injected at startup to respect
+  /// the application's ProcessingConfig (verbosity/colors). Defaults to a
+  /// non-verbose logger to preserve previous behavior when not initialized.
+  static LoggingService logger = LoggingService();
   static const ConcurrencyManager _instance = ConcurrencyManager._internal();
 
   // ============================================================================
@@ -22,52 +38,72 @@ class ConcurrencyManager {
     return _cachedCpuCount!;
   }
 
-  /// Standard concurrency multiplier (changed from 2 to 8 as requested)
-  static const int standardMultiplier = 8;
+  /// Concurrency multipliers (modifiable via [setMultipliers] for tests or CLI overrides)
+  static int _standardMultiplier = 2;
+  static int _conservativeMultiplier = 2;
+  // Disk optimized (I/O heavy) default multiplier.
+  static int _diskOptimizedMultiplier = 2;
 
-  /// High performance multiplier for intensive operations
-  static const int highPerformanceMultiplier = 24;
+  /// Update one or more concurrency multipliers atomically.
+  /// Passing null leaves the existing value unchanged.
+  static void setMultipliers({
+    final int? standard,
+    final int? conservative,
+    final int? diskOptimized,
+  }) {
+    if (standard != null) _standardMultiplier = standard;
+    if (conservative != null) _conservativeMultiplier = conservative;
+    if (diskOptimized != null) _diskOptimizedMultiplier = diskOptimized;
+  }
 
   // ============================================================================
   // CONCURRENCY LEVELS
   // ============================================================================
 
   /// Standard concurrency level for most operations
-  /// Uses CPU cores * 8 (no caps)
-  int get standard => cpuCoreCount * standardMultiplier;
+  int get standard {
+    final val = cpuCoreCount * _standardMultiplier;
+    return val;
+  }
 
   /// Conservative concurrency for resource-intensive operations
-  /// Uses CPU cores * 6 (increased from 4)
-  int get conservative => cpuCoreCount * 6;
-
-  /// High performance concurrency for fast operations
-  /// Uses CPU cores * 24
-  int get highPerformance => cpuCoreCount * highPerformanceMultiplier;
+  int get conservative {
+    final val = cpuCoreCount * _conservativeMultiplier;
+    return val;
+  }
 
   /// Platform-optimized concurrency (platform-specific logic)
   int get platformOptimized {
+    int val;
     if (Platform.isWindows) {
-      return cpuCoreCount *
-          standardMultiplier; // Windows handles concurrent I/O well
+      val =
+          cpuCoreCount *
+          _standardMultiplier; // Windows handles concurrent I/O well
     } else if (Platform.isMacOS) {
-      return cpuCoreCount *
-          6; // macOS handles concurrency well, slightly more conservative
+      val =
+          cpuCoreCount *
+          _conservativeMultiplier; // macOS handles concurrency well, slightly more conservative
     } else if (Platform.isLinux) {
-      return cpuCoreCount *
-          8; // Modern Linux handles concurrent I/O excellently
+      val =
+          cpuCoreCount *
+          _standardMultiplier; // Modern Linux handles concurrent I/O excellently
     } else {
-      return cpuCoreCount *
-          4; // Conservative default for other Unix-like systems
+      val =
+          cpuCoreCount *
+          _conservativeMultiplier; // Conservative default for other Unix-like systems
     }
+    return val;
   }
 
   /// Disk I/O optimized concurrency
-  /// Uses CPU cores * 6 (increased from 4 for modern SSDs)
-  int get diskOptimized => cpuCoreCount * 6;
-
-  /// Network I/O optimized concurrency
-  /// Can be higher since network operations are often waiting
-  int get networkOptimized => cpuCoreCount * 16;
+  int get diskOptimized {
+    // Apply multiplier then clamp to prevent oversubscription on large core counts.
+    // Historic behaviour (v4.0.9) effectively: cores * 2 capped at 8.
+    int val = cpuCoreCount * _diskOptimizedMultiplier;
+    const int maxIoConcurrency = 8;
+    if (val > maxIoConcurrency) val = maxIoConcurrency;
+    return val;
+  }
 
   // ============================================================================
   // ADAPTIVE CONCURRENCY
@@ -124,42 +160,48 @@ class ConcurrencyManager {
     if (result < minValue) result = minValue;
     if (maxValue != null && result > maxValue) result = maxValue;
 
+    try {
+      LoggingService().info(
+        'Starting $result threads (custom multiplier $multiplier)',
+      );
+    } catch (_) {}
     return result;
   }
 
-  /// Gets concurrency for specific operation types
-  ///
-  /// [operationType] Type of operation (hash, exif, duplicate, etc.)
-  ///
-  /// Returns optimized concurrency for the operation type
-  int getConcurrencyForOperation(final String operationType) {
-    switch (operationType.toLowerCase()) {
-      case 'hash':
-      case 'hashing':
-        return cpuCoreCount *
-            4; // Balanced for CPU + I/O workload (reduced from standard)
+  /// New enum-based API (preferred)
+  int concurrencyFor(final ConcurrencyOperation op) {
+    switch (op) {
+      case ConcurrencyOperation.hash:
+        final val = cpuCoreCount * 4; // CPU heavy + I/O overlap
+        _logOnce('hash', val);
+        return val;
+      case ConcurrencyOperation.exif:
+        final val = diskOptimized; // Mostly I/O bound
+        _logOnce('exif', val);
+        return val;
+      case ConcurrencyOperation.duplicate:
+        final val = conservative; // Memory intensive comparisons
+        _logOnce('duplicate', val);
+        return val;
+      case ConcurrencyOperation.fileIO:
+      case ConcurrencyOperation.moveCopy:
+        final val = diskOptimized; // Disk/file operations
+        _logOnce('fileIO', val);
+        return val;
+      case ConcurrencyOperation.other:
+        final val = standard;
+        _logOnce('default', val);
+        return val;
+    }
+  }
 
-      case 'exif':
-      case 'metadata':
-        return diskOptimized; // Mostly I/O operations
-
-      case 'duplicate':
-      case 'comparison':
-        return conservative; // Memory intensive
-
-      case 'network':
-      case 'download':
-      case 'upload':
-        return networkOptimized; // Network I/O
-
-      case 'disk':
-      case 'file':
-      case 'copy':
-      case 'move':
-        return diskOptimized; // Disk I/O
-
-      default:
-        return standard; // Default to standard concurrency
+  // Basic once-per-key logging cache to cut noise
+  static final Set<String> _loggedKeys = <String>{};
+  void _logOnce(final String key, final int val) {
+    if (_loggedKeys.add(key)) {
+      try {
+        logger.debug('Starting $val threads ($key concurrency)');
+      } catch (_) {}
     }
   }
 
@@ -171,22 +213,4 @@ class ConcurrencyManager {
   void invalidateCache() {
     _cachedCpuCount = null;
   }
-
-  /// Gets system information for debugging/logging
-  Map<String, dynamic> getSystemInfo() => {
-    'cpuCores': cpuCoreCount,
-    'platform': Platform.operatingSystem,
-    'standardConcurrency': standard,
-    'conservativeConcurrency': conservative,
-    'highPerformanceConcurrency': highPerformance,
-    'platformOptimizedConcurrency': platformOptimized,
-    'diskOptimizedConcurrency': diskOptimized,
-    'networkOptimizedConcurrency': networkOptimized,
-  };
-}
-
-/// Extension methods for easy access to concurrency manager
-extension ConcurrencyExtensions on Object {
-  /// Quick access to the concurrency manager
-  ConcurrencyManager get concurrency => ConcurrencyManager();
 }

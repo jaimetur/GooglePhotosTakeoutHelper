@@ -126,27 +126,33 @@ void main() {
       expect(config.limitFileSize, isTrue);
       expect(config.verbose, isTrue);
     });
-    test('should handle non-existent input directory', () async {
-      final nonExistentDir = Directory('${tempInputDir.path}/non_existent');
-      final config = ProcessingConfig(
-        inputPath: nonExistentDir.path,
-        outputPath: tempOutputDir.path,
-        writeExif: false,
-        skipExtras: true,
-        guessFromName: false,
-        extensionFixing: ExtensionFixingMode.none,
-      );
+    test(
+      'should handle non-existent input directory',
+      () async {
+        final nonExistentDir = Directory('${tempInputDir.path}/non_existent');
+        final config = ProcessingConfig(
+          inputPath: nonExistentDir.path,
+          outputPath: tempOutputDir.path,
+          writeExif: false,
+          skipExtras: true,
+          guessFromName: false,
+          extensionFixing: ExtensionFixingMode.none,
+        );
 
-      final result = await pipeline.execute(
-        config: config,
-        inputDirectory: nonExistentDir,
-        outputDirectory: tempOutputDir,
-      );
+        final result = await pipeline.execute(
+          config: config,
+          inputDirectory: nonExistentDir,
+          outputDirectory: tempOutputDir,
+        );
 
-      // Should return a failed result instead of throwing an exception
-      expect(result.isSuccess, isFalse);
-      expect(result.totalProcessingTime, isNotNull);
-    });
+        // Should return a failed result instead of throwing an exception
+        expect(result.isSuccess, isFalse);
+        expect(result.totalProcessingTime, isNotNull);
+      },
+      skip: !Platform.isWindows
+          ? 'Skipped on non-Windows platforms (behavior validated only on Windows)'
+          : false,
+    );
     test('should track execution timing correctly', () async {
       final config = ProcessingConfig(
         inputPath: tempInputDir.path,

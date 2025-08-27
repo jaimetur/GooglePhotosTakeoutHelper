@@ -1,10 +1,12 @@
 import 'dart:io';
 
+import '../../shared/concurrency_manager.dart';
 import 'models/media_entity_collection.dart';
 import 'models/pipeline_step_model.dart';
 import 'models/processing_config_model.dart';
 import 'models/processing_result_model.dart';
 import 'services/core/formatting_service.dart';
+import 'services/core/logging_service.dart';
 import 'services/user_interaction/user_interaction_service.dart';
 import 'steps/step_01_fix_extensions.dart';
 import 'steps/step_02_discover_media.dart';
@@ -58,6 +60,9 @@ class ProcessingPipeline {
       inputDirectory: inputDirectory,
       outputDirectory: outputDirectory,
     );
+
+    // Configure concurrency manager logging to respect processing configuration
+    ConcurrencyManager.logger = LoggingService.fromConfig(context.config);
 
     // Define the 8 processing steps in fixed order
     final steps = [
@@ -216,6 +221,15 @@ class ProcessingPipeline {
       // Display detailed step results
       await interactiveService!.showStepResults(stepResults, stepTimings);
     } // Create comprehensive result
+    // Extract low-level operation count from Move Files step if present
+    int? operationCount;
+    for (final r in stepResults) {
+      if (r.stepName == 'Move Files') {
+        final oc = r.data['operationCount'];
+        if (oc is int) operationCount = oc;
+      }
+    }
+
     return ProcessingResult(
       totalProcessingTime: totalProcessingTime,
       stepTimings: stepTimings,
@@ -228,6 +242,8 @@ class ProcessingPipeline {
       dateTimesWrittenToExif: dateTimesWrittenToExif,
       creationTimesUpdated: creationTimesUpdated,
       extractionMethodStats: extractionMethodStats,
+      albumBehavior: config.albumBehavior,
+      totalMoveOperations: operationCount,
       isSuccess: failedSteps == 0,
     );
   }

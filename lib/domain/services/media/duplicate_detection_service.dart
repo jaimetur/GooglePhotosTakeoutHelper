@@ -32,7 +32,7 @@ class DuplicateDetectionService with LoggerMixin {
 
   /// Maximum number of concurrent operations to prevent overwhelming the system
   static int get maxConcurrency =>
-      ConcurrencyManager().getConcurrencyForOperation('duplicate');
+      ConcurrencyManager().concurrencyFor(ConcurrencyOperation.duplicate);
 
   /// Records performance metric for adaptive optimization
   void _recordPerformance(final int filesProcessed, final Duration elapsed) {
@@ -76,6 +76,10 @@ class DuplicateDetectionService with LoggerMixin {
     final sizeResults = <({MediaEntity media, int size})>[];
     final batchSize = (adaptiveConcurrency * 1.5)
         .round(); // Use adaptive concurrency
+
+    logDebug(
+      'Starting $batchSize threads (duplicate size batching concurrency)',
+    );
 
     for (int i = 0; i < mediaList.length; i += batchSize) {
       final batch = mediaList.skip(i).take(batchSize);
@@ -131,6 +135,10 @@ class DuplicateDetectionService with LoggerMixin {
         final mediaWithSameSize =
             sameSize.value; // Use adaptive batch size for hash calculation
         final hashBatchSize = adaptiveConcurrency;
+
+        logDebug(
+          'Starting $hashBatchSize threads (duplicate hash batching concurrency)',
+        );
 
         for (int i = 0; i < mediaWithSameSize.length; i += hashBatchSize) {
           final batch = mediaWithSameSize.skip(i).take(hashBatchSize);
@@ -249,9 +257,9 @@ class DuplicateDetectionService with LoggerMixin {
 
         if (duplicatesToRemove.isNotEmpty) {
           final keptFile = best.primaryFile.path;
-          logInfo('Found ${group.length} identical files, keeping: $keptFile');
+          logDebug('Found ${group.length} identical files, keeping: $keptFile');
           for (final duplicate in duplicatesToRemove) {
-            logInfo('  Removing duplicate: ${duplicate.primaryFile.path}');
+            logDebug('  Removing duplicate: ${duplicate.primaryFile.path}');
           }
         }
       }

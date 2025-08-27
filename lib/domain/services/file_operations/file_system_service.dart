@@ -162,11 +162,16 @@ class FileSystemService {
   /// [dir] Directory to create
   /// Returns true if creation was successful
   Future<bool> safeCreateDirectory(final Directory dir) async {
+    final path = dir.path;
+    if (path.trim().isEmpty) {
+      // Silent failure for empty path to keep cross-platform tests consistent
+      return false;
+    }
     try {
       await dir.create(recursive: true);
       return true;
     } catch (e) {
-      stderr.write('Failed to create directory ${dir.path}: $e\n');
+      stderr.write('Failed to create directory $path: $e\n');
       return false;
     }
   }

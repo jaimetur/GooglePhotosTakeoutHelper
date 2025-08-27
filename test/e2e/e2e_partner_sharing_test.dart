@@ -78,7 +78,7 @@ void main() {
             'timestamp': '1609459200', // 2021-01-01
             'formatted': '01.01.2021, 00:00:00 UTC',
           },
-          'googlePhotoOrigin': {'fromPartnerSharing': {}},
+          'googlePhotosOrigin': {'fromPartnerSharing': {}},
           'url': 'https://photos.google.com/photo/partner_shared_photo',
         }),
       );
@@ -101,7 +101,7 @@ void main() {
             'timestamp': '1609459200', // 2021-01-01
             'formatted': '01.01.2021, 00:00:00 UTC',
           },
-          'googlePhotoOrigin': {
+          'googlePhotosOrigin': {
             'mobileUpload': {
               'deviceFolder': {'localFolderName': ''},
               'deviceType': 'ANDROID_PHONE',
@@ -210,7 +210,7 @@ void main() {
             'timestamp': '1672531200', // 2023-01-01
             'formatted': '01.01.2023, 00:00:00 UTC',
           },
-          'googlePhotoOrigin': {'fromPartnerSharing': {}},
+          'googlePhotosOrigin': {'fromPartnerSharing': {}},
           'url': 'https://photos.google.com/photo/partner_2023',
         }),
       );
@@ -275,7 +275,7 @@ void main() {
             'timestamp': '1609459200',
             'formatted': '01.01.2021, 00:00:00 UTC',
           },
-          'googlePhotoOrigin': {'fromPartnerSharing': {}},
+          'googlePhotosOrigin': {'fromPartnerSharing': {}},
           'url': 'https://photos.google.com/photo/partner_shared_photo',
         }),
       );

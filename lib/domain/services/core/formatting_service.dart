@@ -12,6 +12,9 @@ class FormattingService {
   /// Creates a new instance of FormattingService
   const FormattingService();
 
+  /// Test override for exitProgram to prevent actual process termination in tests
+  static void Function(int code)? testExitOverride;
+
   // ============================================================================
   // FORMATTING OPERATIONS
   // ============================================================================
@@ -199,11 +202,18 @@ class FormattingService {
 
   /// Safely creates directory with error handling
   Future<bool> safeCreateDirectory(final Directory dir) async {
+    final path = dir.path;
+    // Guard against empty or whitespace-only paths which can behave
+    // inconsistently across platforms (macOS throws, Windows may resolve to cwd)
+    if (path.trim().isEmpty) {
+      // Treat empty path as programmer error; return false consistently without noisy logging
+      return false;
+    }
     try {
       await dir.create(recursive: true);
       return true;
     } catch (e) {
-      printError('Failed to create directory ${dir.path}: $e');
+      printError('Failed to create directory $path: $e');
       return false;
     }
   }
@@ -216,6 +226,13 @@ class FormattingService {
     final int code, {
     final bool showInteractiveMessage = false,
   }) {
+    // Allow tests to intercept exit to avoid terminating the test process
+    final override = testExitOverride;
+    if (override != null) {
+      override(code);
+      throw _TestExitException(code);
+    }
+
     if (showInteractiveMessage) {
       print(
         '[gpth ${code != 0 ? 'quitted :(' : 'finished :)'} (code $code) - '
@@ -291,4 +308,17 @@ class ValidationResult {
 
   /// Whether the validation failed
   bool get isFailure => !isSuccess;
+}
+
+/// Exception thrown by exitProgram when test override is active
+class _TestExitException implements Exception {
+  const _TestExitException(this.code);
+  final int code;
+
+  @override
+  String toString() =>
+      'Program attempted to exit with code $code. '
+      'This indicates a fatal error or completion condition was reached. '
+      'In production, this would terminate the application. '
+      'Check logs above for the specific cause of termination.';
 }

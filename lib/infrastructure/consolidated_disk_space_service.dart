@@ -93,6 +93,7 @@ class ConsolidatedDiskSpaceService with LoggerMixin {
   ) async {
     final Map<String, int?> results = {};
 
+    // Simple sequential processing - disk space checks are lightweight
     await Future.wait(
       paths.map((final path) async {
         results[path] = await getAvailableSpace(path);

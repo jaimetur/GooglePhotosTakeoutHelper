@@ -10,6 +10,7 @@ build/
 output/
 *.log
 pubspec.lock
+
 #Testing directories
 /test/generated
 /test/debug*

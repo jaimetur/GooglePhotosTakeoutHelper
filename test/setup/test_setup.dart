@@ -149,12 +149,16 @@ class TestFixture {
       final links = contents.whereType<Link>().toList();
       final subdirs = contents.whereType<Directory>().toList();
 
-      // Delete files and links
+      // Delete files and links (ignore individual failures, retry later)
       for (final file in files) {
-        await _safeDelete(file);
+        try {
+          await _safeDelete(file);
+        } catch (_) {}
       }
       for (final link in links) {
-        await _safeDelete(link);
+        try {
+          await _safeDelete(link);
+        } catch (_) {}
       }
 
       // Delete subdirectories recursively
@@ -163,13 +167,25 @@ class TestFixture {
       }
 
       // Finally delete the directory itself
-      await dir.delete();
+      try {
+        await dir.delete();
+      } on FileSystemException {
+        // Fallback: attempt a recursive delete (may clear hidden leftovers)
+        try {
+          await dir.delete(recursive: true);
+        } catch (_) {}
+      }
     } catch (e) {
       // If listing fails, try force deletion
       try {
         await dir.delete(recursive: true);
       } catch (e2) {
         // As last resort, try using platform-specific commands
+        await _forceDeleteDirectory(dir);
+      }
+    } finally {
+      // Final safety: if still exists, force remove with platform command
+      if (await dir.exists()) {
         await _forceDeleteDirectory(dir);
       }
     }
@@ -413,6 +429,7 @@ class TestFixture {
     final int photosPerYear = 10,
     final int albumOnlyPhotos = 3,
     final double exifRatio = 0.7,
+    final bool includeRawSamples = false,
   }) async {
     final datasetPath = p.join(basePath, 'realistic_dataset');
 
@@ -423,6 +440,7 @@ class TestFixture {
       photosPerYear: photosPerYear,
       albumOnlyPhotos: albumOnlyPhotos,
       exifRatio: exifRatio,
+      includeRawSamples: includeRawSamples,
     );
 
     // Add the entire dataset directory to cleanup
@@ -485,6 +503,7 @@ Future<void> generateRealisticDataset({
   final int photosPerYear = 15,
   final int albumOnlyPhotos = 5,
   final double exifRatio = 0.7, // 70% of photos have EXIF data
+  final bool includeRawSamples = false,
 }) async {
   final Set<FileSystemEntity> createdEntities = {};
 
@@ -540,6 +559,15 @@ Future<void> generateRealisticDataset({
   final currentYear = DateTime.now().year;
   final List<String> createdPhotos = [];
   final Map<String, List<String>> albumToPhotos = {};
+  // Optional RAW sample URLs (public domain test samples from pixls.us)
+  const rawSampleUrls = <String>[
+    'https://raw.pixls.us/data/Canon/EOS-1D%20Mark%20IV/IMG_5398.CR2',
+    'https://raw.pixls.us/data/Fujifilm/FinePix%20F550EXR/DSCF6714.RAF',
+    'https://raw.pixls.us/data/Nikon/D1/RAW_NIKON_D1.NEF',
+    'https://raw.pixls.us/data/Sony/ILCE-7M4/ILCE-7M4_DSC06673_FullFrame-Raw-Uncompressed.ARW',
+    'https://raw.pixls.us/data/Panasonic/DC-GX9/gx9_1_1.RW2',
+    'https://raw.pixls.us/data/Adobe%20DNG%20Converter/Canon%20EOS%205D%20Mark%20III/5G4A9394-uncompressed.DNG',
+  ];
 
   // Create year folders and photos
   for (int i = 0; i < yearSpan; i++) {
@@ -645,6 +673,112 @@ Future<void> generateRealisticDataset({
         flush: true,
       );
       createdEntities.add(jsonFile);
+    }
+  }
+
+  // Optionally include cached RAW samples (downloaded once into test/raw_samples)
+  if (includeRawSamples) {
+    final cacheDir = Directory(
+      p.join(Directory.current.path, 'test', 'raw_samples'),
+    );
+    if (!await cacheDir.exists()) {
+      await cacheDir.create(recursive: true);
+    }
+    // Download missing samples only once and keep them cached
+    for (final url in rawSampleUrls) {
+      final uri = Uri.parse(url);
+      final fileName = uri.pathSegments.last;
+      final cachedFile = File(p.join(cacheDir.path, fileName));
+      if (!await cachedFile.exists()) {
+        try {
+          print('Downloading RAW sample $fileName for cache...');
+          final httpClient = HttpClient();
+          final request = await httpClient
+              .getUrl(uri)
+              .timeout(const Duration(seconds: 15));
+          final response = await request.close().timeout(
+            const Duration(seconds: 30),
+          );
+          if (response.statusCode == 200) {
+            final bytes = await response.fold<List<int>>(<int>[], (
+              final a,
+              final b,
+            ) {
+              a.addAll(b);
+              return a;
+            });
+            if (bytes.isNotEmpty) {
+              await cachedFile.writeAsBytes(bytes, flush: true);
+            }
+          } else {
+            print('Failed HTTP ${response.statusCode} for $fileName');
+          }
+        } catch (e) {
+          print('Failed to cache RAW sample $fileName: $e');
+        }
+      }
+    }
+    // Copy cached samples into first year folder with generated JSON sidecars
+    final int firstYear = currentYear - yearSpan + 1;
+    final firstYearDir = Directory(
+      p.join(googlePhotosDir.path, 'Photos from $firstYear'),
+    );
+    if (await firstYearDir.exists()) {
+      int rawIndex = 0;
+      await for (final entity in cacheDir.list()) {
+        if (entity is! File) continue;
+        final nameUpper = entity.path.toUpperCase();
+        if (!(nameUpper.endsWith('.CR2') ||
+            nameUpper.endsWith('.RAF') ||
+            nameUpper.endsWith('.NEF') ||
+            nameUpper.endsWith('.ARW') ||
+            nameUpper.endsWith('.RW2') ||
+            nameUpper.endsWith('.DNG'))) {
+          continue;
+        }
+        final target = File(p.join(firstYearDir.path, p.basename(entity.path)));
+        if (!await target.exists()) {
+          await entity.copy(target.path);
+          createdEntities.add(target);
+          final takenDate = DateTime(firstYear, 1, 1, 12, 0, rawIndex % 60);
+          final jsonMeta = File('${target.path}.json');
+          jsonMeta.writeAsStringSync(
+            jsonEncode({
+              'title': p.basename(entity.path),
+              'description': 'RAW sample test file (cached)',
+              'imageViews': '1',
+              'creationTime': {
+                'timestamp':
+                    '${(takenDate.millisecondsSinceEpoch / 1000).floor()}',
+                'formatted':
+                    '${takenDate.day.toString().padLeft(2, '0')}.${takenDate.month.toString().padLeft(2, '0')}.${takenDate.year}, ${takenDate.hour.toString().padLeft(2, '0')}:${takenDate.minute.toString().padLeft(2, '0')}:${takenDate.second.toString().padLeft(2, '0')} UTC',
+              },
+              'photoTakenTime': {
+                'timestamp':
+                    '${(takenDate.millisecondsSinceEpoch / 1000).floor()}',
+                'formatted':
+                    '${takenDate.day.toString().padLeft(2, '0')}.${takenDate.month.toString().padLeft(2, '0')}.${takenDate.year}, ${takenDate.hour.toString().padLeft(2, '0')}:${takenDate.minute.toString().padLeft(2, '0')}:${takenDate.second.toString().padLeft(2, '0')} UTC',
+              },
+            }),
+            flush: true,
+          );
+          createdEntities.add(jsonMeta);
+          // Ensure the RAW file and its JSON sidecar are fully visible to subsequent
+          // steps (mitigates intermittent PathNotFoundException on Linux CI runners).
+          try {
+            for (int attempt = 0; attempt < 5; attempt++) {
+              final exists = await target.exists();
+              final lenOk = exists ? await target.length() > 0 : false;
+              final sidecarExists = await jsonMeta.exists();
+              if (exists && lenOk && sidecarExists) break;
+              await Future.delayed(const Duration(milliseconds: 40));
+            }
+          } catch (_) {
+            // Swallow – best effort stabilization.
+          }
+          rawIndex++;
+        }
+      }
     }
   }
 
