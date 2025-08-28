@@ -13,6 +13,7 @@ export 'steps/steps_pipeline.dart';
 
 // Step 01
 export 'steps/step_01_fix_extensions/step_01_fix_extensions.dart';
+export 'steps/step_01_fix_extensions/services/file_extension_corrector_service.dart';
 
 // Step 02
 export 'steps/step_02_discover_media/step_02_discover_media.dart';

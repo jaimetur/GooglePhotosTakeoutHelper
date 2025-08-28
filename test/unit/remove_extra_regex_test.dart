@@ -1,9 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
-
-import 'package:gpth/shared/services/core_services/container_service.dart';
-import 'package:gpth/steps/step_04_extract_dates/services/date_extractors/json_date_extractor.dart';
-import 'package:path/path.dart' as p;
+import 'package:gpth/gpth-lib.dart';
+import 'package:path/path.dart' as path;
 import 'package:test/test.dart';
 
 import '../setup/test_setup.dart';
@@ -535,12 +533,12 @@ void main() {
       test('handles nested directory paths correctly', () async {
         // Create nested directory structure
         final nestedDir = Directory(
-          p.join(fixture.baseDir.path, 'nested', 'deep'),
+          path.join(fixture.baseDir.path, 'nested', 'deep'),
         );
         await nestedDir.create(recursive: true);
 
-        final mediaFile = File(p.join(nestedDir.path, 'photo-edited.jpg'));
-        final jsonFile = File(p.join(nestedDir.path, 'photo.jpg.json'));
+        final mediaFile = File(path.join(nestedDir.path, 'photo-edited.jpg'));
+        final jsonFile = File(path.join(nestedDir.path, 'photo.jpg.json'));
 
         await mediaFile.writeAsString('fake image data');
         await jsonFile.writeAsString('{"title": "nested photo"}');

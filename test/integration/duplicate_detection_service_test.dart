@@ -5,12 +5,7 @@
 library;
 
 import 'dart:io';
-
-import 'package:gpth/shared/entities/media_entity.dart';
-import 'package:gpth/shared/services/core_services/logging_service.dart';
-import 'package:gpth/shared/services/media_services/duplicate_detection_service.dart';
-import 'package:gpth/shared/services/media_services/media_hash_service.dart';
-import 'package:gpth/shared/value_objects/date_accuracy.dart';
+import 'package:gpth/gpth-lib.dart';
 import 'package:test/test.dart';
 
 import '../setup/test_setup.dart';

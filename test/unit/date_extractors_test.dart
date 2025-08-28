@@ -8,10 +8,7 @@ library;
 import 'dart:io';
 
 import 'package:coordinate_converter/coordinate_converter.dart';
-import 'package:gpth/shared/services/core_services/global_config_service.dart';
-import 'package:gpth/shared/services/core_services/container_service.dart';
-import 'package:gpth/steps/step_04_extract_dates/services/date_extractors/date_extractor_service.dart';
-import 'package:gpth/shared/infraestructure/exiftool_service.dart';
+import 'package:gpth/gpth-lib.dart';
 import 'package:test/test.dart';
 
 import '../setup/test_setup.dart';

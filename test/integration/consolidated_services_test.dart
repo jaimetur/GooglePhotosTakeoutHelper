@@ -5,10 +5,7 @@
 library;
 
 import 'dart:io';
-
-import 'package:gpth/shared/services/core_services/formatting_service.dart';
-import 'package:gpth/shared/services/core_services/container_service.dart';
-import 'package:gpth/shared/infraestructure/consolidated_disk_space_service.dart';
+import 'package:gpth/gpth-lib.dart';
 import 'package:test/test.dart';
 
 void main() {

@@ -4,8 +4,7 @@
 library;
 
 import 'dart:io';
-
-import 'package:gpth/shared/services/file_operations_services/file_system_service.dart';
+import 'package:gpth/gpth-lib.dart';
 import 'package:test/test.dart';
 
 import '../setup/test_setup.dart';

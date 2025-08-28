@@ -6,13 +6,8 @@
 library;
 
 import 'dart:io';
-
-import 'package:gpth/steps/main_pipeline.dart';
-import 'package:gpth/shared/entities/media_entity_collection.dart';
-import 'package:gpth/shared/models/processing_config_model.dart';
-import 'package:gpth/shared/services/core_services/container_service.dart';
-import 'package:gpth/shared/services/file_operations_services/path_resolver_service.dart';
-import 'package:path/path.dart' as p;
+import 'package:gpth/gpth-lib.dart';
+import 'package:path/path.dart' as path;
 import 'package:test/test.dart';
 
 import '../setup/test_setup.dart';
@@ -47,7 +42,7 @@ void main() {
 
       // Create unique output path for each test
       final timestamp = DateTime.now().microsecondsSinceEpoch.toString();
-      outputPath = p.join(fixture.basePath, 'output_$timestamp');
+      outputPath = path.join(fixture.basePath, 'output_$timestamp');
 
       // Ensure clean output directory for each test
       final outputDir = Directory(outputPath);

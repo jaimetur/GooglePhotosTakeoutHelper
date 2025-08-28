@@ -5,10 +5,8 @@ library;
 
 import 'dart:io';
 import 'dart:typed_data';
-
 import 'package:archive/archive.dart';
-import 'package:gpth/shared/services/file_operations_services/archive_extraction_service.dart';
-import 'package:gpth/shared/services/interactive_presenter_service/interactive_presenter_service.dart';
+import 'package:gpth/gpth-lib.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
