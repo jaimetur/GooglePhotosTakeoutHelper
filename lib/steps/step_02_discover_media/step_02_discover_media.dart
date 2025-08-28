@@ -100,7 +100,7 @@ class DiscoverMediaStep extends ProcessingStep {
     final stopwatch = Stopwatch()..start();
 
     try {
-      print('\n[Step 2/8] Discovering media files...');
+      print('\n[Step 2/8] Discovering media files (this may take a while)...');
 
       final inputDir = Directory(context.config.inputPath);
       if (!await inputDir.exists()) {

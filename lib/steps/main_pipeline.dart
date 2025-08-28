@@ -6,7 +6,7 @@ import 'package:gpth/gpth-lib.dart';
 /// This pipeline executes 8 processing steps in their fixed order:
 /// 1. Fix Extensions - Correct mismatched file extensions (configurable)
 /// 2. Discover Media - Find and classify all media files from input directory
-/// 3. Remove Duplicates - Eliminate duplicate files using content hashing
+/// 3. Remove Duplicates - Remove duplicate files using content hashing
 /// 4. Extract Dates - Determine accurate timestamps from JSON, EXIF, and filenames
 /// 5. Write EXIF - Embed metadata into files (requires ExifTool for non-JPEG formats)
 /// 6. Find Albums - Detect and merge album relationships between duplicate files

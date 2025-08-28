@@ -57,7 +57,7 @@ class FixExtensionsStep extends ProcessingStep {
           message: 'Extension fixing skipped per configuration',
         );
       }
-      print('\n[Step 1/8] Fixing file extensions... (This might take a while)');
+      print('\n[Step 1/8] Fixing file extensions (this may take a while)...');
       final extensionFixingService = FileExtensionCorrectorService()
         ..logger = LoggingService.fromConfig(context.config);
       final fixedCount = await extensionFixingService.fixIncorrectExtensions(

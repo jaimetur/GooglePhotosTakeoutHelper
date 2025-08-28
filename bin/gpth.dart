@@ -766,7 +766,7 @@ Future<void> _configureDependencies(final ProcessingConfig config) async {
 /// The ProcessingPipeline orchestrates 8 sequential steps:
 /// 1. Fix Extensions - Correct mismatched file extensions
 /// 2. Discover Media - Find and classify all media files
-/// 3. Remove Duplicates - Eliminate duplicate files
+/// 3. Remove Duplicates - Remove duplicate files
 /// 4. Extract Dates - Determine accurate timestamps
 /// 5. Write EXIF - Embed metadata into files
 /// 6. Find Albums - Merge album relationships

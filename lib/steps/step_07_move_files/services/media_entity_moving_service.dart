@@ -284,9 +284,10 @@ class MediaEntityMovingService {
 
     final totalOps = results.length;
 
+    print ('');
     print('\n=== Moving Summary (${strategy.name}) ===');
     print('Primary files moved: $primaryMoves');
-    print('Duplicates identified and moved to _Duplicates: $duplicatesMovedToFolder');
+    print('Duplicates identified and moved to "_Duplicates": $duplicatesMovedToFolder');
     print('Symlinks created: $symlinksCreated');
     print('Failures: $failures');
     print('Total operations: $totalOps');

@@ -387,7 +387,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
                     final coords = await jsonCoordinatesExtractor(file);
                     if (coords != null) {
                       Map<String, dynamic>? existing;
-                      if (!nativeOnly && exifTool != null) {
+                      if (!nativeOnly) {
                         final coordExtractor = ExifCoordinateExtractor(exifTool);
                         existing = await coordExtractor.extractGPSCoordinates(
                           file,
@@ -400,7 +400,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
 
                       if (!hasCoords) {
                         if (mimeHeader == 'image/jpeg') {
-                          if (effectiveDate != null && !nativeOnly && exifTool != null) {
+                          if (effectiveDate != null && !nativeOnly) {
                             // Try native combined first
                             final ok = await exifWriter!.writeCombinedNativeJpeg(
                               file,
@@ -428,7 +428,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
                               gpsWrittenThis = true;
                               dtWrittenThis = true;
                             }
-                          } else if (effectiveDate == null && !nativeOnly && exifTool != null) {
+                          } else if (effectiveDate == null && !nativeOnly) {
                             // No date, write only GPS natively if possible
                             final ok = await exifWriter!.writeGpsNativeJpeg(file, coords);
                             if (ok) {
@@ -471,7 +471,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
                   try {
                     if (effectiveDate != null) {
                       if (mimeHeader == 'image/jpeg') {
-                        if (!dtWrittenThis && !nativeOnly && exifTool != null) {
+                        if (!dtWrittenThis && !nativeOnly) {
                           final ok =
                               await exifWriter!.writeDateTimeNativeJpeg(file, effectiveDate);
                           if (ok) {
@@ -554,8 +554,8 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
           }));
 
           for (final r in results) {
-            gpsWritten += (r['gps'] as int?) ?? 0;
-            dateWritten += (r['date'] as int?) ?? 0;
+            gpsWritten += r['gps'] ?? 0;
+            dateWritten += r['date'] ?? 0;
             completedEntities++;
             progressBar.update(completedEntities);
           }
@@ -606,6 +606,8 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
           pendingVideosBatch.clear();
         }
       }
+
+      print (''); // Force new line after progress bar
 
       if (gpsWrittenTotal > 0) {
         print('$gpsWrittenTotal files got GPS set in EXIF data');

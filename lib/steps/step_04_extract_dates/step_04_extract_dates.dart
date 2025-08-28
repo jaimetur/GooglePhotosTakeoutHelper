@@ -1,7 +1,5 @@
-import 'dart:convert';
 import 'dart:io';
 import 'package:console_bars/console_bars.dart';
-import 'package:intl/intl.dart';
 import 'package:gpth/gpth-lib.dart';
 
 /// Step 4: Extract dates from media files
@@ -196,7 +194,7 @@ class ExtractDatesStep extends ProcessingStep with LoggerMixin {
                 extractionMethod = extractorIndex < extractorMethods.length ? extractorMethods[extractorIndex] : DateTimeExtractionMethod.guess;
 
                 updatedMediaFile = mediaFile.withDate(dateTaken: extractedDate, dateTimeExtractionMethod: extractionMethod);
-                logDebug('Date extracted for ${mediaFile.primaryFile.path}: $extractedDate (method: ${extractionMethod!.name})');
+                logDebug('Date extracted for ${mediaFile.primaryFile.path}: $extractedDate (method: ${extractionMethod.name})');
                 dateFound = true;
                 break;
               }

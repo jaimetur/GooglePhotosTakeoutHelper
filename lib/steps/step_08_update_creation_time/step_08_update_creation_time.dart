@@ -115,7 +115,7 @@ class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
         );
       }
 
-      print('[Step 8/8] Updating creation times...');
+      print('[Step 8/8] Updating creation times (this may take a while)...');
       int updatedCount = 0;
 
       // 1. Traverse the output directory and update creation times

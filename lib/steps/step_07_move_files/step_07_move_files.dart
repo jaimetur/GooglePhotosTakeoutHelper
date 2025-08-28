@@ -22,6 +22,9 @@ class MoveFilesStep extends ProcessingStep {
     final stopwatch = Stopwatch()..start();
 
     try {
+      print(
+        '\n[Step 7/8] Moving files to Outputt folder (this may take a while)...',
+      );
       // Optional Pixel MP/MV transformation
       int transformedCount = 0;
       if (context.config.transformPixelMp) {

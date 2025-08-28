@@ -24,6 +24,9 @@ class GlobalConfigService {
   /// If you need strict "skip if already has date", leave false.
   bool skipPrecheckForNonJpegInWriter = false;
 
+  // Seppeds up Step 5 by sending files by batches to ExifTool on evey ExifTool call
+  bool enableBatching = true; // Disable this if you observe any abnormal dates in your output files.
+
   /// DatesDictionary passed as argument (if ussed flag --fileDates)
   Map<String, Map<String, dynamic>>? fileDatesDictionary;
 

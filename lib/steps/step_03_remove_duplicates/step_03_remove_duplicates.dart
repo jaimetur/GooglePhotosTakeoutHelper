@@ -157,7 +157,7 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
         );
       }
 
-      print('\n[Step 3/8] Finding and removing duplicates... (This might take a while)');
+      print('\n[Step 3/8] Removing duplicates (this may take a while)...');
 
       final duplicateService = ServiceContainer.instance.duplicateDetectionService;
       int removedCount = 0;
@@ -179,8 +179,6 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
       final List<int> bucketKeys = sizeBuckets.keys.toList();
       print('Step 3: Built ${bucketKeys.length} size buckets for duplicate detection');
 
-      final totalGroups = bucketKeys.length;
-      int processedGroups = 0;
       final Set<MediaEntity> entitiesToRemove = <MediaEntity>{};
 
       // Merge helper (delegates to immutable domain APIs; no in-place map mutation)
@@ -301,13 +299,12 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
       for (int i = 0; i < bucketKeys.length; i += maxWorkers) {
         final slice = bucketKeys.skip(i).take(maxWorkers).toList();
         await Future.wait(slice.map(_processSizeBucket));
-        processedGroups += slice.length;
         // (optional) progress callback could go here; using prints for simplicity
       }
 
       // Apply removals
       if (entitiesToRemove.isNotEmpty) {
-        print('🧹 Removing ${entitiesToRemove.length} entities from collection');
+        print('🧹 Skipping ${entitiesToRemove.length} entities from collection');
         for (final e in entitiesToRemove) {
           try {
             mediaCol.remove(e);
@@ -317,7 +314,7 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
         }
       }
 
-      print('✅ Duplicate removal finished, total removed: $removedCount');
+      print('✅ Remove Duplicates finished, total duplicates found: $removedCount');
 
       stopwatch.stop();
       return StepResult.success(
@@ -327,7 +324,7 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
           'duplicatesRemoved': removedCount,
           'remainingMedia': mediaCol.length,
         },
-        message: 'Removed $removedCount duplicate files\n${mediaCol.length} media files remain.',
+        message: 'Removed $removedCount duplicate files (they will be moved to "_Duplicates" sub-folder in Output folder)\n${mediaCol.length} media files remain.',
       );
     } catch (e) {
       stopwatch.stop();
