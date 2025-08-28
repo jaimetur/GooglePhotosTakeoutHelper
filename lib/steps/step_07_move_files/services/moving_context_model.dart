@@ -1,8 +1,7 @@
 import 'dart:io';
 
-import 'package:path/path.dart' as p;
-
-import '../../../shared/models/processing_config_model.dart';
+import 'package:path/path.dart' as path;
+import 'package:gpth/gpth-lib.dart';
 
 /// Domain model representing the context for moving operations
 ///
@@ -52,7 +51,7 @@ class MovingOperation {
 
   /// Gets the target file path for this operation
   String get targetPath =>
-      p.join(targetDirectory.path, p.basename(sourceFile.path));
+      path.join(targetDirectory.path, path.basename(sourceFile.path));
 
   /// Whether this operation is for an album file
   bool get isAlbumFile => albumKey != null;

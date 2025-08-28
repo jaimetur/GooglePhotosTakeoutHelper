@@ -1,9 +1,7 @@
 import 'dart:io';
 
-import 'package:path/path.dart' as p;
-
-import '../../../shared/infraestructure/windows_symlink_service.dart';
-import '../../../shared/services/core_services/container_service.dart';
+import 'package:path/path.dart' as path;
+import 'package:gpth/gpth-lib.dart';
 
 /// Service responsible for creating symlinks across platforms
 ///
@@ -21,12 +19,12 @@ class SymlinkService {
     final Directory targetDirectory,
     final File sourceFile,
   ) async {
-    final String basename = p.basename(sourceFile.path);
+    final String basename = path.basename(sourceFile.path);
     final File linkFile = ServiceContainer.instance.utilityService
-        .findUniqueFileName(File(p.join(targetDirectory.path, basename)));
+        .findUniqueFileName(File(path.join(targetDirectory.path, basename)));
 
     // Ensure the parent directory for the symlink exists
-    final linkDir = Directory(p.dirname(linkFile.path));
+    final linkDir = Directory(path.dirname(linkFile.path));
     if (!await linkDir.exists()) {
       await linkDir.create(recursive: true);
     }
@@ -37,7 +35,7 @@ class SymlinkService {
     }
 
     // Use relative path to prevent breaking when folders are moved
-    final String targetRelativePath = p.relative(
+    final String targetRelativePath = path.relative(
       sourceFile.path,
       from: linkFile.parent.path,
     );

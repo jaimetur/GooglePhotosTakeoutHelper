@@ -1,9 +1,7 @@
 import 'dart:io';
 
-import 'package:path/path.dart' as p;
-
-import '../../../shared/models/processing_config_model.dart';
-import 'moving_context_model.dart';
+import 'package:path/path.dart' as path;
+import 'package:gpth/gpth-lib.dart';
 
 /// Service responsible for generating file and directory paths
 ///
@@ -33,14 +31,14 @@ class PathGeneratorService {
           : '';
 
       return Directory(
-        p.join(context.outputDirectory.path, folderName, dateFolder),
+        path.join(context.outputDirectory.path, folderName, dateFolder),
       );
     }
 
     // Original logic for non-partner-shared media
     // final String folderName = albumKey?.trim() ?? 'ALL_PHOTOS';
     final String folderName = albumKey != null
-    ? p.join('Albums', albumKey.trim()) // Now All Album's folders will be moved to 'Albums'
+    ? path.join('Albums', albumKey.trim()) // Now All Album's folders will be moved to 'Albums'
     : 'ALL_PHOTOS';
 
 
@@ -50,7 +48,7 @@ class PathGeneratorService {
         : '';
 
     return Directory(
-      p.join(context.outputDirectory.path, folderName, dateFolder),
+      path.join(context.outputDirectory.path, folderName, dateFolder),
     );
   }
 
@@ -69,13 +67,13 @@ class PathGeneratorService {
 
     switch (divideToDates) {
       case DateDivisionLevel.day:
-        return p.join(
+        return path.join(
           '${date.year}',
           date.month.toString().padLeft(2, '0'),
           date.day.toString().padLeft(2, '0'),
         );
       case DateDivisionLevel.month:
-        return p.join('${date.year}', date.month.toString().padLeft(2, '0'));
+        return path.join('${date.year}', date.month.toString().padLeft(2, '0'));
       case DateDivisionLevel.year:
         return '${date.year}';
       case DateDivisionLevel.none:
@@ -85,11 +83,11 @@ class PathGeneratorService {
 
   /// Generates the albums-info.json file path
   String generateAlbumsInfoJsonPath(final Directory outputDirectory) =>
-      p.join(outputDirectory.path, 'albums-info.json');
+      path.join(outputDirectory.path, 'albums-info.json');
 
   /// Generates ALL_PHOTOS directory path
   Directory generateAllPhotosDirectory(final Directory outputDirectory) =>
-      Directory(p.join(outputDirectory.path, 'ALL_PHOTOS'));
+      Directory(path.join(outputDirectory.path, 'ALL_PHOTOS'));
 
   /// Sanitizes a filename to ensure cross-platform compatibility
   String sanitizeFileName(final String fileName) => fileName
@@ -102,7 +100,7 @@ class PathGeneratorService {
     final File sourceFile,
     final Directory targetDirectory,
   ) {
-    final sanitizedName = sanitizeFileName(p.basename(sourceFile.path));
-    return p.join(targetDirectory.path, sanitizedName);
+    final sanitizedName = sanitizeFileName(path.basename(sourceFile.path));
+    return path.join(targetDirectory.path, sanitizedName);
   }
 }

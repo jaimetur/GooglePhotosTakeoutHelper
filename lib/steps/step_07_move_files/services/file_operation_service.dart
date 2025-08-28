@@ -2,11 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
-
-import '../../../shared/infraestructure/concurrency_manager.dart';
-import '../../../shared/services/core_services/global_pools.dart';
-import '../../../shared/services/core_services/logging_service.dart';
-import '../../../shared/services/core_services/container_service.dart';
+import 'package:gpth/gpth-lib.dart';
 
 /// High-performance file operation service with optimized I/O and concurrency control
 ///
