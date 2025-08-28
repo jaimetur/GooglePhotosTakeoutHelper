@@ -3,9 +3,8 @@
 /// Extracted from utils.dart to provide focused functionality for
 /// calculating expected outputs and processing statistics.
 library;
+import 'package:gpth/gpth-lib.dart';
 
-import '../../entities/media_entity.dart';
-import '../../entities/media_entity_collection.dart';
 
 /// Service for calculating processing metrics
 class ProcessingMetricsService {

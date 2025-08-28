@@ -1,14 +1,9 @@
 import 'dart:io';
-
 import 'package:collection/collection.dart';
-import 'package:path/path.dart' as p;
+import 'package:path/path.dart' as path;
 import 'package:unorm_dart/unorm_dart.dart' as unorm;
+import 'package:gpth/gpth-lib.dart';
 
-import '../../constants/extra_formats.dart';
-import '../../file_extensions/file_extensions.dart';
-import '../core_services/logging_service.dart';
-import '../core_services/container_service.dart';
-import '../media_services/edited_version_detector_service.dart';
 
 /// Service for finding corresponding JSON metadata files for media files
 ///
@@ -35,8 +30,8 @@ class JsonMetadataMatcherService with LoggerMixin {
     final File file, {
     required final bool tryhard,
   }) async {
-    final Directory dir = Directory(p.dirname(file.path));
-    final String name = p.basename(file.path);
+    final Directory dir = Directory(path.dirname(file.path));
+    final String name = path.basename(file.path);
 
     // Get strategies based on tryhard setting
     final strategies = tryhard
@@ -51,7 +46,7 @@ class JsonMetadataMatcherService with LoggerMixin {
 
       // Always try the full supplemental-metadata filename first, even if > 51
       final File supplementalJsonFile = File(
-        p.join(dir.path, fullSupplementalPath),
+        path.join(dir.path, fullSupplementalPath),
       );
       if (await supplementalJsonFile.exists()) {
         return supplementalJsonFile;
@@ -68,7 +63,7 @@ class JsonMetadataMatcherService with LoggerMixin {
 
         for (final suffix in truncatedSuffixes) {
           final File truncatedFile = File(
-            p.join(dir.path, '$processedName.$suffix'),
+            path.join(dir.path, '$processedName.$suffix'),
           );
           if (await truncatedFile.exists()) return truncatedFile;
         }
@@ -86,7 +81,7 @@ class JsonMetadataMatcherService with LoggerMixin {
       }
 
       // Then try standard JSON format
-      final File jsonFile = File(p.join(dir.path, '$processedName.json'));
+      final File jsonFile = File(path.join(dir.path, '$processedName.json'));
       if (await jsonFile.exists()) return jsonFile;
 
       // Try numbered standard JSON files
@@ -132,7 +127,7 @@ class JsonMetadataMatcherService with LoggerMixin {
 
       // Pattern 1: Try numbered suffix at end - basename.suffix(number).json
       final File numberedJsonFile = File(
-        p.join(
+        path.join(
           dir.path,
           '$baseName$jsonSuffix'.replaceAll('.json', '($number).json'),
         ),
@@ -145,7 +140,7 @@ class JsonMetadataMatcherService with LoggerMixin {
       // Pattern 2: Try numbered suffix in middle - basename(number).suffix.json
       if (jsonSuffix == '.supplemental-metadata.json') {
         final File numberedMiddleJsonFile = File(
-          p.join(dir.path, '$baseName($number).supplemental-metadata.json'),
+          path.join(dir.path, '$baseName($number).supplemental-metadata.json'),
         );
 
         if (await numberedMiddleJsonFile.exists()) {
@@ -284,7 +279,7 @@ class JsonMetadataMatcherService with LoggerMixin {
   /// Combines partial suffix removal with extension restoration for cases
   /// where both the suffix and extension were truncated due to filename limits.
   static String _removeExtraPartialWithExtensionRestore(final String filename) {
-    final String originalExt = p.extension(filename);
+    final String originalExt = path.extension(filename);
     final String cleanedFilename = _extrasService.removePartialExtraFormats(
       filename,
     );
@@ -302,7 +297,7 @@ class JsonMetadataMatcherService with LoggerMixin {
 
       if (restoredFilename != cleanedFilename) {
         _logDebug(
-          'Extension restored from ${p.extension(cleanedFilename)} to ${p.extension(restoredFilename)} for file: $restoredFilename',
+          'Extension restored from ${path.extension(cleanedFilename)} to ${path.extension(restoredFilename)} for file: $restoredFilename',
         );
         return restoredFilename;
       }
@@ -330,9 +325,9 @@ class JsonMetadataMatcherService with LoggerMixin {
   /// For Pixel Motion Photos, the JSON file is often named after the MP.jpg version
   /// rather than the MP version. This function handles that case.
   static String _handleMPFiles(final String filename) {
-    final String ext = p.extension(filename).toLowerCase();
+    final String ext = path.extension(filename).toLowerCase();
     if (ext == '.mp') {
-      final String nameWithoutExt = p.basenameWithoutExtension(filename);
+      final String nameWithoutExt = path.basenameWithoutExtension(filename);
       return '$nameWithoutExt.MP.jpg';
     }
     return filename;
@@ -405,7 +400,7 @@ String _bracketSwap(final String filename) {
 ///
 /// Handles cases where original file had no extension but Google added one.
 String _noExtension(final String filename) =>
-    p.basenameWithoutExtension(File(filename).path);
+    path.basenameWithoutExtension(File(filename).path);
 
 /// Handles cross-extension matching for shared JSON files
 ///
@@ -413,8 +408,8 @@ String _noExtension(final String filename) =>
 /// For example: IMG_2367.MP4 should match IMG_2367.HEIC.supplemental-metadata.json
 /// Common patterns: MP4 ↔ HEIC, JPG ↔ HEIC, etc.
 String _crossExtensionMatching(final String filename) {
-  final String ext = p.extension(filename).toLowerCase();
-  final String nameWithoutExt = p.basenameWithoutExtension(filename);
+  final String ext = path.extension(filename).toLowerCase();
+  final String nameWithoutExt = path.basenameWithoutExtension(filename);
 
   // Map of cross-extension patterns (source → target)
   // Use uppercase to match typical Google Photos naming
@@ -445,8 +440,8 @@ String _removeExtraComplete(final String filename) {
   // MacOS uses NFD that doesn't work with our accents 🙃🙃
   // https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/pull/247
   final String normalizedFilename = unorm.nfc(filename);
-  final String ext = p.extension(normalizedFilename);
-  final String nameWithoutExt = p.basenameWithoutExtension(normalizedFilename);
+  final String ext = path.extension(normalizedFilename);
+  final String nameWithoutExt = path.basenameWithoutExtension(normalizedFilename);
 
   for (final String extra in extraFormats) {
     // Check for exact suffix match with optional digit pattern

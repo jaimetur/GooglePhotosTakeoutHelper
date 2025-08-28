@@ -1,7 +1,5 @@
-import '../../infraestructure/concurrency_manager.dart';
-import '../../entities/media_entity.dart';
-import '../core_services/logging_service.dart';
-import 'media_hash_service.dart';
+import 'package:gpth/gpth-lib.dart';
+
 
 /// Service for detecting duplicate media files based on content hash and size
 ///

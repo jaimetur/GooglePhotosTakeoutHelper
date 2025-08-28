@@ -1,9 +1,6 @@
-import 'package:path/path.dart' as p;
+import 'package:path/path.dart' as path;
 import 'package:unorm_dart/unorm_dart.dart' as unorm;
-
-import '../../constants/extra_formats.dart';
-import '../../entities/media_entity.dart';
-import '../../entities/media_entity_collection.dart';
+import 'package:gpth/gpth-lib.dart';
 
 /// Service for handling "extra" format files (edited versions)
 ///
@@ -22,7 +19,7 @@ class EditedVersionDetectorService {
   /// [filename] Filename to check (can include path and extension)
   /// Returns true if the file appears to be an edited version
   bool isExtra(final String filename) {
-    final String name = p.withoutExtension(p.basename(filename)).toLowerCase();
+    final String name = path.withoutExtension(path.basename(filename)).toLowerCase();
     for (final String extra in extraFormats) {
       // MacOS uses NFD that doesn't work with our accents 🙃🙃
       // https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/pull/247
@@ -48,8 +45,7 @@ class EditedVersionDetectorService {
     int removedCount = 0;
 
     for (final MediaEntity entity in collection.media) {
-      final String name = p
-          .withoutExtension(p.basename(entity.files.firstFile.path))
+      final String name = path.withoutExtension(path.basename(entity.files.firstFile.path))
           .toLowerCase();
       final String normalizedName = unorm.nfc(name);
 
@@ -112,8 +108,8 @@ class EditedVersionDetectorService {
   String? removeCompleteExtraFormats(final String filename) {
     // MacOS uses NFD that doesn't work with our accents 🙃🙃
     final String normalizedFilename = unorm.nfc(filename);
-    final String originalExt = p.extension(normalizedFilename);
-    final String nameWithoutExt = p.basenameWithoutExtension(
+    final String originalExt = path.extension(normalizedFilename);
+    final String nameWithoutExt = path.basenameWithoutExtension(
       normalizedFilename,
     );
 
@@ -123,10 +119,10 @@ class EditedVersionDetectorService {
           0,
           nameWithoutExt.length - suffix.length,
         );
-        final String dirname = p.dirname(normalizedFilename);
+        final String dirname = path.dirname(normalizedFilename);
         return dirname == '.'
             ? '$cleanName$originalExt'
-            : p.join(dirname, '$cleanName$originalExt');
+            : path.join(dirname, '$cleanName$originalExt');
       }
     }
     return null;
@@ -144,8 +140,8 @@ class EditedVersionDetectorService {
   /// [filename] Original filename that may contain partial suffixes
   /// Returns filename with partial suffixes removed, or original if no removal needed
   String removePartialExtraFormats(final String filename) {
-    final String ext = p.extension(filename);
-    final String nameWithoutExt = p.basenameWithoutExtension(filename);
+    final String ext = path.extension(filename);
+    final String nameWithoutExt = path.basenameWithoutExtension(filename);
 
     for (final String suffix in extraFormats) {
       for (int i = 2; i <= suffix.length; i++) {
@@ -175,10 +171,10 @@ class EditedVersionDetectorService {
   String? removeCrossExtensionExtraFormats(final String filename) {
     // Check for patterns like "photo-edited.mp4" -> "photo.jpg"
     final String normalizedFilename = unorm.nfc(filename);
-    final String nameWithoutExt = p.basenameWithoutExtension(
+    final String nameWithoutExt = path.basenameWithoutExtension(
       normalizedFilename,
     );
-    final String ext = p.extension(normalizedFilename);
+    final String ext = path.extension(normalizedFilename);
 
     // Look for cross-extension patterns where editing suffixes exist
     // but the extension might have changed
@@ -191,10 +187,10 @@ class EditedVersionDetectorService {
 
         // For video extensions, try common photo extensions
         if (['.mp4', '.mov', '.avi'].contains(ext.toLowerCase())) {
-          final String dirname = p.dirname(normalizedFilename);
+          final String dirname = path.dirname(normalizedFilename);
           return dirname == '.'
               ? '$baseName.jpg'
-              : p.join(dirname, '$baseName.jpg');
+              : path.join(dirname, '$baseName.jpg');
         }
       }
     }
@@ -213,16 +209,15 @@ class EditedVersionDetectorService {
   String? removeEdgeCaseExtraFormats(final String filename) {
     // MacOS uses NFD that doesn't work with our accents 🙃🙃
     final String normalizedFilename = unorm.nfc(filename);
-    final String originalExt = p.extension(normalizedFilename);
+    final String originalExt = path.extension(normalizedFilename);
 
     final RegExpMatch? lastDashMatch = RegExp(
       r'-[a-zA-ZÀ-ÖØ-öø-ÿ\s]*(\(\d+\))?$',
-    ).firstMatch(p.basenameWithoutExtension(normalizedFilename));
+    ).firstMatch(path.basenameWithoutExtension(normalizedFilename));
 
     if (lastDashMatch == null) return null;
 
-    final String beforeDash = p
-        .basenameWithoutExtension(normalizedFilename)
+    final String beforeDash = path.basenameWithoutExtension(normalizedFilename)
         .substring(0, lastDashMatch.start);
     final String afterDash = lastDashMatch.group(0)!;
 
@@ -240,10 +235,10 @@ class EditedVersionDetectorService {
           ) &&
           afterDashClean.length >= 2) {
         // At least 2 chars to avoid false positives
-        final String dirname = p.dirname(normalizedFilename);
+        final String dirname = path.dirname(normalizedFilename);
         return dirname == '.'
             ? '$beforeDash$originalExt'
-            : p.join(dirname, '$beforeDash$originalExt');
+            : path.join(dirname, '$beforeDash$originalExt');
       }
     }
 
@@ -260,7 +255,7 @@ class EditedVersionDetectorService {
   /// [originalExt] Original extension before processing (unused, kept for compatibility)
   /// Returns filename with restored extension, or original filename if no restoration needed
   String restoreFileExtension(final String filename, final String originalExt) {
-    final String currentExt = p.extension(filename);
+    final String currentExt = path.extension(filename);
 
     // Only attempt restoration if the current extension looks truncated
     if (currentExt.length > 4 || currentExt.length < 2) {
@@ -285,11 +280,11 @@ class EditedVersionDetectorService {
       if (ext.toLowerCase().startsWith(currentExt.toLowerCase()) &&
           ext.length <= 4) {
         // Reasonable extension length
-        final String nameWithoutExt = p.basenameWithoutExtension(filename);
-        final String dirname = p.dirname(filename);
+        final String nameWithoutExt = path.basenameWithoutExtension(filename);
+        final String dirname = path.dirname(filename);
         return dirname == '.'
             ? '$nameWithoutExt$ext'
-            : p.join(dirname, '$nameWithoutExt$ext');
+            : path.join(dirname, '$nameWithoutExt$ext');
       }
     }
     return filename;

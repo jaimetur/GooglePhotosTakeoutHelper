@@ -11,7 +11,7 @@ import 'package:gpth/shared/entities/media_entity.dart';
 import 'package:gpth/shared/entities/media_entity_collection.dart';
 import 'package:gpth/shared/services/core_services/container_service.dart';
 import 'package:gpth/shared/value_objects/date_accuracy.dart';
-import 'package:gpth/steps/step_04_extract_dates/controllers/date_time_extraction_method.dart';
+import 'package:gpth/shared/services/media_services/date_time_extraction_method.dart';
 import 'package:gpth/shared/value_objects/media_files_collection.dart';
 import 'package:test/test.dart';
 

@@ -2,8 +2,7 @@ import 'dart:ffi';
 import 'dart:io';
 import 'package:ffi/ffi.dart';
 import 'package:win32/win32.dart';
-
-import 'concurrency_manager.dart';
+import 'package:gpth/gpth-lib.dart';
 
 /// Service for platform-specific operations and disk space detection
 ///

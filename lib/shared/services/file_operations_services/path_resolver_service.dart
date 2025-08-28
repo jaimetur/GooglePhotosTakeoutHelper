@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:path/path.dart' as p;
+import 'package:path/path.dart' as path;
 
 /// **TAKEOUT PATH RESOLVER SERVICE**
 ///
@@ -140,7 +140,7 @@ class PathResolverService {
 
       for (final entity in contents) {
         if (entity is Directory &&
-            p.basename(entity.path).toLowerCase() == 'takeout') {
+            path.basename(entity.path).toLowerCase() == 'takeout') {
           return entity;
         }
       }
@@ -236,7 +236,7 @@ class PathResolverService {
   /// @param directory Directory to check
   /// @returns true if this is a year folder
   static bool _isYearFolder(final Directory directory) {
-    final name = p.basename(directory.path);
+    final name = path.basename(directory.path);
     final yearRegex = RegExp(r'Photos from \d{4}');
     return yearRegex.hasMatch(name);
   }
@@ -263,7 +263,7 @@ class PathResolverService {
   /// @param file File to check
   /// @returns true if this is a media file
   static bool _isMediaFile(final File file) {
-    final extension = p.extension(file.path).toLowerCase();
+    final extension = path.extension(file.path).toLowerCase();
     const mediaExtensions = {
       '.jpg',
       '.jpeg',
@@ -299,7 +299,7 @@ class PathResolverService {
   /// @param file File to check
   /// @returns true if this is a JSON metadata file
   static bool _isJsonFile(final File file) =>
-      p.extension(file.path).toLowerCase() == '.json';
+      path.extension(file.path).toLowerCase() == '.json';
 }
 
 /// **EXCEPTION: DIRECTORY NOT FOUND**

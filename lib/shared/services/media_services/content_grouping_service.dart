@@ -1,8 +1,6 @@
 import 'dart:async';
+import 'package:gpth/gpth-lib.dart';
 
-import '../../infraestructure/concurrency_manager.dart';
-import '../../entities/media_entity.dart';
-import '../core_services/logging_service.dart';
 
 /// Service for grouping media files by content similarity
 ///

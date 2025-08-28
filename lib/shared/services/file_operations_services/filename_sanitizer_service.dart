@@ -1,7 +1,7 @@
 import 'dart:io';
-import 'package:emoji_regex/emoji_regex.dart' as r;
-import 'package:path/path.dart' as p;
-import '../core_services/logging_service.dart';
+import 'package:emoji_regex/emoji_regex.dart' as regex;
+import 'package:path/path.dart' as path;
+import 'package:gpth/gpth-lib.dart';
 
 /// Service for sanitizing filenames and handling emoji characters
 class FilenameSanitizerService with LoggerMixin {
@@ -16,8 +16,8 @@ class FilenameSanitizerService with LoggerMixin {
   /// [albumDir] The Directory whose name may contain emoji characters.
   /// Returns the new (possibly hex-encoded) directory after renaming on disk.
   Directory encodeAndRenameAlbumIfEmoji(final Directory albumDir) {
-    final String originalName = p.basename(albumDir.path);
-    if (!r.emojiRegex().hasMatch(originalName) &&
+    final String originalName = path.basename(albumDir.path);
+    if (!regex.emojiRegex().hasMatch(originalName) &&
         !RegExp(r'\u{FE0F}|\u{FE0E}', unicode: true).hasMatch(originalName)) {
       // Check for emojis or invisible modifier characters (variation selectors)
       return albumDir;
@@ -45,14 +45,14 @@ class FilenameSanitizerService with LoggerMixin {
           continue;
         }
       } // Handle Basic Multilingual Plane (BMP) emojis and invisible modifier characters
-      if (r.emojiRegex().hasMatch(char) ||
+      if (regex.emojiRegex().hasMatch(char) ||
           RegExp(r'\u{FE0F}|\u{FE0E}', unicode: true).hasMatch(char)) {
         cleanName.write('_0x${codeUnit.toRadixString(16)}_');
       } else {
         cleanName.write(char);
       }
     }
-    final String newPath = p.join(parentPath, cleanName.toString());
+    final String newPath = path.join(parentPath, cleanName.toString());
     if (albumDir.path != newPath) {
       // Check if directory exists before attempting rename
       if (!albumDir.existsSync()) {
@@ -80,7 +80,7 @@ class FilenameSanitizerService with LoggerMixin {
   /// [encodedPath] The path with hex-encoded emojis in the last segment.
   /// Returns the path with emojis restored, or the original path if no encoding is present.
   String decodeAndRestoreAlbumEmoji(final String encodedPath) {
-    final List<String> parts = encodedPath.split(p.separator);
+    final List<String> parts = encodedPath.split(path.separator);
     if (parts.isEmpty) return encodedPath;
 
     // Only decode if hex-encoded emoji is present in the last segment
@@ -89,7 +89,7 @@ class FilenameSanitizerService with LoggerMixin {
         'Found a hex encoded emoji in $encodedPath. Decoding it back to emoji.',
       );
       parts[parts.length - 1] = _decodeEmojiComponent(parts.last);
-      return parts.join(p.separator);
+      return parts.join(path.separator);
     }
     return encodedPath;
   }

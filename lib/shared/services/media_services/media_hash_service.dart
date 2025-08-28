@@ -1,13 +1,8 @@
 import 'dart:async';
 import 'dart:collection';
 import 'dart:io';
-
 import 'package:crypto/crypto.dart';
-
-import '../../infraestructure/concurrency_manager.dart';
-import '../core_services/global_pools.dart';
-import '../core_services/logging_service.dart';
-// pool package used indirectly via GlobalPools
+import 'package:gpth/gpth-lib.dart';
 
 /// Optimized service for calculating media file hashes and sizes with intelligent caching
 ///

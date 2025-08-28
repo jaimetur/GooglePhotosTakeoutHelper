@@ -1,5 +1,5 @@
 import 'dart:io';
-import '../../models/processing_config_model.dart';
+import 'package:gpth/gpth-lib.dart';
 
 /// Service for application logging with colored output and level filtering
 ///

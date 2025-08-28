@@ -1,20 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
-
 import 'package:intl/intl.dart';
 import 'package:mime/mime.dart';
-
-import '../infraestructure/exiftool_service.dart';
-import '../infraestructure/concurrency_manager.dart';
-import 'media_entity.dart';
-import '../services/core_services/logging_service.dart';
-import '../services/core_services/container_service.dart';
-import '../../steps/step_05_write_exif/services/exif_gps_extractor.dart';
-import '../../steps/step_04_extract_dates/services/date_extractors/exif_date_extractor.dart';
-import '../../steps/step_04_extract_dates/services/date_extractors/json_date_extractor.dart';
-import '../../steps/step_05_write_exif/services/exif_writer_service.dart';
-import '../services/json_metadata_services/json_metadata_matcher_service.dart';
-import '../../steps/step_04_extract_dates/controllers/date_time_extraction_method.dart';
+import 'package:gpth/gpth-lib.dart';
 
 /// Modern domain model representing a collection of media entities.
 /// Full API: includes extractDates, writeExifData (batched), removeDuplicates,

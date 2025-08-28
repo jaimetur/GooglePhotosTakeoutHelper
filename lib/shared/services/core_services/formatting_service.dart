@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:proper_filesize/proper_filesize.dart';
+import 'package:gpth/gpth-lib.dart';
 
-import '../../entities/media_entity.dart';
 
 /// Consolidated utility service for common formatting and utility operations
 ///
@@ -265,7 +265,7 @@ class FormattingService {
 /// Extension for string utility operations
 extension StringUtilityExtensions on String {
   /// Returns same string if pattern not found, otherwise replaces last occurrence
-  String replaceLast(final String from, final String to) {
+  String replaceLastOcurrence(final String from, final String to) {
     final int lastIndex = lastIndexOf(from);
     if (lastIndex == -1) return this;
     return replaceRange(lastIndex, lastIndex + from.length, to);

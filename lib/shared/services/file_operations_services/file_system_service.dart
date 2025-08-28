@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:mime/mime.dart';
-import 'package:path/path.dart' as p;
+import 'package:path/path.dart' as path;
 
 /// Service for file system operations and file type detection
 ///
@@ -32,7 +32,7 @@ class FileSystemService {
   /// Returns true if the file is a photo or video
   bool isPhotoOrVideo(final File file) {
     final String mime = lookupMimeType(file.path) ?? '';
-    final String fileExtension = p.extension(file.path).toLowerCase();
+    final String fileExtension = path.extension(file.path).toLowerCase();
 
     return mime.startsWith('image/') ||
         mime.startsWith(

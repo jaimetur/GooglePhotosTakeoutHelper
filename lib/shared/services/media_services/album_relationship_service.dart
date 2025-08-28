@@ -1,11 +1,9 @@
 import 'dart:async';
 import 'dart:collection';
 import 'dart:io';
-
 import 'package:crypto/crypto.dart';
+import 'package:gpth/gpth-lib.dart';
 
-import '../../entities/media_entity.dart';
-import '../core_services/logging_service.dart';
 
 /// Service for detecting and managing album relationships between media files
 ///

@@ -1,10 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-
-import 'package:path/path.dart' as p;
-
-import '../services/core_services/logging_service.dart';
+import 'package:path/path.dart' as path;
+import 'package:gpth/gpth-lib.dart';
 
 /// Infrastructure service for ExifTool external process management.
 /// Keeps 4.2.2 performance behavior while restoring robust path discovery
@@ -63,19 +61,19 @@ class ExifToolService with LoggerMixin {
     final List<String?> candidateDirs = [
       binDir,
       scriptDir,
-      if (binDir != null) p.join(binDir, 'exif_tool'),
-      if (scriptDir != null) p.join(scriptDir, 'exif_tool'),
+      if (binDir != null) path.join(binDir, 'exif_tool'),
+      if (scriptDir != null) path.join(scriptDir, 'exif_tool'),
       Directory.current.path,
-      p.join(Directory.current.path, 'exif_tool'),
-      if (scriptDir != null) p.dirname(scriptDir),
-      if (binDir != null) p.dirname(binDir),
-      if (binDir != null) p.join(p.dirname(binDir), 'exif_tool'),
+      path.join(Directory.current.path, 'exif_tool'),
+      if (scriptDir != null) path.dirname(scriptDir),
+      if (binDir != null) path.dirname(binDir),
+      if (binDir != null) path.join(path.dirname(binDir), 'exif_tool'),
     ];
 
     for (final dir in candidateDirs) {
       if (dir == null || dir.isEmpty) continue;
       for (final exeName in exiftoolNames) {
-        final exiftoolFile = File(p.join(dir, exeName));
+        final exiftoolFile = File(path.join(dir, exeName));
         if (await exiftoolFile.exists()) {
           try {
             final result = await Process.run(exiftoolFile.path, ['-ver']);

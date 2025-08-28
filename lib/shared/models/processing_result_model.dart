@@ -1,5 +1,5 @@
-import '../../steps/step_04_extract_dates/controllers/date_time_extraction_method.dart';
-import '../../steps/steps_pipeline.dart';
+import 'package:gpth/gpth-lib.dart';
+
 
 /// Domain model representing the results and statistics of a complete GPTH processing run
 ///

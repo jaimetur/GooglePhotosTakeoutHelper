@@ -1,4 +1,4 @@
-import 'package:gpth/steps/step_04_extract_dates/controllers/date_time_extraction_method.dart';
+import 'package:gpth/shared/services/media_services/date_time_extraction_method.dart';
 import 'package:test/test.dart';
 
 void main() {

@@ -1,4 +1,4 @@
-import '../../models/processing_config_model.dart';
+import 'package:gpth/gpth-lib.dart';
 
 /// Service for managing global application configuration and state
 ///

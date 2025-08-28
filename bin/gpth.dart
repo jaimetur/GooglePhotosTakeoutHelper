@@ -1,20 +1,9 @@
 // ignore_for_file: unintended_html_in_doc_comment
-
 import 'dart:convert';
 import 'dart:io';
-
 import 'package:args/args.dart';
-import 'package:gpth/steps/main_pipeline.dart';
-import 'package:gpth/shared/models/io_paths_model.dart';
-import 'package:gpth/shared/models/processing_config_model.dart';
-import 'package:gpth/shared/models/processing_result_model.dart';
-import 'package:gpth/shared/services/core_services/logging_service.dart';
-import 'package:gpth/shared/services/core_services/container_service.dart';
-import 'package:gpth/shared/services/file_operations_services/path_resolver_service.dart';
-import 'package:gpth/shared/services/interactive_presenter_service/interactive_presenter_service.dart';
-import 'package:gpth/shared/infraestructure/concurrency_manager.dart';
-import 'package:gpth/shared/constants/constants.dart';
-import 'package:path/path.dart' as p;
+import 'package:path/path.dart' as path;
+import 'package:gpth/gpth-lib.dart';
 
 // Parses hidden test-only flags from argv, applies them, and returns a list
 // with those flags removed so ArgParser won't choke on unknown options.
@@ -609,23 +598,23 @@ Future<InputOutputPaths> _getInputOutputPaths(
 
       if (await provided.exists() &&
           provided.statSync().type == FileSystemEntityType.file &&
-          p.extension(provided.path).toLowerCase() == '.zip') {
+          path.extension(provided.path).toLowerCase() == '.zip') {
         // Single zip file provided as --input
         zips.add(provided);
         extractDir = Directory(
-          p.join(p.dirname(provided.path), '.gpth-unzipped'),
+          path.join(path.dirname(provided.path), '.gpth-unzipped'),
         );
       } else {
         final providedDir = Directory(inputPath);
         if (await providedDir.exists()) {
           // Find zip files in directory (non-recursive)
           for (final ent in providedDir.listSync()) {
-            if (ent is File && p.extension(ent.path).toLowerCase() == '.zip') {
+            if (ent is File && path.extension(ent.path).toLowerCase() == '.zip') {
               zips.add(ent);
             }
           }
         }
-        extractDir = Directory(p.join(inputPath, '.gpth-unzipped'));
+        extractDir = Directory(path.join(inputPath, '.gpth-unzipped'));
       }
 
       if (zips.isNotEmpty) {
@@ -840,7 +829,7 @@ Future<bool> _isOutputDirectoryEmpty(
   final ProcessingConfig config,
 ) => outputDir
     .list()
-    .where((final e) => p.absolute(e.path) != p.absolute(config.inputPath))
+    .where((final e) => path.absolute(e.path) != path.absolute(config.inputPath))
     .isEmpty;
 
 /// **OUTPUT DIRECTORY CLEANUP**
@@ -863,7 +852,7 @@ Future<void> _cleanOutputDirectory(
   final ProcessingConfig config,
 ) async {
   await for (final file in outputDir.list().where(
-    (final e) => p.absolute(e.path) != p.absolute(config.inputPath),
+    (final e) => path.absolute(e.path) != path.absolute(config.inputPath),
   )) {
     await file.delete(recursive: true);
   }

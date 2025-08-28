@@ -1,11 +1,9 @@
 import 'dart:io';
 import 'dart:isolate';
-
 import 'package:ffi/ffi.dart';
 import 'package:path/path.dart' as p;
 import 'package:win32/win32.dart';
-
-import '../services/core_services/logging_service.dart';
+import 'package:gpth/gpth-lib.dart';
 
 /// Service for creating Windows symbolic links using Win32 API
 ///

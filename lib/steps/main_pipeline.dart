@@ -16,7 +16,7 @@ import 'step_05_write_exif/step_05_write_exif.dart';
 import 'step_06_find_albums/step_06_find_albums.dart';
 import 'step_07_move_files/step_07_move_files.dart';
 import 'step_08_update_creation_time/step_08_update_creation_time.dart';
-import 'step_04_extract_dates/controllers/date_time_extraction_method.dart';
+import '../shared/services/media_services/date_time_extraction_method.dart';
 
 /// Processing Pipeline for Google Photos Takeout Helper
 ///
