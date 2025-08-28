@@ -3,6 +3,8 @@
 ### 🚀 **Improvements**
   - Code Structure refactored for a better understanding and easier way to find each module.
   - Created a single package gpth-lib with all the exported modules for an easier way to manage imports and refactoring.
+  - Improve Media Entity to include a new parameter `belongToAlbums` for a better management of all albums associated with each media entity.
+  - Code Refactored to isolate the execution logic of each step into the .execute() function of the step's class. In this way the media_entity_collection module is much clearer and easy to understand and maintain.
 
 
 ## 4.3.1-Xentraxx
@@ -11,6 +13,8 @@
   - Improve Performance in Remove Duplicates Step
   - Change README.md to add Star History & Contributors History
 
+### 🐛 **Bug Fixes**
+  - Added ask for Albums strategy during interactive mode
 
 ## 4.3.0-Xentraxx
 

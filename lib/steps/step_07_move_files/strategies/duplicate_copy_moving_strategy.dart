@@ -38,7 +38,6 @@ class DuplicateCopyMovingStrategy extends MediaEntityMovingStrategy {
     // we must MOVE it to the canonical ALL_PHOTOS folder instead of copying it, otherwise the original
     // remains and causes leftover files. Heuristic: if its path contains any of the album directory target paths.
     File canonicalFile = originalPrimaryFile;
-    // Track canonical file; no need for additional collections here.
     final stopwatch = Stopwatch()..start();
     try {
       if (entity.albumNames.isNotEmpty) {
@@ -95,7 +94,7 @@ class DuplicateCopyMovingStrategy extends MediaEntityMovingStrategy {
         duration: stopwatch.elapsed,
       );
 
-      // Step 2: For each album, ensure a copy exists (unless the original file was already there and moved)
+      // Step 2: For each album, ensure a copy exists (use canonicalFile as source)
       for (final albumName in entity.albumNames) {
         final albumDir = _pathService.generateTargetDirectory(
           albumName,
@@ -152,7 +151,7 @@ class DuplicateCopyMovingStrategy extends MediaEntityMovingStrategy {
       );
     }
 
-    // NEW: move non-primary physical files to _Duplicates preserving source structure
+    // Move non-primary physical files to _Duplicates preserving source structure
     yield* _moveNonPrimaryFilesToDuplicates(entity, context);
   }
 
@@ -161,27 +160,21 @@ class DuplicateCopyMovingStrategy extends MediaEntityMovingStrategy {
     // No special validation needed for duplicate-copy strategy
   }
 
-  // --- NEW helper: move all non-primary physical files to _Duplicates, preserving structure ---
+  // --- helper: move all non-primary physical files to _Duplicates, preserving structure ---
   Stream<MediaEntityMovingResult> _moveNonPrimaryFilesToDuplicates(
     final MediaEntity entity,
     final MovingContext context,
   ) async* {
-    final duplicatesRoot = Directory(
-      '${context.outputDirectory.path}/_Duplicates',
-    );
+    final duplicatesRoot = Directory('${context.outputDirectory.path}/_Duplicates');
     final primaryPath = entity.primaryFile.path;
-    final allSources = entity.files.files.values
-        .map((final f) => f.path)
-        .toSet();
+    final allSources = entity.files.files.values.map((final f) => f.path).toSet();
 
     for (final srcPath in allSources) {
       if (srcPath == primaryPath) continue;
 
       final sourceFile = File(srcPath);
       final relInfo = _computeDuplicatesRelativeInfo(srcPath);
-      final targetDir = Directory(
-        '${duplicatesRoot.path}/${relInfo.relativeDir}',
-      );
+      final targetDir = Directory('${duplicatesRoot.path}/${relInfo.relativeDir}');
       if (!targetDir.existsSync()) {
         targetDir.createSync(recursive: true);
       }
@@ -213,8 +206,7 @@ class DuplicateCopyMovingStrategy extends MediaEntityMovingStrategy {
             operationType: MediaEntityOperationType.move,
             mediaEntity: entity,
           ),
-          errorMessage:
-              'Failed to move non-primary file to _Duplicates: $e (hint: ${relInfo.hint})',
+          errorMessage: 'Failed to move non-primary file to _Duplicates: $e (hint: ${relInfo.hint})',
           duration: sw.elapsed,
         );
       }
@@ -229,31 +221,21 @@ class DuplicateCopyMovingStrategy extends MediaEntityMovingStrategy {
     final idxTakeout = lower.indexOf('/takeout/');
     if (idxTakeout >= 0) {
       final rel = normalized.substring(idxTakeout + '/takeout/'.length);
-      final relDir = rel.contains('/')
-          ? rel.substring(0, rel.lastIndexOf('/'))
-          : '';
-      return _RelInfo(
-        relativeDir: relDir.isEmpty ? '.' : relDir,
-        hint: 'anchored by /Takeout/',
-      );
+      final relDir = rel.contains('/') ? rel.substring(0, rel.lastIndexOf('/')) : '';
+      return _RelInfo(relativeDir: relDir.isEmpty ? '.' : relDir, hint: 'anchored by /Takeout/');
     }
 
     for (final anchor in const ['/google fotos/', '/google photos/']) {
       final idx = lower.indexOf(anchor);
       if (idx >= 0) {
         final rel = normalized.substring(idx + anchor.length);
-        final relDir = rel.contains('/')
-            ? rel.substring(0, rel.lastIndexOf('/'))
-            : '';
-        return _RelInfo(
-          relativeDir: relDir.isEmpty ? '.' : relDir,
-          hint: 'anchored by $anchor',
-        );
+        final relDir = rel.contains('/') ? rel.substring(0, rel.lastIndexOf('/')) : '';
+        return _RelInfo(relativeDir: relDir.isEmpty ? '.' : relDir, hint: 'anchored by $anchor');
       }
     }
 
     final lastSlash = normalized.lastIndexOf('/');
-    final parent = lastSlash >= 0 ? normalized.substring(0, lastSlash) : '';
+    final parent = normalized.substring(0, lastSlash >= 0 ? lastSlash : normalized.length);
     final leaf = parent.isEmpty ? 'Uncategorized' : parent.split('/').last;
     return _RelInfo(relativeDir: leaf, hint: 'fallback: no anchor found');
   }

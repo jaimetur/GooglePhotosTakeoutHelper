@@ -404,6 +404,15 @@ Future<ProcessingConfig> _buildConfigFromArgs(final ArgResults res) async {
         .askIfWriteExif();
     configBuilder.exifWriting = writeExif;
 
+    // Ask user for Album mode
+    print('');
+    final albumModeString = await ServiceContainer.instance.interactiveService
+        .askAlbums();
+    final AlbumBehavior albumBehaviour = AlbumBehavior.fromString(
+      albumModeString,
+    );
+    configBuilder.albumBehavior = albumBehaviour;
+
     // Ask user for Pixel/MP file transformation in interactive mode
     print('');
     final transformPixelMP = await ServiceContainer.instance.interactiveService

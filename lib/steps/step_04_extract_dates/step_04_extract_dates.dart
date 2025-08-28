@@ -1,4 +1,7 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:console_bars/console_bars.dart';
+import 'package:intl/intl.dart';
 import 'package:gpth/gpth-lib.dart';
 
 /// Step 4: Extract dates from media files
@@ -124,70 +127,138 @@ import 'package:gpth/gpth-lib.dart';
 /// - **Processing**: Date extraction and accuracy assignment
 /// - **Output**: MediaCollection with date metadata and extraction statistics
 /// - **Side Effects**: Updates each Media object with date and accuracy information
-class ExtractDatesStep extends ProcessingStep {
-  const ExtractDatesStep() : super('Extract Dates');
+class ExtractDatesStep extends ProcessingStep with LoggerMixin {
+  ExtractDatesStep() : super('Extract Dates');
 
   @override
   Future<StepResult> execute(final ProcessingContext context) async {
-    final stopwatch = Stopwatch()..start();
+    final sw = Stopwatch()..start();
 
     try {
       print('\n[Step 4/8] Extracting metadata (this may take a while)...');
 
-      final extractors = context
-          .config
-          .dateExtractors; // Initialize progress bar - always visible
-      final progressBar = FillingBar(
-        desc: 'Processing media files',
-        total: context.mediaCollection.length,
-        width: 50,
-      );
+      final collection = context.mediaCollection;
 
-      final extractionStats = await context.mediaCollection.extractDates(
-        extractors
-            .map(
-              (final extractor) =>
-                  (final MediaEntity entity) => extractor(entity.primaryFile),
-            )
-            .toList(),
-        onProgress: (final int current, final int total) {
-          progressBar.update(current);
-          if (current == total) {
-            print(''); // Add a newline after progress bar completion
+      // --- Parity with previous implementation: explicit “threads” (concurrency) log.
+      final maxConcurrency = ConcurrencyManager().concurrencyFor(ConcurrencyOperation.exif);
+      print('Starting $maxConcurrency threads (exif date extraction concurrency)');
+
+      // Build extractor callables bound to MediaEntity (keeps your priority order)
+      // NOTE: we wrap File-based extractors from config so they match MediaEntity→Future<DateTime?> signature.
+      final fileExtractors = context.config.dateExtractors;
+      final extractors = fileExtractors.map<Future<DateTime?> Function(MediaEntity)>((f) {
+        return (final MediaEntity m) => f(m.primaryFile);
+      }).toList(growable: false);
+
+      // Map extractor index to the proper DateTimeExtractionMethod (restored exactly as before)
+      final extractorMethods = <DateTimeExtractionMethod>[
+        DateTimeExtractionMethod.json,
+        DateTimeExtractionMethod.exif,
+        DateTimeExtractionMethod.guess,
+        DateTimeExtractionMethod.jsonTryHard,
+        DateTimeExtractionMethod.folderYear,
+      ];
+
+      // Stats + progress (same semantics you had before)
+      final extractionStats = <DateTimeExtractionMethod, int>{};
+      var completed = 0;
+
+      // Optional visual progress bar (addition that coexists with onProgress semantics)
+      final progressBar = FillingBar(desc: 'Processing media files', total: collection.length, width: 50);
+
+      for (int i = 0; i < collection.length; i += maxConcurrency) {
+        final batch = collection.asList().skip(i).take(maxConcurrency).toList(growable: false);
+        final batchStartIndex = i;
+
+        final futures = batch.asMap().entries.map((entry) async {
+          final batchIndex = entry.key;
+          final mediaFile = entry.value;
+          final actualIndex = batchStartIndex + batchIndex;
+
+          DateTimeExtractionMethod? extractionMethod;
+
+          // Skip if this media already has a date (parity with original)
+          if (mediaFile.dateTaken != null) {
+            extractionMethod = mediaFile.dateTimeExtractionMethod ?? DateTimeExtractionMethod.none;
+            return {'index': actualIndex, 'mediaFile': mediaFile, 'extractionMethod': extractionMethod};
           }
-        },
-      );
 
-      print('Date extraction completed:');
-      // Build a name->count map from your current entries
-      final statsByName = <String, int>{
-        for (final e in extractionStats.entries) e.key.name: e.value,
-      };
-      // Fixed order you want
-      const order = ['json', 'exif', 'guess', 'jsonTryHard', 'folderYear', 'none'];
-      // Print all labels in that order, showing 0 if missing
-      for (final k in order) {
-        final v = statsByName[k] ?? 0;
-        print('  $k: $v files');
+          bool dateFound = false;
+          MediaEntity updatedMediaFile = mediaFile;
+
+          // Try each extractor in sequence until one succeeds (parity with original)
+          for (int extractorIndex = 0; extractorIndex < extractors.length; extractorIndex++) {
+            try {
+              final extractor = extractors[extractorIndex];
+              final extractedDate = await extractor(mediaFile);
+
+              if (extractedDate != null) {
+                extractionMethod = extractorIndex < extractorMethods.length ? extractorMethods[extractorIndex] : DateTimeExtractionMethod.guess;
+
+                updatedMediaFile = mediaFile.withDate(dateTaken: extractedDate, dateTimeExtractionMethod: extractionMethod);
+                logDebug('Date extracted for ${mediaFile.primaryFile.path}: $extractedDate (method: ${extractionMethod!.name})');
+                dateFound = true;
+                break;
+              }
+            } catch (e) {
+              // Tolerant per-extractor failure (matches your fault tolerance style)
+              logWarning('Extractor failed for ${_safePath(mediaFile.primaryFile)}: $e', forcePrint: true);
+            }
+          }
+
+          // Not found → mark as none (parity with original)
+          if (!dateFound) {
+            extractionMethod = DateTimeExtractionMethod.none;
+            updatedMediaFile = mediaFile.withDate(dateTimeExtractionMethod: DateTimeExtractionMethod.none);
+          }
+
+          return {'index': actualIndex, 'mediaFile': updatedMediaFile, 'extractionMethod': extractionMethod};
+        });
+
+        final results = await Future.wait(futures);
+
+        // Apply results & stats update (parity with original)
+        for (final r in results) {
+          final idx = r['index'] as int;
+          final updated = r['mediaFile'] as MediaEntity;
+          final method = r['extractionMethod'] as DateTimeExtractionMethod;
+
+          collection.replaceAt(idx, updated);
+          extractionStats[method] = (extractionStats[method] ?? 0) + 1;
+
+          completed++;
+          progressBar.update(completed); // visual progress (extra UX)
+        }
       }
 
+      // Print stats (kept compatible with your later prints that expect name→count)
       print('');
-      stopwatch.stop();
+      print('Date extraction completed:');
+      final byName = <String, int>{for (final e in extractionStats.entries) e.key.name: e.value};
+      const order = ['json', 'exif', 'guess', 'jsonTryHard', 'folderYear', 'none'];
+      for (final k in order) {
+        print('  $k: ${byName[k] ?? 0} files');
+      }
 
+      // READ-EXIF stats summary (seconds) — same call shape you had before
+      ExifDateExtractor.dumpStats(
+        reset: true,
+        loggerMixin: this,
+        exiftoolFallbackEnabled: ServiceContainer.instance.globalConfig.fallbackToExifToolOnNativeMiss == true,
+      );
+
+      sw.stop();
       return StepResult.success(
         stepName: name,
-        duration: stopwatch.elapsed,
-        data: {
-          'extractionStats': extractionStats,
-          'processedMedia': context.mediaCollection.length,
-        },
-        message: 'Extracted dates for ${context.mediaCollection.length} files',
+        duration: sw.elapsed,
+        data: {'extractionStats': extractionStats, 'processedMedia': collection.length},
+        message: 'Extracted dates for ${collection.length} files',
       );
     } catch (e) {
-      stopwatch.stop();
+      sw.stop();
       return StepResult.failure(
         stepName: name,
-        duration: stopwatch.elapsed,
+        duration: sw.elapsed,
         error: e is Exception ? e : Exception(e.toString()),
         message: 'Failed to extract dates: $e',
       );
@@ -195,6 +266,13 @@ class ExtractDatesStep extends ProcessingStep {
   }
 
   @override
-  bool shouldSkip(final ProcessingContext context) =>
-      context.mediaCollection.isEmpty;
+  bool shouldSkip(final ProcessingContext context) => context.mediaCollection.isEmpty;
+
+  String _safePath(final File f) {
+    try {
+      return f.path;
+    } catch (_) {
+      return '<unknown-file>';
+    }
+  }
 }

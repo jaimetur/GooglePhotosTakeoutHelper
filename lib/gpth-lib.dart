@@ -13,20 +13,6 @@ export 'common/constants/constants.dart';
 export 'common/constants/exif_constants.dart';
 export 'common/constants/extra_formats.dart';
 
-// modules from common/entities
-export 'common/entities/media_entity.dart';
-export 'common/entities/media_entity_collection.dart';
-
-// modules from common/file_extensions
-export 'common/file_extensions/file_extensions.dart';
-
-// modules from common/infraestructure
-export 'common/infraestructure/concurrency_manager.dart';
-export 'common/infraestructure/consolidated_disk_space_service.dart';
-export 'common/infraestructure/exiftool_service.dart';
-export 'common/infraestructure/platform_service.dart';
-export 'common/infraestructure/windows_symlink_service.dart';
-
 // modules from common/models
 export 'common/models/io_paths_model.dart';
 export 'common/models/processing_config_model.dart';
@@ -42,9 +28,17 @@ export 'common/services/core_services/processing_metrics_service.dart';
 
 // modules from common/services/file_operations_services
 export 'common/services/file_operations_services/archive_extraction_service.dart';
+export 'common/services/file_operations_services/file_extensions_service.dart';
 export 'common/services/file_operations_services/file_system_service.dart';
 export 'common/services/file_operations_services/filename_sanitizer_service.dart';
 export 'common/services/file_operations_services/path_resolver_service.dart';
+
+// modules from common/services/infraestructure
+export 'common/services/infraestructure_services/concurrency_manager.dart';
+export 'common/services/infraestructure_services/consolidated_disk_space_service.dart';
+export 'common/services/infraestructure_services/exiftool_service.dart';
+export 'common/services/infraestructure_services/platform_service.dart';
+export 'common/services/infraestructure_services/windows_symlink_service.dart';
 
 // modules from common/services/interactive_presenter_service
 export 'common/services/interactive_presenter_service/interactive_presenter_service.dart';
@@ -65,8 +59,10 @@ export 'common/services/media_services/mime_type_service.dart';
 export 'common/services/user_interaction/configuration_builder_service.dart';
 export 'common/services/user_interaction/user_interaction_service.dart';
 
-// modules from common/services/user_interaction
+// modules from common/value_objects
 export 'common/value_objects/date_accuracy.dart';
+export 'common/value_objects/media_entity.dart';
+export 'common/value_objects/media_entity_collection.dart';
 export 'common/value_objects/media_files_collection.dart';
 
 

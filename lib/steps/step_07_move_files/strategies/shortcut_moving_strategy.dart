@@ -61,7 +61,7 @@ class ShortcutMovingStrategy extends MediaEntityMovingStrategy {
       results.add(primaryResult);
       yield primaryResult;
 
-      // Step 2: Create shortcuts for each album association
+      // Step 2: Create shortcuts for each album association (use primary as source)
       for (final albumName in entity.albumNames) {
         final albumDir = _pathService.generateTargetDirectory(
           albumName,
@@ -123,7 +123,7 @@ class ShortcutMovingStrategy extends MediaEntityMovingStrategy {
       yield errorResult;
     }
 
-    // NEW: move non-primary physical files to _Duplicates preserving source structure
+    // Move non-primary physical files to _Duplicates, preserving structure
     yield* _moveNonPrimaryFilesToDuplicates(entity, context);
   }
 
@@ -132,27 +132,21 @@ class ShortcutMovingStrategy extends MediaEntityMovingStrategy {
     // No special validation needed for shortcut mode
   }
 
-  // --- NEW helper: move all non-primary physical files to _Duplicates, preserving structure ---
+  // --- helper: move all non-primary physical files to _Duplicates, preserving structure ---
   Stream<MediaEntityMovingResult> _moveNonPrimaryFilesToDuplicates(
     final MediaEntity entity,
     final MovingContext context,
   ) async* {
-    final duplicatesRoot = Directory(
-      '${context.outputDirectory.path}/_Duplicates',
-    );
+    final duplicatesRoot = Directory('${context.outputDirectory.path}/_Duplicates');
     final primaryPath = entity.primaryFile.path;
-    final allSources = entity.files.files.values
-        .map((final f) => f.path)
-        .toSet();
+    final allSources = entity.files.files.values.map((final f) => f.path).toSet();
 
     for (final srcPath in allSources) {
       if (srcPath == primaryPath) continue;
 
       final sourceFile = File(srcPath);
       final relInfo = _computeDuplicatesRelativeInfo(srcPath);
-      final targetDir = Directory(
-        '${duplicatesRoot.path}/${relInfo.relativeDir}',
-      );
+      final targetDir = Directory('${duplicatesRoot.path}/${relInfo.relativeDir}');
       if (!targetDir.existsSync()) {
         targetDir.createSync(recursive: true);
       }
@@ -184,8 +178,7 @@ class ShortcutMovingStrategy extends MediaEntityMovingStrategy {
             operationType: MediaEntityOperationType.move,
             mediaEntity: entity,
           ),
-          errorMessage:
-              'Failed to move non-primary file to _Duplicates: $e (hint: ${relInfo.hint})',
+          errorMessage: 'Failed to move non-primary file to _Duplicates: $e (hint: ${relInfo.hint})',
           duration: sw.elapsed,
         );
       }
@@ -199,26 +192,16 @@ class ShortcutMovingStrategy extends MediaEntityMovingStrategy {
     final idxTakeout = lower.indexOf('/takeout/');
     if (idxTakeout >= 0) {
       final rel = normalized.substring(idxTakeout + '/takeout/'.length);
-      final relDir = rel.contains('/')
-          ? rel.substring(0, rel.lastIndexOf('/'))
-          : '';
-      return _RelInfo(
-        relativeDir: relDir.isEmpty ? '.' : relDir,
-        hint: 'anchored by /Takeout/',
-      );
+      final relDir = rel.contains('/') ? rel.substring(0, rel.lastIndexOf('/')) : '';
+      return _RelInfo(relativeDir: relDir.isEmpty ? '.' : relDir, hint: 'anchored by /Takeout/');
     }
 
     for (final anchor in const ['/google fotos/', '/google photos/']) {
       final idx = lower.indexOf(anchor);
       if (idx >= 0) {
         final rel = normalized.substring(idx + anchor.length);
-        final relDir = rel.contains('/')
-            ? rel.substring(0, rel.lastIndexOf('/'))
-            : '';
-        return _RelInfo(
-          relativeDir: relDir.isEmpty ? '.' : relDir,
-          hint: 'anchored by $anchor',
-        );
+        final relDir = rel.contains('/') ? rel.substring(0, rel.lastIndexOf('/')) : '';
+        return _RelInfo(relativeDir: relDir.isEmpty ? '.' : relDir, hint: 'anchored by $anchor');
       }
     }
 

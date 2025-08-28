@@ -47,7 +47,8 @@ class JsonMovingStrategy extends MediaEntityMovingStrategy {
 
       stopwatch.stop();
 
-      // Track album associations for JSON file
+      // Track album associations for JSON file.
+      // IMPORTANT: We only track album names (keys from belongsToAlbums).
       final fileName = movedFile.uri.pathSegments.last;
       for (final albumName in entity.albumNames) {
         _albumInfo.putIfAbsent(albumName, () => []).add(fileName);
@@ -79,7 +80,7 @@ class JsonMovingStrategy extends MediaEntityMovingStrategy {
       yield errorResult;
     }
 
-    // NEW: move non-primary physical files to _Duplicates preserving source structure
+    // Move non-primary physical files to _Duplicates preserving source structure
     yield* _moveNonPrimaryFilesToDuplicates(entity, context);
   }
 
@@ -89,9 +90,7 @@ class JsonMovingStrategy extends MediaEntityMovingStrategy {
     final List<MediaEntity> processedEntities,
   ) async {
     // Generate albums-info.json file
-    final jsonPath = _pathService.generateAlbumsInfoJsonPath(
-      context.outputDirectory,
-    );
+    final jsonPath = _pathService.generateAlbumsInfoJsonPath(context.outputDirectory);
     final jsonFile = File(jsonPath);
 
     final stopwatch = Stopwatch()..start();
@@ -106,9 +105,7 @@ class JsonMovingStrategy extends MediaEntityMovingStrategy {
         },
       };
 
-      await jsonFile.writeAsString(
-        const JsonEncoder.withIndent('  ').convert(albumData),
-      );
+      await jsonFile.writeAsString(const JsonEncoder.withIndent('  ').convert(albumData));
 
       stopwatch.stop();
       return [
@@ -149,27 +146,21 @@ class JsonMovingStrategy extends MediaEntityMovingStrategy {
     // No special validation needed for JSON mode
   }
 
-  // --- NEW helper: move all non-primary physical files to _Duplicates, preserving structure ---
+  // --- helper: move all non-primary physical files to _Duplicates, preserving structure ---
   Stream<MediaEntityMovingResult> _moveNonPrimaryFilesToDuplicates(
     final MediaEntity entity,
     final MovingContext context,
   ) async* {
-    final duplicatesRoot = Directory(
-      '${context.outputDirectory.path}/_Duplicates',
-    );
+    final duplicatesRoot = Directory('${context.outputDirectory.path}/_Duplicates');
     final primaryPath = entity.primaryFile.path;
-    final allSources = entity.files.files.values
-        .map((final f) => f.path)
-        .toSet();
+    final allSources = entity.files.files.values.map((final f) => f.path).toSet();
 
     for (final srcPath in allSources) {
       if (srcPath == primaryPath) continue;
 
       final sourceFile = File(srcPath);
       final relInfo = _computeDuplicatesRelativeInfo(srcPath);
-      final targetDir = Directory(
-        '${duplicatesRoot.path}/${relInfo.relativeDir}',
-      );
+      final targetDir = Directory('${duplicatesRoot.path}/${relInfo.relativeDir}');
       if (!targetDir.existsSync()) {
         targetDir.createSync(recursive: true);
       }
@@ -201,8 +192,7 @@ class JsonMovingStrategy extends MediaEntityMovingStrategy {
             operationType: MediaEntityOperationType.move,
             mediaEntity: entity,
           ),
-          errorMessage:
-              'Failed to move non-primary file to _Duplicates: $e (hint: ${relInfo.hint})',
+          errorMessage: 'Failed to move non-primary file to _Duplicates: $e (hint: ${relInfo.hint})',
           duration: sw.elapsed,
         );
       }
@@ -216,31 +206,21 @@ class JsonMovingStrategy extends MediaEntityMovingStrategy {
     final idxTakeout = lower.indexOf('/takeout/');
     if (idxTakeout >= 0) {
       final rel = normalized.substring(idxTakeout + '/takeout/'.length);
-      final relDir = rel.contains('/')
-          ? rel.substring(0, rel.lastIndexOf('/'))
-          : '';
-      return _RelInfo(
-        relativeDir: relDir.isEmpty ? '.' : relDir,
-        hint: 'anchored by /Takeout/',
-      );
+      final relDir = rel.contains('/') ? rel.substring(0, rel.lastIndexOf('/')) : '';
+      return _RelInfo(relativeDir: relDir.isEmpty ? '.' : relDir, hint: 'anchored by /Takeout/');
     }
 
     for (final anchor in const ['/google fotos/', '/google photos/']) {
       final idx = lower.indexOf(anchor);
       if (idx >= 0) {
         final rel = normalized.substring(idx + anchor.length);
-        final relDir = rel.contains('/')
-            ? rel.substring(0, rel.lastIndexOf('/'))
-            : '';
-        return _RelInfo(
-          relativeDir: relDir.isEmpty ? '.' : relDir,
-          hint: 'anchored by $anchor',
-        );
+        final relDir = rel.contains('/') ? rel.substring(0, rel.lastIndexOf('/')) : '';
+        return _RelInfo(relativeDir: relDir.isEmpty ? '.' : relDir, hint: 'anchored by $anchor');
       }
     }
 
     final lastSlash = normalized.lastIndexOf('/');
-    final parent = lastSlash >= 0 ? normalized.substring(0, lastSlash) : '';
+    final parent = normalized.substring(0, lastSlash >= 0 ? lastSlash : normalized.length);
     final leaf = parent.isEmpty ? 'Uncategorized' : parent.split('/').last;
     return _RelInfo(relativeDir: leaf, hint: 'fallback: no anchor found');
   }

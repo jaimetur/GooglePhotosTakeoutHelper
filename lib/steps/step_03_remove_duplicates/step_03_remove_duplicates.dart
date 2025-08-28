@@ -1,5 +1,5 @@
+import 'dart:io';
 import 'package:gpth/gpth-lib.dart';
-
 
 /// Step 3: Remove duplicate media files
 ///
@@ -138,18 +138,186 @@ import 'package:gpth/gpth-lib.dart';
 /// - **Backup Recommendations**: Suggests backing up before duplicate removal
 /// - **Rollback Information**: Logs removed files for potential recovery
 /// - **Conservative Defaults**: Uses safe settings when configuration is ambiguous
-class RemoveDuplicatesStep extends ProcessingStep {
-  const RemoveDuplicatesStep() : super('Remove Duplicates');
+class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
+  RemoveDuplicatesStep() : super('Remove Duplicates');
 
   @override
   Future<StepResult> execute(final ProcessingContext context) async {
     final stopwatch = Stopwatch()..start();
+    final mediaCol = context.mediaCollection;
 
     try {
-      print(
-        '\n[Step 3/8] Finding and removing duplicates... (This might take a while)',
-      );
-      final int removedCount = await context.mediaCollection.removeDuplicates();
+      if (mediaCol.isEmpty) {
+        stopwatch.stop();
+        return StepResult.success(
+          stepName: name,
+          duration: stopwatch.elapsed,
+          data: {'duplicatesRemoved': 0, 'remainingMedia': 0},
+          message: 'No media to process.',
+        );
+      }
+
+      print('\n[Step 3/8] Finding and removing duplicates... (This might take a while)');
+
+      final duplicateService = ServiceContainer.instance.duplicateDetectionService;
+      int removedCount = 0;
+
+      // --- Build size buckets (tolerant to IO errors when reading length) ---
+      final Map<int, List<MediaEntity>> sizeBuckets = {};
+      for (final e in mediaCol.entities) {
+        int size;
+        try {
+          size = e.primaryFile.lengthSync();
+        } catch (err) {
+          // Tolerant: warn and place into unknown-size bucket (-1)
+          logWarning('Failed to read file length for ${_safePath(e.primaryFile)}: $err', forcePrint: true);
+          size = -1;
+        }
+        (sizeBuckets[size] ??= <MediaEntity>[]).add(e);
+      }
+
+      final List<int> bucketKeys = sizeBuckets.keys.toList();
+      print('Step 3: Built ${bucketKeys.length} size buckets for duplicate detection');
+
+      final totalGroups = bucketKeys.length;
+      int processedGroups = 0;
+      final Set<MediaEntity> entitiesToRemove = <MediaEntity>{};
+
+      // Merge helper (delegates to immutable domain APIs; no in-place map mutation)
+      void mergeEntityFiles(final MediaEntity dst, final MediaEntity src) {
+        try {
+          final MediaEntity updated = dst.mergeWith(src);
+          _replaceEntityInCollection(mediaCol, dst, updated);
+        } catch (e) {
+          logWarning('⚠️ Failed to merge files from duplicate entity: $e', forcePrint: true);
+        }
+      }
+
+      // Binary equality check (chunked, tolerant to IO errors)
+      Future<bool> _filesAreIdentical(final File a, final File b) async {
+        try {
+          final int sa = a.lengthSync();
+          final int sb = b.lengthSync();
+          if (sa != sb) return false;
+          if (a.path == b.path) return true;
+
+          const int chunk = 262144; // 256 KiB
+          final rafA = await a.open();
+          final rafB = await b.open();
+          try {
+            int remaining = sa;
+            while (remaining > 0) {
+              final int toRead = remaining < chunk ? remaining : chunk;
+              final ba = await rafA.read(toRead);
+              final bb = await rafB.read(toRead);
+              if (ba.length != bb.length) return false;
+              for (int i = 0; i < ba.length; i++) {
+                if (ba[i] != bb[i]) return false;
+              }
+              remaining -= toRead;
+            }
+            return true;
+          } finally {
+            await rafA.close();
+            await rafB.close();
+          }
+        } catch (e) {
+          logWarning('Binary compare failed for ${_safePath(a)} vs ${_safePath(b)}: $e', forcePrint: true);
+          // Conservative fallback: do NOT treat as identical if we couldn’t confirm
+          return false;
+        }
+      }
+
+      Future<void> _processSizeBucket(final int key) async {
+        final List<MediaEntity> candidates = sizeBuckets[key]!;
+        if (candidates.length <= 1) return;
+        logDebug('🔍 Processing size bucket $key with ${candidates.length} candidates');
+
+        Map<String, List<MediaEntity>> hashGroups = const {};
+        try {
+          hashGroups = await duplicateService.groupIdentical(candidates);
+        } catch (e) {
+          // Tolerant: warn and skip this bucket rather than abort
+          logWarning('Duplicate hashing failed for size bucket $key: $e', forcePrint: true);
+          return;
+        }
+
+        logDebug(' → Found ${hashGroups.length} hash groups in this bucket');
+
+        for (final group in hashGroups.values) {
+          if (group.length <= 1) continue;
+          logDebug('   • Group of ${group.length} candidates for deep check');
+
+          final List<MediaEntity> pending = List.of(group);
+          final List<List<MediaEntity>> binaryClusters = [];
+
+          // Cluster by binary equality (seed vs others)
+          while (pending.isNotEmpty) {
+            final MediaEntity seed = pending.removeAt(0);
+            final List<MediaEntity> cluster = [seed];
+            for (int i = pending.length - 1; i >= 0; i--) {
+              final MediaEntity cand = pending[i];
+              if (await _filesAreIdentical(seed.primaryFile, cand.primaryFile)) {
+                cluster.add(cand);
+                pending.removeAt(i);
+              }
+            }
+            binaryClusters.add(cluster);
+          }
+
+          for (final cluster in binaryClusters) {
+            if (cluster.length <= 1) continue;
+            logDebug('     ✔ Verified binary-identical cluster of ${cluster.length} files');
+
+            // Sort: best date accuracy (asc), then shortest filename
+            cluster.sort((a, b) {
+              final aAcc = a.dateAccuracy?.value ?? 999;
+              final bAcc = b.dateAccuracy?.value ?? 999;
+              if (aAcc != bAcc) return aAcc.compareTo(bAcc);
+              return a.primaryFile.path.length.compareTo(b.primaryFile.path.length);
+            });
+
+            final MediaEntity kept = cluster.first;
+            final List<MediaEntity> toRemove = cluster.sublist(1);
+
+            logDebug('       → Keeping ${kept.primaryFile.path}');
+            for (final d in toRemove) {
+              // Verbose trace
+              logDebug('         Removing duplicate: ${d.primaryFile.path}');
+              // Merge files & album metadata before removal
+              mergeEntityFiles(kept, d);
+            }
+
+            entitiesToRemove.addAll(toRemove);
+            removedCount += toRemove.length;
+          }
+        }
+      }
+
+      // Controlled parallelism across buckets
+      final int maxWorkers =
+          ConcurrencyManager().concurrencyFor(ConcurrencyOperation.exif).clamp(1, 8);
+
+      for (int i = 0; i < bucketKeys.length; i += maxWorkers) {
+        final slice = bucketKeys.skip(i).take(maxWorkers).toList();
+        await Future.wait(slice.map(_processSizeBucket));
+        processedGroups += slice.length;
+        // (optional) progress callback could go here; using prints for simplicity
+      }
+
+      // Apply removals
+      if (entitiesToRemove.isNotEmpty) {
+        print('🧹 Removing ${entitiesToRemove.length} entities from collection');
+        for (final e in entitiesToRemove) {
+          try {
+            mediaCol.remove(e);
+          } catch (err) {
+            logWarning('Failed to remove entity ${_safeEntity(e)}: $err', forcePrint: true);
+          }
+        }
+      }
+
+      print('✅ Duplicate removal finished, total removed: $removedCount');
 
       stopwatch.stop();
       return StepResult.success(
@@ -157,13 +325,13 @@ class RemoveDuplicatesStep extends ProcessingStep {
         duration: stopwatch.elapsed,
         data: {
           'duplicatesRemoved': removedCount,
-          'remainingMedia': context.mediaCollection.length,
+          'remainingMedia': mediaCol.length,
         },
-        message:
-            'Removed $removedCount duplicate files\n${context.mediaCollection.length} media files remain.',
+        message: 'Removed $removedCount duplicate files\n${mediaCol.length} media files remain.',
       );
     } catch (e) {
       stopwatch.stop();
+      // Tolerant: fail the step, but message is clear
       return StepResult.failure(
         stepName: name,
         duration: stopwatch.elapsed,
@@ -174,6 +342,41 @@ class RemoveDuplicatesStep extends ProcessingStep {
   }
 
   @override
-  bool shouldSkip(final ProcessingContext context) =>
-      context.mediaCollection.isEmpty;
+  bool shouldSkip(final ProcessingContext context) => context.mediaCollection.isEmpty;
+
+  // ——— helpers ————————————————————————————————————————————————————————————————
+
+  String _safePath(final File f) {
+    try {
+      return f.path;
+    } catch (_) {
+      return '<unknown-file>';
+    }
+  }
+
+  String _safeEntity(final MediaEntity e) {
+    try {
+      return e.primaryFile.path;
+    } catch (_) {
+      return '<unknown-entity>';
+    }
+  }
+
+  void _replaceEntityInCollection(
+    final MediaEntityCollection col,
+    final MediaEntity oldE,
+    final MediaEntity newE,
+  ) {
+    // Cheap linear replace using operators exposed by your collection
+    for (int i = 0; i < col.length; i++) {
+      try {
+        if (identical(col[i], oldE) || col[i] == oldE) {
+          col[i] = newE;
+          return;
+        }
+      } catch (_) {
+        // ignore and continue
+      }
+    }
+  }
 }

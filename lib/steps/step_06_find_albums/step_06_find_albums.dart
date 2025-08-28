@@ -72,7 +72,6 @@ import 'package:gpth/gpth-lib.dart';
 /// ### Shortcut Mode Preparation
 /// - **Primary File Identification**: Designates main file for each photo
 /// - **Album Reference Setup**: Prepares album folder references for linking
-/// - **Duplicate Elimination**: Ensures clean album/primary relationships
 ///
 /// ### Duplicate-Copy Mode Preparation
 /// - **Multi-Location Tracking**: Maintains all file location information
@@ -121,36 +120,52 @@ import 'package:gpth/gpth-lib.dart';
 /// - **Album Behavior**: Different merging strategies for different output modes
 /// - **Verbose Mode**: Controls detailed progress and statistics reporting
 /// - **Performance Settings**: May use different algorithms for large collections
-class FindAlbumsStep extends ProcessingStep {
-  const FindAlbumsStep() : super('Find Albums');
+class FindAlbumsStep extends ProcessingStep with LoggerMixin {
+  FindAlbumsStep() : super('Find Albums');
 
   @override
   Future<StepResult> execute(final ProcessingContext context) async {
-    final stopwatch = Stopwatch()..start();
+    final sw = Stopwatch()..start();
 
     try {
       print('\n[Step 6/8] Finding albums (this may take a while)...');
-      final initialCount = context.mediaCollection.length;
-      await context.mediaCollection.findAlbums();
-      final finalCount = context.mediaCollection.length;
-      final mergedCount = initialCount - finalCount;
 
-      stopwatch.stop();
+      final collection = context.mediaCollection;
+      final initial = collection.length;
+
+      final svc = ServiceContainer.instance.albumRelationshipService;
+
+      // Work on a copy to avoid mid-iteration mutation issues
+      final mediaCopy = collection.asList();
+      List<MediaEntity> merged;
+      try {
+        merged = await svc.detectAndMergeAlbums(mediaCopy);
+      } catch (e) {
+        logWarning('Album detection failed: $e', forcePrint: true);
+        merged = mediaCopy; // conservative: do not drop anything
+      }
+
+      collection.replaceAll(merged);
+
+      final finalCount = collection.length;
+      final mergedCount = initial - finalCount;
+
+      sw.stop();
       return StepResult.success(
         stepName: name,
-        duration: stopwatch.elapsed,
+        duration: sw.elapsed,
         data: {
-          'initialCount': initialCount,
+          'initialCount': initial,
           'finalCount': finalCount,
           'mergedCount': mergedCount,
         },
         message: 'Found and merged $mergedCount album relationships',
       );
     } catch (e) {
-      stopwatch.stop();
+      sw.stop();
       return StepResult.failure(
         stepName: name,
-        duration: stopwatch.elapsed,
+        duration: sw.elapsed,
         error: e is Exception ? e : Exception(e.toString()),
         message: 'Failed to find albums: $e',
       );

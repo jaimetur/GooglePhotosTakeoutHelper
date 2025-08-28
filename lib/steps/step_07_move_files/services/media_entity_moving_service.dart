@@ -10,11 +10,11 @@ import 'package:gpth/gpth-lib.dart';
 /// Uses MediaEntity exclusively for better performance and immutability.
 class MediaEntityMovingService {
   MediaEntityMovingService()
-    : _strategyFactory = MediaEntityMovingStrategyFactory(
-        FileOperationService(),
-        PathGeneratorService(),
-        SymlinkService(),
-      );
+      : _strategyFactory = MediaEntityMovingStrategyFactory(
+          FileOperationService(),
+          PathGeneratorService(),
+          SymlinkService(),
+        );
 
   /// Custom constructor for dependency injection (useful for testing)
   MediaEntityMovingService.withDependencies({
@@ -22,10 +22,10 @@ class MediaEntityMovingService {
     required final PathGeneratorService pathService,
     required final SymlinkService symlinkService,
   }) : _strategyFactory = MediaEntityMovingStrategyFactory(
-         fileService,
-         pathService,
-         symlinkService,
-       );
+          fileService,
+          pathService,
+          symlinkService,
+        );
 
   final MediaEntityMovingStrategyFactory _strategyFactory;
 
@@ -33,8 +33,7 @@ class MediaEntityMovingService {
   final List<MediaEntityMovingResult> _lastResults = [];
 
   /// Expose an immutable view of the last results after a run
-  List<MediaEntityMovingResult> get lastResults =>
-      List.unmodifiable(_lastResults);
+  List<MediaEntityMovingResult> get lastResults => List.unmodifiable(_lastResults);
 
   /// Moves media entities according to the provided context
   ///
@@ -60,9 +59,8 @@ class MediaEntityMovingService {
     // Process each media entity
     for (final entity in entityCollection.entities) {
       // Track which source files got an emitted operation by the strategy
-      final expectedSources = entity.files.files.values
-          .map((final f) => f.path)
-          .toSet(); // all source paths in the entity
+      final expectedSources =
+          entity.files.files.values.map((final f) => f.path).toSet(); // all source paths in the entity
       final coveredSources = <String>{};
 
       await for (final result in strategy.processMediaEntity(entity, context)) {
@@ -88,8 +86,7 @@ class MediaEntityMovingService {
           );
           final synthetic = MediaEntityMovingResult.failure(
             operation: syntheticOp,
-            errorMessage:
-                'No operation emitted by strategy for this source file',
+            errorMessage: 'No operation emitted by strategy for this source file',
             duration: Duration.zero,
           );
           allResults.add(synthetic);
@@ -166,9 +163,8 @@ class MediaEntityMovingService {
           semaphore.acquire().then((_) async {
             try {
               final results = <MediaEntityMovingResult>[];
-              final expectedSources = entity.files.files.values
-                  .map((final f) => f.path)
-                  .toSet();
+              final expectedSources =
+                  entity.files.files.values.map((final f) => f.path).toSet();
               final coveredSources = <String>{};
 
               // ignore: prefer_foreach
@@ -188,14 +184,11 @@ class MediaEntityMovingService {
                     MediaEntityMovingResult.failure(
                       operation: MediaEntityMovingOperation(
                         sourceFile: File(missingPath),
-                        targetDirectory: Directory(
-                          context.outputDirectory.path,
-                        ),
+                        targetDirectory: Directory(context.outputDirectory.path),
                         operationType: MediaEntityOperationType.move,
                         mediaEntity: entity,
                       ),
-                      errorMessage:
-                          'No operation emitted by strategy for this source file',
+                      errorMessage: 'No operation emitted by strategy for this source file',
                       duration: Duration.zero,
                     ),
                   );
@@ -236,9 +229,7 @@ class MediaEntityMovingService {
   void _logResult(final MediaEntityMovingResult result) {
     final operation = result.operation;
     final status = result.success ? 'SUCCESS' : 'FAILED';
-    print(
-      '[${operation.operationType.name.toUpperCase()}] $status: ${operation.sourceFile.path}',
-    );
+    print('[${operation.operationType.name.toUpperCase()}] $status: ${operation.sourceFile.path}');
 
     if (result.resultFile != null) {
       print('  → ${result.resultFile!.path}');
@@ -257,7 +248,7 @@ class MediaEntityMovingService {
     final MediaEntityMovingStrategy strategy,
   ) {
     int primaryMoves = 0;
-    int duplicateMoves = 0;
+    int duplicatesMovedToFolder = 0; // renamed meaning: moved to _Duplicates
     int symlinksCreated = 0;
     int failures = 0;
 
@@ -269,16 +260,13 @@ class MediaEntityMovingService {
 
       switch (r.operation.operationType) {
         case MediaEntityOperationType.move:
-          final src = r.operation.sourceFile.path
-              .replaceAll('\\', '/')
-              .toLowerCase();
-          final prim = r.operation.mediaEntity.primaryFile.path
-              .replaceAll('\\', '/')
-              .toLowerCase();
+          final src = r.operation.sourceFile.path.replaceAll('\\', '/').toLowerCase();
+          final prim = r.operation.mediaEntity.primaryFile.path.replaceAll('\\', '/').toLowerCase();
           if (src == prim) {
             primaryMoves++;
           } else {
-            duplicateMoves++;
+            // Treat any successful move of a non-primary source as a "duplicate identified and moved to _Duplicates"
+            duplicatesMovedToFolder++;
           }
           break;
         case MediaEntityOperationType.createSymlink:
@@ -286,10 +274,10 @@ class MediaEntityMovingService {
           symlinksCreated++;
           break;
         case MediaEntityOperationType.copy:
-          // Not requested for display, ignore in headline counts
+          // Not included in headline counters
           break;
         case MediaEntityOperationType.createJsonReference:
-          // Not requested for display
+          // Not included in headline counters
           break;
       }
     }
@@ -298,7 +286,7 @@ class MediaEntityMovingService {
 
     print('\n=== Moving Summary (${strategy.name}) ===');
     print('Primary files moved: $primaryMoves');
-    print('Duplicate files moved: $duplicateMoves');
+    print('Duplicates identified and moved to _Duplicates: $duplicatesMovedToFolder');
     print('Symlinks created: $symlinksCreated');
     print('Failures: $failures');
     print('Total operations: $totalOps');
@@ -306,9 +294,7 @@ class MediaEntityMovingService {
     if (failures > 0) {
       print('\nErrors encountered:');
       results.where((final r) => !r.success).take(5).forEach((final result) {
-        print(
-          '  • ${result.operation.sourceFile.path}: ${result.errorMessage}',
-        );
+        print('  • ${result.operation.sourceFile.path}: ${result.errorMessage}');
       });
       if (failures > 5) {
         print('  ... and ${failures - 5} more errors');

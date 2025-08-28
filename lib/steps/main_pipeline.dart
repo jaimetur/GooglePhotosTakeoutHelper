@@ -49,13 +49,13 @@ class ProcessingPipeline {
 
     // Define the 8 processing steps in fixed order
     final steps = [
-      const FixExtensionsStep(), // Step 1
-      const DiscoverMediaStep(), // Step 2
-      const RemoveDuplicatesStep(), // Step 3
-      const ExtractDatesStep(), // Step 4
-      const WriteExifStep(), // Step 5
-      const FindAlbumsStep(), // Step 6
-      const MoveFilesStep(), // Step 7
+      FixExtensionsStep(), // Step 1
+      DiscoverMediaStep(), // Step 2
+      RemoveDuplicatesStep(), // Step 3
+      ExtractDatesStep(), // Step 4
+      WriteExifStep(), // Step 5
+      FindAlbumsStep(), // Step 6
+      MoveFilesStep(), // Step 7
       UpdateCreationTimeStep(), // Step 8
     ];
 
