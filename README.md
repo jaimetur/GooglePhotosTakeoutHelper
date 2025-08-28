@@ -295,15 +295,6 @@ GPTH natively writes EXIF data to files with JPEG signatures, while other format
 - `standard` mode renames to: `image.png.jpg`
 - `conservative` mode: **Skips** (avoids touching JPEG content)
 
-You can configure extension fixing behavior with:
-
-| Argument                        | Description                                                                                        |
-|---------------------------------|----------------------------------------------------------------------------------------------------|
-| `--fix-extensions=none`         | Disable extension fixing entirely                                                                  |
-| `--fix-extensions=standard`     | **Default**: Fix extensions but skip TIFF-based files (like RAW formats) to avoid potential issues |
-| `--fix-extensions=conservative` | Fix extensions but skip both TIFF-based and JPEG files for maximum safety                          |
-| `--fix-extensions=solo`         | Fix extensions then exit immediately (standalone mode for preprocessing files)                     |
-
 ### Other Options
 
 | Argument          | Description                                              |
