@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:path/path.dart' as p;
+import 'package:path/path.dart' as path;
 
 /// Extracts year from parent folder names like "Photos from 2002", "Photos from 2005"
 ///
@@ -19,8 +19,8 @@ import 'package:path/path.dart' as p;
 Future<DateTime?> folderYearExtractor(final File file) async {
   try {
     // Get the parent directory path
-    final parentDir = p.dirname(file.path);
-    final folderName = p.basename(parentDir);
+    final parentDir = path.dirname(file.path);
+    final folderName = path.basename(parentDir);
 
     // Try different year extraction patterns
     final year = _extractYearFromFolderName(folderName);

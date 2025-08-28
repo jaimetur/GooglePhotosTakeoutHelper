@@ -1,16 +1,8 @@
-// ignore_for_file: non_constant_identifier_names
-
 import 'dart:io';
 import 'dart:typed_data';
-
 import 'package:exif_reader/exif_reader.dart';
 import 'package:mime/mime.dart';
-
-import '../../../shared/infraestructure/exiftool_service.dart';
-import '../../../shared/constants/constants.dart';
-import '../../../shared/constants/exif_constants.dart';
-import '../../../shared/services/core_services/global_config_service.dart';
-import '../../../shared/services/core_services/logging_service.dart';
+import 'package:gpth/gpth-lib.dart';
 
 /// GPS extractor with instrumentation (time in seconds).
 class ExifCoordinateExtractor with LoggerMixin {

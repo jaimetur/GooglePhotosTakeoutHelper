@@ -1,12 +1,6 @@
 import 'dart:io';
 import 'package:console_bars/console_bars.dart';
-
-import '../../shared/entities/media_entity.dart';
-import '../steps_pipeline.dart';
-import 'services/media_entity_moving_service.dart';
-import 'services/moving_context_model.dart';
-import 'strategies/media_entity_moving_strategy.dart';
-import '../../shared/value_objects/media_files_collection.dart';
+import 'package:gpth/gpth-lib.dart';
 
 /// Step 7: Move files to output directory
 ///

@@ -1,6 +1,5 @@
 import 'package:console_bars/console_bars.dart';
-
-import '../steps_pipeline.dart';
+import 'package:gpth/gpth-lib.dart';
 
 /// Step 5: Write EXIF data to media files
 ///

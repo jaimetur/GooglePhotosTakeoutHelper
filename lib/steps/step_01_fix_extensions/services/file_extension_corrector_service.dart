@@ -1,13 +1,8 @@
 import 'dart:io';
 
 import 'package:mime/mime.dart';
-import 'package:path/path.dart' as p;
-
-import '../../../shared/file_extensions/file_extensions.dart';
-import '../../../shared/services/core_services/logging_service.dart';
-import '../../../shared/services/media_services/mime_type_service.dart';
-import '../../../shared/services/json_metadata_services/json_metadata_matcher_service.dart';
-import '../../../shared/services/media_services/edited_version_detector_service.dart';
+import 'package:path/path.dart' as path;
+import 'package:gpth/gpth-lib.dart';
 
 /// Service for detecting and fixing incorrect file extensions
 ///
@@ -84,7 +79,7 @@ class FileExtensionCorrectorService with LoggerMixin {
     if (extensionMimeType == 'video/mp4' &&
         actualMimeType == 'video/x-msvideo') {
       logDebug(
-        'Detected AVI file incorrectly named as .mp4: ${p.basename(file.path)}',
+        'Detected AVI file incorrectly named as .mp4: ${path.basename(file.path)}',
       );
     }
 
@@ -101,7 +96,7 @@ class FileExtensionCorrectorService with LoggerMixin {
     if (newExtension == null) {
       logWarning(
         'Could not determine correct extension for MIME type $mimeType '
-        'for file ${p.basename(file.path)}',
+        'for file ${path.basename(file.path)}',
       );
       return false;
     }
@@ -145,7 +140,7 @@ class FileExtensionCorrectorService with LoggerMixin {
         logWarning('Unable to find matching JSON for file: ${file.path}');
       } else {
         logDebug(
-          'Found JSON file with tryHard methods: ${p.basename(jsonFile.path)}',
+          'Found JSON file with tryHard methods: ${path.basename(jsonFile.path)}',
         );
       }
     }
@@ -210,7 +205,7 @@ class FileExtensionCorrectorService with LoggerMixin {
       await _verifyOriginalFilesRemoved(originalMediaPath, originalJsonPath);
 
       logInfo(
-        'Fixed extension: ${p.basename(originalMediaPath)} -> ${p.basename(newMediaPath)}',
+        'Fixed extension: ${path.basename(originalMediaPath)} -> ${path.basename(newMediaPath)}',
       );
       return true;
     } catch (e) {

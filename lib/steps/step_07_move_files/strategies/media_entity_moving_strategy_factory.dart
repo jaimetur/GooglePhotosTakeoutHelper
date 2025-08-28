@@ -1,13 +1,4 @@
-import '../../../shared/models/processing_config_model.dart';
-import '../services/file_operation_service.dart';
-import '../services/path_generator_service.dart';
-import '../services/symlink_service.dart';
-import 'duplicate_copy_moving_strategy.dart';
-import 'json_moving_strategy.dart';
-import 'media_entity_moving_strategy.dart';
-import 'nothing_moving_strategy.dart';
-import 'reverse_shortcut_moving_strategy.dart';
-import 'shortcut_moving_strategy.dart';
+import 'package:gpth/gpth-lib.dart';
 
 /// Factory for creating MediaEntity moving strategies
 ///

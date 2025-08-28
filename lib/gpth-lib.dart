@@ -59,71 +59,68 @@ export 'steps/step_08_update_creation_time/step_08_update_creation_time.dart';
 
 /*
 ========================================================
-Barrel for all shared, reusable components across steps.
+Barrel for all common, reusable components across steps.
 ========================================================
 */
 
-// modules from shared/constants
-export 'shared/constants/constants.dart';
-export 'shared/constants/exif_constants.dart';
-export 'shared/constants/extra_formats.dart';
+// modules from common/constants
+export 'common/constants/constants.dart';
+export 'common/constants/exif_constants.dart';
+export 'common/constants/extra_formats.dart';
 
-// modules from shared/entities
-export 'shared/entities/media_entity.dart';
-export 'shared/entities/media_entity_collection.dart';
+// modules from common/entities
+export 'common/entities/media_entity.dart';
+export 'common/entities/media_entity_collection.dart';
 
-// modules from shared/file_extensions
-export 'shared/file_extensions/file_extensions.dart';
+// modules from common/file_extensions
+export 'common/file_extensions/file_extensions.dart';
 
-// modules from shared/infraestructure
-export 'shared/infraestructure/concurrency_manager.dart';
-export 'shared/infraestructure/consolidated_disk_space_service.dart';
-export 'shared/infraestructure/exiftool_service.dart';
-export 'shared/infraestructure/platform_service.dart';
-export 'shared/infraestructure/windows_symlink_service.dart';
+// modules from common/infraestructure
+export 'common/infraestructure/concurrency_manager.dart';
+export 'common/infraestructure/consolidated_disk_space_service.dart';
+export 'common/infraestructure/exiftool_service.dart';
+export 'common/infraestructure/platform_service.dart';
+export 'common/infraestructure/windows_symlink_service.dart';
 
-// modules from shared/models
-export 'shared/models/io_paths_model.dart';
-export 'shared/models/processing_config_model.dart';
-export 'shared/models/processing_result_model.dart';
+// modules from common/models
+export 'common/models/io_paths_model.dart';
+export 'common/models/processing_config_model.dart';
+export 'common/models/processing_result_model.dart';
 
-// modules from shared/services/core_services
-export 'shared/services/core_services/container_service.dart';
-export 'shared/services/core_services/formatting_service.dart';
-export 'shared/services/core_services/global_config_service.dart';
-export 'shared/services/core_services/global_pools.dart';
-export 'shared/services/core_services/logging_service.dart';
-export 'shared/services/core_services/processing_metrics_service.dart';
+// modules from common/services/core_services
+export 'common/services/core_services/container_service.dart';
+export 'common/services/core_services/formatting_service.dart';
+export 'common/services/core_services/global_config_service.dart';
+export 'common/services/core_services/global_pools.dart';
+export 'common/services/core_services/logging_service.dart';
+export 'common/services/core_services/processing_metrics_service.dart';
 
-// modules from shared/services/file_operations_services
-export 'shared/services/file_operations_services/archive_extraction_service.dart';
-export 'shared/services/file_operations_services/file_system_service.dart';
-export 'shared/services/file_operations_services/filename_sanitizer_service.dart';
-export 'shared/services/file_operations_services/path_resolver_service.dart';
+// modules from common/services/file_operations_services
+export 'common/services/file_operations_services/archive_extraction_service.dart';
+export 'common/services/file_operations_services/file_system_service.dart';
+export 'common/services/file_operations_services/filename_sanitizer_service.dart';
+export 'common/services/file_operations_services/path_resolver_service.dart';
 
-// modules from shared/services/interactive_presenter_service
-export 'shared/services/interactive_presenter_service/interactive_presenter_service.dart';
+// modules from common/services/interactive_presenter_service
+export 'common/services/interactive_presenter_service/interactive_presenter_service.dart';
 
-// modules from shared/services/json_metadata_services
-export 'shared/services/json_metadata_services/json_metadata_matcher_service.dart';
+// modules from common/services/json_metadata_services
+export 'common/services/json_metadata_services/json_metadata_matcher_service.dart';
 
-// modules from shared/services/media_services
-export 'shared/services/media_services/album_relationship_service.dart';
-export 'shared/services/media_services/content_grouping_service.dart';
-export 'shared/services/media_services/date_time_extraction_method.dart';
-export 'shared/services/media_services/duplicate_detection_service.dart';
-export 'shared/services/media_services/edited_version_detector_service.dart';
-export 'shared/services/media_services/media_hash_service.dart';
-export 'shared/services/media_services/mime_type_service.dart';
+// modules from common/services/media_services
+export 'common/services/media_services/album_relationship_service.dart';
+export 'common/services/media_services/content_grouping_service.dart';
+export 'common/services/media_services/date_time_extraction_method.dart';
+export 'common/services/media_services/duplicate_detection_service.dart';
+export 'common/services/media_services/edited_version_detector_service.dart';
+export 'common/services/media_services/media_hash_service.dart';
+export 'common/services/media_services/mime_type_service.dart';
 
-// modules from shared/services/user_interaction
-export 'shared/services/user_interaction/configuration_builder_service.dart';
-export 'shared/services/user_interaction/user_interaction_service.dart';
+// modules from common/services/user_interaction
+export 'common/services/user_interaction/configuration_builder_service.dart';
+export 'common/services/user_interaction/user_interaction_service.dart';
 
-// modules from shared/services/user_interaction
-export 'shared/value_objects/date_accuracy.dart';
-export 'shared/value_objects/media_files_collection.dart';
-
-
-export 'shared/exports.dart'; // keep if you use it internally
+// modules from common/services/user_interaction
+export 'common/value_objects/date_accuracy.dart';
+export 'common/value_objects/media_files_collection.dart';
 

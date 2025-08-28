@@ -1,11 +1,5 @@
 import 'dart:io';
-
-import '../../../shared/entities/media_entity.dart';
-import '../services/file_operation_service.dart';
-import '../services/moving_context_model.dart';
-import '../services/path_generator_service.dart';
-import '../services/symlink_service.dart';
-import 'media_entity_moving_strategy.dart';
+import 'package:gpth/gpth-lib.dart';
 
 /// Shortcut moving strategy implementation
 ///

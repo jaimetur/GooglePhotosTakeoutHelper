@@ -1,8 +1,7 @@
 import 'dart:io';
 
-import 'package:path/path.dart' as p;
-
-import '../../../shared/file_extensions/file_extensions.dart';
+import 'package:path/path.dart' as path;
+import 'package:gpth/gpth-lib.dart';
 
 /// Service for classifying directories in Google Photos Takeout exports
 ///
@@ -20,7 +19,7 @@ class TakeoutFolderClassifierService {
   /// [dir] Directory to check
   /// Returns true if it's a year folder
   bool isYearFolder(final Directory dir) =>
-      RegExp(r'^Photos from (20|19|18)\d{2}$').hasMatch(p.basename(dir.path));
+      RegExp(r'^Photos from (20|19|18)\d{2}$').hasMatch(path.basename(dir.path));
 
   /// Determines if a directory is an album folder
   ///

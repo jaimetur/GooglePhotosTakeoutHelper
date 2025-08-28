@@ -1,7 +1,5 @@
 import 'package:console_bars/console_bars.dart';
-
-import '../../shared/entities/media_entity.dart';
-import '../steps_pipeline.dart';
+import 'package:gpth/gpth-lib.dart';
 
 /// Step 4: Extract dates from media files
 ///

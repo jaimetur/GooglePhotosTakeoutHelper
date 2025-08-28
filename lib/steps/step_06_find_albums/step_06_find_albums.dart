@@ -1,4 +1,4 @@
-import '../steps_pipeline.dart';
+import 'package:gpth/gpth-lib.dart';
 
 /// Step 6: Find and merge album relationships
 ///

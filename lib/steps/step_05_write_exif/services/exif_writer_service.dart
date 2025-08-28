@@ -1,12 +1,9 @@
 import 'dart:io';
 import 'dart:typed_data';
-
 import 'package:coordinate_converter/coordinate_converter.dart';
 import 'package:image/image.dart';
 import 'package:intl/intl.dart';
-
-import '../../../shared/infraestructure/exiftool_service.dart';
-import '../../../shared/services/core_services/logging_service.dart';
+import 'package:gpth/gpth-lib.dart';
 
 /// Service that writes EXIF data (fast native JPEG path + adaptive exiftool batching).
 /// Includes detailed instrumentation of counts and durations (seconds).

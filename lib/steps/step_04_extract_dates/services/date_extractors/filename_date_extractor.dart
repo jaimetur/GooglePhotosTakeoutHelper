@@ -1,7 +1,6 @@
 import 'dart:io';
-
 import 'package:convert/convert.dart';
-import 'package:path/path.dart' as p;
+import 'package:path/path.dart' as path;
 
 // These are thanks to @hheimbuerger <3
 final List<List<Pattern>> _commonDatetimePatterns = <List<Pattern>>[
@@ -57,7 +56,7 @@ Future<DateTime?> guessExtractor(final File file) async {
   for (final List<Pattern> pat in _commonDatetimePatterns) {
     // extract date str with regex
     final RegExpMatch? match = (pat.first as RegExp).firstMatch(
-      p.basename(file.path),
+      path.basename(file.path),
     );
     final String? dateStr = match?.group(0);
     if (dateStr == null) continue;

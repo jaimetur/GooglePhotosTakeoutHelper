@@ -1,7 +1,4 @@
-import '../steps_pipeline.dart';
-import '../../shared/models/processing_config_model.dart';
-import '../../shared/services/core_services/logging_service.dart';
-import 'services/file_extension_corrector_service.dart';
+import 'package:gpth/gpth-lib.dart';
 
 /// Step 1: Fix incorrect file extensions
 ///

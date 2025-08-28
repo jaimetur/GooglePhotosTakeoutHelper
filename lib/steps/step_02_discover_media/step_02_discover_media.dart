@@ -1,15 +1,8 @@
 import 'dart:io';
 
 import 'package:mime/mime.dart';
-import 'package:path/path.dart' as p;
-
-import '../../shared/file_extensions/file_extensions.dart';
-import '../../shared/entities/media_entity.dart';
-import '../steps_pipeline.dart';
-import '../../shared/models/processing_config_model.dart';
-import '../step_04_extract_dates/services/date_extractors/json_date_extractor.dart';
-import '../../shared/services/media_services/edited_version_detector_service.dart';
-import 'services/takeout_folder_classifier_service.dart';
+import 'package:path/path.dart' as path;
+import 'package:gpth/gpth-lib.dart';
 
 /// Step 2: Discover and classify media files
 ///
@@ -200,7 +193,7 @@ class DiscoverMediaStep extends ProcessingStep {
     } // Process year directories
     for (final yearDir in yearDirectories) {
       if (context.config.verbose) {
-        print('Scanning year folder: ${p.basename(yearDir.path)}');
+        print('Scanning year folder: ${path.basename(yearDir.path)}');
       }
       await for (final mediaFile in _getMediaFiles(yearDir, context)) {
         // Extract partner sharing information from JSON
@@ -216,7 +209,7 @@ class DiscoverMediaStep extends ProcessingStep {
       }
     } // Process album directories
     for (final albumDir in albumDirectories) {
-      final albumName = p.basename(albumDir.path);
+      final albumName = path.basename(albumDir.path);
       if (context.config.verbose) {
         print('Scanning album folder: $albumName');
       }
