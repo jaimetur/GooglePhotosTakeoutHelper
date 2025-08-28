@@ -114,7 +114,7 @@ class MediaEntityCollection with LoggerMixin {
     }
 
     // Helper: get lowercase extension from a path (no external deps).
-    String _extOf(final String path) {
+    String extOf(final String path) {
       final int slash = path.lastIndexOf(Platform.pathSeparator);
       final String base = (slash >= 0) ? path.substring(slash + 1) : path;
       final int dot = base.lastIndexOf('.');
@@ -123,7 +123,11 @@ class MediaEntityCollection with LoggerMixin {
     }
 
     // Helper: quick signature using size + extension + FNV-1a32 of first up-to-64KB.
-    Future<String> _quickSignature(final File file, final int size, final String ext) async {
+    Future<String> quickSignature(
+      final File file,
+      final int size,
+      final String ext,
+    ) async {
       // Read first up-to-64KB deterministically. If file shorter, read all.
       final int toRead = size > 0 ? (size < 65536 ? size : 65536) : 65536;
       List<int> head = const [];
@@ -141,7 +145,7 @@ class MediaEntityCollection with LoggerMixin {
       // FNV-1a 32-bit
       int hash = 0x811C9DC5;
       for (final b in head) {
-        hash ^= (b & 0xFF);
+        hash ^= b & 0xFF;
         hash = (hash * 0x01000193) & 0xFFFFFFFF;
       }
       // A string signature that keeps groups small but collision-safe thanks to later full check.
@@ -149,14 +153,14 @@ class MediaEntityCollection with LoggerMixin {
     }
 
     // Process one size bucket: ext sub-buckets → quickSig sub-buckets → groupIdentical
-    Future<void> _processSizeBucket(final int key) async {
+    Future<void> processSizeBucket(final int key) async {
       final List<MediaEntity> candidates = sizeBuckets[key]!;
       if (candidates.length <= 1) return;
 
       // OPTIMIZATION LAYER 2: sub-bucket by extension to avoid mixing media types of same size.
       final Map<String, List<MediaEntity>> extBuckets = {};
       for (final e in candidates) {
-        final String ext = _extOf(e.primaryFile.path);
+        final String ext = extOf(e.primaryFile.path);
         (extBuckets[ext] ??= []).add(e);
       }
 
@@ -170,8 +174,8 @@ class MediaEntityCollection with LoggerMixin {
           String sig;
           try {
             final int size = e.primaryFile.lengthSync();
-            final String ext = _extOf(e.primaryFile.path);
-            sig = await _quickSignature(e.primaryFile, size, ext);
+            final String ext = extOf(e.primaryFile.path);
+            sig = await quickSignature(e.primaryFile, size, ext);
           } catch (_) {
             sig = 'qsig-err';
           }
@@ -201,9 +205,13 @@ class MediaEntityCollection with LoggerMixin {
             final List<MediaEntity> toRemove = group.sublist(1);
 
             // Log which duplicates are being removed (keep noise low implicitly).
-            logDebug('Found ${group.length} identical entities. Keeping: ${kept.primaryFile.path}');
+            logDebug(
+              'Found ${group.length} identical entities. Keeping: ${kept.primaryFile.path}',
+            );
             for (final d in toRemove) {
-              logDebug('  Merging & removing duplicate entity: ${d.primaryFile.path}');
+              logDebug(
+                '  Merging & removing duplicate entity: ${d.primaryFile.path}',
+              );
               mergeEntityFiles(kept, d);
             }
 
@@ -216,10 +224,12 @@ class MediaEntityCollection with LoggerMixin {
     }
 
     // Concurrency: process size buckets in parallel with a sensible cap.
-    final int maxWorkers = ConcurrencyManager().concurrencyFor(ConcurrencyOperation.exif).clamp(1, 8);
+    final int maxWorkers = ConcurrencyManager()
+        .concurrencyFor(ConcurrencyOperation.exif)
+        .clamp(1, 8);
     for (int i = 0; i < bucketKeys.length; i += maxWorkers) {
       final slice = bucketKeys.skip(i).take(maxWorkers).toList();
-      await Future.wait(slice.map(_processSizeBucket));
+      await Future.wait(slice.map(processSizeBucket));
       processedGroups += slice.length;
       onProgress?.call(processedGroups, totalGroups);
     }
