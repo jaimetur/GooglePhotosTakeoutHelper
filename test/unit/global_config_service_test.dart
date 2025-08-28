@@ -4,7 +4,7 @@
 library;
 
 import 'package:gpth/shared/models/processing_config_model.dart';
-import 'package:gpth/shared/services/core/global_config_service.dart';
+import 'package:gpth/shared/services/core_services/global_config_service.dart';
 import 'package:test/test.dart';
 
 void main() {

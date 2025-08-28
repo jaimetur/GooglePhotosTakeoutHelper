@@ -5,7 +5,7 @@ library;
 
 import 'dart:io';
 
-import 'package:gpth/shared/services/media/media_hash_service.dart';
+import 'package:gpth/shared/services/media_services/media_hash_service.dart';
 import 'package:test/test.dart';
 
 import '../setup/test_setup.dart';

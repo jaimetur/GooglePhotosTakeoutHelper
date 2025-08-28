@@ -3,14 +3,14 @@ import 'dart:io';
 
 import 'package:file_picker_desktop/file_picker_desktop.dart';
 
-import '../interactive_presenter/interactive_presenter.dart';
-import '../../../steps/pipeline_step_model.dart';
+import '../interactive_presenter_service/interactive_presenter_service.dart';
+import '../../../steps/steps_pipeline.dart';
 import '../../models/processing_config_model.dart';
-import '../core/formatting_service.dart';
-import '../core/global_config_service.dart';
-import '../core/logging_service.dart';
-import '../core/service_container.dart';
-import '../file_operations/archive_extraction_service.dart';
+import '../core_services/formatting_service.dart';
+import '../core_services/global_config_service.dart';
+import '../core_services/logging_service.dart';
+import '../core_services/container_service.dart';
+import '../file_operations_services/archive_extraction_service.dart';
 
 /// Consolidated interactive service that combines all user interaction functionality
 ///
@@ -596,11 +596,11 @@ class ConsolidatedInteractiveService with LoggerMixin {
   );
 
   /// Validates input directory for processing
-  ValidationResult validateInputDirectory(final String path) {
+  FormattingValidationResult validateInputDirectory(final String path) {
     final directory = Directory(path);
 
     if (!directory.existsSync()) {
-      return ValidationResult.failure('Input directory does not exist: $path');
+      return FormattingValidationResult.failure('Input directory does not exist: $path');
     }
 
     // Check if directory contains Google Photos takeout structure
@@ -610,29 +610,29 @@ class ConsolidatedInteractiveService with LoggerMixin {
     );
 
     if (!hasPhotosFolder && !hasPhotosFolders) {
-      return const ValidationResult.failure(
+      return const FormattingValidationResult.failure(
         'Directory does not appear to contain Google Photos takeout data',
       );
     }
 
-    return const ValidationResult.success();
+    return const FormattingValidationResult.success();
   }
 
   /// Validates output directory for processing
-  ValidationResult validateOutputDirectory(final String path) {
+  FormattingValidationResult validateOutputDirectory(final String path) {
     final directory = Directory(path);
 
     // Create directory if it doesn't exist
     if (!directory.existsSync()) {
       try {
         directory.createSync(recursive: true);
-        return const ValidationResult.success();
+        return const FormattingValidationResult.success();
       } catch (e) {
-        return ValidationResult.failure('Cannot create output directory: $e');
+        return FormattingValidationResult.failure('Cannot create output directory: $e');
       }
     }
 
-    return const ValidationResult.success();
+    return const FormattingValidationResult.success();
   }
 
   // ============================================================================

@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:console_bars/console_bars.dart';
 
 import '../../shared/entities/media_entity.dart';
-import '../pipeline_step_model.dart';
+import '../steps_pipeline.dart';
 import 'services/media_entity_moving_service.dart';
 import 'services/moving_context_model.dart';
 import 'strategies/media_entity_moving_strategy.dart';

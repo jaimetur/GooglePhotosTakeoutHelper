@@ -5,10 +5,10 @@
 library;
 
 // Core services used throughout the application
-export 'services/core/logging_service.dart';
-export 'services/core/service_container.dart';
-export 'services/media/mime_type_service.dart';
-export 'services/json_metadata/json_metadata_matcher_service.dart';
+export 'services/core_services/logging_service.dart';
+export 'services/core_services/container_service.dart';
+export 'services/media_services/mime_type_service.dart';
+export 'services/json_metadata_services/json_metadata_matcher_service.dart';
 // Concurrency management
 export 'infraestructure/concurrency_manager.dart';
 // Application constants

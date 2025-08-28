@@ -1,8 +1,8 @@
 import '../../infraestructure/consolidated_disk_space_service.dart';
 import '../../infraestructure/exiftool_service.dart';
-import '../media/album_relationship_service.dart';
-import '../media/duplicate_detection_service.dart';
-import '../media/media_hash_service.dart';
+import '../media_services/album_relationship_service.dart';
+import '../media_services/duplicate_detection_service.dart';
+import '../media_services/media_hash_service.dart';
 import '../user_interaction/user_interaction_service.dart';
 import 'formatting_service.dart';
 import 'global_config_service.dart';

@@ -116,20 +116,20 @@ class FormattingService {
   /// [directory] Directory to validate
   /// [shouldExist] Whether the directory should exist (default: true)
   /// Returns validation result with success/failure and message
-  ValidationResult validateDirectory(
+  FormattingValidationResult validateDirectory(
     final Directory directory, {
     final bool shouldExist = true,
   }) {
     final exists = directory.existsSync();
 
     if (shouldExist && !exists) {
-      return ValidationResult.failure(
+      return FormattingValidationResult.failure(
         'Directory does not exist: ${directory.path}',
       );
     }
 
     if (!shouldExist && exists) {
-      return ValidationResult.failure(
+      return FormattingValidationResult.failure(
         'Directory already exists: ${directory.path}',
       );
     }
@@ -139,22 +139,22 @@ class FormattingService {
       try {
         directory.listSync(followLinks: false).take(1).toList();
       } catch (e) {
-        return ValidationResult.failure(
+        return FormattingValidationResult.failure(
           'Directory is not accessible: ${directory.path}',
         );
       }
     }
 
-    return const ValidationResult.success();
+    return const FormattingValidationResult.success();
   }
 
   /// Validates that a file exists and is readable
   ///
   /// [file] File to validate
   /// Returns validation result with success/failure and message
-  ValidationResult validateFile(final File file) {
+  FormattingValidationResult validateFile(final File file) {
     if (!file.existsSync()) {
-      return ValidationResult.failure('File does not exist: ${file.path}');
+      return FormattingValidationResult.failure('File does not exist: ${file.path}');
     }
 
     try {
@@ -162,10 +162,10 @@ class FormattingService {
       final randomAccess = file.openSync();
       randomAccess.closeSync();
     } catch (e) {
-      return ValidationResult.failure('File is not accessible: ${file.path}');
+      return FormattingValidationResult.failure('File is not accessible: ${file.path}');
     }
 
-    return const ValidationResult.success();
+    return const FormattingValidationResult.success();
   }
   // ============================================================================
   // UTILITY OPERATIONS (migrated from UtilityService)
@@ -290,14 +290,14 @@ extension FileUtilityExtensions on File {
 }
 
 /// Result of a validation operation
-class ValidationResult {
-  const ValidationResult._({required this.isSuccess, this.message});
+class FormattingValidationResult {
+  const FormattingValidationResult._({required this.isSuccess, this.message});
 
   /// Creates a successful validation result
-  const ValidationResult.success() : this._(isSuccess: true);
+  const FormattingValidationResult.success() : this._(isSuccess: true);
 
   /// Creates a failed validation result with message
-  const ValidationResult.failure(final String message)
+  const FormattingValidationResult.failure(final String message)
     : this._(isSuccess: false, message: message);
 
   /// Whether the validation was successful

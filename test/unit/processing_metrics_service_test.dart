@@ -5,7 +5,7 @@ library;
 
 import 'package:gpth/shared/entities/media_entity.dart';
 import 'package:gpth/shared/entities/media_entity_collection.dart';
-import 'package:gpth/shared/services/processing/processing_metrics_service.dart';
+import 'package:gpth/shared/services/core_services/processing_metrics_service.dart';
 import 'package:gpth/shared/value_objects/media_files_collection.dart';
 import 'package:test/test.dart';
 

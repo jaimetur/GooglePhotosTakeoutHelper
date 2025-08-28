@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:coordinate_converter/coordinate_converter.dart';
-import '../../../../shared/services/json_metadata/json_metadata_matcher_service.dart';
+import '../../../../shared/services/json_metadata_services/json_metadata_matcher_service.dart';
 
 /// Finds corresponding json file with info from media file and gets 'photoTakenTime' from it
 Future<DateTime?> jsonDateTimeExtractor(

@@ -1,4 +1,4 @@
-import 'package:gpth/shared/services/media/edited_version_detector_service.dart';
+import 'package:gpth/shared/services/media_services/edited_version_detector_service.dart';
 import 'package:test/test.dart';
 
 void main() {

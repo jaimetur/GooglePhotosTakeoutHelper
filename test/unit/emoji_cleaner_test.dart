@@ -34,7 +34,7 @@ import 'dart:io';
 
 import 'package:emoji_regex/emoji_regex.dart' as r;
 import 'package:exif_reader/exif_reader.dart';
-import 'package:gpth/shared/services/processing/filename_sanitizer_service.dart';
+import 'package:gpth/shared/services/file_operations_services/filename_sanitizer_service.dart';
 import 'package:gpth/shared/infraestructure/exiftool_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';

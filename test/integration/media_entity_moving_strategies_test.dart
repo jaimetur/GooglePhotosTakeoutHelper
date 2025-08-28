@@ -11,7 +11,7 @@ import 'dart:io';
 
 import 'package:gpth/shared/entities/media_entity.dart';
 import 'package:gpth/shared/models/processing_config_model.dart';
-import 'package:gpth/shared/services/core/service_container.dart';
+import 'package:gpth/shared/services/core_services/container_service.dart';
 import 'package:gpth/steps/step_07_move_files/services/file_operation_service.dart';
 import 'package:gpth/steps/step_07_move_files/services/moving_context_model.dart';
 import 'package:gpth/steps/step_07_move_files/services/path_generator_service.dart';

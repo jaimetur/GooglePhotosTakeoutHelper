@@ -6,7 +6,7 @@ library;
 
 import 'dart:io';
 
-import 'package:gpth/shared/services/json_metadata/json_metadata_matcher_service.dart';
+import 'package:gpth/shared/services/json_metadata_services/json_metadata_matcher_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 

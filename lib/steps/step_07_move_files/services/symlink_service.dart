@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../../../shared/infraestructure/windows_symlink_service.dart';
-import '../../../shared/services/core/service_container.dart';
+import '../../../shared/services/core_services/container_service.dart';
 
 /// Service responsible for creating symlinks across platforms
 ///

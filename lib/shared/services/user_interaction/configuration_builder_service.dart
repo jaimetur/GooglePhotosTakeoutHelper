@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import '../../models/processing_config_model.dart';
-import '../core/formatting_service.dart';
+import '../core_services/formatting_service.dart';
 
 /// Domain service for handling interactive configuration logic
 ///
@@ -44,40 +44,40 @@ class InteractiveConfigurationService {
   );
 
   /// Validates input directory and returns validation result
-  ValidationResult validateInputDirectory(final String path) {
+  InteractiveValidationResult validateInputDirectory(final String path) {
     final directory = Directory(path);
 
     if (!directory.existsSync()) {
-      return ValidationResult.failure('Directory does not exist: $path');
+      return InteractiveValidationResult.failure('Directory does not exist: $path');
     }
 
     final takeoutDir = Directory('$path/Takeout');
     if (!takeoutDir.existsSync()) {
-      return ValidationResult.failure(
+      return InteractiveValidationResult.failure(
         'No "Takeout" folder found in $path. '
         'Make sure you\'ve extracted your Google Photos Takeout ZIP files '
         'and merged them into a single "Takeout" folder.',
       );
     }
 
-    return ValidationResult.success();
+    return InteractiveValidationResult.success();
   }
 
   /// Validates output directory and returns validation result
-  ValidationResult validateOutputDirectory(final String path) {
+  InteractiveValidationResult validateOutputDirectory(final String path) {
     final directory = Directory(path);
 
     // Create directory if it doesn't exist
     if (!directory.existsSync()) {
       try {
         directory.createSync(recursive: true);
-        return ValidationResult.success();
+        return InteractiveValidationResult.success();
       } catch (e) {
-        return ValidationResult.failure('Cannot create output directory: $e');
+        return InteractiveValidationResult.failure('Cannot create output directory: $e');
       }
     }
 
-    return ValidationResult.success();
+    return InteractiveValidationResult.success();
   }
 
   /// Checks if output directory is empty and returns appropriate action
@@ -97,22 +97,22 @@ class InteractiveConfigurationService {
   }
 
   /// Validates ZIP files for processing
-  ValidationResult validateZipFiles(final List<File> zipFiles) {
+  InteractiveValidationResult validateZipFiles(final List<File> zipFiles) {
     if (zipFiles.isEmpty) {
-      return ValidationResult.failure('No ZIP files selected');
+      return InteractiveValidationResult.failure('No ZIP files selected');
     }
 
     for (final zip in zipFiles) {
       if (!zip.existsSync()) {
-        return ValidationResult.failure('ZIP file does not exist: ${zip.path}');
+        return InteractiveValidationResult.failure('ZIP file does not exist: ${zip.path}');
       }
 
       if (zip.lengthSync() == 0) {
-        return ValidationResult.failure('ZIP file is empty: ${zip.path}');
+        return InteractiveValidationResult.failure('ZIP file is empty: ${zip.path}');
       }
     }
 
-    return ValidationResult.success();
+    return InteractiveValidationResult.success();
   }
 
   /// Calculates required disk space for processing
@@ -153,13 +153,13 @@ class InteractiveConfigurationService {
 }
 
 /// Result of a validation operation
-class ValidationResult {
-  const ValidationResult._({required this.isValid, this.errorMessage});
+class InteractiveValidationResult {
+  const InteractiveValidationResult._({required this.isValid, this.errorMessage});
 
-  factory ValidationResult.success() => const ValidationResult._(isValid: true);
+  factory InteractiveValidationResult.success() => const InteractiveValidationResult._(isValid: true);
 
-  factory ValidationResult.failure(final String message) =>
-      ValidationResult._(isValid: false, errorMessage: message);
+  factory InteractiveValidationResult.failure(final String message) =>
+      InteractiveValidationResult._(isValid: false, errorMessage: message);
 
   final bool isValid;
   final String? errorMessage;

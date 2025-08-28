@@ -5,8 +5,8 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 
 import '../../infraestructure/concurrency_manager.dart';
-import '../core/global_pools.dart';
-import '../core/logging_service.dart';
+import '../core_services/global_pools.dart';
+import '../core_services/logging_service.dart';
 // pool package used indirectly via GlobalPools
 
 /// Optimized service for calculating media file hashes and sizes with intelligent caching

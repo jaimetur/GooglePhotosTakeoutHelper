@@ -1,4 +1,4 @@
-import 'package:gpth/shared/services/interactive_presenter/interactive_presenter.dart';
+import 'package:gpth/shared/services/interactive_presenter_service/interactive_presenter_service.dart';
 import 'package:test/test.dart';
 
 void main() {

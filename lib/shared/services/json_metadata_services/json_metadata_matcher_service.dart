@@ -6,9 +6,9 @@ import 'package:unorm_dart/unorm_dart.dart' as unorm;
 
 import '../../constants/extra_formats.dart';
 import '../../file_extensions/file_extensions.dart';
-import '../core/logging_service.dart';
-import '../core/service_container.dart';
-import '../media/edited_version_detector_service.dart';
+import '../core_services/logging_service.dart';
+import '../core_services/container_service.dart';
+import '../media_services/edited_version_detector_service.dart';
 
 /// Service for finding corresponding JSON metadata files for media files
 ///

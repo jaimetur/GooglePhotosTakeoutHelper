@@ -3,7 +3,7 @@
 /// Tests the Google Photos Takeout path resolution functionality.
 library;
 
-import 'package:gpth/shared/services/user_interaction/path_resolver_service.dart';
+import 'package:gpth/shared/services/file_operations_services/path_resolver_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 

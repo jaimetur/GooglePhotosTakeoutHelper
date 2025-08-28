@@ -15,8 +15,8 @@ import 'dart:io';
 
 import 'package:gpth/steps/main_pipeline.dart';
 import 'package:gpth/shared/models/processing_config_model.dart';
-import 'package:gpth/shared/services/core/service_container.dart';
-import 'package:gpth/shared/services/user_interaction/path_resolver_service.dart';
+import 'package:gpth/shared/services/core_services/container_service.dart';
+import 'package:gpth/shared/services/file_operations_services/path_resolver_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 

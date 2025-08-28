@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
-import '../../file_extensions/file_extensions.dart';
+import '../../../shared/file_extensions/file_extensions.dart';
 
 /// Service for classifying directories in Google Photos Takeout exports
 ///

@@ -6,8 +6,8 @@ library;
 
 import 'dart:io';
 
-import 'package:gpth/shared/services/core/formatting_service.dart';
-import 'package:gpth/shared/services/core/service_container.dart';
+import 'package:gpth/shared/services/core_services/formatting_service.dart';
+import 'package:gpth/shared/services/core_services/container_service.dart';
 import 'package:gpth/shared/infraestructure/consolidated_disk_space_service.dart';
 import 'package:test/test.dart';
 
@@ -245,14 +245,14 @@ void main() {
 
     group('Validation Results', () {
       test('ValidationResult success works correctly', () {
-        const result = ValidationResult.success();
+        const result = FormattingValidationResult.success();
         expect(result.isSuccess, isTrue);
         expect(result.isFailure, isFalse);
         expect(result.message, isNull);
       });
 
       test('ValidationResult failure works correctly', () {
-        const result = ValidationResult.failure('Test error');
+        const result = FormattingValidationResult.failure('Test error');
         expect(result.isSuccess, isFalse);
         expect(result.isFailure, isTrue);
         expect(result.message, equals('Test error'));

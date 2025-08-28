@@ -10,9 +10,9 @@ import 'package:mime/mime.dart';
 import '../../../../shared/infraestructure/exiftool_service.dart';
 import '../../../../shared/constants/constants.dart';
 import '../../../../shared/constants/exif_constants.dart';
-import '../../../../shared/services/core/global_config_service.dart';
-import '../../../../shared/services/core/logging_service.dart';
-import '../../../../shared/services/core/service_container.dart'; // <-- Added to check global dictionary presence
+import '../../../../shared/services/core_services/global_config_service.dart';
+import '../../../../shared/services/core_services/logging_service.dart';
+import '../../../../shared/services/core_services/container_service.dart'; // <-- Added to check global dictionary presence
 
 class _SmartReadResult {
   _SmartReadResult(this.bytes, this.usedHeadOnly);

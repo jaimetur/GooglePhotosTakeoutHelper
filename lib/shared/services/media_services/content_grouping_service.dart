@@ -2,7 +2,7 @@ import 'dart:async';
 
 import '../../infraestructure/concurrency_manager.dart';
 import '../../entities/media_entity.dart';
-import '../core/logging_service.dart';
+import '../core_services/logging_service.dart';
 
 /// Service for grouping media files by content similarity
 ///

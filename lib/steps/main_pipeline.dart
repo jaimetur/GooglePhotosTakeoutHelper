@@ -2,11 +2,11 @@ import 'dart:io';
 
 import '../shared/infraestructure/concurrency_manager.dart';
 import '../shared/entities/media_entity_collection.dart';
-import 'pipeline_step_model.dart';
+import 'steps_pipeline.dart';
 import '../shared/models/processing_config_model.dart';
 import '../shared/models/processing_result_model.dart';
-import '../shared/services/core/formatting_service.dart';
-import '../shared/services/core/logging_service.dart';
+import '../shared/services/core_services/formatting_service.dart';
+import '../shared/services/core_services/logging_service.dart';
 import '../shared/services/user_interaction/user_interaction_service.dart';
 import 'step_01_fix_extensions/step_01_fix_extensions.dart';
 import 'step_02_discover_media/step_02_discover_media.dart';
@@ -16,7 +16,7 @@ import 'step_05_write_exif/step_05_write_exif.dart';
 import 'step_06_find_albums/step_06_find_albums.dart';
 import 'step_07_move_files/step_07_move_files.dart';
 import 'step_08_update_creation_time/step_08_update_creation_time.dart';
-import '../shared/value_objects/date_time_extraction_method.dart';
+import 'step_04_extract_dates/controllers/date_time_extraction_method.dart';
 
 /// Processing Pipeline for Google Photos Takeout Helper
 ///

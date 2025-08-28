@@ -1,6 +1,6 @@
-import '../pipeline_step_model.dart';
+import '../steps_pipeline.dart';
 import '../../shared/models/processing_config_model.dart';
-import '../../shared/services/core/logging_service.dart';
+import '../../shared/services/core_services/logging_service.dart';
 import 'services/file_extension_corrector_service.dart';
 
 /// Step 1: Fix incorrect file extensions

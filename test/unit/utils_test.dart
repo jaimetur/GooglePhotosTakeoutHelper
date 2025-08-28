@@ -63,9 +63,9 @@ library;
 
 import 'dart:io';
 
-import 'package:gpth/shared/services/core/formatting_service.dart';
-import 'package:gpth/shared/services/core/logging_service.dart';
-import 'package:gpth/shared/services/core/service_container.dart';
+import 'package:gpth/shared/services/core_services/formatting_service.dart';
+import 'package:gpth/shared/services/core_services/logging_service.dart';
+import 'package:gpth/shared/services/core_services/container_service.dart';
 import 'package:gpth/shared/infraestructure/platform_service.dart';
 import 'package:gpth/shared/infraestructure/windows_symlink_service.dart';
 import 'package:gpth/shared/file_extensions/file_extensions.dart';
