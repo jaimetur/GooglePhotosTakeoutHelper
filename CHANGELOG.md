@@ -1,8 +1,8 @@
 ## 4.4.0-Xentraxx
 
 ### 🚀 **Improvements**
-  - Improve Performance in Remove Duplicates Step
-  - Change README.md to add Star History & Contributors History
+  - Code Structure refactored for a better understanding and easier way to find each module.
+  - Created a single package gpth-lib with all the exported modules for an easier way to manage imports and refactoring.
 
 
 ## 4.3.1-Xentraxx
