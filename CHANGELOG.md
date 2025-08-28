@@ -4,6 +4,9 @@
   - Improve Performance in Remove Duplicates Step
   - Change README.md to add Star History & Contributors History
 
+### 🐛 **Bug Fixes**
+  - Added ask for Albums strategy during interactive mode
+
 
 ## 4.3.0-Xentraxx
 
