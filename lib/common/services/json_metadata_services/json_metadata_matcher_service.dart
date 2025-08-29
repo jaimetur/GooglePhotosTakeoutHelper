@@ -30,7 +30,9 @@ class JsonMetadataMatcherService with LoggerMixin {
     final File file, {
     required final bool tryhard,
   }) async {
-    final Directory dir = Directory(path.dirname(file.path));
+    final Directory dir = Directory(
+      PathResolverService.normalizePath(path.dirname(file.path)),
+    );
     final String name = path.basename(file.path);
 
     // Get strategies based on tryhard setting

@@ -480,33 +480,56 @@ class ZipExtractionService {
   /// Keeps Unicode characters (Ñ, accents, emojis) untouched. Only replaces
   /// characters invalid on Windows file systems and handles reserved names.
   /// Trailing dots/spaces are removed on Windows.
+  ///
+  /// NEW (cross-platform hardening):
+  /// - Trim **trailing spaces and dots** on **every path segment** for *all* OS.
+  ///   Google Takeout sometimes produces folder names with a trailing space
+  ///   (e.g., `"Fotos de "`). We normalize those here to avoid later “No such file
+  ///   or directory” when other modules compose paths.
   String _sanitizeFileName(final String fileName) {
-    var result = fileName;
+    // The ZIP format uses forward slashes. Normalize, then sanitize each segment.
+    final String unified = fileName.replaceAll('\\', '/');
+    final List<String> rawSegments = unified.split('/');
 
-    // Replace invalid characters in Windows file names (do not touch path separators)
-    result = result.replaceAll(RegExp(r'[<>:"|?*]'), '_');
+    if (rawSegments.isEmpty) return fileName;
 
-    // Windows reserved device names (applies to last path segment)
-    if (Platform.isWindows) {
-      final List<String> reservedNames = <String>[
-        'CON','PRN','AUX','NUL','COM1','COM2','COM3','COM4','COM5','COM6','COM7','COM8','COM9','LPT1','LPT2','LPT3','LPT4','LPT5','LPT6','LPT7','LPT8','LPT9',
-      ];
+    final List<String> sanitizedSegments = <String>[];
 
-      final String baseName = p.basenameWithoutExtension(result);
-      final String ext = p.extension(result);
-      if (reservedNames.contains(baseName.toUpperCase())) {
-        result = p.join(p.dirname(result), '${baseName}_file$ext');
+    for (int i = 0; i < rawSegments.length; i++) {
+      var seg = rawSegments[i];
+      if (seg.isEmpty) continue; // skip empty (avoid accidental //)
+
+      // Replace invalid characters (keep Unicode intact)
+      seg = seg.replaceAll(RegExp(r'[<>:"|?*]'), '_');
+
+      // Remove ASCII control characters from the segment
+      seg = seg.replaceAll(RegExp(r'[\x00-\x1F]'), '_');
+
+      // IMPORTANT: trim trailing spaces/dots on *all* platforms (Takeout quirk)
+      // This is the only behavior change vs before; it prevents creating folders
+      // ending with a space which later break path resolution.
+      seg = seg.replaceAll(RegExp(r'[. ]+$'), '');
+
+      // Windows reserved device names — we keep original behavior (apply on last segment).
+      if (Platform.isWindows && i == rawSegments.length - 1) {
+        final List<String> reservedNames = <String>[
+          'CON','PRN','AUX','NUL','COM1','COM2','COM3','COM4','COM5','COM6','COM7','COM8','COM9','LPT1','LPT2','LPT3','LPT4','LPT5','LPT6','LPT7','LPT8','LPT9',
+        ];
+        final String baseName = p.basenameWithoutExtension(seg);
+        final String ext = p.extension(seg);
+        if (reservedNames.contains(baseName.toUpperCase())) {
+          seg = '${baseName}_file$ext';
+        }
       }
 
-      // Remove trailing dots and spaces on the full path
-      result = result.replaceAll(RegExp(r'[. ]+$'), '');
+      // Do not produce empty path components after trimming; substitute a safe marker.
+      if (seg.isEmpty) seg = '_';
+
+      sanitizedSegments.add(seg);
     }
 
-    // Remove ASCII control characters from the full path
-    // ignore: join_return_with_assignment
-    result = result.replaceAll(RegExp(r'[\x00-\x1F]'), '_');
-
-    return result;
+    // Join using the platform separator so later p.join(...) remains consistent.
+    return sanitizedSegments.join(Platform.pathSeparator);
   }
 
   /// Returns true if the name contains characters that usually indicate encoding issues.

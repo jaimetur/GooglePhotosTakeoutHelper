@@ -23,12 +23,12 @@ class FileOperationService with LoggerMixin {
     final DateTime? dateTaken,
   }) async {
     // Ensure target directory exists
-    await targetDirectory.create(recursive: true);
+    final Directory normalizedTargetDir = Directory(_normalizePathForWrite(targetDirectory.path));
+    await normalizedTargetDir.create(recursive: true);
 
-    final File targetFile = ServiceContainer.instance.utilityService
-        .findUniqueFileName(
-          File(p.join(targetDirectory.path, p.basename(sourceFile.path))),
-        );
+    final File targetFile = ServiceContainer.instance.utilityService.findUniqueFileName(
+      File(p.join(normalizedTargetDir.path, p.basename(sourceFile.path))),
+    );
 
     try {
       final resultFile = await sourceFile.rename(targetFile.path);
@@ -43,8 +43,7 @@ class FileOperationService with LoggerMixin {
       // Handle cross-device move errors
       if (e.osError?.errorCode == 18 || e.message.contains('cross-device')) {
         throw FileOperationException(
-          'Cannot move files across different drives. '
-          'Please select an output location on the same drive as the input.',
+          'Cannot move files across different drives. Please select an output location on the same drive as the input.',
           originalException: e,
         );
       }
@@ -63,12 +62,12 @@ class FileOperationService with LoggerMixin {
   }) async =>
       GlobalPools.poolFor(ConcurrencyOperation.fileIO).withResource(() async {
         // Ensure target directory exists
-        await targetDirectory.create(recursive: true);
+        final Directory normalizedTargetDir = Directory(_normalizePathForWrite(targetDirectory.path));
+        await normalizedTargetDir.create(recursive: true);
 
-        final File targetFile = ServiceContainer.instance.utilityService
-            .findUniqueFileName(
-              File(p.join(targetDirectory.path, p.basename(sourceFile.path))),
-            );
+        final File targetFile = ServiceContainer.instance.utilityService.findUniqueFileName(
+          File(p.join(normalizedTargetDir.path, p.basename(sourceFile.path))),
+        );
 
         final resultFile = await _moveFileOptimized(sourceFile, targetFile);
 
@@ -85,10 +84,13 @@ class FileOperationService with LoggerMixin {
     final File source,
     final File destination,
   ) async {
+    // Normalize destination path to avoid trailing-space/dot segments
+    final File normalizedDest = File(_normalizePathForWrite(destination.path));
+
     // Check if it's a same-drive operation for optimization
-    if (_isSameDrive(source.path, destination.path)) {
+    if (_isSameDrive(source.path, normalizedDest.path)) {
       try {
-        return await source.rename(destination.path);
+        return await source.rename(normalizedDest.path);
       } on FileSystemException catch (e) {
         if (e.osError?.errorCode == 18 || e.message.contains('cross-device')) {
           // Fall through to copy+delete
@@ -99,7 +101,7 @@ class FileOperationService with LoggerMixin {
     }
 
     // Cross-drive move requires copy + delete
-    final copied = await _copyFileStreaming(source, destination);
+    final copied = await _copyFileStreaming(source, normalizedDest);
     await source.delete();
     return copied;
   }
@@ -109,12 +111,17 @@ class FileOperationService with LoggerMixin {
     final File source,
     final File destination,
   ) async {
+    // Normalize destination before writing
+    final File normalizedDest = File(_normalizePathForWrite(destination.path));
+    final Directory parent = Directory(p.dirname(normalizedDest.path));
+    await parent.create(recursive: true);
+
     final sourceStream = source.openRead();
-    final destinationSink = destination.openWrite();
+    final destinationSink = normalizedDest.openWrite();
 
     try {
       await sourceStream.pipe(destinationSink);
-      return destination;
+      return normalizedDest;
     } finally {
       await destinationSink.close();
     }
@@ -143,10 +150,7 @@ class FileOperationService with LoggerMixin {
     // Handle Windows date limitations
     DateTime adjustedTime = timestamp;
     if (Platform.isWindows && timestamp.isBefore(DateTime(1970))) {
-      print(
-        '[Info]: ${file.path} has date $timestamp, which is before 1970 '
-        '(not supported on Windows) - will be set to 1970-01-01',
-      );
+      print('[Info]: ${file.path} has date $timestamp, which is before 1970 (not supported on Windows) - will be set to 1970-01-01');
       adjustedTime = DateTime(1970);
     }
 
@@ -156,10 +160,7 @@ class FileOperationService with LoggerMixin {
       // Sometimes Windows throws error but succeeds anyway
       // Only throw if it's not error code 0
       if (e.errorCode != 0) {
-        throw FileOperationException(
-          "Can't set modification time on $file: $e",
-          originalException: e,
-        );
+        throw FileOperationException("Can't set modification time on $file: $e", originalException: e);
       }
       // Error code 0 means success, so we ignore it
     } catch (e) {
@@ -177,24 +178,19 @@ class FileOperationService with LoggerMixin {
 
   /// Ensures a directory exists, creating it if necessary
   Future<void> ensureDirectoryExists(final Directory directory) async {
-    if (!await directory.exists()) {
-      await directory.create(recursive: true);
+    final Directory normalized = Directory(_normalizePathForWrite(directory.path));
+    if (!await normalized.exists()) {
+      await normalized.create(recursive: true);
     }
   }
 
   /// Batch create multiple directories with concurrency control
   Future<void> ensureDirectoriesExist(final List<Directory> directories) async {
     final pool = GlobalPools.poolFor(ConcurrencyOperation.fileIO);
-    final concurrency = ConcurrencyManager().concurrencyFor(
-      ConcurrencyOperation.fileIO,
-    );
-    logDebug(
-      'Starting $concurrency threads (fileIO directory ensure concurrency)',
-    );
+    final concurrency = ConcurrencyManager().concurrencyFor(ConcurrencyOperation.fileIO);
+    logDebug('Starting $concurrency threads (fileIO directory ensure concurrency)');
     await Future.wait(
-      directories.map(
-        (final dir) => pool.withResource(() => ensureDirectoryExists(dir)),
-      ),
+      directories.map((final dir) => pool.withResource(() => ensureDirectoryExists(dir))),
     );
   }
 
@@ -205,34 +201,22 @@ class FileOperationService with LoggerMixin {
   }) async {
     final results = <FileOperationResult>[];
     final pool = GlobalPools.poolFor(ConcurrencyOperation.fileIO);
-    final concurrency = ConcurrencyManager().concurrencyFor(
-      ConcurrencyOperation.fileIO,
-    );
+    final concurrency = ConcurrencyManager().concurrencyFor(ConcurrencyOperation.fileIO);
     logDebug('Starting $concurrency threads (fileIO move concurrency)');
     int completed = 0;
 
-    final futures = operations.map(
-      (final op) async => pool.withResource(() async {
-        try {
-          final result = await moveFileOptimized(op.source, op.target);
-          completed++;
-          onProgress?.call(completed, operations.length);
-          return FileOperationResult(
-            success: true,
-            sourceFile: op.source,
-            resultFile: result,
-          );
-        } catch (e) {
-          completed++;
-          onProgress?.call(completed, operations.length);
-          return FileOperationResult(
-            success: false,
-            sourceFile: op.source,
-            error: e.toString(),
-          );
-        }
-      }),
-    );
+    final futures = operations.map((final op) async => pool.withResource(() async {
+          try {
+            final result = await moveFileOptimized(op.source, op.target);
+            completed++;
+            onProgress?.call(completed, operations.length);
+            return FileOperationResult(success: true, sourceFile: op.source, resultFile: result);
+          } catch (e) {
+            completed++;
+            onProgress?.call(completed, operations.length);
+            return FileOperationResult(success: false, sourceFile: op.source, error: e.toString());
+          }
+        }));
 
     results.addAll(await Future.wait(futures));
     return results;
@@ -250,12 +234,12 @@ class FileOperationService with LoggerMixin {
     final DateTime? dateTaken,
   }) async {
     // Ensure target directory exists
-    await targetDirectory.create(recursive: true);
+    final Directory normalizedTargetDir = Directory(_normalizePathForWrite(targetDirectory.path));
+    await normalizedTargetDir.create(recursive: true);
 
-    final File targetFile = ServiceContainer.instance.utilityService
-        .findUniqueFileName(
-          File(p.join(targetDirectory.path, p.basename(sourceFile.path))),
-        );
+    final File targetFile = ServiceContainer.instance.utilityService.findUniqueFileName(
+      File(p.join(normalizedTargetDir.path, p.basename(sourceFile.path))),
+    );
 
     final resultFile = await _copyFileStreaming(sourceFile, targetFile);
 
@@ -265,6 +249,41 @@ class FileOperationService with LoggerMixin {
     }
 
     return resultFile;
+  }
+
+  /// NEW: normalize destination paths before touching the filesystem
+  ///
+  /// - Trims **trailing spaces and dots** from **each path segment** (cross-platform)
+  ///   to avoid directories like "Fotos de " that later cause “No such file or directory”.
+  /// - Removes ASCII control chars.
+  /// - Keeps Unicode (accents, emojis) intact.
+  /// - Ensures no empty segments remain (replaces with "_").
+  String _normalizePathForWrite(final String rawPath) {
+    if (rawPath.isEmpty) return rawPath;
+
+    // Normalize to forward slashes to split, then rebuild with platform separator.
+    final String unified = rawPath.replaceAll('\\', '/');
+    final parts = unified.split('/').where((s) => s.isNotEmpty).toList();
+    if (parts.isEmpty) return rawPath;
+
+    final List<String> norm = <String>[];
+    for (int i = 0; i < parts.length; i++) {
+      var seg = parts[i];
+
+      // Remove ASCII control characters
+      seg = seg.replaceAll(RegExp(r'[\x00-\x1F]'), '_');
+
+      // Trim trailing spaces/dots (Takeout quirk)
+      seg = seg.replaceAll(RegExp(r'[. ]+$'), '');
+
+      // Avoid empty component
+      if (seg.isEmpty) seg = '_';
+
+      // Preserve Unicode; do not touch valid characters
+      norm.add(seg);
+    }
+
+    return norm.join(Platform.pathSeparator);
   }
 }
 

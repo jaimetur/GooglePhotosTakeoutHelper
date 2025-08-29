@@ -56,17 +56,19 @@ class PathResolverService {
   /// @throws DirectoryNotFoundException when input path doesn't exist
   /// @throws InvalidTakeoutStructureException when structure doesn't match expected format
   static String resolveGooglePhotosPath(final String inputPath) {
-    final inputDir = Directory(inputPath);
+    // NEW: normalize early to avoid trailing-space segments issues.
+    // This trims trailing spaces from each segment and re-joins the path.
+    final normalizedInput = normalizePath(inputPath);
+
+    final inputDir = Directory(normalizedInput);
 
     if (!inputDir.existsSync()) {
-      throw DirectoryNotFoundException(
-        'Input directory does not exist: $inputPath',
-      );
+      throw DirectoryNotFoundException('Input directory does not exist: $normalizedInput');
     }
 
     // Try the current path first - maybe it's already the Google Photos directory
     if (_isGooglePhotosDirectory(inputDir)) {
-      return inputPath;
+      return normalizePath(inputDir.path);
     }
 
     // Look for Takeout folder in current directory
@@ -74,7 +76,7 @@ class PathResolverService {
     if (takeoutDir != null) {
       final googlePhotosDir = _findGooglePhotosInTakeout(takeoutDir);
       if (googlePhotosDir != null) {
-        return googlePhotosDir.path;
+        return normalizePath(googlePhotosDir.path);
       }
     }
 
@@ -82,13 +84,13 @@ class PathResolverService {
     if (_looksLikeTakeoutDirectory(inputDir)) {
       final googlePhotosDir = _findGooglePhotosInTakeout(inputDir);
       if (googlePhotosDir != null) {
-        return googlePhotosDir.path;
+        return normalizePath(googlePhotosDir.path);
       }
     }
 
     // If we get here, we couldn't find a valid Google Photos structure
     throw InvalidTakeoutStructureException(
-      'Could not find valid Google Photos Takeout structure in: $inputPath\n'
+      'Could not find valid Google Photos Takeout structure in: $normalizedInput\n'
       'Expected structure: [path]/Takeout/Google Photos/Photos from YYYY/\n'
       'Make sure you have extracted the Google Takeout files correctly.',
     );
@@ -111,16 +113,16 @@ class PathResolverService {
       final contents = directory.listSync();
 
       // Look for "Photos from YYYY" pattern
-      final hasYearFolders = contents.whereType<Directory>().any(_isYearFolder);
+      final hasYearFolders = contents
+          .whereType<Directory>()
+          .any((d) => _isYearFolder(d));
 
       if (hasYearFolders) {
         return true;
       }
 
       // Alternative: Check for album folders with media files
-      final hasAlbumFolders = contents.whereType<Directory>().any(
-        _hasMediaFiles,
-      );
+      final hasAlbumFolders = contents.whereType<Directory>().any(_hasMediaFiles);
 
       return hasAlbumFolders;
     } catch (e) {
@@ -139,9 +141,12 @@ class PathResolverService {
       final contents = directory.listSync();
 
       for (final entity in contents) {
-        if (entity is Directory &&
-            path.basename(entity.path).toLowerCase() == 'takeout') {
-          return entity;
+        if (entity is Directory) {
+          // Robust compare: allow trailing spaces on disk names.
+          final base = path.basename(entity.path).trimRight().toLowerCase();
+          if (base == 'takeout') {
+            return entity;
+          }
         }
       }
       return null;
@@ -219,9 +224,7 @@ class PathResolverService {
 
       // Look for any folders or media files
       final hasDirectories = contents.whereType<Directory>().isNotEmpty;
-      final hasFiles = contents.whereType<File>().any(
-        (final file) => _isMediaFile(file) || _isJsonFile(file),
-      );
+      final hasFiles = contents.whereType<File>().any((final file) => _isMediaFile(file) || _isJsonFile(file));
 
       return hasDirectories || hasFiles;
     } catch (e) {
@@ -236,8 +239,9 @@ class PathResolverService {
   /// @param directory Directory to check
   /// @returns true if this is a year folder
   static bool _isYearFolder(final Directory directory) {
-    final name = path.basename(directory.path);
-    final yearRegex = RegExp(r'Photos from \d{4}');
+    // Robust to trailing spaces in folder names extracted from zips
+    final name = path.basename(directory.path).trimRight();
+    final yearRegex = RegExp(r'^Photos from \d{4}$');
     return yearRegex.hasMatch(name);
   }
 
@@ -298,8 +302,45 @@ class PathResolverService {
   ///
   /// @param file File to check
   /// @returns true if this is a JSON metadata file
-  static bool _isJsonFile(final File file) =>
-      path.extension(file.path).toLowerCase() == '.json';
+  static bool _isJsonFile(final File file) => path.extension(file.path).toLowerCase() == '.json';
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // NEW: Public path normalizer
+  // ─────────────────────────────────────────────────────────────────────────────
+  /// Normalizes a filesystem path by:
+  /// - Splitting into segments with `package:path`
+  /// - Trimming trailing whitespace from each segment (to fix Takeout names like "Fotos de ")
+  /// - Re-joining with `path.joinAll`
+  ///
+  /// This does **not** change case, does **not** touch leading spaces, and does **not**
+  /// remove valid trailing separators from roots (e.g., Windows drive roots).
+  static String normalizePath(final String input) {
+    try {
+      // Fast path: if there are no spaces at end of the string, still normalize separators
+      final ctx = path.context;
+      final segments = ctx.split(input);
+
+      if (segments.isEmpty) return input;
+
+      final List<String> fixed = <String>[];
+      for (int i = 0; i < segments.length; i++) {
+        final seg = segments[i];
+        // Keep root segments untouched (e.g., "C:" or "/" or "\\server\share")
+        if (i == 0 && (seg.isEmpty || seg == ctx.separator || seg.endsWith(':'))) {
+          fixed.add(seg);
+          continue;
+        }
+        // Trim **trailing** spaces only; do not touch leading spaces on purpose.
+        fixed.add(seg.replaceFirst(RegExp(r'\s+$'), ''));
+      }
+
+      final joined = ctx.joinAll(fixed);
+      return joined;
+    } catch (_) {
+      // If anything goes wrong, return the original path unchanged.
+      return input;
+    }
+  }
 }
 
 /// **EXCEPTION: DIRECTORY NOT FOUND**
