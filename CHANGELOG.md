@@ -6,6 +6,9 @@
   - Improve Media Entity to include a new parameter `belongToAlbums` for a better management of all albums associated with each media entity.
   - Code Refactored to isolate the execution logic of each step into the .execute() function of the step's class. In this way the media_entity_collection module is much clearer and easy to understand and maintain.
 
+### ✨ **New Features**
+  - Support for 7zip and unzip extractors (if found in your system). This is shy the native extractor does not extract properly filenames or dirnames with latin chars.
+
 
 ## 4.3.1-Xentraxx
 
