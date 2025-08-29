@@ -166,35 +166,24 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
     try {
       final collection = context.mediaCollection;
 
-      print(
-        '\n[Step 5/8] Starting EXIF data writing for ${collection.length} files (this may take a while)...',
-      );
+      print('\n[Step 5/8] Starting EXIF data writing for ${collection.length} files (this may take a while)...');
       if (!context.config.writeExif) {
         sw.stop();
         return StepResult.success(
           stepName: name,
           duration: sw.elapsed,
-          data: {
-            'coordinatesWritten': 0,
-            'dateTimesWritten': 0,
-            'skipped': true,
-          },
+          data: {'coordinatesWritten': 0, 'dateTimesWritten': 0, 'skipped': true},
           message: 'EXIF writing skipped per configuration',
         );
       }
 
-      // Visible progress bar (kept as before). We'll also support an internal onProgress callback.
-      final progressBar = FillingBar(
-        desc: 'Writing EXIF data',
-        total: collection.length,
-        width: 50,
-      );
+      // Visible progress bar (kept as before)
+      final progressBar = FillingBar(desc: 'Writing EXIF data', total: collection.length, width: 50);
 
       // Services
       final exifTool = ServiceContainer.instance.exifTool; // may be null
 
-      // Backward-compatible behavior: if exifTool == null → nativeOnly path with clear info,
-      // otherwise allow ExifTool and optionally batching (configurable).
+      // Backward-compatible behavior: if exifTool == null → nativeOnly path
       final bool nativeOnly = exifTool == null;
       if (nativeOnly) {
         logWarning('[Step 5/8] ExifTool not available, writing EXIF data for native supported files only...', forcePrint: true);
@@ -203,8 +192,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
         logInfo('Exiftool enabled using argument nativeOnly=false', forcePrint: true);
       }
 
-      // Batching preference (restored): read optional `enableBatching` from GlobalConfig (if present).
-      // If not present, default to true when ExifTool is available (matches older behavior).
+      // Batching preference (restored)
       final bool enableExifToolBatch = _resolveBatchingPreference(exifTool);
       if (enableExifToolBatch) {
         logInfo('Exiftool batch enabled using argument enableExifToolBatch=true. Exiftool will be called in batches with several files per batch', forcePrint: true);
@@ -213,12 +201,10 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
       }
 
       // Calculate optimal concurrency
-      final int maxConc =
-          ConcurrencyManager().concurrencyFor(ConcurrencyOperation.exif);
+      final int maxConc = ConcurrencyManager().concurrencyFor(ConcurrencyOperation.exif);
 
       // Reuse writer across batch if possible
-      final ExifWriterService? exifWriter =
-          (exifTool != null) ? ExifWriterService(exifTool) : null;
+      final ExifWriterService? exifWriter = (exifTool != null) ? ExifWriterService(exifTool) : null;
 
       // Adaptive batch sizing (same intent as older code)
       final bool isWindows = Platform.isWindows;
@@ -254,28 +240,15 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
         } catch (_) {}
 
         try {
-          await exifWriter.writeBatchWithExifTool(
-            queue,
-            useArgFileWhenLarge: useArgFile,
-          );
+          await exifWriter.writeBatchWithExifTool(queue, useArgFileWhenLarge: useArgFile);
         } catch (e) {
-          logWarning(
-            isVideoBatch
-                ? 'Video batch flush failed (${queue.length} files): $e'
-                : 'Batch flush failed (${queue.length} files): $e',
-            forcePrint: true,
-          );
+          logWarning(isVideoBatch ? 'Video batch flush failed (${queue.length} files): $e' : 'Batch flush failed (${queue.length} files): $e', forcePrint: true);
           // Retry per-file so nothing is lost
           for (final entry in queue) {
             try {
               await exifWriter.writeTagsWithExifTool(entry.key, entry.value);
             } catch (e2) {
-              logWarning(
-                isVideoBatch
-                    ? 'Per-file video write failed: ${entry.key.path} -> $e2'
-                    : 'Per-file write failed: ${entry.key.path} -> $e2',
-                forcePrint: true,
-              );
+              logWarning(isVideoBatch ? 'Per-file video write failed: ${entry.key.path} -> $e2' : 'Per-file write failed: ${entry.key.path} -> $e2', forcePrint: true);
             }
           }
         } finally {
@@ -284,11 +257,8 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
       }
 
       // Helpers to flush each queue
-      Future<void> _flushImageBatch({required final bool useArgFile}) =>
-          _flushBatch(pendingImagesBatch, useArgFile: useArgFile, isVideoBatch: false);
-
-      Future<void> _flushVideoBatch({required final bool useArgFile}) =>
-          _flushBatch(pendingVideosBatch, useArgFile: useArgFile, isVideoBatch: true);
+      Future<void> _flushImageBatch({required final bool useArgFile}) => _flushBatch(pendingImagesBatch, useArgFile: useArgFile, isVideoBatch: false);
+      Future<void> _flushVideoBatch({required final bool useArgFile}) => _flushBatch(pendingVideosBatch, useArgFile: useArgFile, isVideoBatch: true);
 
       // Threshold-based flushing (restored)
       Future<void> _maybeFlushThresholds() async {
@@ -360,9 +330,16 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
                 }
               }
 
-              for (final file in files) {
+              for (final originalFile in files) {
                 try {
-                  // MIME sniff (headerBytes) + fallback to extension (restored)
+                  // A) Resolver a un File existente; si no existe, saltar
+                  final File? file = await _resolveReadableFile(originalFile);
+                  if (file == null) {
+                    logWarning('Skipping missing file (cannot resolve): ${_safePath(originalFile)}', forcePrint: true);
+                    continue;
+                  }
+
+                  // MIME sniff (headerBytes) + fallback a extensión (restored)
                   List<int> headerBytes = const [];
                   String? mimeHeader;
                   String? mimeExt;
@@ -376,13 +353,28 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
                     mimeExt = mimeHeader;
                   }
 
+                  // B) Filtrar formatos no soportados antes de encolar o taggear
+                  final pathLower = file.path.toLowerCase();
+                  if (_isDefinitelyUnsupportedForWrite(mimeHeader: mimeHeader, mimeExt: mimeExt, pathLower: pathLower)) {
+                    if (pathLower.endsWith('.avi') || mimeHeader == 'video/x-msvideo' || mimeExt == 'video/x-msvideo') {
+                      logWarning('Skipping AVI file - ExifTool cannot write RIFF AVI: ${file.path}', forcePrint: true);
+                    } else if (pathLower.endsWith('.mpg') || pathLower.endsWith('.mpeg') || (mimeHeader ?? '').contains('mpeg') || (mimeExt ?? '').contains('mpeg')) {
+                      logWarning('Skipping MPEG file - ExifTool cannot write MPG/MPEG: ${file.path}', forcePrint: true);
+                    } else if (pathLower.endsWith('.bmp') || mimeHeader == 'image/bmp' || mimeExt == 'image/bmp') {
+                      logWarning('Skipping BMP file - ExifTool cannot write BMP: ${file.path}', forcePrint: true);
+                    } else {
+                      logWarning('Skipping unsupported format for EXIF write: ${file.path}', forcePrint: true);
+                    }
+                    continue;
+                  }
+
                   bool gpsWrittenThis = false;
                   bool dtWrittenThis = false;
 
-                  // Tags to be written via ExifTool (batched or per-file)
+                  // Tags a escribir con ExifTool (batched o per-file)
                   final tagsToWrite = <String, dynamic>{};
 
-                  // 1) GPS from JSON if EXIF lacks it (restored)
+                  // 1) GPS desde JSON si el EXIF no lo tiene (restored)
                   try {
                     final coords = await jsonCoordinatesExtractor(file);
                     if (coords != null) {
@@ -394,86 +386,64 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
                           globalConfig: ServiceContainer.instance.globalConfig,
                         );
                       }
-                      final hasCoords = existing != null &&
-                          existing['GPSLatitude'] != null &&
-                          existing['GPSLongitude'] != null;
+                      final hasCoords = existing != null && existing['GPSLatitude'] != null && existing['GPSLongitude'] != null;
 
                       if (!hasCoords) {
                         if (mimeHeader == 'image/jpeg') {
                           if (effectiveDate != null && !nativeOnly) {
                             // Try native combined first
-                            final ok = await exifWriter!.writeCombinedNativeJpeg(
-                              file,
-                              effectiveDate,
-                              coords,
-                            );
+                            final ok = await exifWriter!.writeCombinedNativeJpeg(file, effectiveDate, coords);
                             if (ok) {
                               gpsWrittenThis = true;
                               dtWrittenThis = true;
                             } else {
-                              // Fallback to ExifTool tags
+                              // Fallback a ExifTool tags
                               final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
                               final dt = exifFormat.format(effectiveDate);
                               tagsToWrite['DateTimeOriginal'] = '"$dt"';
                               tagsToWrite['DateTimeDigitized'] = '"$dt"';
                               tagsToWrite['DateTime'] = '"$dt"';
-                              tagsToWrite['GPSLatitude'] =
-                                  coords.toDD().latitude.toString();
-                              tagsToWrite['GPSLongitude'] =
-                                  coords.toDD().longitude.toString();
-                              tagsToWrite['GPSLatitudeRef'] =
-                                  coords.latDirection.abbreviation.toString();
-                              tagsToWrite['GPSLongitudeRef'] =
-                                  coords.longDirection.abbreviation.toString();
+                              tagsToWrite['GPSLatitude'] = coords.toDD().latitude.toString();
+                              tagsToWrite['GPSLongitude'] = coords.toDD().longitude.toString();
+                              tagsToWrite['GPSLatitudeRef'] = coords.latDirection.abbreviation.toString();
+                              tagsToWrite['GPSLongitudeRef'] = coords.longDirection.abbreviation.toString();
                               gpsWrittenThis = true;
                               dtWrittenThis = true;
                             }
                           } else if (effectiveDate == null && !nativeOnly) {
-                            // No date, write only GPS natively if possible
+                            // Sin fecha: solo GPS nativo si es posible
                             final ok = await exifWriter!.writeGpsNativeJpeg(file, coords);
                             if (ok) {
                               gpsWrittenThis = true;
                             } else {
-                              tagsToWrite['GPSLatitude'] =
-                                  coords.toDD().latitude.toString();
-                              tagsToWrite['GPSLongitude'] =
-                                  coords.toDD().longitude.toString();
-                              tagsToWrite['GPSLatitudeRef'] =
-                                  coords.latDirection.abbreviation.toString();
-                              tagsToWrite['GPSLongitudeRef'] =
-                                  coords.longDirection.abbreviation.toString();
+                              tagsToWrite['GPSLatitude'] = coords.toDD().latitude.toString();
+                              tagsToWrite['GPSLongitude'] = coords.toDD().longitude.toString();
+                              tagsToWrite['GPSLatitudeRef'] = coords.latDirection.abbreviation.toString();
+                              tagsToWrite['GPSLongitudeRef'] = coords.longDirection.abbreviation.toString();
                               gpsWrittenThis = true;
                             }
                           }
                         } else {
-                          // Non-JPEG: use ExifTool (unless nativeOnly)
+                          // No-JPEG: usar ExifTool (a menos que nativeOnly)
                           if (!nativeOnly) {
-                            tagsToWrite['GPSLatitude'] =
-                                coords.toDD().latitude.toString();
-                            tagsToWrite['GPSLongitude'] =
-                                coords.toDD().longitude.toString();
-                            tagsToWrite['GPSLatitudeRef'] =
-                                coords.latDirection.abbreviation.toString();
-                            tagsToWrite['GPSLongitudeRef'] =
-                                coords.longDirection.abbreviation.toString();
+                            tagsToWrite['GPSLatitude'] = coords.toDD().latitude.toString();
+                            tagsToWrite['GPSLongitude'] = coords.toDD().longitude.toString();
+                            tagsToWrite['GPSLatitudeRef'] = coords.latDirection.abbreviation.toString();
+                            tagsToWrite['GPSLongitudeRef'] = coords.longDirection.abbreviation.toString();
                           }
                         }
                       }
                     }
                   } catch (e) {
-                    logWarning(
-                      'Failed to extract/write GPS for ${_safePath(file)}: $e',
-                      forcePrint: true,
-                    );
+                    logWarning('Failed to extract/write GPS for ${_safePath(file)}: $e', forcePrint: true);
                   }
 
-                  // 2) DateTime writer (native preferred for JPEG, otherwise ExifTool) — restored
+                  // 2) DateTime writer (nativo preferido para JPEG, si no ExifTool) — restored
                   try {
                     if (effectiveDate != null) {
                       if (mimeHeader == 'image/jpeg') {
                         if (!dtWrittenThis && !nativeOnly) {
-                          final ok =
-                              await exifWriter!.writeDateTimeNativeJpeg(file, effectiveDate);
+                          final ok = await exifWriter!.writeDateTimeNativeJpeg(file, effectiveDate);
                           if (ok) {
                             dtWrittenThis = true;
                           } else {
@@ -501,30 +471,24 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
                     logWarning('Failed to write DateTime for ${_safePath(file)}: $e', forcePrint: true);
                   }
 
-                  // 3) Enqueue or write per-file with ExifTool according to configuration (restored)
+                  // 3) Encolar o per-file con ExifTool según configuración (restored)
                   try {
                     if (!nativeOnly && tagsToWrite.isNotEmpty) {
-                      // Avoid extension/content mismatch that would make ExifTool fail (restored)
+                      // Evitar mismatch extensión/contenido que haría fallar ExifTool (restored)
                       if (mimeExt != mimeHeader && mimeHeader != 'image/tiff') {
                         logWarning("EXIF Writer - Extension indicates '$mimeExt' but header is '$mimeHeader'. Enqueuing for ExifTool batch.\n ${file.path}", forcePrint: true);
                       }
-                      // Skip AVI / RIFF (restored)
+                      // Skip AVI / RIFF (restored) — aunque arriba ya lo filtramos; doble seguro
                       if (_isAviByExt(file) || mimeExt == 'video/x-msvideo' || mimeHeader == 'video/x-msvideo') {
                         logWarning('Skipping AVI file - ExifTool cannot write RIFF AVI: ${file.path}', forcePrint: true);
                       } else {
-                        final isVideo =
-                            mimeHeader != null && mimeHeader.startsWith('video/');
+                        final isVideo = mimeHeader != null && mimeHeader.startsWith('video/');
                         if (!enableExifToolBatch) {
                           // Per-file (no batches)
                           try {
                             await exifWriter!.writeTagsWithExifTool(file, tagsToWrite);
                           } catch (e) {
-                            logWarning(
-                              isVideo
-                                  ? 'Per-file video write failed: ${file.path} -> $e'
-                                  : 'Per-file write failed: ${file.path} -> $e',
-                              forcePrint: true,
-                            );
+                            logWarning(isVideo ? 'Per-file video write failed: ${file.path} -> $e' : 'Per-file write failed: ${file.path} -> $e', forcePrint: true);
                           }
                         } else {
                           // Batched (queue)
@@ -543,7 +507,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
                   if (gpsWrittenThis) localGps++;
                   if (dtWrittenThis) localDate++;
                 } catch (e) {
-                  logError('EXIF write failed for ${_safePath(file)}: $e', forcePrint: true);
+                  logError('EXIF write failed for ${_safePath(originalFile)}: $e', forcePrint: true);
                 }
               }
             } catch (e) {
@@ -560,16 +524,15 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
             progressBar.update(completedEntities);
           }
 
-          // During pre-batch (delayFlushUntilEnd == true) we do not flush thresholds here
+          // Durante pre-batch (delayFlushUntilEnd == true) no vaciamos por thresholds
           if (!nativeOnly && enableExifToolBatch && !delayFlushUntilEnd) {
             await _maybeFlushThresholds();
           }
         }
 
-        // If delaying flush for this list, flush now to keep groups together (restored)
+        // Si retrasamos el flush para esta lista, hazlo ahora (restored)
         if (!nativeOnly && enableExifToolBatch && delayFlushUntilEnd) {
-          final bool flushImagesWithArg =
-              pendingImagesBatch.length > (Platform.isWindows ? 30 : 60);
+          final bool flushImagesWithArg = pendingImagesBatch.length > (Platform.isWindows ? 30 : 60);
           final bool flushVideosWithArg = pendingVideosBatch.length > 6;
           await _flushImageBatch(useArgFile: flushImagesWithArg);
           await _flushVideoBatch(useArgFile: flushVideosWithArg);
@@ -596,8 +559,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
       } finally {
         // Final safety flush (only if batching is enabled)
         if (!nativeOnly && enableExifToolBatch) {
-          final bool flushImagesWithArg =
-              pendingImagesBatch.length > (Platform.isWindows ? 30 : 60);
+          final bool flushImagesWithArg = pendingImagesBatch.length > (Platform.isWindows ? 30 : 60);
           final bool flushVideosWithArg = pendingVideosBatch.length > 6;
           await _flushImageBatch(useArgFile: flushImagesWithArg);
           await _flushVideoBatch(useArgFile: flushVideosWithArg);
@@ -607,7 +569,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
         }
       }
 
-      print (''); // Force new line after progress bar
+      print(''); // Force new line after progress bar
 
       if (gpsWrittenTotal > 0) {
         print('$gpsWrittenTotal files got GPS set in EXIF data');
@@ -624,13 +586,8 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
       return StepResult.success(
         stepName: name,
         duration: sw.elapsed,
-        data: {
-          'coordinatesWritten': gpsWrittenTotal,
-          'dateTimesWritten': dateWrittenTotal,
-          'skipped': false,
-        },
-        message:
-            'Wrote EXIF data to ${gpsWrittenTotal + dateWrittenTotal} files',
+        data: {'coordinatesWritten': gpsWrittenTotal, 'dateTimesWritten': dateWrittenTotal, 'skipped': false},
+        message: 'Wrote EXIF data to ${gpsWrittenTotal + dateWrittenTotal} files',
       );
     } catch (e) {
       sw.stop();
@@ -644,8 +601,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
   }
 
   @override
-  bool shouldSkip(final ProcessingContext context) =>
-      context.mediaCollection.isEmpty;
+  bool shouldSkip(final ProcessingContext context) => context.mediaCollection.isEmpty;
 
   String _safePath(final File f) {
     try {
@@ -658,20 +614,15 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
   // Late JSON resolve used only here (restored behavior, tolerant).
   Future<DateTime?> _lateResolveDateFromJson(final File file) async {
     try {
-      final sidecar =
-          await JsonMetadataMatcherService.findJsonForFile(file, tryhard: true);
+      final sidecar = await JsonMetadataMatcherService.findJsonForFile(file, tryhard: true);
       if (sidecar == null) return null;
       final raw = await sidecar.readAsString();
       final data = jsonDecode(raw);
-      final ts = (data is Map<String, dynamic>)
-          ? (data['photoTakenTime']?['timestamp'] ??
-              data['creationTime']?['timestamp'])
-          : null;
+      final ts = (data is Map<String, dynamic>) ? (data['photoTakenTime']?['timestamp'] ?? data['creationTime']?['timestamp']) : null;
       if (ts == null) return null;
       final seconds = int.tryParse(ts.toString()) ?? 0;
       if (seconds <= 0) return null;
-      final utc =
-          DateTime.fromMillisecondsSinceEpoch(seconds * 1000, isUtc: true);
+      final utc = DateTime.fromMillisecondsSinceEpoch(seconds * 1000, isUtc: true);
       return utc.toLocal();
     } catch (e) {
       logWarning('Late JSON date parse failed for ${_safePath(file)}: $e', forcePrint: true);
@@ -693,5 +644,58 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
       // ignore: property not present or not accessible
     }
     return true; // default: enabled if ExifTool is available
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // Helpers añadidos para limpieza de rutas y filtro de formatos
+  // ───────────────────────────────────────────────────────────────────────────
+
+  // Devuelve un File legible (original o “reparado” eliminando espacios/puntos finales
+  // de los segmentos de directorio). No renombra en disco. Si no existe, devuelve null.
+  Future<File?> _resolveReadableFile(final File f) async {
+    try {
+      if (await f.exists()) return f;
+    } catch (_) {}
+    final repaired = await _tryTrimTrailingSpacesInSegments(f.path);
+    if (repaired != null) {
+      try {
+        final fr = File(repaired);
+        if (await fr.exists()) return fr;
+      } catch (_) {}
+    }
+    return null;
+  }
+
+  // Genera una variante de la ruta eliminando [ .]+ al final de cada segmento
+  // de directorio (no toca el nombre del fichero). Si no hay cambios, devuelve null.
+  Future<String?> _tryTrimTrailingSpacesInSegments(final String fullPath) async {
+    final sep = Platform.pathSeparator;
+    final parts = fullPath.split(sep);
+    if (parts.isEmpty) return null;
+
+    final fileName = parts.removeLast(); // no tocar el fichero
+    final repairedDirs = <String>[];
+    for (final seg in parts) {
+      if (seg.isEmpty) {
+        repairedDirs.add(seg);
+        continue;
+      }
+      repairedDirs.add(seg.replaceAll(RegExp(r'[. ]+$'), ''));
+    }
+    final candidate = (repairedDirs..add(fileName)).join(sep);
+    return candidate == fullPath ? null : candidate;
+  }
+
+  // Formatos que ExifTool no escribe y conviene filtrar antes de encolar.
+  bool _isDefinitelyUnsupportedForWrite({
+    String? mimeHeader,
+    String? mimeExt,
+    required String pathLower,
+  }) {
+    if (pathLower.endsWith('.avi') || pathLower.endsWith('.mpg') || pathLower.endsWith('.mpeg') || pathLower.endsWith('.bmp')) return true;
+    if (mimeHeader == 'video/x-msvideo' || mimeExt == 'video/x-msvideo') return true; // AVI
+    if ((mimeHeader ?? '').contains('mpeg') || (mimeExt ?? '').contains('mpeg')) return true; // MPG/MPEG
+    if ((mimeHeader ?? '') == 'image/bmp' || (mimeExt ?? '') == 'image/bmp') return true; // BMP
+    return false;
   }
 }
