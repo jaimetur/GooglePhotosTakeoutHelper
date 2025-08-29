@@ -55,9 +55,9 @@ export 'common/services/media_services/edited_version_detector_service.dart';
 export 'common/services/media_services/media_hash_service.dart';
 export 'common/services/media_services/mime_type_service.dart';
 
-// modules from common/services/user_interaction
-export 'common/services/user_interaction/configuration_builder_service.dart';
-export 'common/services/user_interaction/user_interaction_service.dart';
+// modules from common/services/user_interaction_services
+export 'common/services/user_interaction_services/configuration_builder_service.dart';
+export 'common/services/user_interaction_services/user_interaction_service.dart';
 
 // modules from common/value_objects
 export 'common/value_objects/date_accuracy.dart';
@@ -89,11 +89,11 @@ export 'steps/step_03_remove_duplicates/step_03_remove_duplicates.dart';
 
 // Step 04
 export 'steps/step_04_extract_dates/step_04_extract_dates.dart';
-export 'steps/step_04_extract_dates/services/date_extractors/date_extractor_service.dart';
-export 'steps/step_04_extract_dates/services/date_extractors/exif_date_extractor.dart';
-export 'steps/step_04_extract_dates/services/date_extractors/filename_date_extractor.dart';
-export 'steps/step_04_extract_dates/services/date_extractors/folder_year_extractor.dart';
-export 'steps/step_04_extract_dates/services/date_extractors/json_date_extractor.dart';
+export 'steps/step_04_extract_dates/services/data_extractors/date_extractor_service.dart';
+export 'steps/step_04_extract_dates/services/data_extractors/exif_date_extractor.dart';
+export 'steps/step_04_extract_dates/services/data_extractors/filename_date_extractor.dart';
+export 'steps/step_04_extract_dates/services/data_extractors/folder_year_extractor.dart';
+export 'steps/step_04_extract_dates/services/data_extractors/json_date_extractor.dart';
 
 // Step 05
 export 'steps/step_05_write_exif/step_05_write_exif.dart';
