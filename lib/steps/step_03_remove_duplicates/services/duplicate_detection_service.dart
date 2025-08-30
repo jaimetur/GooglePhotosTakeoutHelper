@@ -448,7 +448,6 @@ class DuplicateDetectionService with LoggerMixin {
       for (final List<MediaEntity> fpSub in byFp.values) {
         if (fpSub.length == 1) {
           // unique by fingerprint → treat as unique (keep size marker to avoid hash)
-          final marker = '${sameSize.key}bytes';
           output['${sameSize.key}bytes|${fpSub.first.primaryFile.path}'] = [fpSub.first];
           continue;
         }
