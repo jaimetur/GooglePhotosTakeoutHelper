@@ -44,6 +44,10 @@ class GlobalConfigService {
   int maxExifImageBatchSize = 1000;
   int maxExifVideoBatchSize = 24;
 
+  /// Flag to indicate if we want to conserve all Duplicates found during Step 2
+  /// and move them to _Duplicates subfolder within output folder.
+  bool moveDuplicatesToDuplicatesFolder = true;
+
   // ───────────────────────────────────────────────────────────────────────────
   // Initialization / lifecycle
   // ───────────────────────────────────────────────────────────────────────────
@@ -70,6 +74,8 @@ class GlobalConfigService {
     silenceUnsupportedWarnings = true;
     maxExifImageBatchSize = 500;
     maxExifVideoBatchSize = 24;
+
+    moveDuplicatesToDuplicatesFolder = true;
   }
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -86,6 +92,8 @@ class GlobalConfigService {
     if (overrides.containsKey('fallbackToExifToolOnNativeMiss')) fallbackToExifToolOnNativeMiss = _asBool(overrides['fallbackToExifToolOnNativeMiss'], fallbackToExifToolOnNativeMiss);
     if (overrides.containsKey('skipPrecheckForNonJpegInWriter')) skipPrecheckForNonJpegInWriter = _asBool(overrides['skipPrecheckForNonJpegInWriter'], skipPrecheckForNonJpegInWriter);
     if (overrides.containsKey('enableBatching')) enableBatching = _asBool(overrides['enableBatching'], enableBatching);
+    if (overrides.containsKey('moveDuplicatesToDuplicatesFolder')) moveDuplicatesToDuplicatesFolder = _asBool(overrides['moveDuplicatesToDuplicatesFolder'], moveDuplicatesToDuplicatesFolder);
+
 
     // NEW flags
     if (overrides.containsKey('forceProcessUnsupportedFormats')) {
@@ -115,8 +123,7 @@ class GlobalConfigService {
 
   /// NEW: Expose as a plain JSON-like map so other modules can read flags
   /// without tight coupling (used by Step 5 _resolveInt/_resolveUnsupportedPolicy).
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
+  Map<String, dynamic> toJson() => <String, dynamic>{
       'isVerbose': isVerbose,
       'enforceMaxFileSize': enforceMaxFileSize,
       'exifToolInstalled': exifToolInstalled,
@@ -127,9 +134,9 @@ class GlobalConfigService {
       'silenceUnsupportedWarnings': silenceUnsupportedWarnings,
       'maxExifImageBatchSize': maxExifImageBatchSize,
       'maxExifVideoBatchSize': maxExifVideoBatchSize,
+      'moveDuplicatesToDuplicatesFolder': moveDuplicatesToDuplicatesFolder,
       // NOTE: fileDatesDictionary can be very large; usually not needed here.
     };
-  }
 
   // ───────────────────────────────────────────────────────────────────────────
   // Private helpers
