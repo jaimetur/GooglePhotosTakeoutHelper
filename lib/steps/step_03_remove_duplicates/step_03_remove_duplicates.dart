@@ -177,7 +177,7 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
       }
 
       final List<int> bucketKeys = sizeBuckets.keys.toList();
-      print('Step 3: Built ${bucketKeys.length} size buckets for duplicate detection');
+      print('[Step 3/8] Built ${bucketKeys.length} size buckets for duplicate detection');
 
       final Set<MediaEntity> entitiesToRemove = <MediaEntity>{};
 
