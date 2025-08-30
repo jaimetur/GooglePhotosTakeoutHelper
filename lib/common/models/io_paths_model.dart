@@ -20,7 +20,8 @@ class InputOutputPaths {
     required this.inputPath,
     required this.outputPath,
     this.extractedFromZip = false, // NEW: set to true when the input was produced by ZIP extraction
-  });
+    String? userInputRoot, // NEW: original user-provided root (before resolveGooglePhotosPath)
+  }) : userInputRoot = userInputRoot ?? inputPath;
 
   /// Path to the directory containing Google Photos Takeout media files.
   /// This path is normalized to point to the actual Google Photos folder
@@ -36,9 +37,13 @@ class InputOutputPaths {
   /// is already a temporary/extracted location.
   final bool extractedFromZip;
 
+  /// Original user-selected/CLI-provided folder (before resolving to the Google Photos subfolder).
+  /// This is the folder to clone if --keep-input is active.
+  final String userInputRoot;
+
   @override
   String toString() =>
-      'InputOutputPaths(input: $inputPath, output: $outputPath, extractedFromZip: $extractedFromZip)';
+      'InputOutputPaths(input: $inputPath, output: $outputPath, extractedFromZip: $extractedFromZip, userInputRoot: $userInputRoot)';
 
   @override
   bool operator ==(final Object other) =>
@@ -47,8 +52,9 @@ class InputOutputPaths {
           runtimeType == other.runtimeType &&
           inputPath == other.inputPath &&
           outputPath == other.outputPath &&
-          extractedFromZip == other.extractedFromZip);
+          extractedFromZip == other.extractedFromZip &&
+          userInputRoot == other.userInputRoot);
 
   @override
-  int get hashCode => inputPath.hashCode ^ outputPath.hashCode ^ extractedFromZip.hashCode;
+  int get hashCode => inputPath.hashCode ^ outputPath.hashCode ^ extractedFromZip.hashCode ^ userInputRoot.hashCode;
 }

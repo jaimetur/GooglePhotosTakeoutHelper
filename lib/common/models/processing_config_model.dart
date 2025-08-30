@@ -48,7 +48,8 @@ class ProcessingConfig {
     this.dividePartnerShared = false,
     this.keepInput = false, // keep the original input untouched by working on a temporary copy
     this.inputExtractedFromZip = false, // If the input have been extracted from ZIP it will be set to true
-  });
+    String? userInputRoot, // NEW: original root folder selected/provided by the user
+  }) : userInputRoot = userInputRoot ?? inputPath;
 
   /// Creates a builder for configuring ProcessingConfig
   static ProcessingConfigBuilder builder({
@@ -72,6 +73,7 @@ class ProcessingConfig {
   final bool dividePartnerShared;
   final bool keepInput;
   final bool inputExtractedFromZip;
+  final String userInputRoot;
 
   /// Validates the configuration and throws descriptive errors if invalid
   void validate() {
@@ -143,6 +145,7 @@ class ProcessingConfig {
     final bool? dividePartnerShared,
     final bool? keepInput,
     final bool? inputExtractedFromZip,
+    final String? userInputRoot,
   }) => ProcessingConfig(
         inputPath: inputPath ?? this.inputPath,
         outputPath: outputPath ?? this.outputPath,
@@ -160,6 +163,7 @@ class ProcessingConfig {
         dividePartnerShared: dividePartnerShared ?? this.dividePartnerShared,
         keepInput: keepInput ?? this.keepInput,
         inputExtractedFromZip: inputExtractedFromZip ?? this.inputExtractedFromZip,
+        userInputRoot: userInputRoot ?? this.userInputRoot,
       );
 }
 
@@ -196,6 +200,7 @@ class ProcessingConfigBuilder {
   bool _dividePartnerShared = false;
   bool _keepInput = false;
   bool _inputExtractedFromZip = false;
+  String? _userInputRoot; // NEW
 
   /// Set album behavior (shortcut, reverse-shortcut, duplicate-copy, json, nothing)
   set albumBehavior(final AlbumBehavior behavior) {
@@ -284,6 +289,11 @@ class ProcessingConfigBuilder {
     _inputExtractedFromZip = value;
   }
 
+  /// Original root folder selected/provided by the user (before resolving to Google Photos subfolder)
+  set userInputRoot(final String value) {
+    _userInputRoot = value;
+  }
+
   /// Build the final ProcessingConfig instance
   ProcessingConfig build() {
     final config = ProcessingConfig(
@@ -303,6 +313,7 @@ class ProcessingConfigBuilder {
       dividePartnerShared: _dividePartnerShared,
       keepInput: _keepInput,
       inputExtractedFromZip: _inputExtractedFromZip,
+      userInputRoot: _userInputRoot ?? _inputPath, // fallback to _inputPath if not explicitly provided
     );
 
     // Validate the configuration before returning

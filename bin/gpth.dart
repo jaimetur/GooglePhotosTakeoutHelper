@@ -384,6 +384,9 @@ Future<ProcessingConfig> _buildConfigFromArgs(final ArgResults res) async {
   // Propagate if input comes from an internal ZIP extraction
   configBuilder.inputExtractedFromZip = paths.extractedFromZip;
 
+  // Propagate the original user-provided root directory (before resolving subfolder)
+  configBuilder.userInputRoot = paths.userInputRoot;
+
   // Set album behavior
   final albumBehavior = AlbumBehavior.fromString(res['albums']);
   configBuilder.albumBehavior = albumBehavior;
@@ -527,6 +530,7 @@ Future<InputOutputPaths> _getInputOutputPaths(
   String? inputPath = res['input'];
   String? outputPath = res['output'];
   var extractedFromZip = false; // NEW
+  String? userInputRoot; // NEW: keep the original root before resolve
 
   if (isInteractiveMode) {
     // Interactive mode handles path collection
@@ -585,6 +589,7 @@ Future<InputOutputPaths> _getInputOutputPaths(
     }
 
     inputPath = inDir.path;
+    userInputRoot = inputPath; // keep original root before resolving
   }
 
   // If running in non-interactive CLI mode and the provided input path
@@ -635,6 +640,7 @@ Future<InputOutputPaths> _getInputOutputPaths(
             extractDir,
           );
           inputPath = extractDir.path;
+          userInputRoot = inputPath; // keep original root (extraction root) for completeness
           extractedFromZip = true;
           _logger.info('Extraction complete. Using extracted folder: $inputPath');
         } catch (e) {
@@ -644,10 +650,15 @@ Future<InputOutputPaths> _getInputOutputPaths(
             'Automatic ZIP extraction failed: ${e.toString()}. Try extracting manually and run again with the extracted folder as --input.',
           );
         }
+      } else {
+        // No ZIPs detected in CLI mode: remember original root as provided
+        userInputRoot ??= inputPath;
       }
     } catch (e) {
       // Non-fatal: log and continue; failure here will be caught later by path resolution
       _logger.warning('ZIP auto-detection/extraction encountered an error: $e');
+      // Still remember the original root as provided
+      userInputRoot ??= inputPath;
     }
   }
 
@@ -681,6 +692,7 @@ Future<InputOutputPaths> _getInputOutputPaths(
     inputPath: inputPath,
     outputPath: outputPath,
     extractedFromZip: extractedFromZip,
+    userInputRoot: userInputRoot ?? inputPath, // fallback if not set
   );
 }
 
@@ -791,30 +803,48 @@ Future<ProcessingResult> _executeProcessing(
   final bool shouldClone = config.keepInput && !config.inputExtractedFromZip;
 
   Directory effectiveInputDir = inputDir;
+  String effectiveUserRoot = config.userInputRoot;
+
   if (shouldClone) {
     final cloner = InputCloneService();
-    final Directory cloned = await cloner.cloneToSiblingTmp(inputDir);
-    _logger.info('Using temporary input copy: ${cloned.path}');
-    effectiveInputDir = cloned;
+    // Clone the **original user root**, not the already resolved Google Photos subfolder
+    final Directory clonedRoot = await cloner.cloneToSiblingTmp(Directory(config.userInputRoot));
+    _logger.info('Using temporary input copy root: ${clonedRoot.path}');
+    effectiveUserRoot = clonedRoot.path;
+
+    // Now resolve the Google Photos subfolder INSIDE the clone for the pipeline
+    final String resolvedInsideClone = PathResolverService.resolveGooglePhotosPath(clonedRoot.path);
+    effectiveInputDir = Directory(resolvedInsideClone);
+    _logger.info('Effective input inside clone: $resolvedInsideClone');
   }
 
-  // Handle output directory cleanup if needed
-  if (await outputDir.exists() && !await _isOutputDirectoryEmpty(outputDir, config)) {
-    if (config.isInteractiveMode && await ServiceContainer.instance.interactiveService.askForCleanOutput()) {
-      await _cleanOutputDirectory(outputDir, config);
+  // IMPORTANT: from here on, use a runtimeConfig that reflects the effective input dir
+  final ProcessingConfig runtimeConfig = shouldClone
+      ? config.copyWith(
+          inputPath: effectiveInputDir.path,
+          userInputRoot: effectiveUserRoot,
+        )
+      : config;
+
+  // Handle output directory cleanup if needed (compare against runtimeConfig.inputPath)
+  if (await outputDir.exists() && !await _isOutputDirectoryEmpty(outputDir, runtimeConfig)) {
+    if (runtimeConfig.isInteractiveMode && await ServiceContainer.instance.interactiveService.askForCleanOutput()) {
+      await _cleanOutputDirectory(outputDir, runtimeConfig);
     }
   }
   await outputDir.create(recursive: true);
+
   // Execute the processing pipeline
   final pipeline = ProcessingPipeline(
     interactiveService: ServiceContainer.instance.interactiveService,
   );
   return pipeline.execute(
-    config: config,
-    inputDirectory: effectiveInputDir, // IMPORTANT: pass the possibly cloned dir
+    config: runtimeConfig,
+    inputDirectory: Directory(runtimeConfig.inputPath), // pasa la carpeta efectiva (clonada si aplica)
     outputDirectory: outputDir,
   );
 }
+
 
 /// **OUTPUT DIRECTORY VALIDATION**
 ///
