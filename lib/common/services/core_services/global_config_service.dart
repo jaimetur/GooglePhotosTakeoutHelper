@@ -41,7 +41,7 @@ class GlobalConfigService {
   //   sizes to avoid catastrophic batch failures (can be overridden via config).
   bool forceProcessUnsupportedFormats = false;
   bool silenceUnsupportedWarnings = true;
-  int maxExifImageBatchSize = 500;
+  int maxExifImageBatchSize = 1000;
   int maxExifVideoBatchSize = 24;
 
   // ───────────────────────────────────────────────────────────────────────────

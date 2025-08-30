@@ -191,6 +191,7 @@ class ExifDateExtractor with LoggerMixin {
     if (mimeType?.startsWith('video/') == true) {
       _videoDirect++;
       if (globalConfig.exifToolInstalled) {
+        _exiftoolDirectTried++; // count direct attempts in video path
         final sw = Stopwatch()..start();
         result = await _exifToolExtractor(file);
         _exiftoolDuration += sw.elapsed;

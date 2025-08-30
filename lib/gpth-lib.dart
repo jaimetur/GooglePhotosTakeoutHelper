@@ -53,7 +53,6 @@ export 'common/services/json_metadata_services/json_metadata_matcher_service.dar
 export 'common/services/media_services/album_relationship_service.dart';
 export 'common/services/media_services/content_grouping_service.dart';
 export 'common/services/media_services/date_time_extraction_method.dart';
-export 'common/services/media_services/duplicate_detection_service.dart';
 export 'common/services/media_services/edited_version_detector_service.dart';
 export 'common/services/media_services/media_hash_service.dart';
 export 'common/services/media_services/mime_type_service.dart';
@@ -84,6 +83,7 @@ export 'steps/step_02_discover_media/step_02_discover_media.dart';
 export 'steps/step_02_discover_media/services/takeout_folder_classifier_service.dart';
 
 // Step 03
+export 'steps/step_03_remove_duplicates/services/duplicate_detection_service.dart';
 export 'steps/step_03_remove_duplicates/step_03_remove_duplicates.dart';
 
 // Step 04

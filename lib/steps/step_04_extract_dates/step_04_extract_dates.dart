@@ -139,7 +139,7 @@ class ExtractDatesStep extends ProcessingStep with LoggerMixin {
 
       // --- Parity with previous implementation: explicit “threads” (concurrency) log.
       final maxConcurrency = ConcurrencyManager().concurrencyFor(ConcurrencyOperation.exif);
-      print('Starting $maxConcurrency threads (exif date extraction concurrency)');
+      print('[Step 4/8] Starting $maxConcurrency threads (exif date extraction concurrency)');
 
       // Build extractor callables bound to MediaEntity (keeps your priority order)
       // NOTE: we wrap File-based extractors from config so they match MediaEntity→Future<DateTime?> signature.

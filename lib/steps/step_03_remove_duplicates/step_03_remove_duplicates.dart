@@ -12,7 +12,7 @@ import 'package:gpth/gpth-lib.dart';
 /// ### Content-Based Identification
 /// - **Hash Algorithm**: Uses SHA-256 cryptographic hashing for reliable content comparison
 /// - **Size Pre-filtering**: Groups files by size before hashing to optimize performance
-/// - **Binary Comparison**: Ensures exact byte-for-byte content matching
+/// - **Binary Comparison**: Ensures exact byte-by-byte content matching
 /// - **Metadata Independence**: Focuses on file content, ignoring metadata differences
 ///
 /// ### Two-Phase Processing
@@ -138,6 +138,11 @@ import 'package:gpth/gpth-lib.dart';
 /// - **Backup Recommendations**: Suggests backing up before duplicate removal
 /// - **Rollback Information**: Logs removed files for potential recovery
 /// - **Conservative Defaults**: Uses safe settings when configuration is ambiguous
+///
+/// ### Performance note (added):
+/// For maximum throughput on very large datasets, this step calls `DuplicateDetectionService.groupIdenticalFast(...)`,
+/// which pre-clusters by file size and a small tri-sample fingerprint before running full hashes only inside
+/// those subgroups. This dramatically reduces I/O and CPU when many files share sizes but are not identical.
 class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
   RemoveDuplicatesStep() : super('Remove Duplicates');
 
@@ -160,28 +165,22 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
       print('\n[Step 3/8] Removing duplicates (this may take a while)...');
 
       final duplicateService = ServiceContainer.instance.duplicateDetectionService;
+      final bool verify = _isVerifyEnabled();
+      final MediaHashService verifier = verify ? MediaHashService() : MediaHashService(maxCacheSize: 1);
+
       int removedCount = 0;
 
-      // --- Build size buckets (tolerant to IO errors when reading length) ---
-      final Map<int, List<MediaEntity>> sizeBuckets = {};
-      for (final e in mediaCol.entities) {
-        int size;
-        try {
-          size = e.primaryFile.lengthSync();
-        } catch (err) {
-          // Tolerant: warn and place into unknown-size bucket (-1)
-          logWarning('Failed to read file length for ${_safePath(e.primaryFile)}: $err', forcePrint: true);
-          size = -1;
-        }
-        (sizeBuckets[size] ??= <MediaEntity>[]).add(e);
+      // Use the fastest grouping available (size → tri-sample fingerprint → full hash within candidates)
+      Map<String, List<MediaEntity>> groups = const {};
+      try {
+        groups = await duplicateService.groupIdenticalFast(mediaCol.entities.toList());
+      } catch (e) {
+        logWarning('FAST duplicate grouping failed, falling back to standard grouping: $e', forcePrint: true);
+        groups = await duplicateService.groupIdentical(mediaCol.entities.toList());
       }
-
-      final List<int> bucketKeys = sizeBuckets.keys.toList();
-      print('[Step 3/8] Built ${bucketKeys.length} size buckets for duplicate detection');
 
       final Set<MediaEntity> entitiesToRemove = <MediaEntity>{};
 
-      // Merge helper (delegates to immutable domain APIs; no in-place map mutation)
       void mergeEntityFiles(final MediaEntity dst, final MediaEntity src) {
         try {
           final MediaEntity updated = dst.mergeWith(src);
@@ -191,115 +190,76 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
         }
       }
 
-      // Binary equality check (chunked, tolerant to IO errors)
-      Future<bool> _filesAreIdentical(final File a, final File b) async {
-        try {
-          final int sa = a.lengthSync();
-          final int sb = b.lengthSync();
-          if (sa != sb) return false;
-          if (a.path == b.path) return true;
+      bool _isSizeOnlyKey(final String k) {
+        // Matches "<digits>bytes" (e.g., "12345bytes")
+        if (!k.endsWith('bytes')) return false;
+        final prefix = k.substring(0, k.length - 5);
+        for (int i = 0; i < prefix.length; i++) {
+          final c = prefix.codeUnitAt(i);
+          if (c < 48 || c > 57) return false;
+        }
+        return true;
+      }
 
-          const int chunk = 262144; // 256 KiB
-          final rafA = await a.open();
-          final rafB = await b.open();
+      int processedGroups = 0;
+      final int totalGroups = groups.length;
+
+      // Iterate groups; only treat as duplicates those grouped by HASH (not by size)
+      for (final entry in groups.entries) {
+        final String key = entry.key;
+        final List<MediaEntity> group = entry.value;
+
+        processedGroups++;
+        if (group.length <= 1) continue;
+
+        // Ignore size-only groups even if length > 1 (they are NOT duplicates by definition)
+        if (_isSizeOnlyKey(key)) {
+          logDebug('Skipping size-only group "$key" with ${group.length} items (not duplicates by hash).');
+          continue;
+        }
+
+        group.sort((a, b) {
+          final aAcc = a.dateAccuracy?.value ?? 999;
+          final bAcc = b.dateAccuracy?.value ?? 999;
+          if (aAcc != bAcc) return aAcc.compareTo(bAcc);
+          return a.primaryFile.path.length.compareTo(b.primaryFile.path.length);
+        });
+
+        final MediaEntity kept = group.first;
+        final List<MediaEntity> toRemove = group.sublist(1);
+
+        logDebug('Keeping ${kept.primaryFile.path}');
+        if (verify) {
           try {
-            int remaining = sa;
-            while (remaining > 0) {
-              final int toRead = remaining < chunk ? remaining : chunk;
-              final ba = await rafA.read(toRead);
-              final bb = await rafB.read(toRead);
-              if (ba.length != bb.length) return false;
-              for (int i = 0; i < ba.length; i++) {
-                if (ba[i] != bb[i]) return false;
-              }
-              remaining -= toRead;
-            }
-            return true;
-          } finally {
-            await rafA.close();
-            await rafB.close();
-          }
-        } catch (e) {
-          logWarning('Binary compare failed for ${_safePath(a)} vs ${_safePath(b)}: $e', forcePrint: true);
-          // Conservative fallback: do NOT treat as identical if we couldn’t confirm
-          return false;
-        }
-      }
-
-      Future<void> _processSizeBucket(final int key) async {
-        final List<MediaEntity> candidates = sizeBuckets[key]!;
-        if (candidates.length <= 1) return;
-        logDebug('🔍 Processing size bucket $key with ${candidates.length} candidates');
-
-        Map<String, List<MediaEntity>> hashGroups = const {};
-        try {
-          hashGroups = await duplicateService.groupIdentical(candidates);
-        } catch (e) {
-          // Tolerant: warn and skip this bucket rather than abort
-          logWarning('Duplicate hashing failed for size bucket $key: $e', forcePrint: true);
-          return;
-        }
-
-        logDebug(' → Found ${hashGroups.length} hash groups in this bucket');
-
-        for (final group in hashGroups.values) {
-          if (group.length <= 1) continue;
-          logDebug('   • Group of ${group.length} candidates for deep check');
-
-          final List<MediaEntity> pending = List.of(group);
-          final List<List<MediaEntity>> binaryClusters = [];
-
-          // Cluster by binary equality (seed vs others)
-          while (pending.isNotEmpty) {
-            final MediaEntity seed = pending.removeAt(0);
-            final List<MediaEntity> cluster = [seed];
-            for (int i = pending.length - 1; i >= 0; i--) {
-              final MediaEntity cand = pending[i];
-              if (await _filesAreIdentical(seed.primaryFile, cand.primaryFile)) {
-                cluster.add(cand);
-                pending.removeAt(i);
-              }
-            }
-            binaryClusters.add(cluster);
-          }
-
-          for (final cluster in binaryClusters) {
-            if (cluster.length <= 1) continue;
-            logDebug('     ✔ Verified binary-identical cluster of ${cluster.length} files');
-
-            // Sort: best date accuracy (asc), then shortest filename
-            cluster.sort((a, b) {
-              final aAcc = a.dateAccuracy?.value ?? 999;
-              final bAcc = b.dateAccuracy?.value ?? 999;
-              if (aAcc != bAcc) return aAcc.compareTo(bAcc);
-              return a.primaryFile.path.length.compareTo(b.primaryFile.path.length);
-            });
-
-            final MediaEntity kept = cluster.first;
-            final List<MediaEntity> toRemove = cluster.sublist(1);
-
-            logDebug('       → Keeping ${kept.primaryFile.path}');
+            final String keptHash = await verifier.calculateFileHash(kept.primaryFile);
             for (final d in toRemove) {
-              // Verbose trace
-              logDebug('         Removing duplicate: ${d.primaryFile.path}');
-              // Merge files & album metadata before removal
-              mergeEntityFiles(kept, d);
+              try {
+                final String dupHash = await verifier.calculateFileHash(d.primaryFile);
+                if (dupHash != keptHash) {
+                  logWarning('Verification mismatch. Will NOT remove ${d.primaryFile.path} (hash differs from kept).', forcePrint: true);
+                  continue;
+                }
+                logDebug('Verified duplicate by SHA-256: ${d.primaryFile.path}');
+                mergeEntityFiles(kept, d);
+                entitiesToRemove.add(d);
+                removedCount++;
+              } catch (e) {
+                logWarning('Verification failed for ${d.primaryFile.path}: $e. Skipping removal for safety.', forcePrint: true);
+              }
             }
-
-            entitiesToRemove.addAll(toRemove);
-            removedCount += toRemove.length;
+          } catch (e) {
+            logWarning('Could not hash kept file ${_safePath(kept.primaryFile)} for verification: $e. Skipping removals for this group.', forcePrint: true);
+          }
+        } else {
+          for (final d in toRemove) {
+            logDebug('Removing duplicate: ${d.primaryFile.path}');
+            mergeEntityFiles(kept, d);
+            entitiesToRemove.add(d);
+            removedCount++;
           }
         }
-      }
 
-      // Controlled parallelism across buckets
-      final int maxWorkers =
-          ConcurrencyManager().concurrencyFor(ConcurrencyOperation.exif).clamp(1, 8);
-
-      for (int i = 0; i < bucketKeys.length; i += maxWorkers) {
-        final slice = bucketKeys.skip(i).take(maxWorkers).toList();
-        await Future.wait(slice.map(_processSizeBucket));
-        // (optional) progress callback could go here; using prints for simplicity
+        if ((processedGroups % 1000) == 0) print('[Step 3/8] Progress: resolved $processedGroups/$totalGroups groups...');
       }
 
       // Apply removals
@@ -328,7 +288,6 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
       );
     } catch (e) {
       stopwatch.stop();
-      // Tolerant: fail the step, but message is clear
       return StepResult.failure(
         stepName: name,
         duration: stopwatch.elapsed,
@@ -342,6 +301,17 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
   bool shouldSkip(final ProcessingContext context) => context.mediaCollection.isEmpty;
 
   // ——— helpers ————————————————————————————————————————————————————————————————
+
+  bool _isVerifyEnabled() {
+    try {
+      final v = Platform.environment['GPTH_VERIFY_DUPLICATES'];
+      if (v == null) return false;
+      final s = v.trim().toLowerCase();
+      return s == '1' || s == 'true' || s == 'yes' || s == 'on';
+    } catch (_) {
+      return false;
+    }
+  }
 
   String _safePath(final File f) {
     try {

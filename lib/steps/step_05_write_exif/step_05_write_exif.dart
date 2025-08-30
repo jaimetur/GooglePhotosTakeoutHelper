@@ -134,6 +134,7 @@ import 'package:gpth/gpth-lib.dart';
 /// - **Geotagging**: Enables location-based photo organization and mapping
 /// - **Timeline Accuracy**: Ensures correct chronological sorting in all applications
 /// - **Software Compatibility**: Works with Adobe Lightroom, Apple Photos, Google Photos web
+/// - **Archive Longevity**: Creates self-contained files with embedded metadata
 ///
 /// ### Professional Workflows
 /// - **Client Delivery**: Photos delivered with proper embedded metadata
@@ -167,12 +168,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
       print('\n[Step 5/8] Starting EXIF data writing for ${collection.length} files (this may take a while)...');
       if (!context.config.writeExif) {
         sw.stop();
-        return StepResult.success(
-          stepName: name,
-          duration: sw.elapsed,
-          data: {'coordinatesWritten': 0, 'dateTimesWritten': 0, 'skipped': true},
-          message: 'EXIF writing skipped per configuration',
-        );
+        return StepResult.success(stepName: name, duration: sw.elapsed, data: {'coordinatesWritten': 0, 'dateTimesWritten': 0, 'skipped': true}, message: 'EXIF writing skipped per configuration');
       }
 
       // Visible progress bar (kept as before)
@@ -220,11 +216,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
       final pendingVideosBatch = <MapEntry<File, Map<String, dynamic>>>[];
 
       // NEW: write batch with "split on fail" to isolate problematic files quickly.
-      Future<void> _writeBatchSafe(
-        final List<MapEntry<File, Map<String, dynamic>>> queue, {
-        required final bool useArgFile,
-        required final bool isVideoBatch,
-      }) async {
+      Future<void> _writeBatchSafe(final List<MapEntry<File, Map<String, dynamic>>> queue, {required final bool useArgFile, required final bool isVideoBatch}) async {
         if (queue.isEmpty || exifWriter == null) return;
 
         // Inner recursive splitter
@@ -235,11 +227,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
             try {
               await exifWriter.writeTagsWithExifTool(entry.key, entry.value);
             } catch (e) {
-              if (!_shouldSilenceExiftoolError(e)) {
-                // Keep warning minimal; do not spam on known truncated errors
-                logWarning(isVideoBatch ? 'Per-file video write failed: ${entry.key.path} -> $e' : 'Per-file write failed: ${entry.key.path} -> $e', forcePrint: false);
-              }
-              // Best-effort clean of *_exiftool_tmp for this file only
+              if (!_shouldSilenceExiftoolError(e)) logWarning(isVideoBatch ? 'Per-file video write failed: ${entry.key.path} -> $e' : 'Per-file write failed: ${entry.key.path} -> $e', forcePrint: false);
               await _tryDeleteTmp(entry.key);
             }
             return;
@@ -252,11 +240,8 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
           try {
             await exifWriter.writeBatchWithExifTool(chunk, useArgFileWhenLarge: useArgFile);
           } catch (e) {
-            // On failure: clean temp files for the chunk and split
             await _tryDeleteTmpForChunk(chunk);
-            if (!_shouldSilenceExiftoolError(e)) {
-              logWarning(isVideoBatch ? 'Video batch flush failed (${chunk.length} files) - splitting: $e' : 'Batch flush failed (${chunk.length} files) - splitting: $e', forcePrint: false);
-            }
+            if (!_shouldSilenceExiftoolError(e)) logWarning(isVideoBatch ? 'Video batch flush failed (${chunk.length} files) - splitting: $e' : 'Batch flush failed (${chunk.length} files) - splitting: $e', forcePrint: false);
             await _splitAndWrite(left);
             await _splitAndWrite(right);
           }
@@ -266,11 +251,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
       }
 
       // Generic batch flush (restored behavior but uses _writeBatchSafe and cleans temps only on fail path)
-      Future<void> _flushBatch(
-        final List<MapEntry<File, Map<String, dynamic>>> queue, {
-        required final bool useArgFile,
-        required final bool isVideoBatch,
-      }) async {
+      Future<void> _flushBatch(final List<MapEntry<File, Map<String, dynamic>>> queue, {required final bool useArgFile, required final bool isVideoBatch}) async {
         if (nativeOnly || !enableExifToolBatch) return; // no batches in per-file mode
         if (queue.isEmpty) return;
         if (exifWriter == null) {
@@ -298,12 +279,8 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
         if (nativeOnly || !enableExifToolBatch) return;
         final int targetImageBatch = baseBatchSize.clamp(1, maxImageBatch);
         final int targetVideoBatch = 12.clamp(1, maxVideoBatch);
-        if (pendingImagesBatch.length >= targetImageBatch) {
-          await _flushImageBatch(useArgFile: true);
-        }
-        if (pendingVideosBatch.length >= targetVideoBatch) {
-          await _flushVideoBatch(useArgFile: true);
-        }
+        if (pendingImagesBatch.length >= targetImageBatch) await _flushImageBatch(useArgFile: true);
+        if (pendingVideosBatch.length >= targetVideoBatch) await _flushVideoBatch(useArgFile: true);
       }
 
       // Build processing order: multi-file entities first (pre-batch), then single-file entities (restored)
@@ -327,10 +304,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
       int gpsWrittenTotal = 0;
       int dateWrittenTotal = 0;
 
-      Future<Map<String, int>> _processList(
-        final List<MediaEntity> list, {
-        required final bool delayFlushUntilEnd,
-      }) async {
+      Future<Map<String, int>> _processList(final List<MediaEntity> list, {required final bool delayFlushUntilEnd}) async {
         int gpsWritten = 0;
         int dateWritten = 0;
 
@@ -348,22 +322,23 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
 
               // Deterministic file order: primary → others (restored)
               final files = <File>[];
+              File? primaryRef;
               try {
                 final primary = entity.primaryFile;
+                primaryRef = primary;
                 files.add(primary);
                 for (final f in entity.files.files.values) {
                   if (f.path != primary.path) files.add(f);
                 }
               } catch (_) {
-                if (entity.files.files.isNotEmpty) {
-                  files.addAll(entity.files.files.values);
-                }
+                if (entity.files.files.isNotEmpty) files.addAll(entity.files.files.values);
               }
 
               for (final file in files) {
                 try {
                   final path = file.path;
                   final lower = path.toLowerCase();
+                  final bool isPrimary = (primaryRef != null && file.path == primaryRef.path);
 
                   // Cheap MIME classification: trust common extensions; only sniff header if ambiguous.
                   String? mimeHeader;
@@ -485,27 +460,19 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
                   try {
                     if (!nativeOnly && tagsToWrite.isNotEmpty) {
                       final bool isVideo = (mimeHeader ?? '').startsWith('video/');
-                      final bool isUnsupported = _isDefinitelyUnsupportedForWrite(
-                        mimeHeader: mimeHeader,
-                        mimeExt: mimeExt,
-                        pathLower: lower,
-                      );
+                      final bool isUnsupported = _isDefinitelyUnsupportedForWrite(mimeHeader: mimeHeader, mimeExt: mimeExt, pathLower: lower);
 
-                      // Honor "forceProcessUnsupportedFormats": if true, do NOT skip; also suppress warnings
                       if (isUnsupported && !unsupportedPolicy.forceProcessUnsupportedFormats) {
                         if (!unsupportedPolicy.silenceUnsupportedWarnings) {
                           final detectedFmt = _describeUnsupported(mimeHeader: mimeHeader, mimeExt: mimeExt, pathLower: lower);
                           logWarning('Skipping $detectedFmt file - ExifTool cannot write $detectedFmt: ${file.path}', forcePrint: true);
                         }
-                        // Skip
                       } else {
                         if (!enableExifToolBatch) {
                           try {
                             await exifWriter!.writeTagsWithExifTool(file, tagsToWrite);
                           } catch (e) {
-                            if (!_shouldSilenceExiftoolError(e)) {
-                              logWarning(isVideo ? 'Per-file video write failed: ${file.path} -> $e' : 'Per-file write failed: ${file.path} -> $e', forcePrint: false);
-                            }
+                            if (!_shouldSilenceExiftoolError(e)) logWarning(isVideo ? 'Per-file video write failed: ${file.path} -> $e' : 'Per-file write failed: ${file.path} -> $e', forcePrint: false);
                             await _tryDeleteTmp(file);
                           }
                         } else {
@@ -518,13 +485,18 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
                       }
                     }
                   } catch (e) {
-                    if (!_shouldSilenceExiftoolError(e)) {
-                      logWarning('Failed to enqueue EXIF tags for ${_safePath(file)}: $e', forcePrint: false);
-                    }
+                    if (!_shouldSilenceExiftoolError(e)) logWarning('Failed to enqueue EXIF tags for ${_safePath(file)}: $e', forcePrint: false);
                   }
 
-                  if (gpsWrittenThis) localGps++;
-                  if (dtWrittenThis) localDate++;
+                  // NEW: mark primary/secondary for final unique counts
+                  if (gpsWrittenThis) {
+                    ExifWriterService.markGpsTouchedFromStep5(file, isPrimary: isPrimary);
+                    localGps++;
+                  }
+                  if (dtWrittenThis) {
+                    ExifWriterService.markDateTouchedFromStep5(file, isPrimary: isPrimary);
+                    localDate++;
+                  }
                 } catch (e) {
                   logError('EXIF write failed for ${_safePath(file)}: $e', forcePrint: true);
                 }
@@ -544,9 +516,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
           }
 
           // During pre-batch (delayFlushUntilEnd == true) we do not flush by thresholds
-          if (!nativeOnly && enableExifToolBatch && !delayFlushUntilEnd) {
-            await _maybeFlushThresholds();
-          }
+          if (!nativeOnly && enableExifToolBatch && !delayFlushUntilEnd) await _maybeFlushThresholds();
         }
 
         // If delaying flush for this list, flush now (restored)
@@ -590,36 +560,37 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
 
       print(''); // Force new line after progress bar
 
-      if (gpsWrittenTotal > 0) {
-        print('$gpsWrittenTotal files got GPS set in EXIF data');
-      }
-      if (dateWrittenTotal > 0) {
-        print('$dateWrittenTotal files got DateTime set in EXIF data');
-      }
+      // NEW: print unique counts with primary/secondary split from ExifWriterService
+      final gpsTotal = ExifWriterService.uniqueGpsFilesCount;
+      final gpsPrim = ExifWriterService.uniqueGpsPrimaryCount;
+      final gpsSec = ExifWriterService.uniqueGpsSecondaryCount;
+      final dtTotal = ExifWriterService.uniqueDateFilesCount;
+      final dtPrim = ExifWriterService.uniqueDatePrimaryCount;
+      final dtSec = ExifWriterService.uniqueDateSecondaryCount;
+
+      if (gpsTotal > 0) print('$gpsTotal files got GPS set in EXIF data (primary=$gpsPrim, secondary=$gpsSec)');
+      if (dtTotal > 0) print('$dtTotal files got DateTime set in EXIF data (primary=$dtPrim, secondary=$dtSec)');
+
+      // NEW: final clarifying line to reconcile progress bar (entities) vs files touched (unique files).
+      print('Processed ${collection.entities.length} entities; touched ${ExifWriterService.uniqueFilesTouchedCount} files');
+
+      // Capture counts BEFORE resetting instrumentation ──
+      // Capture unique counts before dumpWriterStats(reset: true) so we can use them in the StepResult message and data.
+      final int touchedFilesBeforeReset = ExifWriterService.uniqueFilesTouchedCount;
+      final int touchedGpsBeforeReset = ExifWriterService.uniqueGpsFilesCount;
+      final int touchedDateBeforeReset = ExifWriterService.uniqueDateFilesCount;
 
       // Final writer stats (seconds) and GPS extractor stats (restored)
       ExifWriterService.dumpWriterStats(reset: true, logger: this);
       ExifCoordinateExtractor.dumpStats(reset: true, loggerMixin: this);
 
       sw.stop();
-      return StepResult.success(
-        stepName: name,
-        duration: sw.elapsed,
-        data: {'coordinatesWritten': gpsWrittenTotal, 'dateTimesWritten': dateWrittenTotal, 'skipped': false},
-        message: 'Wrote EXIF data to ${gpsWrittenTotal + dateWrittenTotal} files',
-      );
+      return StepResult.success(stepName: name, duration: sw.elapsed, data: {'coordinatesWritten': touchedGpsBeforeReset, 'dateTimesWritten': touchedDateBeforeReset, 'skipped': false}, message: 'Wrote EXIF data to $touchedFilesBeforeReset files');
     } catch (e) {
       // NOTE: Silence known benign ExifTool errors; only log unexpected ones.
-      if (!_shouldSilenceExiftoolError(e)) {
-        logError('Failed to write EXIF data: $e', forcePrint: true);
-      }
+      if (!_shouldSilenceExiftoolError(e)) logError('Failed to write EXIF data: $e', forcePrint: true);
       final sw = Stopwatch()..stop();
-      return StepResult.failure(
-        stepName: name,
-        duration: sw.elapsed,
-        error: e is Exception ? e : Exception(e.toString()),
-        message: 'Failed to write EXIF data',
-      );
+      return StepResult.failure(stepName: name, duration: sw.elapsed, error: e is Exception ? e : Exception(e.toString()), message: 'Failed to write EXIF data');
     }
   }
 
@@ -668,23 +639,19 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
   }
 
   // Formats that ExifTool does not embed-write and are better filtered early (unless forceProcessUnsupportedFormats is true).
-  // NOTE: Uses class-level extension helpers to avoid duplication and scope issues.
-  bool _isDefinitelyUnsupportedForWrite({
-    String? mimeHeader,
-    String? mimeExt,
-    required String pathLower,
-  }) {
-    if (_isAviByExt(pathLower) || mimeHeader == 'video/x-msvideo' || mimeExt == 'video/x-msvideo') return true; // AVI
-    if (_isMpegByExt(pathLower) || (mimeHeader ?? '').contains('mpeg') || (mimeExt ?? '').contains('mpeg')) return true; // MPG/MPEG
-    if (_isBmpByExt(pathLower) || (mimeHeader ?? '') == 'image/bmp' || (mimeExt ?? '') == 'image/bmp') return true; // BMP
+  bool _isDefinitelyUnsupportedForWrite({String? mimeHeader, String? mimeExt, required String pathLower}) {
+    if (pathLower.endsWith('.avi') || pathLower.endsWith('.mpg') || pathLower.endsWith('.mpeg') || pathLower.endsWith('.bmp')) return true;
+    if (mimeHeader == 'video/x-msvideo' || mimeExt == 'video/x-msvideo') return true; // AVI
+    if ((mimeHeader ?? '').contains('mpeg') || (mimeExt ?? '').contains('mpeg')) return true; // MPG/MPEG
+    if ((mimeHeader ?? '') == 'image/bmp' || (mimeExt ?? '') == 'image/bmp') return true; // BMP
     return false;
   }
 
   // NEW: Describe unsupported type for logging (compact string).
   String _describeUnsupported({String? mimeHeader, String? mimeExt, required String pathLower}) {
-    if (_isAviByExt(pathLower) || mimeHeader == 'video/x-msvideo' || mimeExt == 'video/x-msvideo') return 'AVI';
-    if (_isMpegByExt(pathLower) || (mimeHeader ?? '').contains('mpeg') || (mimeExt ?? '').contains('mpeg')) return 'MPEG';
-    if (_isBmpByExt(pathLower) || mimeHeader == 'image/bmp' || mimeExt == 'image/bmp') return 'BMP';
+    if (pathLower.endsWith('.avi') || mimeHeader == 'video/x-msvideo' || mimeExt == 'video/x-msvideo') return 'AVI';
+    if (pathLower.endsWith('.mpg') || pathLower.endsWith('.mpeg') || (mimeHeader ?? '').contains('mpeg') || (mimeExt ?? '').contains('mpeg')) return 'MPEG';
+    if (pathLower.endsWith('.bmp') || mimeHeader == 'image/bmp' || mimeExt == 'image/bmp') return 'BMP';
     return 'unsupported';
   }
 
@@ -701,7 +668,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
   Future<void> _tryDeleteTmp(final File f) async {
     try {
       final tmp = File('${f.path}_exiftool_tmp');
-      if (await tmp.exists()) { await tmp.delete(); }
+      if (await tmp.exists()) await tmp.delete();
     } catch (_) {}
   }
 
@@ -722,23 +689,6 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
       if (v is String) return int.tryParse(v) ?? defaultValue;
     } catch (_) {}
     return defaultValue;
-  }
-
-  // ─────────────────────── File extension helpers (class-level) ──────────────
-  // NOTE: These helpers are used by _isDefinitelyUnsupportedForWrite and _describeUnsupported.
-  bool _isAviByExt(final String p) {
-    final l = p.toLowerCase();
-    return l.endsWith('.avi');
-  }
-
-  bool _isMpegByExt(final String p) {
-    final l = p.toLowerCase();
-    return l.endsWith('.mpg') || l.endsWith('.mpeg');
-  }
-
-  bool _isBmpByExt(final String p) {
-    final l = p.toLowerCase();
-    return l.endsWith('.bmp');
   }
 }
 
