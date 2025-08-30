@@ -9,13 +9,18 @@
 /// - Provides type safety for path passing between functions
 /// - Makes function signatures clearer and more maintainable
 /// - Enables future extension with additional path-related metadata
+///   (e.g., a flag indicating whether the input was extracted from ZIPs)
 /// - Follows clean architecture principles by keeping data models in domain layer
 ///
 /// **USAGE:**
 /// Used by path resolution services and configuration builders to return validated
 /// input and output directory paths from either CLI arguments or interactive mode prompts.
 class InputOutputPaths {
-  const InputOutputPaths({required this.inputPath, required this.outputPath});
+  const InputOutputPaths({
+    required this.inputPath,
+    required this.outputPath,
+    this.extractedFromZip = false, // NEW: set to true when the input was produced by ZIP extraction
+  });
 
   /// Path to the directory containing Google Photos Takeout media files.
   /// This path is normalized to point to the actual Google Photos folder
@@ -26,9 +31,14 @@ class InputOutputPaths {
   /// This directory will be created if it doesn't exist.
   final String outputPath;
 
+  /// Whether the input directory was produced by an internal ZIP extraction step.
+  /// When true, upstream logic can skip cloning (--keep-input) because the input
+  /// is already a temporary/extracted location.
+  final bool extractedFromZip;
+
   @override
   String toString() =>
-      'InputOutputPaths(input: $inputPath, output: $outputPath)';
+      'InputOutputPaths(input: $inputPath, output: $outputPath, extractedFromZip: $extractedFromZip)';
 
   @override
   bool operator ==(final Object other) =>
@@ -36,8 +46,9 @@ class InputOutputPaths {
       (other is InputOutputPaths &&
           runtimeType == other.runtimeType &&
           inputPath == other.inputPath &&
-          outputPath == other.outputPath);
+          outputPath == other.outputPath &&
+          extractedFromZip == other.extractedFromZip);
 
   @override
-  int get hashCode => inputPath.hashCode ^ outputPath.hashCode;
+  int get hashCode => inputPath.hashCode ^ outputPath.hashCode ^ extractedFromZip.hashCode;
 }

@@ -46,7 +46,8 @@ class ProcessingConfig {
     this.verbose = false,
     this.isInteractiveMode = false,
     this.dividePartnerShared = false,
-    this.keepInput = false, // NEW: keep the original input untouched by working on a temporary copy
+    this.keepInput = false, // keep the original input untouched by working on a temporary copy
+    this.inputExtractedFromZip = false, // If the input have been extracted from ZIP it will be set to true
   });
 
   /// Creates a builder for configuring ProcessingConfig
@@ -69,9 +70,8 @@ class ProcessingConfig {
   final bool verbose;
   final bool isInteractiveMode;
   final bool dividePartnerShared;
-  /// If true, the app will create a sibling temporary copy of the input directory (suffix `_tmp`)
-  /// and use that copy as the effective input for the rest of the execution.
-  final bool keepInput; // NEW
+  final bool keepInput;
+  final bool inputExtractedFromZip;
 
   /// Validates the configuration and throws descriptive errors if invalid
   void validate() {
@@ -80,7 +80,8 @@ class ProcessingConfig {
     }
     if (outputPath.isEmpty) {
       throw const ConfigurationException('Output path cannot be empty');
-    } // Solo mode validation - solo mode implies extension fixing is enabled
+    }
+    // Solo mode validation - solo mode implies extension fixing is enabled
     if (extensionFixing == ExtensionFixingMode.solo) {
       // Solo mode is valid - it's a mode of extension fixing
     }
@@ -140,24 +141,26 @@ class ProcessingConfig {
     final bool? verbose,
     final bool? isInteractiveMode,
     final bool? dividePartnerShared,
-    final bool? keepInput, // NEW
+    final bool? keepInput,
+    final bool? inputExtractedFromZip,
   }) => ProcessingConfig(
-    inputPath: inputPath ?? this.inputPath,
-    outputPath: outputPath ?? this.outputPath,
-    albumBehavior: albumBehavior ?? this.albumBehavior,
-    dateDivision: dateDivision ?? this.dateDivision,
-    writeExif: writeExif ?? this.writeExif,
-    skipExtras: skipExtras ?? this.skipExtras,
-    guessFromName: guessFromName ?? this.guessFromName,
-    extensionFixing: extensionFixing ?? this.extensionFixing,
-    transformPixelMp: transformPixelMp ?? this.transformPixelMp,
-    updateCreationTime: updateCreationTime ?? this.updateCreationTime,
-    limitFileSize: limitFileSize ?? this.limitFileSize,
-    verbose: verbose ?? this.verbose,
-    isInteractiveMode: isInteractiveMode ?? this.isInteractiveMode,
-    dividePartnerShared: dividePartnerShared ?? this.dividePartnerShared,
-    keepInput: keepInput ?? this.keepInput, // NEW
-  );
+        inputPath: inputPath ?? this.inputPath,
+        outputPath: outputPath ?? this.outputPath,
+        albumBehavior: albumBehavior ?? this.albumBehavior,
+        dateDivision: dateDivision ?? this.dateDivision,
+        writeExif: writeExif ?? this.writeExif,
+        skipExtras: skipExtras ?? this.skipExtras,
+        guessFromName: guessFromName ?? this.guessFromName,
+        extensionFixing: extensionFixing ?? this.extensionFixing,
+        transformPixelMp: transformPixelMp ?? this.transformPixelMp,
+        updateCreationTime: updateCreationTime ?? this.updateCreationTime,
+        limitFileSize: limitFileSize ?? this.limitFileSize,
+        verbose: verbose ?? this.verbose,
+        isInteractiveMode: isInteractiveMode ?? this.isInteractiveMode,
+        dividePartnerShared: dividePartnerShared ?? this.dividePartnerShared,
+        keepInput: keepInput ?? this.keepInput,
+        inputExtractedFromZip: inputExtractedFromZip ?? this.inputExtractedFromZip,
+      );
 }
 
 /// Builder pattern for creating ProcessingConfig instances with fluent API
@@ -178,6 +181,7 @@ class ProcessingConfigBuilder {
   ProcessingConfigBuilder._(this._inputPath, this._outputPath);
   final String _inputPath;
   final String _outputPath;
+
   AlbumBehavior _albumBehavior = AlbumBehavior.shortcut;
   DateDivisionLevel _dateDivision = DateDivisionLevel.none;
   bool _writeExif = true;
@@ -190,7 +194,8 @@ class ProcessingConfigBuilder {
   bool _verbose = false;
   bool _isInteractiveMode = false;
   bool _dividePartnerShared = false;
-  bool _keepInput = false; // NEW
+  bool _keepInput = false;
+  bool _inputExtractedFromZip = false;
 
   /// Set album behavior (shortcut, reverse-shortcut, duplicate-copy, json, nothing)
   set albumBehavior(final AlbumBehavior behavior) {
@@ -270,8 +275,13 @@ class ProcessingConfigBuilder {
   }
 
   /// Keep original input untouched by cloning it to a sibling temporary directory and using the clone.
-  set keepInput(final bool enable) { // NEW
+  set keepInput(final bool enable) {
     _keepInput = enable;
+  }
+
+  /// Indicate that input comes from an internal ZIP extraction
+  set inputExtractedFromZip(final bool value) {
+    _inputExtractedFromZip = value;
   }
 
   /// Build the final ProcessingConfig instance
@@ -291,7 +301,8 @@ class ProcessingConfigBuilder {
       verbose: _verbose,
       isInteractiveMode: _isInteractiveMode,
       dividePartnerShared: _dividePartnerShared,
-      keepInput: _keepInput, // NEW
+      keepInput: _keepInput,
+      inputExtractedFromZip: _inputExtractedFromZip,
     );
 
     // Validate the configuration before returning

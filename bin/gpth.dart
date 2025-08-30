@@ -375,10 +375,14 @@ Future<ProcessingConfig> _buildConfigFromArgs(final ArgResults res) async {
   final configBuilder = ProcessingConfig.builder(
     inputPath: paths.inputPath,
     outputPath: paths.outputPath,
-  ); // Apply all configuration options
+  );
+  // Apply all configuration options
   if (res['verbose']) configBuilder.verboseOutput = true;
   if (res['skip-extras']) configBuilder.skipExtras = true;
   if (!res['guess-from-name']) configBuilder.guessFromName = false;
+
+  // Propagate if input comes from an internal ZIP extraction
+  configBuilder.inputExtractedFromZip = paths.extractedFromZip;
 
   // Set album behavior
   final albumBehavior = AlbumBehavior.fromString(res['albums']);
@@ -522,6 +526,8 @@ Future<InputOutputPaths> _getInputOutputPaths(
 ) async {
   String? inputPath = res['input'];
   String? outputPath = res['output'];
+  var extractedFromZip = false; // NEW
+
   if (isInteractiveMode) {
     // Interactive mode handles path collection
     await ServiceContainer.instance.interactiveService.showGreeting();
@@ -532,41 +538,31 @@ Future<InputOutputPaths> _getInputOutputPaths(
 
     late Directory inDir;
     if (shouldUnzip) {
-      final zips = await ServiceContainer.instance.interactiveService
-          .selectZipFiles();
+      final zips = await ServiceContainer.instance.interactiveService.selectZipFiles();
       print('');
 
-      final extractDir = await ServiceContainer.instance.interactiveService
-          .selectExtractionDirectory();
+      final extractDir = await ServiceContainer.instance.interactiveService.selectExtractionDirectory();
       print('');
 
-      final out = await ServiceContainer.instance.interactiveService
-          .selectOutputDirectory();
+      final out = await ServiceContainer.instance.interactiveService.selectOutputDirectory();
       print('');
       // Calculate space requirements
-      final cumZipsSize = zips
-          .map((final e) => e.lengthSync())
-          .reduce((final a, final b) => a + b);
+      final cumZipsSize =
+          zips.map((final e) => e.lengthSync()).reduce((final a, final b) => a + b);
       final requiredSpace =
           (cumZipsSize * 2) +
           256 * 1024 * 1024; // Double because original ZIPs remain
-      await ServiceContainer.instance.interactiveService.freeSpaceNotice(
-        requiredSpace,
-        extractDir,
-      );
+      await ServiceContainer.instance.interactiveService.freeSpaceNotice(requiredSpace, extractDir);
       print('');
       inDir = extractDir;
       outputPath = out.path;
 
-      await ServiceContainer.instance.interactiveService.extractAll(
-        zips,
-        extractDir,
-      );
+      await ServiceContainer.instance.interactiveService.extractAll(zips, extractDir);
       print('');
+      extractedFromZip = true;
     } else {
       try {
-        inDir = await ServiceContainer.instance.interactiveService
-            .selectInputDirectory();
+        inDir = await ServiceContainer.instance.interactiveService.selectInputDirectory();
       } catch (e) {
         _logger.warning('⚠️  INTERACTIVE DIRECTORY SELECTION FAILED');
         _logger.warning(
@@ -583,8 +579,7 @@ Future<InputOutputPaths> _getInputOutputPaths(
         );
       }
       print('');
-      final out = await ServiceContainer.instance.interactiveService
-          .selectOutputDirectory();
+      final out = await ServiceContainer.instance.interactiveService.selectOutputDirectory();
       outputPath = out.path;
       print('');
     }
@@ -606,8 +601,7 @@ Future<InputOutputPaths> _getInputOutputPaths(
           path.extension(provided.path).toLowerCase() == '.zip') {
         // Single zip file provided as --input
         zips.add(provided);
-        extractDir = Directory(
-          path.join(path.dirname(provided.path), '.gpth-unzipped'),
+        extractDir = Directory(path.join(path.dirname(provided.path), '.gpth-unzipped'),
         );
       } else {
         final providedDir = Directory(inputPath);
@@ -623,9 +617,7 @@ Future<InputOutputPaths> _getInputOutputPaths(
       }
 
       if (zips.isNotEmpty) {
-        _logger.info(
-          'Detected ${zips.length} ZIP file(s) in input path - extracting before processing...',
-        );
+        _logger.info('Detected ${zips.length} ZIP file(s) in input path - extracting before processing...');
 
         // Compute rough required space and warn
         var cumZipsSize = 0;
@@ -635,9 +627,7 @@ Future<InputOutputPaths> _getInputOutputPaths(
           } catch (_) {}
         }
         final requiredSpace = (cumZipsSize * 2) + 256 * 1024 * 1024;
-        _logger.info(
-          'Estimated required temporary space for extraction: ${requiredSpace ~/ (1024 * 1024)} MB',
-        );
+        _logger.info('Estimated required temporary space for extraction: ${requiredSpace ~/ (1024 * 1024)} MB');
 
         try {
           await ServiceContainer.instance.interactiveService.extractAll(
@@ -645,9 +635,8 @@ Future<InputOutputPaths> _getInputOutputPaths(
             extractDir,
           );
           inputPath = extractDir.path;
-          _logger.info(
-            'Extraction complete. Using extracted folder: $inputPath',
-          );
+          extractedFromZip = true;
+          _logger.info('Extraction complete. Using extracted folder: $inputPath');
         } catch (e) {
           _logger.error('Automatic ZIP extraction failed: $e');
           _exitWithMessage(
@@ -688,7 +677,11 @@ Future<InputOutputPaths> _getInputOutputPaths(
     );
   }
 
-  return InputOutputPaths(inputPath: inputPath, outputPath: outputPath);
+  return InputOutputPaths(
+    inputPath: inputPath,
+    outputPath: outputPath,
+    extractedFromZip: extractedFromZip,
+  );
 }
 
 /// **DEPENDENCY INITIALIZATION**
@@ -794,11 +787,11 @@ Future<ProcessingResult> _executeProcessing(
     _exitWithMessage(11, 'Input folder does not exist: ${inputDir.path}');
   }
 
-  // NEW: honor keep-input from config (typed)
-  final bool keepInput = config.keepInput;
+  // NEW: honor keep-input pero evita clonar si el input proviene de un ZIP extraído ahora
+  final bool shouldClone = config.keepInput && !config.inputExtractedFromZip;
 
   Directory effectiveInputDir = inputDir;
-  if (keepInput) {
+  if (shouldClone) {
     final cloner = InputCloneService();
     final Directory cloned = await cloner.cloneToSiblingTmp(inputDir);
     _logger.info('Using temporary input copy: ${cloned.path}');
