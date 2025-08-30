@@ -828,10 +828,18 @@ Future<ProcessingResult> _executeProcessing(
 
   // Handle output directory cleanup if needed (compare against runtimeConfig.inputPath)
   if (await outputDir.exists() && !await _isOutputDirectoryEmpty(outputDir, runtimeConfig)) {
-    if (runtimeConfig.isInteractiveMode && await ServiceContainer.instance.interactiveService.askForCleanOutput()) {
+    if (runtimeConfig.isInteractiveMode) {
+      // Interactivo: pregunta antes de limpiar
+      if (await ServiceContainer.instance.interactiveService.askForCleanOutput()) {
+        await _cleanOutputDirectory(outputDir, runtimeConfig);
+      }
+    } else {
+      // No interactivo: limpiar siempre automáticamente
+      _logger.info('Output directory is not empty. Cleaning it automatically (non-interactive mode).');
       await _cleanOutputDirectory(outputDir, runtimeConfig);
     }
   }
+
   await outputDir.create(recursive: true);
 
   // Execute the processing pipeline
