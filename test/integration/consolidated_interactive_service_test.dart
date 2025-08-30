@@ -2,7 +2,7 @@ import 'package:gpth/gpth-lib.dart';
 import 'package:test/test.dart';
 
 /// Mock presenter for testing that captures interactions
-class MockInteractivePresenter extends InteractivePresenter {
+class MockInteractivePresenter extends InteractivePresenterService {
   MockInteractivePresenter()
     : super(enableSleep: false, enableInputValidation: false);
   final List<String> _prompts = [];

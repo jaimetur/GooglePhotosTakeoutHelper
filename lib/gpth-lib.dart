@@ -27,11 +27,12 @@ export 'common/services/core_services/logging_service.dart';
 export 'common/services/core_services/processing_metrics_service.dart';
 
 // modules from common/services/file_operations_services
-export 'common/services/file_operations_services/archive_extraction_service.dart';
 export 'common/services/file_operations_services/file_extensions_service.dart';
 export 'common/services/file_operations_services/file_system_service.dart';
 export 'common/services/file_operations_services/filename_sanitizer_service.dart';
+export 'common/services/file_operations_services/input_clone_service.dart';
 export 'common/services/file_operations_services/path_resolver_service.dart';
+export 'common/services/file_operations_services/zip_extraction_service.dart';
 
 // modules from common/services/infraestructure
 export 'common/services/infraestructure_services/concurrency_manager.dart';
@@ -40,8 +41,10 @@ export 'common/services/infraestructure_services/exiftool_service.dart';
 export 'common/services/infraestructure_services/platform_service.dart';
 export 'common/services/infraestructure_services/windows_symlink_service.dart';
 
-// modules from common/services/interactive_presenter_service
-export 'common/services/interactive_presenter_service/interactive_presenter_service.dart';
+// modules from common/services/interactive_mode_services
+export 'common/services/interactive_mode_services/consolidated_interactive_service.dart';
+export 'common/services/interactive_mode_services/interactive_configuration_service.dart';
+export 'common/services/interactive_mode_services/interactive_presenter_service.dart';
 
 // modules from common/services/json_metadata_services
 export 'common/services/json_metadata_services/json_metadata_matcher_service.dart';
@@ -54,10 +57,6 @@ export 'common/services/media_services/duplicate_detection_service.dart';
 export 'common/services/media_services/edited_version_detector_service.dart';
 export 'common/services/media_services/media_hash_service.dart';
 export 'common/services/media_services/mime_type_service.dart';
-
-// modules from common/services/user_interaction_services
-export 'common/services/user_interaction_services/configuration_builder_service.dart';
-export 'common/services/user_interaction_services/user_interaction_service.dart';
 
 // modules from common/value_objects
 export 'common/value_objects/date_accuracy.dart';

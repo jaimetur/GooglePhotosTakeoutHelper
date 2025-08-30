@@ -170,9 +170,7 @@ Never _exitWithMessage(
   } catch (_) {}
 
   if (showInteractivePrompt && Platform.environment['INTERACTIVE'] == 'true') {
-    print(
-      '[gpth ${code != 0 ? 'quitted :(' : 'finished :)'} (code $code) - press enter to close]',
-    );
+    print('[gpth ${code != 0 ? 'quitted :(' : 'finished :)'} (code $code) - press enter to close]');
     stdin.readLineSync();
   }
 
@@ -252,8 +250,8 @@ ArgParser _createArgumentParser() => ArgParser()
   ..addOption(
     'albums',
     help: 'What to do about albums?',
-    allowed: InteractivePresenter.albumOptions.keys,
-    allowedHelp: InteractivePresenter.albumOptions,
+    allowed: InteractivePresenterService.albumOptions.keys,
+    allowedHelp: InteractivePresenterService.albumOptions,
     defaultsTo: 'shortcut',
   )
   ..addOption(
@@ -302,6 +300,11 @@ ArgParser _createArgumentParser() => ArgParser()
   ..addOption(
     'fileDates',
     help: 'Path to a JSON file with a date dictionary (OldestDate per file)',
+  )
+  // NEW: keep the original input folder untouched by working on a sibling copy "<input>_tmp"
+  ..addFlag(
+    'keep-input',
+    help: 'Work on a temporary sibling copy of --input (suffix _tmp), keeping the original untouched',
   );
 
 /// **HELP TEXT DISPLAY**
@@ -365,7 +368,7 @@ Future<ProcessingConfig> _buildConfigFromArgs(final ArgResults res) async {
   // Get input/output paths (interactive or from args)
   final paths = await _getInputOutputPaths(res, isInteractiveMode);
 
-  // NOTE: the --fileDates JSON is now loaded AFTER ServiceContainer re-init,
+  // NOTE: the --fileDates JSON is now loaded AFTER the second initialize,
   // inside _loadFileDatesIntoGlobalConfigFromArgs() in main(), to avoid being reset.
 
   // Build configuration using the builder pattern
@@ -376,6 +379,7 @@ Future<ProcessingConfig> _buildConfigFromArgs(final ArgResults res) async {
   if (res['verbose']) configBuilder.verboseOutput = true;
   if (res['skip-extras']) configBuilder.skipExtras = true;
   if (!res['guess-from-name']) configBuilder.guessFromName = false;
+
   // Set album behavior
   final albumBehavior = AlbumBehavior.fromString(res['albums']);
   configBuilder.albumBehavior = albumBehavior;
@@ -385,53 +389,45 @@ Future<ProcessingConfig> _buildConfigFromArgs(final ArgResults res) async {
   if (isInteractiveMode) {
     // Ask user for date division preference in interactive mode
     print('');
-    final dateDivision = await ServiceContainer.instance.interactiveService
-        .askDivideDates();
+    final dateDivision = await ServiceContainer.instance.interactiveService.askDivideDates();
     final divisionLevel = DateDivisionLevel.fromInt(dateDivision);
     configBuilder.dateDivision = divisionLevel;
 
     // Ask user for extension fixing preference in interactive mode
     print('');
-    final extensionFixingChoice = await ServiceContainer
-        .instance
-        .interactiveService
-        .askFixExtensions();
+    final extensionFixingChoice = await ServiceContainer.instance.interactiveService.askFixExtensions();
     extensionFixingMode = ExtensionFixingMode.fromString(extensionFixingChoice);
 
     // Ask user for EXIF writing preference in interactive mode
     print('');
-    final writeExif = await ServiceContainer.instance.interactiveService
-        .askIfWriteExif();
+    final writeExif = await ServiceContainer.instance.interactiveService.askIfWriteExif();
     configBuilder.exifWriting = writeExif;
 
     // Ask user for Album mode
     print('');
-    final albumModeString = await ServiceContainer.instance.interactiveService
-        .askAlbums();
-    final AlbumBehavior albumBehaviour = AlbumBehavior.fromString(
-      albumModeString,
-    );
+    final albumModeString = await ServiceContainer.instance.interactiveService.askAlbums();
+    final AlbumBehavior albumBehaviour = AlbumBehavior.fromString(albumModeString);
     configBuilder.albumBehavior = albumBehaviour;
 
     // Ask user for Pixel/MP file transformation in interactive mode
     print('');
-    final transformPixelMP = await ServiceContainer.instance.interactiveService
-        .askTransformPixelMP();
+    final transformPixelMP = await ServiceContainer.instance.interactiveService.askTransformPixelMP();
     configBuilder.pixelTransformation = transformPixelMP;
 
     // Ask user for file size limiting in interactive mode
     print('');
-    final limitFileSize = await ServiceContainer.instance.interactiveService
-        .askIfLimitFileSize();
+    final limitFileSize = await ServiceContainer.instance.interactiveService.askIfLimitFileSize();
     configBuilder.fileSizeLimit = limitFileSize;
+
+    // Ask whether to keep the original input (work on "<input>_tmp")
+    print('');
+    final keepInputFlag = await ServiceContainer.instance.interactiveService.askKeepInput();
+    configBuilder.keepInput = keepInputFlag;
 
     // Ask user for creation time update in interactive mode (Windows only)
     if (Platform.isWindows) {
       print('');
-      final updateCreationTime = await ServiceContainer
-          .instance
-          .interactiveService
-          .askChangeCreationTime();
+      final updateCreationTime = await ServiceContainer.instance.interactiveService.askChangeCreationTime();
       configBuilder.creationTimeUpdate = updateCreationTime;
     }
     configBuilder.interactiveMode = true;
@@ -452,6 +448,7 @@ Future<ProcessingConfig> _buildConfigFromArgs(final ArgResults res) async {
     if (res['update-creation-time']) configBuilder.creationTimeUpdate = true;
     if (res['limit-filesize']) configBuilder.fileSizeLimit = true;
     if (res['divide-partner-shared']) configBuilder.dividePartnerShared = true;
+    if (res['keep-input']) configBuilder.keepInput = true; // CLI: honor --keep-input
   }
   configBuilder.extensionFixing = extensionFixingMode;
 
@@ -530,8 +527,7 @@ Future<InputOutputPaths> _getInputOutputPaths(
     await ServiceContainer.instance.interactiveService.showGreeting();
     print('');
 
-    final bool shouldUnzip = await ServiceContainer.instance.interactiveService
-        .askIfUnzip();
+    final bool shouldUnzip = await ServiceContainer.instance.interactiveService.askIfUnzip();
     print('');
 
     late Directory inDir;
@@ -797,12 +793,21 @@ Future<ProcessingResult> _executeProcessing(
     _logger.error('Input folder does not exist :/');
     _exitWithMessage(11, 'Input folder does not exist: ${inputDir.path}');
   }
+
+  // NEW: honor keep-input from config (typed)
+  final bool keepInput = config.keepInput;
+
+  Directory effectiveInputDir = inputDir;
+  if (keepInput) {
+    final cloner = InputCloneService();
+    final Directory cloned = await cloner.cloneToSiblingTmp(inputDir);
+    _logger.info('Using temporary input copy: ${cloned.path}');
+    effectiveInputDir = cloned;
+  }
+
   // Handle output directory cleanup if needed
-  if (await outputDir.exists() &&
-      !await _isOutputDirectoryEmpty(outputDir, config)) {
-    if (config.isInteractiveMode &&
-        await ServiceContainer.instance.interactiveService
-            .askForCleanOutput()) {
+  if (await outputDir.exists() && !await _isOutputDirectoryEmpty(outputDir, config)) {
+    if (config.isInteractiveMode && await ServiceContainer.instance.interactiveService.askForCleanOutput()) {
       await _cleanOutputDirectory(outputDir, config);
     }
   }
@@ -813,7 +818,7 @@ Future<ProcessingResult> _executeProcessing(
   );
   return pipeline.execute(
     config: config,
-    inputDirectory: inputDir,
+    inputDirectory: effectiveInputDir, // IMPORTANT: pass the possibly cloned dir
     outputDirectory: outputDir,
   );
 }

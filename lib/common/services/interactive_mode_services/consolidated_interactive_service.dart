@@ -3,14 +3,14 @@ import 'dart:io';
 
 import 'package:file_picker_desktop/file_picker_desktop.dart';
 
-import '../interactive_presenter_service/interactive_presenter_service.dart';
+import 'interactive_presenter_service.dart';
 import '../../../steps/steps_pipeline.dart';
 import '../../models/processing_config_model.dart';
 import '../core_services/formatting_service.dart';
 import '../core_services/global_config_service.dart';
 import '../core_services/logging_service.dart';
 import '../core_services/container_service.dart';
-import '../file_operations_services/archive_extraction_service.dart';
+import '../file_operations_services/zip_extraction_service.dart';
 
 /// Consolidated interactive service that combines all user interaction functionality
 ///
@@ -25,12 +25,12 @@ class ConsolidatedInteractiveService with LoggerMixin {
   /// Creates a new ConsolidatedInteractiveService
   ConsolidatedInteractiveService({
     required this.globalConfig,
-    final InteractivePresenter? presenter,
-  }) : _presenter = presenter ?? InteractivePresenter(),
+    final InteractivePresenterService? presenter,
+  }) : _presenter = presenter ?? InteractivePresenterService(),
        _utility = const FormattingService();
 
   final GlobalConfigService globalConfig;
-  final InteractivePresenter _presenter;
+  final InteractivePresenterService _presenter;
   final FormattingService _utility;
 
   // ============================================================================
@@ -94,7 +94,7 @@ class ConsolidatedInteractiveService with LoggerMixin {
     await _presenter.promptForAlbumBehavior();
     int i = 0;
     for (final MapEntry<String, String> entry
-        in InteractivePresenter.albumOptions.entries) {
+        in InteractivePresenterService.albumOptions.entries) {
       _presenter.showAlbumOption(i++, entry.key, entry.value);
     }
 
@@ -103,11 +103,11 @@ class ConsolidatedInteractiveService with LoggerMixin {
       final int? answer = int.tryParse(input);
       if (answer != null &&
           answer >= 0 &&
-          answer < InteractivePresenter.albumOptions.length) {
-        final String choice = InteractivePresenter.albumOptions.keys.elementAt(
+          answer < InteractivePresenterService.albumOptions.length) {
+        final String choice = InteractivePresenterService.albumOptions.keys.elementAt(
           answer,
         );
-        final String description = InteractivePresenter.albumOptions[choice]!;
+        final String description = InteractivePresenterService.albumOptions[choice]!;
         await _presenter.showUserSelection(input, '$choice: $description');
         return choice;
       }
@@ -580,6 +580,7 @@ class ConsolidatedInteractiveService with LoggerMixin {
     final bool verbose = false,
     final bool skipExtras = false,
     final bool guessFromName = true,
+    final bool keepInput = false, // NEW: allow building config with keep-input
   }) => ProcessingConfig(
     inputPath: inputPath,
     outputPath: outputPath,
@@ -593,6 +594,7 @@ class ConsolidatedInteractiveService with LoggerMixin {
     verbose: verbose,
     skipExtras: skipExtras,
     guessFromName: guessFromName,
+    keepInput: keepInput, // NEW
   );
 
   /// Validates input directory for processing
@@ -669,6 +671,52 @@ class ConsolidatedInteractiveService with LoggerMixin {
       skippedSteps: skippedSteps,
       mediaCount: mediaCount,
     );
+  }
+
+  // ============================================================================
+  // NEW: KEEP-INPUT INTERACTIVE QUESTION
+  // ============================================================================
+  /// Asks if the user wants to keep the original input folder untouched by
+  /// working on a temporary sibling copy named "<input>_tmp".
+  ///
+  /// Returns:
+  /// - true  -> work on a cloned "<input>_tmp" directory
+  /// - false -> work directly on the original input directory
+  Future<bool> askKeepInput() async {
+    // Keeping style consistent with other prompts: we print here directly,
+    // then reuse presenter helpers for selection/validation feedback.
+    print(
+      'Do you want to keep your original --input folder untouched by working on a temporary sibling copy (suffix _tmp)?',
+    );
+    print('[1] (Default) - No, work directly on the original input');
+    print('[2] - Yes, create and use "<input>_tmp" as the working directory');
+    print('(Type 1 or 2, or press enter for default):');
+
+    while (true) {
+      final input = await readUserInput();
+      switch (input) {
+        case '':
+        case '1':
+        case 'n':
+        case 'no':
+          await _presenter.showUserSelection(
+            input,
+            'work directly on the original input folder',
+          );
+          return false;
+        case '2':
+        case 'y':
+        case 'yes':
+          await _presenter.showUserSelection(
+            input,
+            'use a temporary sibling copy "<input>_tmp"',
+          );
+          return true;
+        default:
+          await _presenter.showInvalidAnswerError();
+          continue;
+      }
+    }
   }
 
   // ============================================================================

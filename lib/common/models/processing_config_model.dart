@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:gpth/gpth-lib.dart';
 
-
 /// Enum representing different extension fixing modes
 enum ExtensionFixingMode {
   /// No extension fixing
@@ -47,6 +46,7 @@ class ProcessingConfig {
     this.verbose = false,
     this.isInteractiveMode = false,
     this.dividePartnerShared = false,
+    this.keepInput = false, // NEW: keep the original input untouched by working on a temporary copy
   });
 
   /// Creates a builder for configuring ProcessingConfig
@@ -54,6 +54,7 @@ class ProcessingConfig {
     required final String inputPath,
     required final String outputPath,
   }) => ProcessingConfigBuilder._(inputPath, outputPath);
+
   final String inputPath;
   final String outputPath;
   final AlbumBehavior albumBehavior;
@@ -68,6 +69,9 @@ class ProcessingConfig {
   final bool verbose;
   final bool isInteractiveMode;
   final bool dividePartnerShared;
+  /// If true, the app will create a sibling temporary copy of the input directory (suffix `_tmp`)
+  /// and use that copy as the effective input for the rest of the execution.
+  final bool keepInput; // NEW
 
   /// Validates the configuration and throws descriptive errors if invalid
   void validate() {
@@ -136,6 +140,7 @@ class ProcessingConfig {
     final bool? verbose,
     final bool? isInteractiveMode,
     final bool? dividePartnerShared,
+    final bool? keepInput, // NEW
   }) => ProcessingConfig(
     inputPath: inputPath ?? this.inputPath,
     outputPath: outputPath ?? this.outputPath,
@@ -151,6 +156,7 @@ class ProcessingConfig {
     verbose: verbose ?? this.verbose,
     isInteractiveMode: isInteractiveMode ?? this.isInteractiveMode,
     dividePartnerShared: dividePartnerShared ?? this.dividePartnerShared,
+    keepInput: keepInput ?? this.keepInput, // NEW
   );
 }
 
@@ -184,6 +190,7 @@ class ProcessingConfigBuilder {
   bool _verbose = false;
   bool _isInteractiveMode = false;
   bool _dividePartnerShared = false;
+  bool _keepInput = false; // NEW
 
   /// Set album behavior (shortcut, reverse-shortcut, duplicate-copy, json, nothing)
   set albumBehavior(final AlbumBehavior behavior) {
@@ -262,6 +269,11 @@ class ProcessingConfigBuilder {
     _dividePartnerShared = enable;
   }
 
+  /// Keep original input untouched by cloning it to a sibling temporary directory and using the clone.
+  set keepInput(final bool enable) { // NEW
+    _keepInput = enable;
+  }
+
   /// Build the final ProcessingConfig instance
   ProcessingConfig build() {
     final config = ProcessingConfig(
@@ -279,6 +291,7 @@ class ProcessingConfigBuilder {
       verbose: _verbose,
       isInteractiveMode: _isInteractiveMode,
       dividePartnerShared: _dividePartnerShared,
+      keepInput: _keepInput, // NEW
     );
 
     // Validate the configuration before returning

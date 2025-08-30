@@ -13,7 +13,7 @@ import 'package:test/test.dart';
 import '../setup/test_setup.dart';
 
 /// Mock presenter for testing without UI interactions
-class MockInteractivePresenter implements InteractivePresenter {
+class MockInteractivePresenter implements InteractivePresenterService {
   final List<String> messages = [];
 
   @override

@@ -18,11 +18,11 @@ import 'package:gpth/gpth-lib.dart';
 class ZipExtractionService {
   /// Creates a new instance of ZipExtractionService
   ZipExtractionService({
-    final InteractivePresenter? presenter,
+    final InteractivePresenterService? presenter,
     this.enableNameDiagnostics = false, // set to false to silence name logs
-  }) : _presenter = presenter ?? InteractivePresenter();
+  }) : _presenter = presenter ?? InteractivePresenterService();
 
-  final InteractivePresenter _presenter;
+  final InteractivePresenterService _presenter;
   final LoggingService _logger = LoggingService();
 
   /// When true, the extractor logs suspicious entry names (e.g., ones containing '¥', 'Ñ', 'ñ', '~')

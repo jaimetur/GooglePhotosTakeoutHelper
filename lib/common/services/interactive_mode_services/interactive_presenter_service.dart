@@ -7,9 +7,9 @@ import 'package:gpth/gpth-lib.dart';
 /// Extracted from interactive.dart to separate UI concerns from core business logic.
 /// This service provides a clean interface for user interactions while maintaining
 /// the same user experience as the original interactive mode.
-class InteractivePresenter with LoggerMixin {
+class InteractivePresenterService with LoggerMixin {
   /// Creates a new instance of InteractivePresenter
-  InteractivePresenter({
+  InteractivePresenterService({
     this.enableSleep = true,
     this.enableInputValidation = true,
   });
@@ -748,6 +748,43 @@ class InteractivePresenter with LoggerMixin {
       final minutes = duration.inMinutes;
       final seconds = duration.inSeconds % 60;
       return '${minutes}m ${seconds}s';
+    }
+  }
+
+  // ============================================================================
+  // NEW: keep-input prompt (temporary copy of input directory)
+  // ============================================================================
+  /// Ask if the user wants to keep the original input folder untouched by
+  /// working on a temporary sibling copy with suffix `_tmp`.
+  ///
+  /// Returns:
+  /// - `true`  → work on `<input>_tmp` (original stays intact)
+  /// - `false` → work on the original input directory directly
+  Future<bool> askKeepInput() async {
+    print(
+      'Do you want to keep the ORIGINAL input folder untouched by working on a '
+      'temporary copy (sibling folder with suffix "_tmp")?',
+    );
+    print('[1] - Yes, make a temporary copy "<input>_tmp" and work there');
+    print('[2] (Default) - No, work on the original input folder');
+    print('(Type 1 or 2, or press enter for default):');
+    if (enableSleep) await _sleep(1);
+
+    while (true) {
+      final input = await readUserInput();
+      if (input.isEmpty) {
+        print('You selected: 2 (default) - No, work on the original input');
+        return false;
+      }
+      if (input == '1') {
+        print('You selected: 1 - Yes, use a temporary "<input>_tmp" copy');
+        return true;
+      }
+      if (input == '2') {
+        print('You selected: 2 - No, work on the original input');
+        return false;
+      }
+      await showInvalidAnswerError('Please type 1, 2 or press enter for default');
     }
   }
 }

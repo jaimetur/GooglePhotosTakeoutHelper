@@ -9,6 +9,7 @@
 ### ✨ **New Features**
   - Support for 7zip and unzip extractors (if found in your system). This is shy the native extractor does not extract properly filenames or dirnames with latin chars.
   - Support new `Extra` files from Google Takeout with following suffixes: `-motion`, `-animation`, `-collage`.
+  - New flag `--keep-input` to Work on a temporary sibling copy of --input (suffix _tmp), keeping the original untouched.
 
 
 ## 4.3.1-Xentraxx
