@@ -150,6 +150,20 @@ class FindAlbumsStep extends ProcessingStep with LoggerMixin {
       final finalCount = collection.length;
       final mergedCount = initial - finalCount;
 
+      // Diagnostics: how many media have album files
+      final mediaWithAlbums = merged.where((m) => m.hasAlbumAssociations).length;
+      print('[Step 6/8] Media with album associations: $mediaWithAlbums');
+
+      // Diagnostics: how many distinct album keys/names
+      final distinctAlbums = <String>{};
+      for (final m in merged) {
+        // albumNames already unions files.albumNames + belongToAlbums.keys
+        for (final name in m.albumNames) {
+          if (name.isNotEmpty) distinctAlbums.add(name);
+        }
+      }
+      print('[Step 6/8] Distinct album folders detected: ${distinctAlbums.length}');
+
       sw.stop();
       return StepResult.success(
         stepName: name,
@@ -158,8 +172,10 @@ class FindAlbumsStep extends ProcessingStep with LoggerMixin {
           'initialCount': initial,
           'finalCount': finalCount,
           'mergedCount': mergedCount,
+          'mediaWithAlbums': mediaWithAlbums,
+          'distinctAlbums': distinctAlbums.length,
         },
-        message: 'Found and merged $mergedCount album relationships',
+        message: 'Found ${distinctAlbums.length} different albums ($mergedCount albums were merged)',
       );
     } catch (e) {
       sw.stop();
