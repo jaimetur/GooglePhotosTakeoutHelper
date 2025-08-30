@@ -790,7 +790,7 @@ Future<void> _configureDependencies(final ProcessingConfig config) async {
 Future<ProcessingResult> _executeProcessing(
   final ProcessingConfig config,
 ) async {
-  final inputDir = Directory(config.inputPath);
+  Directory inputDir = Directory(config.inputPath);
   final outputDir = Directory(config.outputPath);
 
   // Validate directories
@@ -799,16 +799,66 @@ Future<ProcessingResult> _executeProcessing(
     _exitWithMessage(11, 'Input folder does not exist: ${inputDir.path}');
   }
 
-  // NEW: honor keep-input pero evita clonar si el input proviene de un ZIP extraído ahora
-  final bool shouldClone = config.keepInput && !config.inputExtractedFromZip;
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Early ZIP auto-extraction inside execute() to prevent wrong cloning decision
+  // This is a safety net for scenarios where the config still has inputExtractedFromZip=false
+  // but the userInputRoot actually contains ZIP files that must be extracted first.
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  bool extractedNow = false;
+  String effectiveUserRoot = config.userInputRoot;
+  if (!config.inputExtractedFromZip) {
+    try {
+      final root = Directory(config.userInputRoot);
+      if (await root.exists()) {
+        final zips = <File>[];
+        await for (final ent in root.list(followLinks: false)) {
+          if (ent is File && path.extension(ent.path).toLowerCase() == '.zip') {
+            zips.add(ent);
+          }
+        }
+        if (zips.isNotEmpty) {
+          final extractDir = Directory(path.join(root.path, '.gpth-unzipped'));
+          _logger.info('Found ${zips.length} ZIP file(s) under userInputRoot - extracting to ${extractDir.path} before processing', forcePrint: true);
+
+          // Compute rough required space and log
+          var cumZipsSize = 0;
+          for (final z in zips) {
+            try { cumZipsSize += z.lengthSync(); } catch (_) {}
+          }
+          final requiredSpace = (cumZipsSize * 2) + 256 * 1024 * 1024;
+          _logger.info('Estimated required temporary space for extraction: ${requiredSpace ~/ (1024 * 1024)} MB', forcePrint: true);
+
+          await ServiceContainer.instance.interactiveService.extractAll(zips, extractDir);
+          effectiveUserRoot = extractDir.path;
+
+          // Re-resolve Google Photos path inside the extraction dir
+          final resolvedInside = PathResolverService.resolveGooglePhotosPath(extractDir.path);
+          inputDir = Directory(resolvedInside);
+          extractedNow = true;
+          _logger.info('Extraction completed in execute(); effective input is now $resolvedInside', forcePrint: true);
+        }
+      }
+    } catch (e) {
+      _logger.error('Late ZIP extraction failed inside execute(): $e', forcePrint: true);
+      _exitWithMessage(12, 'Late ZIP extraction failed: ${e.toString()}');
+    }
+  }
+
+  // NEW: honor keep-input but avoid cloning when input was (now) extracted from ZIPs
+  final bool inputExtractedFromZipFlag = config.inputExtractedFromZip || extractedNow;
+
+  // Log de diagnóstico para confirmar decisión de clonado
+  final bool shouldClone = config.keepInput && !inputExtractedFromZipFlag;
+  _logger.info('keepInput=${config.keepInput}, inputExtractedFromZip=$inputExtractedFromZipFlag, shouldClone=$shouldClone', forcePrint: true);
+  _logger.info('Creating input clone because keepInput=true and input does not come from ZIP extraction (inputExtractedFromZip=false).', forcePrint: true);
 
   Directory effectiveInputDir = inputDir;
-  String effectiveUserRoot = config.userInputRoot;
 
   if (shouldClone) {
     final cloner = InputCloneService();
     // Clone the **original user root**, not the already resolved Google Photos subfolder
-    final Directory clonedRoot = await cloner.cloneToSiblingTmp(Directory(config.userInputRoot));
+    final Directory clonedRoot = await cloner.cloneToSiblingTmp(Directory(effectiveUserRoot));
     _logger.info('Using temporary input copy root: ${clonedRoot.path}');
     effectiveUserRoot = clonedRoot.path;
 
@@ -816,13 +866,17 @@ Future<ProcessingResult> _executeProcessing(
     final String resolvedInsideClone = PathResolverService.resolveGooglePhotosPath(clonedRoot.path);
     effectiveInputDir = Directory(resolvedInsideClone);
     _logger.info('Effective input inside clone: $resolvedInsideClone');
+  } else if (config.keepInput && inputExtractedFromZipFlag) {
+    // Explicit message explaining why we skip clone
+    _logger.info('Skipping clone because input comes from ZIP extraction (inputExtractedFromZip=true).', forcePrint: true);
   }
 
   // IMPORTANT: from here on, use a runtimeConfig that reflects the effective input dir
-  final ProcessingConfig runtimeConfig = shouldClone
+  final ProcessingConfig runtimeConfig = (shouldClone || extractedNow)
       ? config.copyWith(
           inputPath: effectiveInputDir.path,
           userInputRoot: effectiveUserRoot,
+          inputExtractedFromZip: inputExtractedFromZipFlag,
         )
       : config;
 
@@ -848,7 +902,7 @@ Future<ProcessingResult> _executeProcessing(
   );
   return pipeline.execute(
     config: runtimeConfig,
-    inputDirectory: Directory(runtimeConfig.inputPath), // pasa la carpeta efectiva (clonada si aplica)
+    inputDirectory: Directory(runtimeConfig.inputPath), // passes the effective folder (cloned/extracted if applies)
     outputDirectory: outputDir,
   );
 }
