@@ -3,6 +3,7 @@
 /// Tests the processing statistics and file count calculations.
 library;
 
+import 'dart:typed_data';
 import 'package:gpth/gpth-lib.dart';
 import 'package:test/test.dart';
 
@@ -12,132 +13,203 @@ void main() {
   group('ProcessingMetricsService', () {
     late ProcessingMetricsService service;
     late TestFixture fixture;
+    late AlbumRelationshipService albumSvc;
+
+    // Helpers ────────────────────────────────────────────────────────────────
+    // Creates a year-only entity with the provided bytes.
+    Future<MediaEntity> _yearOnly({
+      required String path,
+      required List<int> bytes,
+      DateTime? date,
+    }) async {
+      final file = fixture.createFile(path, Uint8List.fromList(bytes));
+      return MediaEntity.single(file: file, dateTaken: date);
+    }
+
+    // Creates an album-only entity (under Albums/<album>/...) with the provided bytes.
+    Future<MediaEntity> _albumOnly({
+      required String album,
+      required String name,
+      required List<int> bytes,
+      DateTime? date,
+    }) async {
+      final fAlbum = fixture.createFile(
+        'Albums/$album/$name',
+        Uint8List.fromList(bytes),
+      );
+      // No year file, so this is album-only.
+      final merged = await albumSvc.detectAndMergeAlbums([
+        MediaEntity.single(file: fAlbum, dateTaken: date),
+      ]);
+      return merged.single;
+    }
+
+    // Creates an entity with year + multiple albums (each album has its own path).
+    Future<MediaEntity> _yearPlusAlbums({
+      required String yearPath,
+      required String name,
+      required List<String> albums,
+      required List<int> bytes,
+      DateTime? date,
+    }) async {
+      final entities = <MediaEntity>[];
+      final fYear = fixture.createFile(yearPath, Uint8List.fromList(bytes));
+      entities.add(MediaEntity.single(file: fYear, dateTaken: date));
+      for (final a in albums) {
+        final fAlbum = fixture.createFile(
+          'Albums/$a/$name',
+          Uint8List.fromList(bytes),
+        );
+        entities.add(MediaEntity.single(file: fAlbum, dateTaken: date));
+      }
+      final merged = await albumSvc.detectAndMergeAlbums(entities);
+      return merged.single;
+    }
 
     setUp(() async {
       service = const ProcessingMetricsService();
       fixture = TestFixture();
       await fixture.setUp();
+      await ServiceContainer.instance.initialize();
+      albumSvc = ServiceContainer.instance.albumRelationshipService;
     });
 
     tearDown(() async {
       await fixture.tearDown();
+      await ServiceContainer.reset();
     });
 
     group('calculateOutputFileCount', () {
-      test('calculates correctly for shortcut option', () {
-        final file1 = fixture.createImageWithExif('photo1.jpg');
-        final file2 = fixture.createImageWithExif('photo2.jpg');
-        final file3 = fixture.createImageWithExif('photo3.jpg');
+      test('calculates correctly for shortcut option (keeping 4)', () async {
+        // A: year-only → 1 association
+        final eA = await _yearOnly(
+          path: '2023/photo1.jpg',
+          bytes: [1, 1, 1],
+        );
 
-        final entities = [
-          MediaEntity.single(file: file1),
-          MediaEntity(
-            files: MediaFilesCollection.fromMap({
-              'vacation': file2,
-              'family': file2,
-            }),
-          ),
-          MediaEntity.single(file: file3),
-        ];
+        // B: two albums (no year) → 2 associations
+        final bytesB = [2, 2, 2];
+        final fB1 = fixture.createFile(
+          'Albums/vacation/photo2.jpg',
+          Uint8List.fromList(bytesB),
+        );
+        final fB2 = fixture.createFile(
+          'Albums/family/photo2.jpg',
+          Uint8List.fromList(bytesB),
+        );
+        final mergedB = await albumSvc.detectAndMergeAlbums([
+          MediaEntity.single(file: fB1),
+          MediaEntity.single(file: fB2),
+        ]);
+        final eB = mergedB.single;
 
-        final collection = MediaEntityCollection(entities);
+        // C: year-only → 1 association
+        final eC = await _yearOnly(
+          path: '2023/photo3.jpg',
+          bytes: [3, 3, 3],
+        );
+
+        final collection = MediaEntityCollection([eA, eB, eC]);
         final result = service.calculateOutputFileCount(collection, 'shortcut');
 
-        // Should count all file associations: 1 + 2 + 1 = 4
+        // 1 + 2 + 1 = 4
         expect(result, equals(4));
       });
 
-      test('calculates correctly for duplicate-copy option', () {
-        final file1 = fixture.createImageWithExif('photo1.jpg');
-        final file2 = fixture.createImageWithExif('photo2.jpg');
-
-        final entities = [
-          MediaEntity.single(file: file1),
-          MediaEntity(
-            files: MediaFilesCollection.fromMap({
-              'vacation': file2,
-              'family': file2,
-            }),
-          ),
-        ];
-
-        final collection = MediaEntityCollection(entities);
-        final result = service.calculateOutputFileCount(
-          collection,
-          'duplicate-copy',
+      test('calculates correctly for duplicate-copy option', () async {
+        // A: year-only → 1
+        final eA = await _yearOnly(
+          path: '2023/photo1.jpg',
+          bytes: [4, 4, 4],
         );
 
-        // Should count all file associations: 1 + 2 = 3
+        // B: two albums (no year) → 2
+        final bytesB = [5, 5, 5];
+        final fB1 = fixture.createFile(
+          'Albums/vacation/photo2.jpg',
+          Uint8List.fromList(bytesB),
+        );
+        final fB2 = fixture.createFile(
+          'Albums/family/photo2.jpg',
+          Uint8List.fromList(bytesB),
+        );
+        final eB = (await albumSvc.detectAndMergeAlbums([
+          MediaEntity.single(file: fB1),
+          MediaEntity.single(file: fB2),
+        ])).single;
+
+        final collection = MediaEntityCollection([eA, eB]);
+        final result = service.calculateOutputFileCount(collection, 'duplicate-copy');
+
+        // 1 + 2 = 3
         expect(result, equals(3));
       });
 
-      test('calculates correctly for reverse-shortcut option', () {
-        final file1 = fixture.createImageWithExif('photo1.jpg');
-        final file2 = fixture.createImageWithExif('photo2.jpg');
-
-        final entities = [
-          MediaEntity.single(file: file1),
-          MediaEntity(
-            files: MediaFilesCollection.fromMap({
-              'vacation': file2,
-              'family': file2,
-            }),
-          ),
-        ];
-
-        final collection = MediaEntityCollection(entities);
-        final result = service.calculateOutputFileCount(
-          collection,
-          'reverse-shortcut',
+      test('calculates correctly for reverse-shortcut option', () async {
+        // Same as previous: 1 + 2 = 3
+        final eA = await _yearOnly(
+          path: '2023/photo1.jpg',
+          bytes: [6, 6, 6],
         );
+        final bytesB = [7, 7, 7];
+        final fB1 = fixture.createFile(
+          'Albums/vacation/photo2.jpg',
+          Uint8List.fromList(bytesB),
+        );
+        final fB2 = fixture.createFile(
+          'Albums/family/photo2.jpg',
+          Uint8List.fromList(bytesB),
+        );
+        final eB = (await albumSvc.detectAndMergeAlbums([
+          MediaEntity.single(file: fB1),
+          MediaEntity.single(file: fB2),
+        ])).single;
 
-        // Should count all file associations: 1 + 2 = 3
+        final collection = MediaEntityCollection([eA, eB]);
+        final result =
+            service.calculateOutputFileCount(collection, 'reverse-shortcut');
+
         expect(result, equals(3));
       });
 
-      test('calculates correctly for json option', () {
-        final file1 = fixture.createImageWithExif('photo1.jpg');
-        final file2 = fixture.createImageWithExif('photo2.jpg');
-        final file3 = fixture.createImageWithExif('photo3.jpg');
+      test('calculates correctly for json option', () async {
+        // JSON counts one per entity
+        final eA = await _yearOnly(path: '2023/photo1.jpg', bytes: [8]);
+        final bytesB = [9];
+        final fB1 = fixture.createFile(
+          'Albums/vacation/photo2.jpg',
+          Uint8List.fromList(bytesB),
+        );
+        final fB2 = fixture.createFile(
+          'Albums/family/photo2.jpg',
+          Uint8List.fromList(bytesB),
+        );
+        final eB = (await albumSvc.detectAndMergeAlbums([
+          MediaEntity.single(file: fB1),
+          MediaEntity.single(file: fB2),
+        ])).single;
+        final eC = await _yearOnly(path: '2023/photo3.jpg', bytes: [10]);
 
-        final entities = [
-          MediaEntity.single(file: file1),
-          MediaEntity(
-            files: MediaFilesCollection.fromMap({
-              'vacation': file2,
-              'family': file2,
-            }),
-          ),
-          MediaEntity.single(file: file3),
-        ];
-
-        final collection = MediaEntityCollection(entities);
+        final collection = MediaEntityCollection([eA, eB, eC]);
         final result = service.calculateOutputFileCount(collection, 'json');
 
-        // Should count one per media entity: 3
+        // 3 entities
         expect(result, equals(3));
       });
 
-      test('calculates correctly for nothing option', () {
-        final file1 = fixture.createImageWithExif('photo1.jpg');
-        final file2 = fixture.createImageWithExif('photo2.jpg');
+      test('calculates correctly for nothing option', () async {
+        final eA = await _yearOnly(path: '2023/photo1.jpg', bytes: [11]);
+        final eB = await _yearOnly(path: '2023/photo2.jpg', bytes: [12]);
 
-        final entities = [
-          MediaEntity.single(file: file1),
-          MediaEntity.single(file: file2),
-        ];
-
-        final collection = MediaEntityCollection(entities);
+        final collection = MediaEntityCollection([eA, eB]);
         final result = service.calculateOutputFileCount(collection, 'nothing');
 
-        // Should count media with files: 2
         expect(result, equals(2));
       });
 
-      test('throws for invalid album option', () {
-        final file = fixture.createImageWithExif('photo.jpg');
-        final entities = [MediaEntity.single(file: file)];
-        final collection = MediaEntityCollection(entities);
+      test('throws for invalid album option', () async {
+        final e = await _yearOnly(path: '2023/photo.jpg', bytes: [13]);
+        final collection = MediaEntityCollection([e]);
 
         expect(
           () => service.calculateOutputFileCount(collection, 'invalid-option'),
@@ -147,47 +219,48 @@ void main() {
 
       test('handles empty collection', () {
         final collection = MediaEntityCollection([]);
-
-        expect(
-          service.calculateOutputFileCount(collection, 'shortcut'),
-          equals(0),
-        );
-        expect(service.calculateOutputFileCount(collection, 'json'), equals(0));
-        expect(
-          service.calculateOutputFileCount(collection, 'nothing'),
-          equals(0),
-        );
+        expect(service.calculateOutputFileCount(collection, 'shortcut'), 0);
+        expect(service.calculateOutputFileCount(collection, 'json'), 0);
+        expect(service.calculateOutputFileCount(collection, 'nothing'), 0);
       });
     });
 
     group('calculateStatistics', () {
-      test('calculates basic statistics correctly', () {
-        final file1 = fixture.createImageWithExif('photo1.jpg');
-        final file2 = fixture.createImageWithExif('photo2.jpg');
-        final file3 = fixture.createImageWithExif('photo3.jpg');
+      test('calculates basic statistics correctly', () async {
+        // e1: has date
+        final e1 = await _yearOnly(
+          path: '2023/photo1.jpg',
+          bytes: [21],
+          date: DateTime(2023),
+        );
 
-        final entities = [
-          MediaEntity.single(file: file1, dateTaken: DateTime(2023)),
-          MediaEntity(
-            files: MediaFilesCollection.fromMap({'vacation': file2}),
-            dateTaken: DateTime(2023, 2),
-          ),
-          MediaEntity.single(file: file3), // No date
-        ];
+        // e2: album-only (one album), also has date
+        final e2 = await _albumOnly(
+          album: 'vacation',
+          name: 'photo2.jpg',
+          bytes: [22],
+          date: DateTime(2023, 2),
+        );
 
-        final collection = MediaEntityCollection(entities);
+        // e3: no date
+        final e3 = await _yearOnly(
+          path: '2023/photo3.jpg',
+          bytes: [23],
+        );
+
+        final collection = MediaEntityCollection([e1, e2, e3]);
         final stats = service.calculateStatistics(collection);
 
         expect(stats['totalMedia'], equals(3));
         expect(stats['mediaWithDates'], equals(2));
         expect(stats['mediaWithAlbums'], equals(1));
+        // totalFiles: e1 (1) + e2 (1, album-only) + e3 (1) = 3
         expect(stats['totalFiles'], equals(3));
       });
 
-      test('includes output counts for all album options', () {
-        final file = fixture.createImageWithExif('photo.jpg');
-        final entities = [MediaEntity.single(file: file)];
-        final collection = MediaEntityCollection(entities);
+      test('includes output counts for all album options', () async {
+        final e = await _yearOnly(path: '2023/photo.jpg', bytes: [24]);
+        final collection = MediaEntityCollection([e]);
 
         final stats = service.calculateStatistics(collection);
         expect(stats.containsKey('outputCount_shortcut'), isTrue);
@@ -195,7 +268,6 @@ void main() {
         expect(stats.containsKey('outputCount_json'), isTrue);
         expect(stats.containsKey('outputCount_nothing'), isTrue);
 
-        // All should be 1 for a single media with one file
         expect(stats['outputCount_shortcut'], equals(1));
         expect(stats['outputCount_duplicate-copy'], equals(1));
         expect(stats['outputCount_json'], equals(1));
@@ -214,57 +286,74 @@ void main() {
         expect(stats['outputCount_json'], equals(0));
       });
 
-      test('correctly identifies media with albums', () {
-        final file1 = fixture.createImageWithExif('photo1.jpg');
-        final file2 = fixture.createImageWithExif('photo2.jpg');
-        final file3 = fixture.createImageWithExif('photo3.jpg');
+      test('correctly identifies media with albums', () async {
+        // e1: year-only → 1
+        final e1 = await _yearOnly(path: '2023/p1.jpg', bytes: [31]);
 
-        final entities = [
-          MediaEntity.single(file: file1), // No albums
-          MediaEntity(
-            files: MediaFilesCollection.fromMap({'vacation': file2}),
-          ), // Has album
-          MediaEntity(
-            files: MediaFilesCollection.fromMap({
-              'family': file3,
-              'work': file3,
-            }),
-          ), // Has multiple albums
-        ];
+        // e2: album-only (vacation) → 1
+        final e2 = await _albumOnly(
+          album: 'vacation',
+          name: 'p2.jpg',
+          bytes: [32],
+        );
 
-        final collection = MediaEntityCollection(entities);
+        // e3: two albums (family + work), no year → 2
+        final bytesE3 = [33];
+        final f1 = fixture.createFile(
+          'Albums/family/p3.jpg',
+          Uint8List.fromList(bytesE3),
+        );
+        final f2 = fixture.createFile(
+          'Albums/work/p3.jpg',
+          Uint8List.fromList(bytesE3),
+        );
+        final e3 = (await albumSvc.detectAndMergeAlbums([
+          MediaEntity.single(file: f1),
+          MediaEntity.single(file: f2),
+        ])).single;
+
+        final collection = MediaEntityCollection([e1, e2, e3]);
         final stats = service.calculateStatistics(collection);
 
-        expect(stats['mediaWithAlbums'], equals(2));
+        expect(stats['mediaWithAlbums'], equals(2)); // e2 + e3
         expect(stats['totalFiles'], equals(4)); // 1 + 1 + 2
       });
 
-      test('counts total files correctly with multiple associations', () {
-        final file1 = fixture.createImageWithExif('photo1.jpg');
-        final file2 = fixture.createImageWithExif('photo2.jpg');
+      test('counts total files correctly with multiple associations', () async {
+        // e1: year + 1 album → 2
+        final e1 = await _yearPlusAlbums(
+          yearPath: '2023/p1.jpg',
+          name: 'p1.jpg',
+          albums: ['vacation'],
+          bytes: [41],
+        );
 
-        final entities = [
-          MediaEntity(
-            files: MediaFilesCollection.fromMap({
-              null: file1, // Year-based
-              'vacation': file1, // Album copy
-            }),
-          ),
-          MediaEntity(
-            files: MediaFilesCollection.fromMap({
-              'family': file2,
-              'work': file2,
-              'personal': file2,
-            }),
-          ),
-        ];
+        // e2: 3 albums (no year) → 3
+        final bytesE2 = [42];
+        final a = fixture.createFile(
+          'Albums/family/p2.jpg',
+          Uint8List.fromList(bytesE2),
+        );
+        final b = fixture.createFile(
+          'Albums/work/p2.jpg',
+          Uint8List.fromList(bytesE2),
+        );
+        final c = fixture.createFile(
+          'Albums/personal/p2.jpg',
+          Uint8List.fromList(bytesE2),
+        );
+        final e2 = (await albumSvc.detectAndMergeAlbums([
+          MediaEntity.single(file: a),
+          MediaEntity.single(file: b),
+          MediaEntity.single(file: c),
+        ])).single;
 
-        final collection = MediaEntityCollection(entities);
+        final collection = MediaEntityCollection([e1, e2]);
         final stats = service.calculateStatistics(collection);
 
         expect(stats['totalFiles'], equals(5)); // 2 + 3
         expect(stats['outputCount_shortcut'], equals(5));
-        expect(stats['outputCount_json'], equals(2)); // One per media entity
+        expect(stats['outputCount_json'], equals(2)); // one per entity
       });
     });
   });

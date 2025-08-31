@@ -22,12 +22,15 @@ void main() {
     late SymlinkService symlinkService;
     late Directory outputDir;
     late MovingContext context;
+    late AlbumRelationshipService albumSvc;
+
     setUp(() async {
       fixture = TestFixture();
       await fixture.setUp();
 
       // Initialize ServiceContainer
       await ServiceContainer.instance.initialize();
+      albumSvc = ServiceContainer.instance.albumRelationshipService;
 
       fileService = FileOperationService();
       pathService = PathGeneratorService();
@@ -110,33 +113,28 @@ void main() {
       });
 
       test('moves file to ALL_PHOTOS and creates album shortcuts', () async {
-        final sourceFile = fixture.createFile('test.jpg', [1, 2, 3]);
-        final entity = MediaEntity.fromMap(
-          files: {null: sourceFile, 'Vacation': sourceFile},
-          dateTaken: DateTime(2023, 6, 15),
-        );
+        // Mismo contenido en año y en álbum → tras merge habrá 1 entidad con albumNames=['Vacation']
+        final content = [1, 2, 3];
+        final yearFile = fixture.createFile('2023/test.jpg', content);
+        final albumFile = fixture.createFile('Albums/Vacation/test.jpg', content);
+
+        final merged = await albumSvc.detectAndMergeAlbums([
+          MediaEntity.single(file: yearFile, dateTaken: DateTime(2023, 6, 15)),
+          MediaEntity.single(file: albumFile, dateTaken: DateTime(2023, 6, 15)),
+        ]);
+        final entity = merged.single;
 
         final results = <MediaEntityMovingResult>[];
-        await for (final result in strategy.processMediaEntity(
-          entity,
-          context,
-        )) {
-          results.add(result);
+        await for (final r in strategy.processMediaEntity(entity, context)) {
+          results.add(r);
         }
 
-        expect(results.length, equals(2)); // Move + shortcut
+        expect(results.length, equals(2)); // Move + symlink
         expect(results[0].success, isTrue);
-        expect(
-          results[0].operation.operationType,
-          equals(MediaEntityOperationType.move),
-        );
+        expect(results[0].operation.operationType, equals(MediaEntityOperationType.move));
         expect(results[1].success, isTrue);
-        expect(
-          results[1].operation.operationType,
-          equals(MediaEntityOperationType.createSymlink),
-        );
+        expect(results[1].operation.operationType, equals(MediaEntityOperationType.createSymlink));
 
-        // Verify file was moved to ALL_PHOTOS
         final allPhotosPath = p.join(outputDir.path, 'ALL_PHOTOS', '2023');
         expect(Directory(allPhotosPath).existsSync(), isTrue);
       });
@@ -149,19 +147,13 @@ void main() {
         );
 
         final results = <MediaEntityMovingResult>[];
-        await for (final result in strategy.processMediaEntity(
-          entity,
-          context,
-        )) {
-          results.add(result);
+        await for (final r in strategy.processMediaEntity(entity, context)) {
+          results.add(r);
         }
 
-        expect(results.length, equals(1)); // Only move operation
+        expect(results.length, equals(1)); // Only move
         expect(results[0].success, isTrue);
-        expect(
-          results[0].operation.operationType,
-          equals(MediaEntityOperationType.move),
-        );
+        expect(results[0].operation.operationType, equals(MediaEntityOperationType.move));
       });
     });
 
@@ -173,33 +165,27 @@ void main() {
       });
 
       test('moves file to ALL_PHOTOS and copies to album folders', () async {
-        final sourceFile = fixture.createFile('test.jpg', [1, 2, 3]);
-        final entity = MediaEntity.fromMap(
-          files: {null: sourceFile, 'Vacation': sourceFile},
-          dateTaken: DateTime(2023, 6, 15),
-        );
+        final content = [1, 2, 3];
+        final yearFile = fixture.createFile('2023/test.jpg', content);
+        final albumFile = fixture.createFile('Albums/Vacation/test.jpg', content);
+
+        final merged = await albumSvc.detectAndMergeAlbums([
+          MediaEntity.single(file: yearFile, dateTaken: DateTime(2023, 6, 15)),
+          MediaEntity.single(file: albumFile, dateTaken: DateTime(2023, 6, 15)),
+        ]);
+        final entity = merged.single;
 
         final results = <MediaEntityMovingResult>[];
-        await for (final result in strategy.processMediaEntity(
-          entity,
-          context,
-        )) {
-          results.add(result);
+        await for (final r in strategy.processMediaEntity(entity, context)) {
+          results.add(r);
         }
 
         expect(results.length, equals(2)); // Move + copy
         expect(results[0].success, isTrue);
-        expect(
-          results[0].operation.operationType,
-          equals(MediaEntityOperationType.move),
-        );
+        expect(results[0].operation.operationType, equals(MediaEntityOperationType.move));
         expect(results[1].success, isTrue);
-        expect(
-          results[1].operation.operationType,
-          equals(MediaEntityOperationType.copy),
-        );
+        expect(results[1].operation.operationType, equals(MediaEntityOperationType.copy));
 
-        // Verify files exist in both locations
         final allPhotosPath = p.join(outputDir.path, 'ALL_PHOTOS', '2023');
         final albumPath = p.join(outputDir.path, 'Vacation');
         expect(Directory(allPhotosPath).existsSync(), isTrue);
@@ -215,32 +201,31 @@ void main() {
       });
 
       test('moves files to ALL_PHOTOS and creates albums-info.json', () async {
-        final sourceFile1 = fixture.createFile('test1.jpg', [1, 2, 3]);
-        final sourceFile2 = fixture.createFile('test2.jpg', [4, 5, 6]);
+        // Entidad 1: año + álbum Vacation
+        final c1 = [1, 2, 3];
+        final y1 = fixture.createFile('2023/test1.jpg', c1);
+        final a1 = fixture.createFile('Albums/Vacation/test1.jpg', c1);
 
-        final entity1 = MediaEntity.fromMap(
-          files: {null: sourceFile1, 'Vacation': sourceFile1},
-          dateTaken: DateTime(2023, 6, 15),
-        );
-        final entity2 = MediaEntity.fromMap(
-          files: {null: sourceFile2, 'Family': sourceFile2},
-          dateTaken: DateTime(2023, 7, 20),
-        );
+        // Entidad 2: año + álbum Family
+        final c2 = [4, 5, 6];
+        final y2 = fixture.createFile('2023/test2.jpg', c2);
+        final a2 = fixture.createFile('Albums/Family/test2.jpg', c2);
 
+        final merged = await albumSvc.detectAndMergeAlbums([
+          MediaEntity.single(file: y1, dateTaken: DateTime(2023, 6, 15)),
+          MediaEntity.single(file: a1, dateTaken: DateTime(2023, 6, 15)),
+          MediaEntity.single(file: y2, dateTaken: DateTime(2023, 7, 20)),
+          MediaEntity.single(file: a2, dateTaken: DateTime(2023, 7, 20)),
+        ]);
+
+        // Procesa ambas entidades fusionadas
         final results1 = <MediaEntityMovingResult>[];
-        await for (final result in strategy.processMediaEntity(
-          entity1,
-          context,
-        )) {
-          results1.add(result);
+        await for (final r in strategy.processMediaEntity(merged[0], context)) {
+          results1.add(r);
         }
-
         final results2 = <MediaEntityMovingResult>[];
-        await for (final result in strategy.processMediaEntity(
-          entity2,
-          context,
-        )) {
-          results2.add(result);
+        await for (final r in strategy.processMediaEntity(merged[1], context)) {
+          results2.add(r);
         }
 
         expect(results1.length, equals(1));
@@ -248,20 +233,14 @@ void main() {
         expect(results1[0].success, isTrue);
         expect(results2[0].success, isTrue);
 
-        // Finalize to create JSON
-        final finalizationResults = await strategy.finalize(context, [
-          entity1,
-          entity2,
-        ]);
-
+        // Finaliza para crear el JSON
+        final finalizationResults = await strategy.finalize(context, merged);
         expect(finalizationResults.length, equals(1));
         expect(finalizationResults[0].success, isTrue);
 
-        // Verify albums-info.json was created
         final jsonFile = File(p.join(outputDir.path, 'albums-info.json'));
         expect(jsonFile.existsSync(), isTrue);
 
-        // Verify JSON content
         final jsonContent = await jsonFile.readAsString();
         final albumData = jsonDecode(jsonContent) as Map<String, dynamic>;
         expect(albumData['albums'], isA<Map<String, dynamic>>());
@@ -284,44 +263,31 @@ void main() {
         );
 
         final results = <MediaEntityMovingResult>[];
-        await for (final result in strategy.processMediaEntity(
-          entity,
-          context,
-        )) {
-          results.add(result);
+        await for (final r in strategy.processMediaEntity(entity, context)) {
+          results.add(r);
         }
 
         expect(results.length, equals(1));
         expect(results[0].success, isTrue);
-        expect(
-          results[0].operation.operationType,
-          equals(MediaEntityOperationType.move),
-        );
+        expect(results[0].operation.operationType, equals(MediaEntityOperationType.move));
       });
+
       test('processes album-only files (fixed behavior)', () async {
-        final sourceFile = fixture.createFile('test.jpg', [1, 2, 3]);
-        final entity = MediaEntity.fromMap(
-          files: {'Vacation': sourceFile}, // No null key = album-only
+        // Solo existe en álbum → debe procesarlo igualmente (move)
+        final albumOnly = fixture.createFile('Albums/Vacation/test.jpg', [1, 2, 3]);
+        final entity = MediaEntity.single(
+          file: albumOnly,
           dateTaken: DateTime(2023, 6, 15),
         );
 
         final results = <MediaEntityMovingResult>[];
-        await for (final result in strategy.processMediaEntity(
-          entity,
-          context,
-        )) {
-          results.add(result);
+        await for (final r in strategy.processMediaEntity(entity, context)) {
+          results.add(r);
         }
 
-        expect(
-          results.length,
-          equals(1),
-        ); // Should now process album-only files
+        expect(results.length, equals(1));
         expect(results[0].success, isTrue);
-        expect(
-          results[0].operation.operationType,
-          equals(MediaEntityOperationType.move),
-        );
+        expect(results[0].operation.operationType, equals(MediaEntityOperationType.move));
       });
     });
 
@@ -336,14 +302,11 @@ void main() {
         for (final behavior in AlbumBehavior.values) {
           final strategy = factory.createStrategy(behavior);
           expect(strategy, isA<MediaEntityMovingStrategy>());
-
-          // Should not throw
           expect(() => strategy.validateContext(context), returnsNormally);
         }
       });
 
       test('strategies handle file operation errors gracefully', () async {
-        // Create a strategy with a non-existent source file
         final strategy = ShortcutMovingStrategy(
           fileService,
           pathService,
@@ -357,19 +320,13 @@ void main() {
         );
 
         final results = <MediaEntityMovingResult>[];
-        await for (final result in strategy.processMediaEntity(
-          entity,
-          context,
-        )) {
-          results.add(result);
+        await for (final r in strategy.processMediaEntity(entity, context)) {
+          results.add(r);
         }
 
         expect(results.length, equals(1));
         expect(results[0].success, isFalse);
-        expect(
-          results[0].errorMessage,
-          contains('Failed to move primary file'),
-        );
+        expect(results[0].errorMessage, contains('Failed to move primary file'));
       });
     });
   });
