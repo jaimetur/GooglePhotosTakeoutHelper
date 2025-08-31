@@ -378,8 +378,7 @@ jobs:
         with:
           tag_name: v${{ env.TOOL_VERSION }}
           name: v${{ env.TOOL_VERSION }}
-          # target_commitish: main
-          discussion_category_name: Announcements
+          # discussion_category_name: Announcements  # Uncomment if you want to create discussion when stable release is created
           draft: false
           prerelease: false
           make_latest: true
