@@ -1,7 +1,7 @@
-name: ▶️ Build Binaries for Multiple Platforms and Docker Image
+name: ▶️ Build Binaries and Create Release
 
 on:
-  # ──────────────── 1) Disparador manual desde GitHub Actions ────────────────
+  # ───────────────── 1) Manual trigger from GitHub Actions ─────────────────
   workflow_dispatch:
     inputs:
       final_release:
@@ -40,18 +40,15 @@ on:
         required: true
         default: true
 
-  # ──────────────── 2) Disparador automático por push ──────────────────────
-  #  push:                   # Ejecución tras push en main, excepto en los path-ignore
+  # ─────────────────── 2) Automatic trigger by push ────────────────────────
+  #  push:                   # Execute after push on mmaster, except on path-ignore
   #    branches:
-  #      - main
+  #      - master
   #    paths-ignore:
-  #      - '_built_versions/**'  # Ignore any changes in _built_versions
   #      - .gitignore
-  #      - gpth*/**
-  #      - exif*/**
   #      - .idea/**
 
-  # ──────────────── 3) Disparador automático por cron ──────────────────────
+  # ────────────────── 3) Scheduled trigger by cron ─────────────────────────
   #  schedule:
   #    - cron: '0 2 * * *' # Ejecución diaria a las 2 AM UTC
   # ─────────────────────────────────────────────────────────────────────────
@@ -68,7 +65,7 @@ jobs:
     steps:
       - id: matrix
         run: |
-          echo "⚙️ Preparando matriz dinámica..."
+          echo "⚙️ Generating dynamic matrix..."
 
           EVENT_NAME="${{ github.event_name }}"
 
@@ -82,7 +79,7 @@ jobs:
             windows_arm64=${{ toJSON(github.event.inputs.windows_arm64) }}
 
           else
-            echo "⏰ Disparo programado (cron) o 📦 Disparo por commit"
+            echo "⏰ Scheduled trigger (cron) or 📦 Per commit trigger"
             linux_x64="true"
             linux_arm64="true"
             macos_x64="true"
@@ -105,10 +102,10 @@ jobs:
             exit 1
           fi
 
-          # Convertir a array JSON real y limpio
+          # Converts to real and clean JSON array
           OS_JSON=$(printf '%s\n' "${OS_LIST[@]}" | jq -R . | jq -s .)
 
-          # Construir JSON compacto final
+          # Build final compact JSON
           MATRIX=$(jq -nc \
             --argjson os "${OS_JSON}" \
             --arg compiler ${compiler} \
@@ -117,15 +114,15 @@ jobs:
             --arg python ${python} \
             '{os: $os, compiler: [$compiler], compilation_mode: [$compilation_mode], build_mode: [$build_mode], python: [$python]}')
 
-          echo "✅ Matriz generada:"
+          echo "✅ Generated Matrix:"
           echo "$MATRIX"
           echo ""
-          echo "📋 Desglose de Inputs:"
+          echo "📋 Inputs:"
           echo "  🏁 Final-Release    : ${{ github.event.inputs.final_release }}"
           echo "  🌿 Branch           : ${{ github.ref_name }}"
           echo "  📦 OS               : $(echo "$MATRIX" | jq -r '.os | join(", ")')"
 
-          # Exportar en una sola línea (obligatorio)
+          # Export a single line (mandatory)
           echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
 
 
