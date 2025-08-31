@@ -127,7 +127,7 @@ linter:
     - valid_regexps
 analyzer:
   errors:
-    prefer_relative_imports: ignore ignore
+    prefer_relative_imports: 'ignore'
   exclude:
     - "**/*.g.dart"
     - "**/*.freezed.dart"

@@ -113,11 +113,11 @@ class ProcessingResult {
     final minutes = d.inMinutes.remainder(60);
     final seconds = d.inSeconds.remainder(60);
 
-    final duration_pretty = '${hours}h '
+    final durationPretty = '${hours}h '
                '${minutes.toString().padLeft(2, '0')}m '
                '${seconds.toString().padLeft(2, '0')}s';
 
-    buffer.writeln('\nIn total the script took $duration_pretty to complete');
+    buffer.writeln('\nIn total the script took $durationPretty to complete');
 
     return buffer.toString();
   }

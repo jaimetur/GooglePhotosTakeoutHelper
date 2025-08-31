@@ -116,7 +116,7 @@ class GlobalConfigService {
       final v = overrides['fileDatesDictionary'];
       if (v is Map<String, dynamic>) {
         // Best-effort cast; the writer only reads the expected shape.
-        fileDatesDictionary = v.map((k, val) => MapEntry(k, (val is Map<String, dynamic>) ? val : <String, dynamic>{}));
+        fileDatesDictionary = v.map((final k, final val) => MapEntry(k, (val is Map<String, dynamic>) ? val : <String, dynamic>{}));
       }
     }
   }

@@ -61,11 +61,6 @@ class DuplicateCopyMovingStrategy extends MediaEntityMovingStrategy {
           albumDirs[albumName] = dir;
         }
 
-        final originalPathLower = originalPrimaryFile.path.toLowerCase();
-        final isInsideAlbum = albumDirs.values.any(
-          (final d) => originalPathLower.startsWith(d.path.toLowerCase()),
-        );
-
         // Regular flow: move (rename) into ALL_PHOTOS (if already there rename handles uniqueness)
         canonicalFile = await _fileService.moveFile(
           originalPrimaryFile,

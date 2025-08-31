@@ -50,7 +50,7 @@ void main() {
       required String name,
       required List<String> albums,
       required List<int> bytes,
-      DateTime? date,
+      final DateTime? date,
     }) async {
       final entities = <MediaEntity>[];
       final fYear = fixture.createFile(yearPath, Uint8List.fromList(bytes));

@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:gpth/gpth-lib.dart';
 
 /// Shortcut moving strategy implementation
@@ -154,8 +153,3 @@ class ShortcutMovingStrategy extends MediaEntityMovingStrategy {
   }
 }
 
-class _RelInfo {
-  const _RelInfo({required this.relativeDir, required this.hint});
-  final String relativeDir;
-  final String hint;
-}

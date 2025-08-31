@@ -28,13 +28,13 @@ class InputCloneService with LoggerMixin {
     // Compute destination path next to the original folder
     final String baseName = p.basename(resolvedSrc.path);
     final String parent = p.dirname(resolvedSrc.path);
-    String candidate = p.join(parent, '${baseName}${suffix}');
+    String candidate = p.join(parent, '$baseName$suffix');
 
     // Avoid copying into itself, and pick a unique destination
     int attempt = 1;
     while (p.equals(candidate, resolvedSrc.path) || await Directory(candidate).exists()) {
       attempt++;
-      candidate = p.join(parent, '${baseName}${suffix}${attempt}');
+      candidate = p.join(parent, '$baseName$suffix$attempt');
     }
     final Directory dst = Directory(candidate);
 

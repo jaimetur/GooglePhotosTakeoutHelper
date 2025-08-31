@@ -177,9 +177,3 @@ class JsonMovingStrategy extends MediaEntityMovingStrategy {
   }
 }
 
-// Kept for backward-compat (comment and type), though not used anymore in the no-op helper.
-class _RelInfo {
-  const _RelInfo({required this.relativeDir, required this.hint});
-  final String relativeDir;
-  final String hint;
-}

@@ -48,7 +48,7 @@ class ProcessingConfig {
     this.dividePartnerShared = false,
     this.keepInput = false, // keep the original input untouched by working on a temporary copy
     this.inputExtractedFromZip = false, // If the input have been extracted from ZIP it will be set to true
-    String? userInputRoot, // NEW: original root folder selected/provided by the user
+    final String? userInputRoot, // NEW: original root folder selected/provided by the user
   }) : userInputRoot = userInputRoot ?? inputPath;
 
   /// Creates a builder for configuring ProcessingConfig

@@ -855,7 +855,7 @@ Future<ProcessingResult> _executeProcessing(
   Directory effectiveInputDir = inputDir;
 
   if (shouldClone) {
-    _logger.info('Creating input clone as working copy because keepInput = ${config.keepInput} and input does not come from ZIP extraction (inputExtractedFromZip = ${inputExtractedFromZipFlag}).', forcePrint: true);
+    _logger.info('Creating input clone as working copy because keepInput = ${config.keepInput} and input does not come from ZIP extraction (inputExtractedFromZip = $inputExtractedFromZipFlag).', forcePrint: true);
     final cloner = InputCloneService();
     // Clone the **original user root**, not the already resolved Google Photos subfolder
     final Directory clonedRoot = await cloner.cloneToSiblingTmp(Directory(effectiveUserRoot));
@@ -868,9 +868,9 @@ Future<ProcessingResult> _executeProcessing(
     _logger.info('Effective input inside clone: $resolvedInsideClone');
   } else if (config.keepInput && inputExtractedFromZipFlag) {
     // Explicit message explaining why we skip clone
-    _logger.info('Skipping clone inputSir because input comes from ZIP extraction (inputExtractedFromZip = ${inputExtractedFromZipFlag}).', forcePrint: true);
+    _logger.info('Skipping clone inputSir because input comes from ZIP extraction (inputExtractedFromZip = $inputExtractedFromZipFlag).', forcePrint: true);
   } else {
-    _logger.info('Skipping clone inputSir (keepInput = ${config.keepInput}, inputExtractedFromZip = ${inputExtractedFromZipFlag}).', forcePrint: true);
+    _logger.info('Skipping clone inputSir (keepInput = ${config.keepInput}, inputExtractedFromZip = $inputExtractedFromZipFlag).', forcePrint: true);
   }
 
   // IMPORTANT: from here on, use a runtimeConfig that reflects the effective input dir
@@ -1037,12 +1037,12 @@ void _showResults(
     final minutes = d.inMinutes.remainder(60);
     final seconds = d.inSeconds.remainder(60);
 
-    final duration_pretty = '${hours}h '
+    final durationPretty = '${hours}h '
                '${minutes.toString().padLeft(2, '0')}m '
                '${seconds.toString().padLeft(2, '0')}s';
 
   print('');
-  print('In total GPTH took $duration_pretty to complete');
+  print('In total GPTH took $durationPretty to complete');
 
   print('=' * barWidth);
 

@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:gpth/gpth-lib.dart';
 
 /// Nothing moving strategy implementation
@@ -101,9 +100,3 @@ class NothingMovingStrategy extends MediaEntityMovingStrategy {
   }
 }
 
-// Kept for backward-compat (comment/type), though not used anymore in the no-op helper.
-class _RelInfo {
-  const _RelInfo({required this.relativeDir, required this.hint});
-  final String relativeDir;
-  final String hint;
-}

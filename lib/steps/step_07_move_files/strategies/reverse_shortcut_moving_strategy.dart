@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:gpth/gpth-lib.dart';
 
 /// Reverse shortcut moving strategy implementation
@@ -250,36 +249,5 @@ class ReverseShortcutMovingStrategy extends MediaEntityMovingStrategy {
     // no-op by design in the new pipeline
     return;
   }
-
-  _RelInfo _computeDuplicatesRelativeInfo(final String sourcePath) {
-    final normalized = sourcePath.replaceAll('\\', '/');
-    final lower = normalized.toLowerCase();
-
-    final idxTakeout = lower.indexOf('/takeout/');
-    if (idxTakeout >= 0) {
-      final rel = normalized.substring(idxTakeout + '/takeout/'.length);
-      final relDir = rel.contains('/') ? rel.substring(0, rel.lastIndexOf('/')) : '';
-      return _RelInfo(relativeDir: relDir.isEmpty ? '.' : relDir, hint: 'anchored by /Takeout/');
-    }
-
-    for (final anchor in const ['/google fotos/', '/google photos/']) {
-      final idx = lower.indexOf(anchor);
-      if (idx >= 0) {
-        final rel = normalized.substring(idx + anchor.length);
-        final relDir = rel.contains('/') ? rel.substring(0, rel.lastIndexOf('/')) : '';
-        return _RelInfo(relativeDir: relDir.isEmpty ? '.' : relDir, hint: 'anchored by $anchor');
-      }
-    }
-
-    final lastSlash = normalized.lastIndexOf('/');
-    final parent = lastSlash >= 0 ? normalized.substring(0, lastSlash) : '';
-    final leaf = parent.isEmpty ? 'Uncategorized' : parent.split('/').last;
-    return _RelInfo(relativeDir: leaf, hint: 'fallback: no anchor found');
-  }
 }
 
-class _RelInfo {
-  const _RelInfo({required this.relativeDir, required this.hint});
-  final String relativeDir;
-  final String hint;
-}
