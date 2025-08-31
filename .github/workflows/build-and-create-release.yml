@@ -222,18 +222,6 @@ jobs:
           path: ./${{ steps.build_exe.outputs.outname }}
           if-no-files-found: error
 
-      - name: Get changelog
-        run: python scripts/get_changelog.py --version ${{ steps.version.outputs.version }} > ./RELEASE-NOTES.ms
-
-      - name: ⬆️ Upload RELEASE-NOTES.md as artifact
-        uses: actions/upload-artifact@v4
-        if: always()
-        continue-on-error: true
-        with:
-          name: RELEASE-NOTES.md
-          path: RELEASE-NOTES.md
-          overwrite: true
-
 #      - name: 🏷️ Create GH-Release
 #        uses: softprops/action-gh-release@v2.2.2
 #        with:
@@ -262,7 +250,7 @@ jobs:
         run: |
           echo "Final-Release: ${{ inputs.final_release }}"
 
-      - name: 🏷️ Extract TOOL_VERSION from GlobalVariables.py
+      - name: 🏷️ Extract TOOL_VERSION
         id: extract_version                   # Importante añadir el ID para que outputs pueda encontrar la variable
         run: |
           # 1️⃣ Obtenemos el valor sin la “v”
@@ -279,6 +267,18 @@ jobs:
           echo "tool_version=${TOOL_VERSION}" >> "$GITHUB_OUTPUT"
           
           echo "✅ TOOL_VERSION = ${TOOL_VERSION}"
+
+      - name: Get changelog
+        run: python scripts/get_changelog.py --version ${{ steps.version.outputs.version }} > ./RELEASE-NOTES.ms
+
+      - name: ⬆️ Upload RELEASE-NOTES.md as artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        continue-on-error: true
+        with:
+          name: RELEASE-NOTES.md
+          path: ./RELEASE-NOTES.md
+          overwrite: true
 
       - name: 🧼 Delete GitHub release, tag and associated discussion (only for stable releases)
         run: |
@@ -367,7 +367,7 @@ jobs:
       - name: 📥 Download Artifacts (Binaries Zips)
         uses: actions/download-artifact@v4
         with:
-          pattern: gpth*.zip
+          pattern: ${{ env.TOOL_VERSION }}*gpth*.zip
           path: ./release_files
           merge-multiple: true
 
