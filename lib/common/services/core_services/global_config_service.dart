@@ -26,6 +26,8 @@ class GlobalConfigService {
 
   // Seppeds up Step 5 by sending files by batches to ExifTool on evey ExifTool call
   bool enableBatching = true; // Disable this if you observe any abnormal dates in your output files.
+  int maxExifImageBatchSize = 1000;
+  int maxExifVideoBatchSize = 24;
 
   /// DatesDictionary passed as argument (if ussed flag --fileDates)
   Map<String, Map<String, dynamic>>? fileDatesDictionary;
@@ -41,8 +43,6 @@ class GlobalConfigService {
   //   sizes to avoid catastrophic batch failures (can be overridden via config).
   bool forceProcessUnsupportedFormats = false;
   bool silenceUnsupportedWarnings = true;
-  int maxExifImageBatchSize = 1000;
-  int maxExifVideoBatchSize = 24;
 
   /// Flag to indicate if we want to conserve all Duplicates found during Step 2
   /// and move them to _Duplicates subfolder within output folder.
