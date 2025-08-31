@@ -14,23 +14,23 @@ on:
         type: boolean
         required: true
         default: true
-      macos_x64:
-        description: "Include macos-x64 ?"
-        type: boolean
-        required: true
-        default: true
-      windows_x64:
-        description: "Include windows-x64 ?"
-        type: boolean
-        required: true
-        default: true
       linux_arm64:
         description: "Include linux-arm64 ?"
         type: boolean
         required: true
         default: true
+      macos_x64:
+        description: "Include macos-x64 ?"
+        type: boolean
+        required: true
+        default: true
       macos_arm64:
         description: "Include macos-arm64 ?"
+        type: boolean
+        required: true
+        default: true
+      windows_x64:
+        description: "Include windows-x64 ?"
         type: boolean
         required: true
         default: true
@@ -108,7 +108,7 @@ jobs:
           # Build final compact JSON
           MATRIX=$(jq -nc \
             --argjson os "${OS_JSON}" \
-            '{os: $os')
+            '{os: $os'})
 
           echo "✅ Generated Matrix:"
           echo "$MATRIX"
