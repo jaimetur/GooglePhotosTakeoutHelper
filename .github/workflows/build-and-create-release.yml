@@ -112,7 +112,7 @@ jobs:
             --arg compilation_mode ${compilation_mode} \
             --arg build_mode ${build_mode} \
             --arg python ${python} \
-            '{os: $os, compiler: [$compiler], compilation_mode: [$compilation_mode], build_mode: [$build_mode], python: [$python]}')
+            '{os: $os')
 
           echo "✅ Generated Matrix:"
           echo "$MATRIX"
