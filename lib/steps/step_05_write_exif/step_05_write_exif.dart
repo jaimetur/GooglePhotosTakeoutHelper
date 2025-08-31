@@ -172,9 +172,6 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
         return StepResult.success(stepName: name, duration: sw.elapsed, data: {'coordinatesWritten': 0, 'dateTimesWritten': 0, 'skipped': true}, message: 'EXIF writing skipped per configuration');
       }
 
-      // Visible progress bar (kept as before)
-      final progressBar = FillingBar(desc: 'Writing EXIF data', total: collection.length, width: 50);
-
       // Services
       final exifTool = ServiceContainer.instance.exifTool; // may be null
 
@@ -184,17 +181,20 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
         logWarning('[Step 5/8] ExifTool not available, writing EXIF data for native supported files only...', forcePrint: true);
         print('[Step 5/8] Starting EXIF data writing (native-only, no ExifTool) for ${collection.length} files');
       } else {
-        logInfo('Exiftool enabled using argument nativeOnly=false', forcePrint: true);
+        print('[Step 5/8] Exiftool enabled using argument nativeOnly = false');
       }
 
       // Batching preference (restored, but safer limits)
       final bool enableExifToolBatch = _resolveBatchingPreference(exifTool);
 
       if (enableExifToolBatch) {
-        logInfo('Exiftool batch enabled using argument enableExifToolBatch=true. Exiftool will be called in batches with several files per batch', forcePrint: true);
+        print('[Step 5/8] Exiftool batch enabled using argument enableExifToolBatch = true. Exiftool will be called in batches with several files per batch');
       } else {
-        logInfo('Exiftool batch processing disabled using argument enableExifToolBatch=false. Exiftool will be called 1 time per file', forcePrint: true);
+        print('[Step 5/8] Exiftool batch processing disabled using argument enableExifToolBatch = false. Exiftool will be called 1 time per file');
       }
+
+      // Visible progress bar (kept as before)
+      final progressBar = FillingBar(desc: '[Step 5/8] Writing EXIF data', total: collection.length, width: 50);
 
       // NEW: if Step 3 moved duplicates to _Duplicates, we will also write EXIF to those copies using primary's metadata.
       final bool processMovedDuplicates = _shouldProcessMovedDuplicates(context);
@@ -556,11 +556,11 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
       final dtPrim = ExifWriterService.uniqueDatePrimaryCount;
       final dtSec = ExifWriterService.uniqueDateSecondaryCount;
 
-      if (gpsTotal > 0) print('$gpsTotal files got GPS set in EXIF data (primary=$gpsPrim, secondary=$gpsSec)');
-      if (dtTotal > 0) print('$dtTotal files got DateTime set in EXIF data (primary=$dtPrim, secondary=$dtSec)');
+      if (gpsTotal > 0) print('[Step 5/8] $gpsTotal files got GPS set in EXIF data (primary=$gpsPrim, secondary=$gpsSec)');
+      if (dtTotal > 0) print('[Step 5/8] $dtTotal files got DateTime set in EXIF data (primary=$dtPrim, secondary=$dtSec)');
 
       // NEW: final clarifying line to reconcile progress bar (entities) vs files touched (unique files).
-      print('Processed ${collection.entities.length} entities; touched ${ExifWriterService.uniqueFilesTouchedCount} files');
+      print('[Step 5/8] Processed ${collection.entities.length} entities; touched ${ExifWriterService.uniqueFilesTouchedCount} files');
 
       // Capture counts BEFORE resetting instrumentation ──
       final int touchedFilesBeforeReset = ExifWriterService.uniqueFilesTouchedCount;
@@ -572,7 +572,18 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
       ExifCoordinateExtractor.dumpStats(reset: true, loggerMixin: this);
 
       sw.stop();
-      return StepResult.success(stepName: name, duration: sw.elapsed, data: {'coordinatesWritten': touchedGpsBeforeReset, 'dateTimesWritten': touchedDateBeforeReset, 'skipped': false}, message: 'Wrote EXIF data to $touchedFilesBeforeReset files');
+      return StepResult.success(
+        stepName: name,
+        duration: sw.elapsed,
+        data: {
+          'coordinatesWritten': touchedGpsBeforeReset,
+          'dateTimesWritten': touchedDateBeforeReset,
+          'rawGpsWrites': gpsWrittenTotal,       // NEW
+          'rawDateWrites': dateWrittenTotal,     // NEW
+          'skipped': false
+        },
+        message: 'Wrote EXIF data to $touchedFilesBeforeReset files',
+      );
     } catch (e) {
       // NOTE: Silence known benign ExifTool errors; only log unexpected ones.
       if (!_shouldSilenceExiftoolError(e)) logError('Failed to write EXIF data: $e', forcePrint: true);

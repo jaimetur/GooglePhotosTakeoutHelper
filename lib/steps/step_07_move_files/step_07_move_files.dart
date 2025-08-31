@@ -24,7 +24,7 @@ class MoveFilesStep extends ProcessingStep {
     final stopwatch = Stopwatch()..start();
 
     try {
-      print('\n[Step 7/8] Moving files to Output folder (this may take a while)...');
+      print('[Step 7/8] Moving files to Output folder (this may take a while)...');
 
       // 1) Optional pre-pass: transform Pixel .MP/.MV → .mp4 on PRIMARY files.
       int transformedCount = 0;
@@ -37,7 +37,7 @@ class MoveFilesStep extends ProcessingStep {
 
       // 2) Move entities via strategies
       final progressBar = FillingBar(
-        desc: 'Moving entities',
+        desc: '[Step 7/8] Moving entities',
         total: context.mediaCollection.length,
         width: 50,
       );

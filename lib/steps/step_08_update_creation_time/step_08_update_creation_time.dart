@@ -190,7 +190,7 @@ class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
 
     // Initialize progress bar - always visible
     final progressBar = FillingBar(
-      desc: 'Updating creation times',
+      desc: '[Step 8/8] Updating creation times',
       total: allFiles.length,
       width: 50,
     );

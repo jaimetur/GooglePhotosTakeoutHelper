@@ -70,50 +70,54 @@ class ProcessingResult {
     buffer.writeln('Some statistics for the achievement hunters:');
 
     if (duplicatesRemoved > 0) {
-      buffer.writeln('$duplicatesRemoved duplicates were found and skipped');
+      buffer.writeln('\t$duplicatesRemoved duplicates were found and skipped');
     }
     if (coordinatesWrittenToExif > 0) {
-      buffer.writeln(
-        '$coordinatesWrittenToExif files got their coordinates set in EXIF data (from json)',
+      buffer.writeln('\t$coordinatesWrittenToExif files got their coordinates set in EXIF data (from json)',
       );
     }
     if (dateTimesWrittenToExif > 0) {
-      buffer.writeln(
-        '$dateTimesWrittenToExif files got their DateTime set in EXIF data',
+      buffer.writeln('\t$dateTimesWrittenToExif files got their DateTime set in EXIF data',
       );
     }
     if (extensionsFixed > 0) {
-      buffer.writeln('$extensionsFixed files got their extensions fixed');
+      buffer.writeln('\t$extensionsFixed files got their extensions fixed');
     }
     if (extrasSkipped > 0) {
-      buffer.writeln('$extrasSkipped extras were skipped');
+      buffer.writeln('\t$extrasSkipped extras were skipped');
     }
     if (creationTimesUpdated > 0) {
-      buffer.writeln(
-        '$creationTimesUpdated files had their CreationDate updated',
+      buffer.writeln('\t$creationTimesUpdated files had their CreationDate updated',
       );
     }
 
     if (albumBehavior != null) {
-      buffer.writeln('Album behavior: $albumBehavior');
+      buffer.writeln('\tAlbum behavior: $albumBehavior');
     }
     if (totalMoveOperations != null) {
-      buffer.writeln(
-        'File operations (move/copy/symlink/json): $totalMoveOperations',
+      buffer.writeln('\tFile operations (move/copy/symlink/json): $totalMoveOperations',
       );
     }
 
     // DateTime extraction method statistics
     if (extractionMethodStats.isNotEmpty) {
-      buffer.writeln('DateTime extraction method statistics:');
+      buffer.writeln('\tDateTime extraction method statistics:');
       for (final entry in extractionMethodStats.entries) {
-        buffer.writeln('${entry.key.name}: ${entry.value} files');
+        buffer.writeln('\t\t${entry.key.name}: ${entry.value} files');
       }
     }
 
-    buffer.writeln(
-      'In total the script took ${totalProcessingTime.inMinutes} minutes to complete',
-    );
+    // Calculate Total Processing Time
+    final d = totalProcessingTime;
+    final hours = d.inHours;
+    final minutes = d.inMinutes.remainder(60);
+    final seconds = d.inSeconds.remainder(60);
+
+    final duration_pretty = '${hours}h '
+               '${minutes.toString().padLeft(2, '0')}m '
+               '${seconds.toString().padLeft(2, '0')}s';
+
+    buffer.writeln('\nIn total the script took $duration_pretty to complete');
 
     return buffer.toString();
   }

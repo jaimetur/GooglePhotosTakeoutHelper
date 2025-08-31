@@ -133,7 +133,7 @@ class ExifWriterService with LoggerMixin {
     print('');
     for (final l in lines) {
       if (logger != null) {
-        logger.logInfo(l, forcePrint: true);
+        logger.logDebug(l, forcePrint: true);
       } else {
         // ignore: avoid_print
         print(l);
@@ -316,7 +316,7 @@ class ExifWriterService with LoggerMixin {
       if (countGps > 0) {
         exiftoolGpsWritten += countGps;
         exiftoolGpsDur += elapsed * (countGps / totalTagged);
-        logInfo('[WRITE-EXIF] GPS written via exiftool (batch): $countGps files');
+        logDebug('[WRITE-EXIF] GPS written via exiftool (batch): $countGps files');
       }
 
       // All entries succeeded → count successes and mark unique files by type.

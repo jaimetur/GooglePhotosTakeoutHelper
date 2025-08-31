@@ -180,7 +180,7 @@ class ExtractDatesStep extends ProcessingStep with LoggerMixin {
       var completed = 0;
 
       // Optional visual progress bar (addition that coexists with onProgress semantics)
-      final progressBar = FillingBar(desc: 'Processing media files', total: collection.length, width: 50);
+      final progressBar = FillingBar(desc: '[Step 4/8] Processing media files', total: collection.length, width: 50);
 
       for (int i = 0; i < collection.length; i += maxConcurrency) {
         final batch = collection.asList().skip(i).take(maxConcurrency).toList(growable: false);
@@ -212,7 +212,7 @@ class ExtractDatesStep extends ProcessingStep with LoggerMixin {
                 extractionMethod = extractorIndex < extractorMethods.length ? extractorMethods[extractorIndex] : DateTimeExtractionMethod.guess;
 
                 // Assign both date and accuracy based on the method, keeping metadata-only model (primaryFile only).
-                final acc = _accuracyFor(extractionMethod!);
+                final acc = _accuracyFor(extractionMethod);
                 updatedMediaFile = mediaFile.withDate(dateTaken: extractedDate, dateAccuracy: acc, dateTimeExtractionMethod: extractionMethod);
                 logDebug('Date extracted for ${mediaFile.primaryFile.path}: $extractedDate (method: ${extractionMethod.name}, accuracy: ${acc.value})');
                 dateFound = true;
@@ -252,11 +252,12 @@ class ExtractDatesStep extends ProcessingStep with LoggerMixin {
 
       // Print stats (kept compatible with your later prints that expect name→count)
       print('');
-      print('Date extraction completed:');
+      print('[Step 4/8] Date extraction completed:');
+      print('\n[Step 4/8] === Date Extraction Summary ===');
       final byName = <String, int>{for (final e in extractionStats.entries) e.key.name: e.value};
       const order = ['json', 'exif', 'guess', 'jsonTryHard', 'folderYear', 'none'];
       for (final k in order) {
-        print('  $k: ${byName[k] ?? 0} files');
+        print('\t\t\t$k: ${byName[k] ?? 0} files');
       }
 
       // READ-EXIF stats summary (seconds) — same call shape you had before

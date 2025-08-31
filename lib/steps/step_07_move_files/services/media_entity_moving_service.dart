@@ -289,12 +289,13 @@ class MediaEntityMovingService {
     final totalOps = results.length;
 
     print('');
-    print('\n=== Moving Summary ===');
-    print('Primary files moved: $primaryMoves');
-    print('Non-primary moves: $nonPrimaryMoves'); // should be 0 under the new pipeline
-    print('Symlinks created: $symlinksCreated');
-    print('Failures: $failures');
-    print('Total operations: $totalOps');
+    print('\n[Step 7/8] === Moving Summary ===');
+    print('\t\t\tPrimary files moved: $primaryMoves');
+    print('\t\t\tNon-primary moves: $nonPrimaryMoves'); // should be 0 under the new pipeline
+    print('\t\t\tSymlinks created: $symlinksCreated');
+    print('\t\t\tFailures: $failures');
+    print('\t\t\tTotal operations: $totalOps');
+    print('');
 
     if (failures > 0) {
       print('\nErrors encountered:');

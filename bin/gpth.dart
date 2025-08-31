@@ -850,8 +850,8 @@ Future<ProcessingResult> _executeProcessing(
 
   // Log de diagnóstico para confirmar decisión de clonado
   final bool shouldClone = config.keepInput && !inputExtractedFromZipFlag;
-  _logger.info('keepInput=${config.keepInput}, inputExtractedFromZip=$inputExtractedFromZipFlag, shouldClone=$shouldClone', forcePrint: true);
-  _logger.info('Creating input clone because keepInput=true and input does not come from ZIP extraction (inputExtractedFromZip=false).', forcePrint: true);
+  _logger.info('keepInput = ${config.keepInput}, inputExtractedFromZip = $inputExtractedFromZipFlag, shouldClone = $shouldClone', forcePrint: true);
+  _logger.info('Creating input clone as working copy because keepInput = true and input does not come from ZIP extraction (inputExtractedFromZip = false).', forcePrint: true);
 
   Directory effectiveInputDir = inputDir;
 
@@ -993,48 +993,54 @@ void _showResults(
   final ProcessingConfig config,
   final ProcessingResult result,
 ) {
-  const barWidth = 50;
+  const barWidth = 100;
 
   print('');
   print('=' * barWidth);
   print('DONE! FREEEEEDOOOOM!!!');
+  print('Your Processed Takeout can be found on: ${config.outputPath}');
+  print('');
   print('Some statistics for the achievement hunters:');
 
   if (result.creationTimesUpdated > 0) {
-    print(
-      '${result.creationTimesUpdated} files had their CreationDate updated',
-    );
+    print('\t${result.creationTimesUpdated} files had their CreationDate updated');
   }
   if (result.duplicatesRemoved > 0) {
-    print('${result.duplicatesRemoved} duplicates were found and skipped');
+    print('\t${result.duplicatesRemoved} duplicates were found and skipped');
   }
   if (result.coordinatesWrittenToExif > 0) {
-    print(
-      '${result.coordinatesWrittenToExif} files got their coordinates set in EXIF data (from json)',
-    );
+    print('\t${result.coordinatesWrittenToExif} files got their coordinates set in EXIF data (from json)');
   }
   if (result.dateTimesWrittenToExif > 0) {
-    print(
-      '${result.dateTimesWrittenToExif} files got their DateTime set in EXIF data',
-    );
+    print('\t${result.dateTimesWrittenToExif} files got their DateTime set in EXIF data');
   }
   if (result.extensionsFixed > 0) {
-    print('${result.extensionsFixed} files got their extensions fixed');
+    print('\t${result.extensionsFixed} files got their extensions fixed');
   }
   if (result.extrasSkipped > 0) {
-    print('${result.extrasSkipped} extras were skipped');
+    print('\t${result.extrasSkipped} extras were skipped');
   }
 
   // Show extraction method statistics
   if (result.extractionMethodStats.isNotEmpty) {
-    print('DateTime extraction method statistics:');
+    print('\tDateTime extraction method statistics:');
     for (final entry in result.extractionMethodStats.entries) {
-      print('${entry.key.name}: ${entry.value} files');
+      print('\t\t${entry.key.name}: ${entry.value} files');
     }
   }
 
-  final totalMinutes = result.totalProcessingTime.inMinutes;
-  print('In total GPTH took $totalMinutes minutes to complete');
+  // Calculate Total Processing Time
+    final d = result.totalProcessingTime;
+    final hours = d.inHours;
+    final minutes = d.inMinutes.remainder(60);
+    final seconds = d.inSeconds.remainder(60);
+
+    final duration_pretty = '${hours}h '
+               '${minutes.toString().padLeft(2, '0')}m '
+               '${seconds.toString().padLeft(2, '0')}s';
+
+  print('');
+  print('In total GPTH took $duration_pretty to complete');
 
   print('=' * barWidth);
 

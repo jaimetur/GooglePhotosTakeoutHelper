@@ -33,7 +33,7 @@ class ExifCoordinateExtractor with LoggerMixin {
         'nativeTime=${_fmtSec(nativeDur)}, exiftoolTime=${_fmtSec(exiftoolDur)}';
 
     if (loggerMixin != null) {
-      loggerMixin.logInfo(line, forcePrint: true);
+      loggerMixin.logDebug(line, forcePrint: true);
       print('');
     } else {
       print(line);

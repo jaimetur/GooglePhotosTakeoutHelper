@@ -179,12 +179,12 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
         // Replace the kept entity in the collection with the merged version
         _replaceEntityInCollection(mediaCol, kept0, kept);
 
-        if ((processedGroups % 1000) == 0) print('[Step 3/8] Progress: resolved $processedGroups/$totalGroups groups...');
+        if ((processedGroups % 1000) == 0) logDebug('[Step 3/8] Progress: resolved $processedGroups/$totalGroups groups...');
       }
 
       // Apply removals (and physically delete/move duplicates according to configuration)
       if (entitiesToRemove.isNotEmpty) {
-        print('🧹 Skipping ${entitiesToRemove.length} entities from collection');
+        print('[Step 3/8] Removing ${entitiesToRemove.length} files from media collection');
         final bool moved = await _removeOrQuarantineDuplicates(entitiesToRemove, context);
         for (final e in entitiesToRemove) {
           try {
@@ -194,13 +194,13 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
           }
         }
         if (moved) {
-          print('✅ Duplicates moved to _Duplicates keeping relative paths.');
+          print('[Step 3/8] Duplicates moved to _Duplicates (flag moveDuplicatesToDuplicatesFolder = true)');
         } else {
-          print('✅ Duplicates deleted from input folder.');
+          print('[Step 3/8] Duplicates deleted from input folder.');
         }
       }
 
-      print('✅ Remove Duplicates finished, total duplicates found: $removedCount');
+      print('[Step 3/8] Remove Duplicates finished, total duplicates found: $removedCount');
 
       stopwatch.stop();
       return StepResult.success(
@@ -210,7 +210,7 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
           'duplicatesRemoved': removedCount,
           'remainingMedia': mediaCol.length,
         },
-        message: 'Removed $removedCount duplicate files (they will be moved to "_Duplicates" sub-folder in Output folder)\n${mediaCol.length} media files remain.',
+        message: 'Removed $removedCount duplicate files from input folder\n   ${mediaCol.length} media files remain.',
       );
     } catch (e) {
       stopwatch.stop();
