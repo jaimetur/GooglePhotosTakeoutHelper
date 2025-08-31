@@ -157,6 +157,24 @@ class ExtractDatesStep extends ProcessingStep with LoggerMixin {
         DateTimeExtractionMethod.folderYear,
       ];
 
+      // Helper to map method → DateAccuracy level as documented (kept minimal and explicit).
+      DateAccuracy _accuracyFor(final DateTimeExtractionMethod method) {
+        switch (method) {
+          case DateTimeExtractionMethod.json:
+            return DateAccuracy.fromInt(1);
+          case DateTimeExtractionMethod.exif:
+            return DateAccuracy.fromInt(2);
+          case DateTimeExtractionMethod.guess:
+            return DateAccuracy.fromInt(3);
+          case DateTimeExtractionMethod.jsonTryHard:
+            return DateAccuracy.fromInt(4);
+          case DateTimeExtractionMethod.folderYear:
+            return DateAccuracy.fromInt(5);
+          default:
+            return DateAccuracy.fromInt(99);
+        }
+      }
+
       // Stats + progress (same semantics you had before)
       final extractionStats = <DateTimeExtractionMethod, int>{};
       var completed = 0;
@@ -193,8 +211,10 @@ class ExtractDatesStep extends ProcessingStep with LoggerMixin {
               if (extractedDate != null) {
                 extractionMethod = extractorIndex < extractorMethods.length ? extractorMethods[extractorIndex] : DateTimeExtractionMethod.guess;
 
-                updatedMediaFile = mediaFile.withDate(dateTaken: extractedDate, dateTimeExtractionMethod: extractionMethod);
-                logDebug('Date extracted for ${mediaFile.primaryFile.path}: $extractedDate (method: ${extractionMethod.name})');
+                // Assign both date and accuracy based on the method, keeping metadata-only model (primaryFile only).
+                final acc = _accuracyFor(extractionMethod!);
+                updatedMediaFile = mediaFile.withDate(dateTaken: extractedDate, dateAccuracy: acc, dateTimeExtractionMethod: extractionMethod);
+                logDebug('Date extracted for ${mediaFile.primaryFile.path}: $extractedDate (method: ${extractionMethod.name}, accuracy: ${acc.value})');
                 dateFound = true;
                 break;
               }
@@ -207,7 +227,8 @@ class ExtractDatesStep extends ProcessingStep with LoggerMixin {
           // Not found → mark as none (parity with original)
           if (!dateFound) {
             extractionMethod = DateTimeExtractionMethod.none;
-            updatedMediaFile = mediaFile.withDate(dateTimeExtractionMethod: DateTimeExtractionMethod.none);
+            final acc = _accuracyFor(extractionMethod);
+            updatedMediaFile = mediaFile.withDate(dateTimeExtractionMethod: DateTimeExtractionMethod.none, dateAccuracy: acc);
           }
 
           return {'index': actualIndex, 'mediaFile': updatedMediaFile, 'extractionMethod': extractionMethod};

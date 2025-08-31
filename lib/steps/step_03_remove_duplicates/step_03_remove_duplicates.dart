@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:path/path.dart' as path;
 import 'package:gpth/gpth-lib.dart';
 
 /// Step 3: Remove duplicate media files
@@ -28,118 +29,24 @@ import 'package:gpth/gpth-lib.dart';
 ///
 /// #### Primary Criteria (in priority order):
 /// 1. **Date Accuracy**: Files with better date extraction accuracy (lower number = better)
-/// 2. **Filename Length**: Shorter filenames often indicate original vs processed files
-/// 3. **Discovery Order**: Earlier discovered files are preferred as canonical
-/// 4. **Path Characteristics**: Year folder files preferred over album folder duplicates
+/// 2. **Filename Length**: Shorter *filename* length (basename) is preferred
+/// 3. **Year vs Album Preference**: On ties, prefer files from Year folders (no album metadata)
+/// 4. **Path Length**: Shorter full path as final tie-breaker
 ///
 /// #### Selection Algorithm:
 /// ```
-/// Sort by: dateTakenAccuracy (ascending) + filenameLength (ascending)
+/// Sort by: dateTakenAccuracy (ascending) + basename length (ascending) + prefer Year over Album + full path length (ascending)
 /// Keep: First file in sorted order
 /// Remove: All subsequent identical files
 /// ```
 ///
 /// ### Metadata Preservation
 /// - **Date Information**: Preserves best available date and accuracy from kept file
-/// - **Album Associations**: May be preserved through later album finding step
+/// - **Album Associations**: Preserved and merged in `belongToAlbums`
 /// - **EXIF Data**: Maintains original EXIF information from selected file
 /// - **JSON Metadata**: Keeps associated JSON file with selected media file
 ///
-/// ## Performance Optimizations
-///
-/// ### Efficient Algorithms
-/// - **Hash Caching**: Avoids recalculating hashes for previously processed files
-/// - **Batch Processing**: Processes files in groups to optimize I/O operations
-/// - **Memory Management**: Uses streaming hash calculation for large files
-/// - **Early Termination**: Skips processing when no duplicates are possible
-///
-/// ### Scalability Features
-/// - **Large Collection Support**: Efficiently handles thousands of duplicate photos
-/// - **Progress Reporting**: Provides feedback for long-running duplicate detection
-/// - **Incremental Processing**: Can be interrupted and resumed safely
-/// - **Resource Monitoring**: Adapts processing speed based on system resources
-///
-/// ## Common Duplicate Scenarios
-///
-/// ### Google Photos Export Patterns
-/// - **Album Duplicates**: Same photo exists in year folder + multiple album folders
-/// - **Download Duplicates**: Files downloaded multiple times from Google Photos
-/// - **Processing Duplicates**: Files processed through multiple export/import cycles
-/// - **Backup Duplicates**: Files backed up multiple times to Google Photos
-///
-/// ### File Naming Variations
-/// - **Original vs Edited**: `photo.jpg` vs `photo-edited.jpg` (handled by extras removal)
-/// - **Sequential Numbers**: `photo.jpg` vs `photo(1).jpg` with identical content
-/// - **Date Prefixes**: Same content with different date stamps in filename
-/// - **Album Prefixes**: Files with album names prepended to original filename
-///
-/// ## Error Handling and Edge Cases
-///
-/// ### File Access Issues
-/// - **Permission Errors**: Skips inaccessible files without stopping processing
-/// - **Corrupted Files**: Handles files that cannot be read or hashed
-/// - **Network Storage**: Manages timeouts and connection issues
-/// - **Locked Files**: Gracefully handles files locked by other applications
-///
-/// ### Hash Collision Handling
-/// - **Verification**: Performs additional verification for suspected hash collisions
-/// - **Fallback Comparison**: Uses byte-by-byte comparison if hash collision suspected
-/// - **Logging**: Records potential collisions for investigation
-/// - **Conservative Approach**: Errs on side of keeping files when uncertain
-///
-/// ### Special File Types
-/// - **Live Photos**: Handles iOS Live Photos with multiple component files
-/// - **Motion Photos**: Manages Google's Motion Photos format appropriately
-/// - **RAW + JPEG**: Treats RAW and JPEG versions as separate files
-/// - **Video Variants**: Handles different resolutions/formats of same video
-///
-/// ## Configuration and Behavior
-///
-/// ### Processing Modes
-/// - **Verbose Mode**: Provides detailed logging of duplicate detection and removal
-/// - **Conservative Mode**: More cautious about removing files when uncertain
-/// - **Performance Mode**: Optimizes for speed with large collections
-/// - **Verification Mode**: Performs additional integrity checks
-///
-/// ### Statistics Tracking
-/// - **Duplicates Found**: Count of duplicate files identified
-/// - **Files Removed**: Number of duplicate files removed from collection
-/// - **Space Saved**: Estimated disk space savings from duplicate removal
-/// - **Processing Performance**: Files processed per second and total time
-///
-/// ## Integration with Other Steps
-///
-/// ### Prerequisites
-/// - **Media Discovery**: Requires populated MediaCollection from discovery step
-/// - **File Accessibility**: Files must be readable for hash calculation
-///
-/// ### Outputs for Later Steps
-/// - **Clean Media Collection**: Provides duplicate-free collection for further processing
-/// - **Date Accuracy**: Preserves best date information for chronological organization
-/// - **Reduced Dataset**: Smaller collection improves performance of subsequent steps
-/// - **Quality Selection**: Ensures best quality files are retained
-///
-/// ### Processing Order Considerations
-/// - **Before Album Finding**: Removes duplicates before album relationship analysis
-/// - **Before Date Extraction**: Reduces workload for expensive date extraction
-/// - **After Media Discovery**: Requires complete file inventory to identify all duplicates
-/// - **Before File Moving**: Ensures final organization contains only unique files
-///
-/// ## Quality Assurance
-///
-/// ### Verification Steps
-/// - **Hash Validation**: Verifies hash calculations are consistent
-/// - **Selection Logic**: Confirms best copy selection follows documented algorithm
-/// - **Metadata Integrity**: Ensures selected files maintain proper metadata
-/// - **Count Reconciliation**: Verifies expected number of files are removed
-///
-/// ### Safety Measures
-/// - **Dry Run Support**: Can simulate duplicate removal without actual deletion
-/// - **Backup Recommendations**: Suggests backing up before duplicate removal
-/// - **Rollback Information**: Logs removed files for potential recovery
-/// - **Conservative Defaults**: Uses safe settings when configuration is ambiguous
-///
-/// ### Performance note (added):
+/// ## Performance note (added):
 /// For maximum throughput on very large datasets, this step calls `DuplicateDetectionService.groupIdenticalFast(...)`,
 /// which pre-clusters by file size and a small tri-sample fingerprint before running full hashes only inside
 /// those subgroups. This dramatically reduces I/O and CPU when many files share sizes but are not identical.
@@ -181,15 +88,6 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
 
       final Set<MediaEntity> entitiesToRemove = <MediaEntity>{};
 
-      void mergeEntityFiles(final MediaEntity dst, final MediaEntity src) {
-        try {
-          final MediaEntity updated = dst.mergeWith(src);
-          _replaceEntityInCollection(mediaCol, dst, updated);
-        } catch (e) {
-          logWarning('⚠️ Failed to merge files from duplicate entity: $e', forcePrint: true);
-        }
-      }
-
       bool _isSizeOnlyKey(final String k) {
         // Matches "<digits>bytes" (e.g., "12345bytes")
         if (!k.endsWith('bytes')) return false;
@@ -199,6 +97,11 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
           if (c < 48 || c > 57) return false;
         }
         return true;
+      }
+
+      bool _isYearEntity(final MediaEntity e) {
+        // Year-based entities discovered in Step 2 have no album metadata
+        return e.belongToAlbums.isEmpty;
       }
 
       int processedGroups = 0;
@@ -218,17 +121,33 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
           continue;
         }
 
+        // Sort group by: date accuracy (asc) → basename length (asc) → prefer Year over Album → full path length (asc) → stable path lex
         group.sort((a, b) {
           final aAcc = a.dateAccuracy?.value ?? 999;
           final bAcc = b.dateAccuracy?.value ?? 999;
           if (aAcc != bAcc) return aAcc.compareTo(bAcc);
-          return a.primaryFile.path.length.compareTo(b.primaryFile.path.length);
+
+          final aBaseLen = path.basename(a.primaryFile.path).length;
+          final bBaseLen = path.basename(b.primaryFile.path).length;
+          if (aBaseLen != bBaseLen) return aBaseLen.compareTo(bBaseLen);
+
+          final aYear = _isYearEntity(a);
+          final bYear = _isYearEntity(b);
+          if (aYear != bYear) return aYear ? -1 : 1; // prefer Year
+
+          final aPathLen = a.primaryFile.path.length;
+          final bPathLen = b.primaryFile.path.length;
+          if (aPathLen != bPathLen) return aPathLen.compareTo(bPathLen);
+
+          return a.primaryFile.path.compareTo(b.primaryFile.path);
         });
 
-        final MediaEntity kept = group.first;
+        final MediaEntity kept0 = group.first;
         final List<MediaEntity> toRemove = group.sublist(1);
 
-        logDebug('Keeping ${kept.primaryFile.path}');
+        // Start with kept0 and merge others into it (accumulate album metadata and secondaryFiles)
+        MediaEntity kept = kept0;
+
         if (verify) {
           try {
             final String keptHash = await verifier.calculateFileHash(kept.primaryFile);
@@ -239,8 +158,7 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
                   logWarning('Verification mismatch. Will NOT remove ${d.primaryFile.path} (hash differs from kept).', forcePrint: true);
                   continue;
                 }
-                logDebug('Verified duplicate by SHA-256: ${d.primaryFile.path}');
-                mergeEntityFiles(kept, d);
+                kept = kept.mergeWith(d); // accumulate metadata + secondary list
                 entitiesToRemove.add(d);
                 removedCount++;
               } catch (e) {
@@ -252,25 +170,33 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
           }
         } else {
           for (final d in toRemove) {
-            logDebug('Removing duplicate: ${d.primaryFile.path}');
-            mergeEntityFiles(kept, d);
+            kept = kept.mergeWith(d); // accumulate metadata + secondary list
             entitiesToRemove.add(d);
             removedCount++;
           }
         }
 
+        // Replace the kept entity in the collection with the merged version
+        _replaceEntityInCollection(mediaCol, kept0, kept);
+
         if ((processedGroups % 1000) == 0) print('[Step 3/8] Progress: resolved $processedGroups/$totalGroups groups...');
       }
 
-      // Apply removals
+      // Apply removals (and physically delete/move duplicates according to configuration)
       if (entitiesToRemove.isNotEmpty) {
         print('🧹 Skipping ${entitiesToRemove.length} entities from collection');
+        final bool moved = await _removeOrQuarantineDuplicates(entitiesToRemove, context);
         for (final e in entitiesToRemove) {
           try {
             mediaCol.remove(e);
           } catch (err) {
             logWarning('Failed to remove entity ${_safeEntity(e)}: $err', forcePrint: true);
           }
+        }
+        if (moved) {
+          print('✅ Duplicates moved to _Duplicates keeping relative paths.');
+        } else {
+          print('✅ Duplicates deleted from input folder.');
         }
       }
 
@@ -313,6 +239,31 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
     }
   }
 
+  /// Reads the "move duplicates" flag from available configuration sources.
+  /// Priority:
+  /// 1) ServiceContainer.instance.globalConfig.moveDuplicatesToDuplicatesFolder (dynamic, if present)
+  /// 2) Env var GPTH_MOVE_DUPLICATES_TO_DUPLICATES_FOLDER = 1/true/yes/on
+  /// 3) Default false
+  bool _shouldMoveDuplicatesToFolder(final ProcessingContext context) {
+    try {
+      final dynamic cfg = ServiceContainer.instance.globalConfig;
+      final dynamic v = cfg?.moveDuplicatesToDuplicatesFolder;
+      if (v is bool) return v;
+    } catch (_) {
+      // ignore and fallback
+    }
+    try {
+      final env = Platform.environment['GPTH_MOVE_DUPLICATES_TO_DUPLICATES_FOLDER'];
+      if (env != null) {
+        final s = env.trim().toLowerCase();
+        return s == '1' || s == 'true' || s == 'yes' || s == 'on';
+      }
+    } catch (_) {
+      // ignore
+    }
+    return false;
+  }
+
   String _safePath(final File f) {
     try {
       return f.path;
@@ -345,5 +296,50 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
         // ignore and continue
       }
     }
+  }
+
+  Future<bool> _removeOrQuarantineDuplicates(
+    final Set<MediaEntity> duplicates,
+    final ProcessingContext context,
+  ) async {
+    // If config says "move to _Duplicates", move; otherwise delete from input
+    final bool moveToDuplicates = _shouldMoveDuplicatesToFolder(context);
+
+    final String inputRoot = context.inputDirectory.path;
+    final String outputRoot = context.outputDirectory.path;
+
+    for (final e in duplicates) {
+      final File f = e.primaryFile;
+
+      // Compute relative path inside input; if it fails, fallback to basename only
+      String rel;
+      try {
+        rel = path.relative(f.path, from: inputRoot);
+      } catch (_) {
+        rel = path.basename(f.path);
+      }
+
+      try {
+        if (moveToDuplicates) {
+          final String destPath = path.join(outputRoot, '_Duplicates', rel);
+          final Directory destDir = Directory(path.dirname(destPath));
+          if (!await destDir.exists()) {
+            await destDir.create(recursive: true);
+          }
+          try {
+            await f.rename(destPath);
+          } catch (_) {
+            // Cross-device fallback: copy then delete
+            await f.copy(destPath);
+            await f.delete();
+          }
+        } else {
+          await f.delete();
+        }
+      } catch (ioe) {
+        logWarning('Failed to remove/move duplicate ${f.path}: $ioe', forcePrint: true);
+      }
+    }
+    return moveToDuplicates;
   }
 }

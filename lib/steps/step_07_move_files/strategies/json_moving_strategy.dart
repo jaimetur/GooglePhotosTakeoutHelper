@@ -6,6 +6,13 @@ import 'package:gpth/gpth-lib.dart';
 ///
 /// This strategy creates a single ALL_PHOTOS folder with all files and generates
 /// an albums-info.json file containing metadata about album associations.
+///
+/// NOTE (model update):
+/// - MediaEntity now has `primaryFile` (single source), `secondaryFiles` (original duplicate paths),
+///   and `belongToAlbums` / `albumNames` (album associations). There is no `files` map anymore.
+/// - Physical duplicates (non-primary files) were already deleted or moved to `_Duplicates` in Step 3,
+///   so this strategy MUST NOT try to move them again here. The helper `_moveNonPrimaryFilesToDuplicates`
+///   is intentionally a no-op to keep backwards comments/APIs without side effects.
 class JsonMovingStrategy extends MediaEntityMovingStrategy {
   JsonMovingStrategy(this._fileService, this._pathService);
 
@@ -48,7 +55,7 @@ class JsonMovingStrategy extends MediaEntityMovingStrategy {
       stopwatch.stop();
 
       // Track album associations for JSON file.
-      // IMPORTANT: We only track album names (keys from belongsToAlbums).
+      // IMPORTANT: We only track album names (keys from belongToAlbums). Use entity.albumNames.
       final fileName = movedFile.uri.pathSegments.last;
       for (final albumName in entity.albumNames) {
         _albumInfo.putIfAbsent(albumName, () => []).add(fileName);
@@ -81,6 +88,7 @@ class JsonMovingStrategy extends MediaEntityMovingStrategy {
     }
 
     // Move non-primary physical files to _Duplicates preserving source structure
+    // NOTE: Step 3 already handled physical duplicates. Keep this call for API parity, but it's a no-op now.
     yield* _moveNonPrimaryFilesToDuplicates(entity, context);
   }
 
@@ -108,15 +116,21 @@ class JsonMovingStrategy extends MediaEntityMovingStrategy {
       await jsonFile.writeAsString(const JsonEncoder.withIndent('  ').convert(albumData));
 
       stopwatch.stop();
+
+      // IMPORTANT: if no entities were processed, we return an empty results list to avoid
+      // constructing ad-hoc MediaEntity placeholders that may not exist in the new model.
+      if (processedEntities.isEmpty) {
+        return const <MediaEntityMovingResult>[];
+      }
+
       return [
         MediaEntityMovingResult.success(
           operation: MediaEntityMovingOperation(
             sourceFile: jsonFile, // Placeholder for JSON generation
             targetDirectory: context.outputDirectory,
             operationType: MediaEntityOperationType.createJsonReference,
-            mediaEntity: processedEntities.isNotEmpty
-                ? processedEntities.first
-                : MediaEntity.single(file: jsonFile), // Fallback
+            // Reuse the first processed entity to keep the operation linked to a real entity
+            mediaEntity: processedEntities.first,
           ),
           resultFile: jsonFile,
           duration: stopwatch.elapsed,
@@ -124,15 +138,19 @@ class JsonMovingStrategy extends MediaEntityMovingStrategy {
       ];
     } catch (e) {
       stopwatch.stop();
+
+      if (processedEntities.isEmpty) {
+        // See note above: avoid creating synthetic MediaEntity when none exist
+        return const <MediaEntityMovingResult>[];
+      }
+
       return [
         MediaEntityMovingResult.failure(
           operation: MediaEntityMovingOperation(
             sourceFile: jsonFile,
             targetDirectory: context.outputDirectory,
             operationType: MediaEntityOperationType.createJsonReference,
-            mediaEntity: processedEntities.isNotEmpty
-                ? processedEntities.first
-                : MediaEntity.single(file: jsonFile), // Fallback
+            mediaEntity: processedEntities.first,
           ),
           errorMessage: 'Failed to create albums-info.json: $e',
           duration: stopwatch.elapsed,
@@ -147,85 +165,19 @@ class JsonMovingStrategy extends MediaEntityMovingStrategy {
   }
 
   // --- helper: move all non-primary physical files to _Duplicates, preserving structure ---
+  // NOTE (new model / pipeline):
+  // Step 3 (RemoveDuplicates) already deletes or moves secondary files to _Duplicates.
+  // This helper is intentionally a no-op now to keep backward API/comments without duplicating work.
   Stream<MediaEntityMovingResult> _moveNonPrimaryFilesToDuplicates(
     final MediaEntity entity,
     final MovingContext context,
   ) async* {
-    final duplicatesRoot = Directory('${context.outputDirectory.path}/_Duplicates');
-    final primaryPath = entity.primaryFile.path;
-    final allSources = entity.files.files.values.map((final f) => f.path).toSet();
-
-    for (final srcPath in allSources) {
-      if (srcPath == primaryPath) continue;
-
-      final sourceFile = File(srcPath);
-      final relInfo = _computeDuplicatesRelativeInfo(srcPath);
-      final targetDir = Directory('${duplicatesRoot.path}/${relInfo.relativeDir}');
-      if (!targetDir.existsSync()) {
-        targetDir.createSync(recursive: true);
-      }
-
-      final sw = Stopwatch()..start();
-      try {
-        final moved = await _fileService.moveFile(
-          sourceFile,
-          targetDir,
-          dateTaken: entity.dateTaken,
-        );
-        sw.stop();
-        yield MediaEntityMovingResult.success(
-          operation: MediaEntityMovingOperation(
-            sourceFile: sourceFile,
-            targetDirectory: targetDir,
-            operationType: MediaEntityOperationType.move,
-            mediaEntity: entity,
-          ),
-          resultFile: moved,
-          duration: sw.elapsed,
-        );
-      } catch (e) {
-        sw.stop();
-        yield MediaEntityMovingResult.failure(
-          operation: MediaEntityMovingOperation(
-            sourceFile: sourceFile,
-            targetDirectory: targetDir,
-            operationType: MediaEntityOperationType.move,
-            mediaEntity: entity,
-          ),
-          errorMessage: 'Failed to move non-primary file to _Duplicates: $e (hint: ${relInfo.hint})',
-          duration: sw.elapsed,
-        );
-      }
-    }
-  }
-
-  _RelInfo _computeDuplicatesRelativeInfo(final String sourcePath) {
-    final normalized = sourcePath.replaceAll('\\', '/');
-    final lower = normalized.toLowerCase();
-
-    final idxTakeout = lower.indexOf('/takeout/');
-    if (idxTakeout >= 0) {
-      final rel = normalized.substring(idxTakeout + '/takeout/'.length);
-      final relDir = rel.contains('/') ? rel.substring(0, rel.lastIndexOf('/')) : '';
-      return _RelInfo(relativeDir: relDir.isEmpty ? '.' : relDir, hint: 'anchored by /Takeout/');
-    }
-
-    for (final anchor in const ['/google fotos/', '/google photos/']) {
-      final idx = lower.indexOf(anchor);
-      if (idx >= 0) {
-        final rel = normalized.substring(idx + anchor.length);
-        final relDir = rel.contains('/') ? rel.substring(0, rel.lastIndexOf('/')) : '';
-        return _RelInfo(relativeDir: relDir.isEmpty ? '.' : relDir, hint: 'anchored by $anchor');
-      }
-    }
-
-    final lastSlash = normalized.lastIndexOf('/');
-    final parent = normalized.substring(0, lastSlash >= 0 ? lastSlash : normalized.length);
-    final leaf = parent.isEmpty ? 'Uncategorized' : parent.split('/').last;
-    return _RelInfo(relativeDir: leaf, hint: 'fallback: no anchor found');
+    // no-op by design
+    return;
   }
 }
 
+// Kept for backward-compat (comment and type), though not used anymore in the no-op helper.
 class _RelInfo {
   const _RelInfo({required this.relativeDir, required this.hint});
   final String relativeDir;

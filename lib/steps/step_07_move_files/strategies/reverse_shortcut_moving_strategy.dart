@@ -5,6 +5,15 @@ import 'package:gpth/gpth-lib.dart';
 ///
 /// This strategy moves files to album folders and creates shortcuts in ALL_PHOTOS.
 /// Files remain in their album context, with shortcuts providing chronological access.
+///
+/// NOTE (model update):
+/// - MediaEntity now exposes `primaryFile` (single canonical source), `secondaryFiles`
+///   (original duplicate paths kept only as metadata), and album associations via
+///   `belongToAlbums` / `albumNames`. There is no `files` map anymore.
+/// - Step 3 (RemoveDuplicates) already deleted or moved physical duplicates to `_Duplicates`.
+///   This strategy MUST NOT attempt to move any secondary file again. The helper
+///   `_moveNonPrimaryFilesToDuplicates` is intentionally a no-op to keep API/comments
+///   without duplicating work.
 class ReverseShortcutMovingStrategy extends MediaEntityMovingStrategy {
   const ReverseShortcutMovingStrategy(
     this._fileService,
@@ -222,6 +231,7 @@ class ReverseShortcutMovingStrategy extends MediaEntityMovingStrategy {
     }
 
     // Move non-primary physical files to _Duplicates, preserving structure
+    // NOTE: Step 3 already handled physical duplicates → this is now a no-op.
     yield* _moveNonPrimaryFilesToDuplicates(entity, context);
   }
 
@@ -231,56 +241,14 @@ class ReverseShortcutMovingStrategy extends MediaEntityMovingStrategy {
   }
 
   // --- helper: move all non-primary physical files to _Duplicates, preserving structure ---
+  // Kept for backward compatibility with comments/APIs, but intentionally does nothing now,
+  // because Step 3 already deleted/moved duplicate files.
   Stream<MediaEntityMovingResult> _moveNonPrimaryFilesToDuplicates(
     final MediaEntity entity,
     final MovingContext context,
   ) async* {
-    final duplicatesRoot = Directory('${context.outputDirectory.path}/_Duplicates');
-    final primaryPath = entity.primaryFile.path;
-    final allSources = entity.files.files.values.map((final f) => f.path).toSet();
-
-    for (final srcPath in allSources) {
-      if (srcPath == primaryPath) continue;
-
-      final sourceFile = File(srcPath);
-      final relInfo = _computeDuplicatesRelativeInfo(srcPath);
-      final targetDir = Directory('${duplicatesRoot.path}/${relInfo.relativeDir}');
-      if (!targetDir.existsSync()) {
-        targetDir.createSync(recursive: true);
-      }
-
-      final sw = Stopwatch()..start();
-      try {
-        final moved = await _fileService.moveFile(
-          sourceFile,
-          targetDir,
-          dateTaken: entity.dateTaken,
-        );
-        sw.stop();
-        yield MediaEntityMovingResult.success(
-          operation: MediaEntityMovingOperation(
-            sourceFile: sourceFile,
-            targetDirectory: targetDir,
-            operationType: MediaEntityOperationType.move,
-            mediaEntity: entity,
-          ),
-          resultFile: moved,
-          duration: sw.elapsed,
-        );
-      } catch (e) {
-        sw.stop();
-        yield MediaEntityMovingResult.failure(
-          operation: MediaEntityMovingOperation(
-            sourceFile: sourceFile,
-            targetDirectory: targetDir,
-            operationType: MediaEntityOperationType.move,
-            mediaEntity: entity,
-          ),
-          errorMessage: 'Failed to move non-primary file to _Duplicates: $e (hint: ${relInfo.hint})',
-          duration: sw.elapsed,
-        );
-      }
-    }
+    // no-op by design in the new pipeline
+    return;
   }
 
   _RelInfo _computeDuplicatesRelativeInfo(final String sourcePath) {

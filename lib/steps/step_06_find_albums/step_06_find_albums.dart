@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:gpth/gpth-lib.dart';
 
 /// Step 6: Find and merge album relationships
@@ -120,6 +121,16 @@ import 'package:gpth/gpth-lib.dart';
 /// - **Album Behavior**: Different merging strategies for different output modes
 /// - **Verbose Mode**: Controls detailed progress and statistics reporting
 /// - **Performance Settings**: May use different algorithms for large collections
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// ADAPTATION NOTE (new data model):
+/// In the new pipeline, Step 3 already consolidated duplicates and selected a
+/// single primary per entity. Therefore, Step 6 no longer performs content-based
+/// merging. Instead, it consolidates and normalizes album memberships stored in
+/// `belongToAlbums`, ensures each membership has at least one `sourceDirectory`
+/// (parent folder of `primaryFile` as fallback), and emits album statistics.
+/// It keeps return data keys compatible with callers (mergedCount/groupsMerged/albumsMerged).
+/// ───────────────────────────────────────────────────────────────────────────
 class FindAlbumsStep extends ProcessingStep with LoggerMixin {
   FindAlbumsStep() : super('Find Albums');
 
@@ -133,36 +144,106 @@ class FindAlbumsStep extends ProcessingStep with LoggerMixin {
       final collection = context.mediaCollection;
       final initial = collection.length;
 
-      final svc = ServiceContainer.instance.albumRelationshipService;
-
-      // Work on a copy to avoid mid-iteration mutation issues
-      final mediaCopy = collection.asList();
-      List<MediaEntity> merged;
-      try {
-        merged = await svc.detectAndMergeAlbums(mediaCopy);
-      } catch (e) {
-        logWarning('Album detection failed: $e', forcePrint: true);
-        merged = mediaCopy; // conservative: do not drop anything
+      if (collection.isEmpty) {
+        sw.stop();
+        return StepResult.success(
+          stepName: name,
+          duration: sw.elapsed,
+          data: {
+            'initialCount': 0,
+            'finalCount': 0,
+            'mergedCount': 0,
+            'albumsMerged': 0,
+            'groupsMerged': 0,
+            'mediaWithAlbums': 0,
+            'distinctAlbums': 0,
+            'albumCounts': const <String, int>{},
+            'enrichedAlbumInfos': 0,
+          },
+          message: 'No media to process.',
+        );
       }
 
-      collection.replaceAll(merged);
+      // Consolidation over current entities (no content merges; Step 3 already did it)
+      int mediaWithAlbums = 0;
+      int enrichedAlbumInfos = 0;
+      final Map<String, int> albumCounts = <String, int>{};
 
-      final finalCount = collection.length;
-      final mergedCount = initial - finalCount;
+      for (int i = 0; i < collection.length; i++) {
+        final e = collection[i];
+        final Map<String, AlbumInfo> albums = e.belongToAlbums;
 
-      // Diagnostics: how many media have album files
-      final mediaWithAlbums = merged.where((m) => m.hasAlbumAssociations).length;
-      print('[Step 6/8] Media with album associations: $mediaWithAlbums');
+        if (albums.isEmpty) continue;
+        mediaWithAlbums++;
 
-      // Diagnostics: how many distinct album keys/names
-      final distinctAlbums = <String>{};
-      for (final m in merged) {
-        // albumNames already unions files.albumNames + belongToAlbums.keys
-        for (final name in m.albumNames) {
-          if (name.isNotEmpty) distinctAlbums.add(name);
+        Map<String, AlbumInfo> updated = albums;
+        bool changed = false;
+
+        // 1) Sanitize album names (trim) and merge if the normalized key collides.
+        for (final entry in albums.entries) {
+          final String origName = entry.key;
+          final String sanitized = _sanitizeAlbumName(origName);
+          if (sanitized != origName) {
+            final AlbumInfo incoming = entry.value;
+            final AlbumInfo merged = (updated[sanitized] == null)
+                ? incoming
+                : updated[sanitized]!.merge(incoming);
+            if (identical(updated, albums)) {
+              updated = Map<String, AlbumInfo>.from(albums)
+                ..remove(origName)
+                ..[sanitized] = merged;
+            } else {
+              updated
+                ..remove(origName)
+                ..[sanitized] = merged;
+            }
+            changed = true;
+          }
+        }
+
+        // 2) Ensure at least one sourceDirectory per existing membership.
+        for (final entry in updated.entries) {
+          final AlbumInfo info = entry.value;
+          if (info.sourceDirectories.isEmpty) {
+            final String parent = _safeParentDir(e.primaryFile);
+            final AlbumInfo patched = info.addSourceDir(parent);
+            if (!identical(updated, albums) || changed) {
+              updated = Map<String, AlbumInfo>.from(updated)..[entry.key] = patched;
+            } else {
+              updated = Map<String, AlbumInfo>.from(albums)..[entry.key] = patched;
+            }
+            enrichedAlbumInfos++;
+            changed = true;
+          }
+        }
+
+        // Apply updates if any
+        if (changed) {
+          final updatedEntity = MediaEntity(
+            primaryFile: e.primaryFile,
+            secondaryFiles: e.secondaryFiles,
+            belongToAlbums: updated,
+            dateTaken: e.dateTaken,
+            dateAccuracy: e.dateAccuracy,
+            dateTimeExtractionMethod: e.dateTimeExtractionMethod,
+            partnershared: e.partnershared,
+          );
+          collection.replaceAt(i, updatedEntity);
+        }
+
+        // Stats (use sanitized keys from the possibly updated entity)
+        for (final albumName in collection[i].belongToAlbums.keys) {
+          if (albumName.trim().isEmpty) continue;
+          albumCounts[albumName] = (albumCounts[albumName] ?? 0) + 1;
         }
       }
-      print('[Step 6/8] Distinct album folders detected: ${distinctAlbums.length}');
+
+      final int totalAlbums = albumCounts.length;
+      final int finalCount = collection.length;
+      final int mergedCount = 0; // no entity-level merges in the new model
+
+      print('[Step 6/8] Media with album associations: $mediaWithAlbums');
+      print('[Step 6/8] Distinct album folders detected: $totalAlbums');
 
       sw.stop();
       return StepResult.success(
@@ -172,10 +253,14 @@ class FindAlbumsStep extends ProcessingStep with LoggerMixin {
           'initialCount': initial,
           'finalCount': finalCount,
           'mergedCount': mergedCount,
+          'albumsMerged': 0,
+          'groupsMerged': 0,
           'mediaWithAlbums': mediaWithAlbums,
-          'distinctAlbums': distinctAlbums.length,
+          'distinctAlbums': totalAlbums,
+          'albumCounts': albumCounts,
+          'enrichedAlbumInfos': enrichedAlbumInfos,
         },
-        message: 'Found ${distinctAlbums.length} different albums ($mergedCount albums were merged)',
+        message: 'Found $totalAlbums different albums ($mergedCount albums were merged)',
       );
     } catch (e) {
       sw.stop();
@@ -189,6 +274,20 @@ class FindAlbumsStep extends ProcessingStep with LoggerMixin {
   }
 
   @override
-  bool shouldSkip(final ProcessingContext context) =>
-      context.mediaCollection.isEmpty;
+  bool shouldSkip(final ProcessingContext context) => context.mediaCollection.isEmpty;
+
+  // ───────────────────────────── Helpers ─────────────────────────────
+
+  String _sanitizeAlbumName(final String name) {
+    final n = name.trim();
+    return n.isEmpty ? name : n;
+  }
+
+  String _safeParentDir(final File f) {
+    try {
+      return f.parent.path;
+    } catch (_) {
+      return '';
+    }
+  }
 }

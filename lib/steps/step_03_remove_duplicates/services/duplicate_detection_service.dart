@@ -211,7 +211,11 @@ class DuplicateDetectionService with LoggerMixin {
       } else {
         // Multiple files with same content, keep the best one
         final best = _selectBestMedia(group);
-        result.add(best);
+        MediaEntity merged = best;
+        for (final m in group) {
+          if (!identical(m, best)) merged = merged.mergeWith(m);
+        }
+        result.add(merged);
 
         // Log which duplicates are being removed
         final duplicatesToRemove = group.where((final media) => media != best).toList();
@@ -243,13 +247,13 @@ class DuplicateDetectionService with LoggerMixin {
   ///
   /// Priority order:
   /// 1. Media with most accurate date information
-  /// 2. Media with more album associations
+  /// 2. Media with more album associations (metadata-only, as a proxy for richer context)
   /// 3. Media with shorter file path (likely original location)
   MediaEntity _selectBestMedia(final List<MediaEntity> duplicates) {
     if (duplicates.length == 1) {
       return duplicates.first;
     }
-    // Sort by quality criteria
+    // Sort by quality criteria (adapted to the new model)
     final sorted = duplicates.toList()
       ..sort((final a, final b) {
         // 1. Prefer media with more accurate date
@@ -265,8 +269,8 @@ class DuplicateDetectionService with LoggerMixin {
           return 1; // b is better
         }
 
-        // 2. Prefer media with more album associations
-        final albumComparison = b.files.files.length.compareTo(a.files.files.length);
+        // 2. Prefer media with more album associations (metadata)
+        final albumComparison = b.belongToAlbums.length.compareTo(a.belongToAlbums.length);
         if (albumComparison != 0) return albumComparison;
 
         // 3. Prefer media with shorter path (likely more original)

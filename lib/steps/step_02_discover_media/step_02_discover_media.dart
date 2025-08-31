@@ -122,9 +122,7 @@ class DiscoverMediaStep extends ProcessingStep {
         extrasSkipped = result.removedCount;
 
         if (context.config.verbose) {
-          print(
-            'Skipped $extrasSkipped extra files due to skipExtras configuration',
-          );
+          print('Skipped $extrasSkipped extra files due to skipExtras configuration');
         }
       }
 
@@ -199,12 +197,13 @@ class DiscoverMediaStep extends ProcessingStep {
         // Extract partner sharing information from JSON
         final isPartnerShared = await jsonPartnerSharingExtractor(mediaFile);
 
-        context.mediaCollection.add(
-          MediaEntity.fromMap(
-            files: {null: mediaFile},
-            partnershared: isPartnerShared,
-          ),
+        // Create entity with primaryFile as-is (no secondary files at discovery time)
+        final entity = MediaEntity.single(
+          file: mediaFile,
+          partnershared: isPartnerShared,
         );
+
+        context.mediaCollection.add(entity);
         yearFolderFiles++;
       }
     } // Process album directories
@@ -217,12 +216,17 @@ class DiscoverMediaStep extends ProcessingStep {
         // Extract partner sharing information from JSON
         final isPartnerShared = await jsonPartnerSharingExtractor(mediaFile);
 
-        context.mediaCollection.add(
-          MediaEntity.fromMap(
-            files: {albumName: mediaFile},
-            partnershared: isPartnerShared,
-          ),
+        // Create entity with primaryFile from this album and set belongToAlbums metadata
+        final parentDir = mediaFile.parent.path;
+        final entity = MediaEntity.single(
+          file: mediaFile,
+          partnershared: isPartnerShared,
+          belongToAlbums: {
+            albumName: AlbumInfo(name: albumName, sourceDirectories: {parentDir})
+          },
         );
+
+        context.mediaCollection.add(entity);
         albumFolderFiles++;
       }
     }

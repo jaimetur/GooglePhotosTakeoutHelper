@@ -1,5 +1,4 @@
 import 'dart:io';
-
 import 'package:gpth/gpth-lib.dart';
 
 /// Modern domain model representing a collection of media entities (slim version).
@@ -211,13 +210,13 @@ class MediaEntityCollection with LoggerMixin {
         mediaWithDates++;
       }
 
-      // Count media with album associations
-      if (mediaEntity.files.hasAlbumFiles) {
+      // Count media with album associations (metadata)
+      if (mediaEntity.belongToAlbums.isNotEmpty) {
         mediaWithAlbums++;
       }
 
-      // Count total files
-      totalFiles += mediaEntity.files.files.length;
+      // Count total files: primary + secondaries
+      totalFiles += 1 + mediaEntity.secondaryFiles.length;
 
       // Track extraction method distribution
       final method = mediaEntity.dateTimeExtractionMethod ?? DateTimeExtractionMethod.none;

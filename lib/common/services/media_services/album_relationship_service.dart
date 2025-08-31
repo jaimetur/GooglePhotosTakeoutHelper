@@ -249,12 +249,10 @@ class AlbumRelationshipService with LoggerMixin {
 
   /// Finds media entities that only exist in year-based organization
   List<MediaEntity> findYearOnlyMedia(final List<MediaEntity> mediaList) =>
-      mediaList
-          .where(
-            (final entity) =>
-                !entity.hasAlbumAssociations && entity.files.hasYearBasedFiles,
-          )
-          .toList();
+    mediaList
+        .where((entity) => !entity.hasAlbumAssociations && entity.hasYearBasedFiles)
+        .toList();
+
 
   /// Gets statistics about album associations
   AlbumStatistics getAlbumStatistics(final List<MediaEntity> mediaList) {

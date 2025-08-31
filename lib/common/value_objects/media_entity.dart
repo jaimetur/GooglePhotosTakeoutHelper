@@ -1,57 +1,33 @@
 import 'dart:io';
 import 'package:gpth/gpth-lib.dart';
 
-/// Strongly-typed album metadata for a media entity.
-/// Kept minimal on purpose, but extensible (e.g., cover, description, id...).
-class AlbumInfo {
-  const AlbumInfo({
-    required this.name,
-    Set<String>? sourceDirectories,
-  }) : sourceDirectories = sourceDirectories ?? const {};
-
-  /// Album display/name key (already sanitized by the discovery layer)
-  final String name;
-
-  /// Directories in the Takeout where this entity had a physical file for this album.
-  /// Useful for diagnostics and for reconstructing albums reliably.
-  final Set<String> sourceDirectories;
-
-  /// Returns a new AlbumInfo with `dir` added to the sourceDirectories set.
-  AlbumInfo addSourceDir(final String dir) {
-    if (dir.isEmpty) return this;
-    final next = Set<String>.from(sourceDirectories)..add(dir);
-    return AlbumInfo(name: name, sourceDirectories: next);
-  }
-
-  /// Merges two AlbumInfo objects with the same album name.
-  AlbumInfo merge(final AlbumInfo other) {
-    if (other.name != name) return this;
-    if (other.sourceDirectories.isEmpty) return this;
-    final next = Set<String>.from(sourceDirectories)..addAll(other.sourceDirectories);
-    return AlbumInfo(name: name, sourceDirectories: next);
-  }
-
-  @override
-  String toString() => 'AlbumInfo(name: $name, dirs: ${sourceDirectories.length})';
-}
-
-/// Immutable domain entity representing a media file (photo or video)
+/// Immutable domain entity representing a media file (photo or video).
 ///
 /// This is the core domain model for media files, designed to be immutable
-/// and thread-safe. All modifications return new instances rather than
+/// and thread-safe. All “modifications” return new instances instead of
 /// mutating existing state.
+///
+/// UPDATED MODEL:
+/// - Replaces the previous `MediaFilesCollection files` with:
+///   - `primaryFile`: canonical file path (chosen by accuracy/name-length and
+///     year-folder preference on ties)
+///   - `secondaryFiles`: original paths of redundant duplicates (kept only as
+///     metadata after Step 3)
+///   - `belongToAlbums`: album membership metadata
 class MediaEntity {
-  /// Creates a new media entity
+  /// Creates a new media entity.
   const MediaEntity({
-    required this.files,
+    required this.primaryFile,
+    List<File>? secondaryFiles,
     this.dateTaken,
     this.dateAccuracy,
     this.dateTimeExtractionMethod,
     this.partnershared = false,
     Map<String, AlbumInfo>? belongToAlbums,
-  }) : belongToAlbums = belongToAlbums ?? const {};
+  })  : secondaryFiles = secondaryFiles ?? const <File>[],
+        belongToAlbums = belongToAlbums ?? const {};
 
-  /// Creates a media entity with a single file
+  /// Convenience factory for a single-file entity.
   factory MediaEntity.single({
     required final File file,
     final DateTime? dateTaken,
@@ -61,7 +37,8 @@ class MediaEntity {
     Map<String, AlbumInfo>? belongToAlbums,
   }) =>
       MediaEntity(
-        files: MediaFilesCollection.single(file),
+        primaryFile: file,
+        secondaryFiles: const <File>[],
         dateTaken: dateTaken,
         dateAccuracy: dateAccuracy,
         dateTimeExtractionMethod: dateTimeExtractionMethod,
@@ -69,137 +46,59 @@ class MediaEntity {
         belongToAlbums: belongToAlbums,
       );
 
-  /// Creates a media entity from a legacy map structure
-  factory MediaEntity.fromMap({
-    required final Map<String?, File> files,
-    final DateTime? dateTaken,
-    final int? dateTakenAccuracy,
-    final DateTimeExtractionMethod? dateTimeExtractionMethod,
-    final bool partnershared = false,
-    Map<String, AlbumInfo>? belongToAlbums,
-  }) =>
-      MediaEntity(
-        files: MediaFilesCollection.fromMap(files),
-        dateTaken: dateTaken,
-        dateAccuracy:
-            dateTakenAccuracy != null ? DateAccuracy.fromInt(dateTakenAccuracy) : null,
-        dateTimeExtractionMethod: dateTimeExtractionMethod,
-        partnershared: partnershared,
-        belongToAlbums: belongToAlbums,
-      );
-
-  /// Collection of files associated with this media (primary and secondaries).
-  final MediaFilesCollection files;
-
-  /// Map of album name → AlbumInfo, listing all albums where this entity belongs.
-  /// This does NOT replace `files`; both are maintained. `belongToAlbums` is the
-  /// canonical place to carry album membership metadata forward.
+  /// Album metadata: album name → AlbumInfo.
+  /// This is used to reconstruct album relationships later in the pipeline.
   final Map<String, AlbumInfo> belongToAlbums;
 
-  /// Date when the media was taken/created
+  /// Capture/creation datetime (best-known).
   final DateTime? dateTaken;
 
-  /// Accuracy of the date extraction
+  /// Date extraction accuracy.
   final DateAccuracy? dateAccuracy;
 
-  /// Method used to extract the date/time
+  /// How the date/time information was extracted.
   final DateTimeExtractionMethod? dateTimeExtractionMethod;
 
-  /// Whether this media was shared by a partner (from Google Photos partner sharing)
+  /// Whether this media was shared by a partner (Google Photos partner sharing).
   final bool partnershared;
 
-  /// Gets the primary file for this media
-  File get primaryFile => files.firstFile;
+  /// Canonical (primary) file for this media entity.
+  final File primaryFile;
 
-  /// Gets the legacy accuracy value for backward compatibility
+  /// Original physical paths of all secondary duplicates (metadata only after Step 3).
+  final List<File> secondaryFiles;
+
+  /// Backward-compat convenience getter (integer accuracy).
   int? get dateTakenAccuracy => dateAccuracy?.value;
 
-  /// Whether this media has reliable date information
-  bool get hasReliableDate => dateAccuracy?.isReliable ?? false;
+  /// Whether this media is associated with any album.
+  bool get hasAlbumAssociations => belongToAlbums.isNotEmpty;
 
-  /// Whether this media is associated with albums (from files or from belongToAlbums)
-  bool get hasAlbumAssociations =>
-      files.hasAlbumFiles || belongToAlbums.isNotEmpty;
+  /// All album names where this media belongs to.
+  Set<String> get albumNames => belongToAlbums.keys.toSet();
 
-  /// Gets all album names this media is associated with (union of both sources)
-  Set<String> get albumNames {
-    final fromFiles = files.albumNames; // depends on your MediaFilesCollection
-    if (belongToAlbums.isEmpty) return fromFiles;
-    return {...fromFiles, ...belongToAlbums.keys};
-  }
-
-  /// Creates a new media entity with additional file association
-  /// `albumName` can be null (e.g., year folder/main source). If provided, we also
-  /// update belongToAlbums with the parent directory of this file as a source dir.
-  MediaEntity withFile(final String? albumName, final File file) {
-    final newFiles = files.withFile(albumName, file);
-
-    Map<String, AlbumInfo> nextAlbums = belongToAlbums;
-    if (albumName != null) {
-      final parentDir = file.parent.path;
-      final existing = belongToAlbums[albumName];
-      final updated = (existing == null)
-          ? AlbumInfo(name: albumName, sourceDirectories: {parentDir})
-          : existing.addSourceDir(parentDir);
-      nextAlbums = Map<String, AlbumInfo>.from(belongToAlbums)
-        ..[albumName] = updated;
+  /// Returns true if any path (primary or secondary) lives inside a “year-based” folder.
+  ///
+  /// Heuristics:
+  /// - Pure year directory: `2020`, `2015`, ...
+  /// - Localized folder names: `Photos from 2019`, `Fotos de 2019` (case-insensitive)
+  bool get hasYearBasedFiles {
+    if (_pathIsInYearFolder(primaryFile.path)) return true;
+    for (final f in secondaryFiles) {
+      if (_pathIsInYearFolder(f.path)) return true;
     }
-
-    return MediaEntity(
-      files: newFiles,
-      dateTaken: dateTaken,
-      dateAccuracy: dateAccuracy,
-      dateTimeExtractionMethod: dateTimeExtractionMethod,
-      partnershared: partnershared,
-      belongToAlbums: nextAlbums,
-    );
+    return false;
   }
 
-  /// Creates a new media entity with multiple additional files
-  /// For each (albumName, file) we also update belongToAlbums accordingly.
-  MediaEntity withFiles(final Map<String?, File> additionalFiles) {
-    final newFiles = files.withFiles(additionalFiles);
-
-    if (additionalFiles.isEmpty) {
-      return MediaEntity(
-        files: newFiles,
-        dateTaken: dateTaken,
-        dateAccuracy: dateAccuracy,
-        dateTimeExtractionMethod: dateTimeExtractionMethod,
-        partnershared: partnershared,
-        belongToAlbums: belongToAlbums,
-      );
-    }
-
-    final next = Map<String, AlbumInfo>.from(belongToAlbums);
-    additionalFiles.forEach((final String? albumName, final File file) {
-      if (albumName == null) return; // main/year file, no album
-      final parentDir = file.parent.path;
-      final existing = next[albumName];
-      final updated = (existing == null)
-          ? AlbumInfo(name: albumName, sourceDirectories: {parentDir})
-          : existing.addSourceDir(parentDir);
-      next[albumName] = updated;
-    });
-
-    return MediaEntity(
-      files: newFiles,
-      dateTaken: dateTaken,
-      dateAccuracy: dateAccuracy,
-      dateTimeExtractionMethod: dateTimeExtractionMethod,
-      partnershared: partnershared,
-      belongToAlbums: next,
-    );
-  }
-
-  /// Creates a new media entity with updated date information
+  /// Returns a copy with updated date/accuracy/method.
   MediaEntity withDate({
     final DateTime? dateTaken,
     final DateAccuracy? dateAccuracy,
     final DateTimeExtractionMethod? dateTimeExtractionMethod,
   }) =>
       MediaEntity(
-        files: files,
+        primaryFile: primaryFile,
+        secondaryFiles: secondaryFiles,
         dateTaken: dateTaken ?? this.dateTaken,
         dateAccuracy: dateAccuracy ?? this.dateAccuracy,
         dateTimeExtractionMethod:
@@ -208,36 +107,26 @@ class MediaEntity {
         belongToAlbums: belongToAlbums,
       );
 
-  /// Returns a new entity without a specific album association in the files collection.
-  /// Does not erase belongToAlbums on purpose (it is metadata; a separate decision can clear it).
-  MediaEntity withoutAlbum(final String? albumName) => MediaEntity(
-        files: files.withoutAlbum(albumName),
-        dateTaken: dateTaken,
-        dateAccuracy: dateAccuracy,
-        dateTimeExtractionMethod: dateTimeExtractionMethod,
-        partnershared: partnershared,
-        belongToAlbums: belongToAlbums,
-      );
-
-  /// Returns a new entity with an explicit album membership update (metadata only).
-  /// Does not add a physical file; use withFile/withFiles for that.
+  /// Returns a copy with album membership updated/added (metadata only).
   MediaEntity withAlbumInfo(final String albumName, {final String? sourceDir}) {
     if (albumName.isEmpty) return this;
     final existing = belongToAlbums[albumName];
     final updated = (existing == null)
         ? AlbumInfo(
             name: albumName,
-            sourceDirectories: sourceDir != null && sourceDir.isNotEmpty
-                ? {sourceDir}
-                : const {},
+            sourceDirectories:
+                sourceDir != null && sourceDir.isNotEmpty ? {sourceDir} : const {},
           )
         : (sourceDir != null && sourceDir.isNotEmpty
             ? existing.addSourceDir(sourceDir)
             : existing);
+
     final next = Map<String, AlbumInfo>.from(belongToAlbums)
       ..[albumName] = updated;
+
     return MediaEntity(
-      files: files,
+      primaryFile: primaryFile,
+      secondaryFiles: secondaryFiles,
       dateTaken: dateTaken,
       dateAccuracy: dateAccuracy,
       dateTimeExtractionMethod: dateTimeExtractionMethod,
@@ -246,28 +135,73 @@ class MediaEntity {
     );
   }
 
-  /// Merges this media entity with another, taking the better date accuracy,
-  /// union of physical files and a deep merge of `belongToAlbums`.
+  /// Returns a copy adding a secondary file (skips if already present).
+  MediaEntity withSecondaryFile(final File file) {
+    if (file.path == primaryFile.path ||
+        secondaryFiles.any((f) => f.path == file.path)) {
+      return this;
+    }
+    final next = List<File>.from(secondaryFiles)..add(file);
+    return MediaEntity(
+      primaryFile: primaryFile,
+      secondaryFiles: next,
+      dateTaken: dateTaken,
+      dateAccuracy: dateAccuracy,
+      dateTimeExtractionMethod: dateTimeExtractionMethod,
+      partnershared: partnershared,
+      belongToAlbums: belongToAlbums,
+    );
+  }
+
+  /// Returns a copy promoting `newPrimary` to primary in an immutable way.
+  ///
+  /// - The previous `primaryFile` becomes a secondary.
+  /// - If `newPrimary` already existed in `secondaryFiles`, it is removed from there.
+  MediaEntity withPrimaryFile(final File newPrimary) {
+    if (newPrimary.path == primaryFile.path) return this;
+
+    final nextSecondaries = <File>[];
+
+    // Old primary becomes secondary if it differs from the new primary.
+    if (primaryFile.path != newPrimary.path) {
+      nextSecondaries.add(primaryFile);
+    }
+
+    // Keep current secondaries except the one promoted to primary.
+    for (final f in secondaryFiles) {
+      if (f.path != newPrimary.path) nextSecondaries.add(f);
+    }
+
+    return MediaEntity(
+      primaryFile: newPrimary,
+      secondaryFiles: nextSecondaries,
+      dateTaken: dateTaken,
+      dateAccuracy: dateAccuracy,
+      dateTimeExtractionMethod: dateTimeExtractionMethod,
+      partnershared: partnershared,
+      belongToAlbums: belongToAlbums,
+    );
+  }
+
+  /// Merges this entity with another:
+  /// - Merges album metadata (deep merge).
+  /// - Selects the best date/accuracy/method.
+  /// - Accumulates secondary files (deduplicated by path).
+  ///
+  /// The `primaryFile` of *this* instance is preserved by design; callers should
+  /// choose which entity keeps the primary before merging.
   MediaEntity mergeWith(final MediaEntity other) {
-    // 1) Combine all files via MediaFilesCollection
-    final combinedFiles = files.withFiles(other.files.files);
-
-    // 2) Combine album metadata
+    // 1) Merge album metadata
     final Map<String, AlbumInfo> mergedAlbums = <String, AlbumInfo>{};
-    // Start with "this"
-    for (final entry in belongToAlbums.entries) {
-      mergedAlbums[entry.key] = entry.value;
+    for (final e in belongToAlbums.entries) {
+      mergedAlbums[e.key] = e.value;
     }
-    // Merge "other"
-    for (final entry in other.belongToAlbums.entries) {
-      final String album = entry.key;
-      final AlbumInfo incoming = entry.value;
-      final AlbumInfo? existing = mergedAlbums[album];
-      mergedAlbums[album] =
-          existing == null ? incoming : existing.merge(incoming);
+    for (final e in other.belongToAlbums.entries) {
+      final existing = mergedAlbums[e.key];
+      mergedAlbums[e.key] = existing == null ? e.value : existing.merge(e.value);
     }
 
-    // 3) Pick the best date info (the same policy you already had)
+    // 2) Pick the best date/accuracy/method
     final DateTime? bestDate;
     final DateAccuracy? bestAccuracy;
     final DateTimeExtractionMethod? bestMethod;
@@ -296,8 +230,24 @@ class MediaEntity {
       }
     }
 
+    // 3) Merge secondaries (add other's primary + secondaries, dedup by path)
+    final List<File> mergedSecondary = <File>[];
+    mergedSecondary.addAll(secondaryFiles);
+
+    if (other.primaryFile.path != primaryFile.path &&
+        !mergedSecondary.any((f) => f.path == other.primaryFile.path)) {
+      mergedSecondary.add(other.primaryFile);
+    }
+    for (final f in other.secondaryFiles) {
+      if (f.path != primaryFile.path &&
+          !mergedSecondary.any((x) => x.path == f.path)) {
+        mergedSecondary.add(f);
+      }
+    }
+
     return MediaEntity(
-      files: combinedFiles,
+      primaryFile: primaryFile,
+      secondaryFiles: mergedSecondary,
       dateTaken: bestDate,
       dateAccuracy: bestAccuracy,
       dateTimeExtractionMethod: bestMethod,
@@ -309,25 +259,37 @@ class MediaEntity {
   @override
   bool operator ==(final Object other) {
     if (identical(this, other)) return true;
-    return other is MediaEntity &&
-        other.files == files &&
-        other.dateTaken == dateTaken &&
+    if (other is! MediaEntity) return false;
+
+    if (other.primaryFile.path != primaryFile.path) return false;
+
+    final samePartner = other.partnershared == partnershared;
+    final sameDate = other.dateTaken == dateTaken &&
         other.dateAccuracy == dateAccuracy &&
-        other.dateTimeExtractionMethod == dateTimeExtractionMethod &&
-        other.partnershared == partnershared &&
-        // compare album keys (values can be large; keep equality light-weight)
-        _sameAlbumKeys(other.belongToAlbums.keys, belongToAlbums.keys);
+        other.dateTimeExtractionMethod == dateTimeExtractionMethod;
+
+    // Compare album keys only (cheap structural equality)
+    final aKeys = belongToAlbums.keys.toSet();
+    final bKeys = other.belongToAlbums.keys.toSet();
+    final sameAlbumKeys = aKeys.length == bKeys.length && aKeys.containsAll(bKeys);
+
+    // Compare secondary files by path sets
+    final aSec = secondaryFiles.map((f) => f.path).toSet();
+    final bSec = other.secondaryFiles.map((f) => f.path).toSet();
+    final sameSecondaries = aSec.length == bSec.length && aSec.containsAll(bSec);
+
+    return samePartner && sameDate && sameAlbumKeys && sameSecondaries;
   }
 
   @override
   int get hashCode => Object.hash(
-        files,
+        primaryFile.path,
         dateTaken,
         dateAccuracy,
         dateTimeExtractionMethod,
         partnershared,
-        // hash album keys only (stable enough for sets/maps usage)
         Object.hashAllUnordered(belongToAlbums.keys),
+        Object.hashAllUnordered(secondaryFiles.map((f) => f.path)),
       );
 
   @override
@@ -336,19 +298,63 @@ class MediaEntity {
     final accuracyInfo =
         dateAccuracy != null ? ' (${dateAccuracy!.description})' : '';
     final partnerInfo = partnershared ? ', partnershared: true' : '';
-    final albumsCount =
-        albumNames.length; // union of files + belongToAlbums
-    return 'MediaEntity(${primaryFile.path}$dateInfo$accuracyInfo, albums: $albumsCount$partnerInfo)';
+    final albumsCount = albumNames.length;
+    final secondaries = secondaryFiles.length;
+    return 'MediaEntity(${primaryFile.path}$dateInfo$accuracyInfo, '
+        'albums: $albumsCount, secondaries: $secondaries$partnerInfo)';
   }
 
-  static bool _sameAlbumKeys(
-    final Iterable<String> a,
-    final Iterable<String> b,
-  ) {
-    if (identical(a, b)) return true;
-    final sa = a.toSet();
-    final sb = b.toSet();
-    if (sa.length != sb.length) return false;
-    return sa.containsAll(sb);
+  // ===== Private helpers =====
+
+  static bool _pathIsInYearFolder(String p) {
+    final normalized = p.replaceAll('\\', '/');
+    final segments = normalized.split('/');
+
+    final pureYear = RegExp(r'^(19|20)\d{2}$');
+    final localizedYear = RegExp(
+      r'^(photos\s+from|fotos\s+de)\s+(19|20)\d{2}$',
+      caseSensitive: false,
+    );
+
+    for (final seg in segments) {
+      final s = seg.trim();
+      if (pureYear.hasMatch(s)) return true;
+      if (localizedYear.hasMatch(s.toLowerCase())) return true;
+    }
+    return false;
   }
+}
+
+/// Strongly-typed album metadata for a media entity.
+/// Kept minimal on purpose but easily extensible (cover, description, id, etc.).
+class AlbumInfo {
+  const AlbumInfo({
+    required this.name,
+    Set<String>? sourceDirectories,
+  }) : sourceDirectories = sourceDirectories ?? const {};
+
+  /// Album display/name key (already sanitized by the discovery layer).
+  final String name;
+
+  /// Directories in the Takeout where a physical file for this album existed.
+  /// Useful for diagnostics and reliable album reconstruction.
+  final Set<String> sourceDirectories;
+
+  /// Returns a new `AlbumInfo` with `dir` added to `sourceDirectories`.
+  AlbumInfo addSourceDir(final String dir) {
+    if (dir.isEmpty) return this;
+    final next = Set<String>.from(sourceDirectories)..add(dir);
+    return AlbumInfo(name: name, sourceDirectories: next);
+  }
+
+  /// Merges two AlbumInfo objects with the same album name.
+  AlbumInfo merge(final AlbumInfo other) {
+    if (other.name != name) return this;
+    if (other.sourceDirectories.isEmpty) return this;
+    final next = Set<String>.from(sourceDirectories)..addAll(other.sourceDirectories);
+    return AlbumInfo(name: name, sourceDirectories: next);
+  }
+
+  @override
+  String toString() => 'AlbumInfo(name: $name, dirs: ${sourceDirectories.length})';
 }

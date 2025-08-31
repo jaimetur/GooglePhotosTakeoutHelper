@@ -5,6 +5,14 @@ import 'package:gpth/gpth-lib.dart';
 ///
 /// This strategy creates actual file copies in both ALL_PHOTOS and album folders.
 /// Files are moved to ALL_PHOTOS and copied to each album folder.
+///
+/// NOTE (model update):
+/// - MediaEntity now has `primaryFile` (single source), `secondaryFiles` (original duplicate paths),
+///   and `belongToAlbums` (album associations). There is no `files` map anymore.
+/// - Physical duplicates (non-primary files) were already deleted or moved to `_Duplicates` in Step 3,
+///   so this strategy MUST NOT try to move them again here. We only handle:
+///     1) Move/rename of the PRIMARY file to the canonical ALL_PHOTOS path
+///     2) Copy of the PRIMARY to each album folder (duplicate-copy behavior)
 class DuplicateCopyMovingStrategy extends MediaEntityMovingStrategy {
   const DuplicateCopyMovingStrategy(this._fileService, this._pathService);
 
@@ -58,21 +66,12 @@ class DuplicateCopyMovingStrategy extends MediaEntityMovingStrategy {
           (final d) => originalPathLower.startsWith(d.path.toLowerCase()),
         );
 
-        if (isInsideAlbum) {
-          // Move the file out to canonical location
-          canonicalFile = await _fileService.moveFile(
-            originalPrimaryFile,
-            allPhotosDir,
-            dateTaken: entity.dateTaken,
-          );
-        } else {
-          // Regular flow: move (rename) into ALL_PHOTOS (if already there rename handles uniqueness)
-          canonicalFile = await _fileService.moveFile(
-            originalPrimaryFile,
-            allPhotosDir,
-            dateTaken: entity.dateTaken,
-          );
-        }
+        // Regular flow: move (rename) into ALL_PHOTOS (if already there rename handles uniqueness)
+        canonicalFile = await _fileService.moveFile(
+          originalPrimaryFile,
+          allPhotosDir,
+          dateTaken: entity.dateTaken,
+        );
       } else {
         // No albums: just move
         canonicalFile = await _fileService.moveFile(
@@ -151,98 +150,13 @@ class DuplicateCopyMovingStrategy extends MediaEntityMovingStrategy {
       );
     }
 
-    // Move non-primary physical files to _Duplicates preserving source structure
-    yield* _moveNonPrimaryFilesToDuplicates(entity, context);
+    // IMPORTANT (new data model):
+    // Do NOT move secondary/non-primary files here. Step 3 already deleted or moved them to `_Duplicates`.
+    // Album reconstruction in Step 7 works exclusively from the canonical primary file.
   }
 
   @override
   void validateContext(final MovingContext context) {
     // No special validation needed for duplicate-copy strategy
   }
-
-  // --- helper: move all non-primary physical files to _Duplicates, preserving structure ---
-  Stream<MediaEntityMovingResult> _moveNonPrimaryFilesToDuplicates(
-    final MediaEntity entity,
-    final MovingContext context,
-  ) async* {
-    final duplicatesRoot = Directory('${context.outputDirectory.path}/_Duplicates');
-    final primaryPath = entity.primaryFile.path;
-    final allSources = entity.files.files.values.map((final f) => f.path).toSet();
-
-    for (final srcPath in allSources) {
-      if (srcPath == primaryPath) continue;
-
-      final sourceFile = File(srcPath);
-      final relInfo = _computeDuplicatesRelativeInfo(srcPath);
-      final targetDir = Directory('${duplicatesRoot.path}/${relInfo.relativeDir}');
-      if (!targetDir.existsSync()) {
-        targetDir.createSync(recursive: true);
-      }
-
-      final sw = Stopwatch()..start();
-      try {
-        final moved = await _fileService.moveFile(
-          sourceFile,
-          targetDir,
-          dateTaken: entity.dateTaken,
-        );
-        sw.stop();
-        yield MediaEntityMovingResult.success(
-          operation: MediaEntityMovingOperation(
-            sourceFile: sourceFile,
-            targetDirectory: targetDir,
-            operationType: MediaEntityOperationType.move,
-            mediaEntity: entity,
-          ),
-          resultFile: moved,
-          duration: sw.elapsed,
-        );
-      } catch (e) {
-        sw.stop();
-        yield MediaEntityMovingResult.failure(
-          operation: MediaEntityMovingOperation(
-            sourceFile: sourceFile,
-            targetDirectory: targetDir,
-            operationType: MediaEntityOperationType.move,
-            mediaEntity: entity,
-          ),
-          errorMessage: 'Failed to move non-primary file to _Duplicates: $e (hint: ${relInfo.hint})',
-          duration: sw.elapsed,
-        );
-      }
-    }
-  }
-
-  // Calculate a relative directory inside _Duplicates that mirrors the source tree.
-  _RelInfo _computeDuplicatesRelativeInfo(final String sourcePath) {
-    final normalized = sourcePath.replaceAll('\\', '/');
-    final lower = normalized.toLowerCase();
-
-    final idxTakeout = lower.indexOf('/takeout/');
-    if (idxTakeout >= 0) {
-      final rel = normalized.substring(idxTakeout + '/takeout/'.length);
-      final relDir = rel.contains('/') ? rel.substring(0, rel.lastIndexOf('/')) : '';
-      return _RelInfo(relativeDir: relDir.isEmpty ? '.' : relDir, hint: 'anchored by /Takeout/');
-    }
-
-    for (final anchor in const ['/google fotos/', '/google photos/']) {
-      final idx = lower.indexOf(anchor);
-      if (idx >= 0) {
-        final rel = normalized.substring(idx + anchor.length);
-        final relDir = rel.contains('/') ? rel.substring(0, rel.lastIndexOf('/')) : '';
-        return _RelInfo(relativeDir: relDir.isEmpty ? '.' : relDir, hint: 'anchored by $anchor');
-      }
-    }
-
-    final lastSlash = normalized.lastIndexOf('/');
-    final parent = normalized.substring(0, lastSlash >= 0 ? lastSlash : normalized.length);
-    final leaf = parent.isEmpty ? 'Uncategorized' : parent.split('/').last;
-    return _RelInfo(relativeDir: leaf, hint: 'fallback: no anchor found');
-  }
-}
-
-class _RelInfo {
-  const _RelInfo({required this.relativeDir, required this.hint});
-  final String relativeDir;
-  final String hint;
 }

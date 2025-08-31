@@ -6,6 +6,15 @@ import 'package:gpth/gpth-lib.dart';
 /// This strategy ignores albums entirely and creates only ALL_PHOTOS with all files
 /// organized chronologically. All files are moved to ALL_PHOTOS regardless of their
 /// source location (year folders or albums) to ensure no data loss.
+///
+/// NOTE (model update):
+/// - MediaEntity now exposes `primaryFile` (single canonical source), `secondaryFiles`
+///   (original duplicate paths kept only as metadata), and album associations via
+///   `belongToAlbums` / `albumNames`. There is no `files` map anymore.
+/// - Step 3 (RemoveDuplicates) already deleted or moved physical duplicates to `_Duplicates`.
+///   This strategy MUST NOT attempt to move any secondary file again. The helper
+///   `_moveNonPrimaryFilesToDuplicates` is intentionally a no-op to keep API/comments
+///   without duplicating work.
 class NothingMovingStrategy extends MediaEntityMovingStrategy {
   const NothingMovingStrategy(this._fileService, this._pathService);
 
@@ -26,10 +35,9 @@ class NothingMovingStrategy extends MediaEntityMovingStrategy {
     final MediaEntity entity,
     final MovingContext context,
   ) async* {
-    // Move ALL files to ALL_PHOTOS, regardless of their source location
-    // This ensures no data loss in move mode and provides transparent behavior
+    // Move ONLY the primary file to ALL_PHOTOS (or PARTNER_SHARED).
+    // Albums are ignored in this strategy.
 
-    // Move file to ALL_PHOTOS (or PARTNER_SHARED)
     final primaryFile = entity.primaryFile;
     final allPhotosDir = _pathService.generateTargetDirectory(
       null, // null = ALL_PHOTOS or PARTNER_SHARED
@@ -37,6 +45,7 @@ class NothingMovingStrategy extends MediaEntityMovingStrategy {
       context,
       isPartnerShared: entity.partnershared,
     );
+
     final stopwatch = Stopwatch()..start();
     try {
       final movedFile = await _fileService.moveFile(
@@ -70,7 +79,8 @@ class NothingMovingStrategy extends MediaEntityMovingStrategy {
       );
     }
 
-    // Move non-primary physical files to _Duplicates, preserving structure
+    // Move non-primary physical files to _Duplicates (legacy helper).
+    // NOTE: Step 3 already handled physical duplicates → this is now a no-op.
     yield* _moveNonPrimaryFilesToDuplicates(entity, context);
   }
 
@@ -80,85 +90,18 @@ class NothingMovingStrategy extends MediaEntityMovingStrategy {
   }
 
   // --- helper: move all non-primary physical files to _Duplicates, preserving structure ---
+  // Kept for backward compatibility with comments/APIs, but intentionally does nothing now,
+  // because Step 3 already deleted/moved duplicate files.
   Stream<MediaEntityMovingResult> _moveNonPrimaryFilesToDuplicates(
     final MediaEntity entity,
     final MovingContext context,
   ) async* {
-    final duplicatesRoot = Directory('${context.outputDirectory.path}/_Duplicates');
-    final primaryPath = entity.primaryFile.path;
-    final allSources = entity.files.files.values.map((final f) => f.path).toSet();
-
-    for (final srcPath in allSources) {
-      if (srcPath == primaryPath) continue;
-
-      final sourceFile = File(srcPath);
-      final relInfo = _computeDuplicatesRelativeInfo(srcPath);
-      final targetDir = Directory('${duplicatesRoot.path}/${relInfo.relativeDir}');
-      if (!targetDir.existsSync()) {
-        targetDir.createSync(recursive: true);
-      }
-
-      final sw = Stopwatch()..start();
-      try {
-        final moved = await _fileService.moveFile(
-          sourceFile,
-          targetDir,
-          dateTaken: entity.dateTaken,
-        );
-        sw.stop();
-        yield MediaEntityMovingResult.success(
-          operation: MediaEntityMovingOperation(
-            sourceFile: sourceFile,
-            targetDirectory: targetDir,
-            operationType: MediaEntityOperationType.move,
-            mediaEntity: entity,
-          ),
-          resultFile: moved,
-          duration: sw.elapsed,
-        );
-      } catch (e) {
-        sw.stop();
-        yield MediaEntityMovingResult.failure(
-          operation: MediaEntityMovingOperation(
-            sourceFile: sourceFile,
-            targetDirectory: targetDir,
-            operationType: MediaEntityOperationType.move,
-            mediaEntity: entity,
-          ),
-          errorMessage: 'Failed to move non-primary file to _Duplicates: $e (hint: ${relInfo.hint})',
-          duration: sw.elapsed,
-        );
-      }
-    }
-  }
-
-  _RelInfo _computeDuplicatesRelativeInfo(final String sourcePath) {
-    final normalized = sourcePath.replaceAll('\\', '/');
-    final lower = normalized.toLowerCase();
-
-    final idxTakeout = lower.indexOf('/takeout/');
-    if (idxTakeout >= 0) {
-      final rel = normalized.substring(idxTakeout + '/takeout/'.length);
-      final relDir = rel.contains('/') ? rel.substring(0, rel.lastIndexOf('/')) : '';
-      return _RelInfo(relativeDir: relDir.isEmpty ? '.' : relDir, hint: 'anchored by /Takeout/');
-    }
-
-    for (final anchor in const ['/google fotos/', '/google photos/']) {
-      final idx = lower.indexOf(anchor);
-      if (idx >= 0) {
-        final rel = normalized.substring(idx + anchor.length);
-        final relDir = rel.contains('/') ? rel.substring(0, rel.lastIndexOf('/')) : '';
-        return _RelInfo(relativeDir: relDir.isEmpty ? '.' : relDir, hint: 'anchored by $anchor');
-      }
-    }
-
-    final lastSlash = normalized.lastIndexOf('/');
-    final parent = normalized.substring(0, lastSlash >= 0 ? lastSlash : normalized.length);
-    final leaf = parent.isEmpty ? 'Uncategorized' : parent.split('/').last;
-    return _RelInfo(relativeDir: leaf, hint: 'fallback: no anchor found');
+    // no-op by design in the new pipeline
+    return;
   }
 }
 
+// Kept for backward-compat (comment/type), though not used anymore in the no-op helper.
 class _RelInfo {
   const _RelInfo({required this.relativeDir, required this.hint});
   final String relativeDir;
