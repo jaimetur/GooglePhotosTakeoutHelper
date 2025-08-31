@@ -848,14 +848,14 @@ Future<ProcessingResult> _executeProcessing(
   // NEW: honor keep-input but avoid cloning when input was (now) extracted from ZIPs
   final bool inputExtractedFromZipFlag = config.inputExtractedFromZip || extractedNow;
 
-  // Log de diagnóstico para confirmar decisión de clonado
+  // Diagnostic Log to veryfy if we should clone InputDir
   final bool shouldClone = config.keepInput && !inputExtractedFromZipFlag;
   _logger.info('keepInput = ${config.keepInput}, inputExtractedFromZip = $inputExtractedFromZipFlag, shouldClone = $shouldClone', forcePrint: true);
-  _logger.info('Creating input clone as working copy because keepInput = true and input does not come from ZIP extraction (inputExtractedFromZip = false).', forcePrint: true);
 
   Directory effectiveInputDir = inputDir;
 
   if (shouldClone) {
+    _logger.info('Creating input clone as working copy because keepInput = true and input does not come from ZIP extraction (inputExtractedFromZip = false).', forcePrint: true);
     final cloner = InputCloneService();
     // Clone the **original user root**, not the already resolved Google Photos subfolder
     final Directory clonedRoot = await cloner.cloneToSiblingTmp(Directory(effectiveUserRoot));
