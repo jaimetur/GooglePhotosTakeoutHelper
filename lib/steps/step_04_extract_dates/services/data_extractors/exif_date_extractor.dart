@@ -88,12 +88,12 @@ class ExifDateExtractor with LoggerMixin {
 
     if (loggerMixin != null) {
       print('');
-      loggerMixin.logDebug(line_calls, forcePrint: true);
+      loggerMixin.logInfo(line_calls, forcePrint: true);
       if (showDictLine) {
-        loggerMixin.logDebug(line_dict, forcePrint: true);
+        loggerMixin.logInfo(line_dict, forcePrint: true);
       }
-      loggerMixin.logDebug(line_native, forcePrint: true);
-      loggerMixin.logDebug(line_exiftool, forcePrint: true);
+      loggerMixin.logInfo(line_native, forcePrint: true);
+      loggerMixin.logInfo(line_exiftool, forcePrint: true);
       print('');
     } else {
       print('');

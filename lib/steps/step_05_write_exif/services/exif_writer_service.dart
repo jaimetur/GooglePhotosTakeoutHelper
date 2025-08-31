@@ -133,7 +133,7 @@ class ExifWriterService with LoggerMixin {
     print('');
     for (final l in lines) {
       if (logger != null) {
-        logger.logDebug(l, forcePrint: true);
+        logger.logInfo(l, forcePrint: true);
       } else {
         // ignore: avoid_print
         print(l);
