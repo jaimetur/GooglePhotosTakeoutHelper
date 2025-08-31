@@ -268,8 +268,8 @@ jobs:
           
           echo "✅ TOOL_VERSION = ${TOOL_VERSION}"
 
-      - name: Get changelog
-        run: python scripts/get_changelog.py --version ${{ steps.version.outputs.version }} > ./RELEASE-NOTES.ms
+      - name: 📜 Get changelog
+        run: python scripts/get_changelog.py --version ${TOOL_VERSION} > ./RELEASE-NOTES.ms
 
       - name: ⬆️ Upload RELEASE-NOTES.md as artifact
         uses: actions/upload-artifact@v4
