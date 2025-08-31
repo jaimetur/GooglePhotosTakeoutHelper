@@ -855,7 +855,7 @@ Future<ProcessingResult> _executeProcessing(
   Directory effectiveInputDir = inputDir;
 
   if (shouldClone) {
-    _logger.info('Creating input clone as working copy because keepInput = true and input does not come from ZIP extraction (inputExtractedFromZip = false).', forcePrint: true);
+    _logger.info('Creating input clone as working copy because keepInput = ${config.keepInput} and input does not come from ZIP extraction (inputExtractedFromZip = ${inputExtractedFromZipFlag}).', forcePrint: true);
     final cloner = InputCloneService();
     // Clone the **original user root**, not the already resolved Google Photos subfolder
     final Directory clonedRoot = await cloner.cloneToSiblingTmp(Directory(effectiveUserRoot));
@@ -868,7 +868,9 @@ Future<ProcessingResult> _executeProcessing(
     _logger.info('Effective input inside clone: $resolvedInsideClone');
   } else if (config.keepInput && inputExtractedFromZipFlag) {
     // Explicit message explaining why we skip clone
-    _logger.info('Skipping clone because input comes from ZIP extraction (inputExtractedFromZip=true).', forcePrint: true);
+    _logger.info('Skipping clone inputSir because input comes from ZIP extraction (inputExtractedFromZip = ${inputExtractedFromZipFlag}).', forcePrint: true);
+  } else {
+    _logger.info('Skipping clone inputSir (keepInput = ${config.keepInput}, inputExtractedFromZip = ${inputExtractedFromZipFlag}).', forcePrint: true);
   }
 
   // IMPORTANT: from here on, use a runtimeConfig that reflects the effective input dir
