@@ -218,7 +218,7 @@ jobs:
       - name: ⬆️ Upload binaries as artifact
         uses: actions/upload-artifact@v4.6.2
         with:
-          name: ${{ steps.version.outputs.version }}-${{ steps.build_exe.outputs.outname }}
+          name: ${{ steps.build_exe.outputs.outname }}
           path: ./${{ steps.build_exe.outputs.outname }}
           if-no-files-found: error
 
@@ -367,7 +367,7 @@ jobs:
       - name: 📥 Download Artifacts (Binaries Zips)
         uses: actions/download-artifact@v4
         with:
-          pattern: ${{ env.TOOL_VERSION }}*gpth*.zip
+          pattern: gpth*
           path: ./release_files
           merge-multiple: true
 
