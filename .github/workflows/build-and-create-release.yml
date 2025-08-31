@@ -190,15 +190,15 @@ jobs:
           osname=${{ matrix.os }}
           # Normalize osname and append arch for output file
           if [[ "${{ matrix.os }}" == "linux-x64" ]]; then
-            osname=linux-x86_64
+            osname=linux-x64
           elif [[ "${{ matrix.os }}" == "linux-arm64" ]]; then
             osname=linux-arm64
+          elif [[ "${{ matrix.os }}" == "macos-x64" ]]; then
+            osname=macos-x64
           elif [[ "${{ matrix.os }}" == "macos-arm64" ]]; then
             osname=macos-arm64
           elif [[ "${{ matrix.os }}" == "windows-x64" ]]; then
-            osname=macos-x86_64
-          elif [[ "${{ matrix.os }}" == "windows-64" ]]; then
-            osname=windows-x86_64
+            osname=windows-x64
           elif [[ "${{ matrix.os }}" == "windows-arm64" ]]; then
             osname=windows-arm64
           fi
