@@ -70,7 +70,7 @@ jobs:
           EVENT_NAME="${{ github.event_name }}"
 
           if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
-            echo "🔘 Disparo manual con inputs"
+            echo "🔘 Manual trigger with"
             linux_x64=${{ toJSON(github.event.inputs.linux_x64) }}
             linux_arm64=${{ toJSON(github.event.inputs.linux_arm64) }}
             macos_x64=${{ toJSON(github.event.inputs.macos_x64) }}
@@ -108,10 +108,6 @@ jobs:
           # Build final compact JSON
           MATRIX=$(jq -nc \
             --argjson os "${OS_JSON}" \
-            --arg compiler ${compiler} \
-            --arg compilation_mode ${compilation_mode} \
-            --arg build_mode ${build_mode} \
-            --arg python ${python} \
             '{os: $os')
 
           echo "✅ Generated Matrix:"
