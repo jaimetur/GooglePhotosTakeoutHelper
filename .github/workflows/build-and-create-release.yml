@@ -50,7 +50,7 @@ on:
 
   # ────────────────── 3) Scheduled trigger by cron ─────────────────────────
   #  schedule:
-  #    - cron: '0 2 * * *' # Ejecución diaria a las 2 AM UTC
+  #    - cron: '0 2 * * *' # Daily execution at 2 AM UTC
   # ─────────────────────────────────────────────────────────────────────────
 
 
@@ -167,12 +167,6 @@ jobs:
           echo "OS        : ${{ runner.os }}"
           echo "Arch      : ${{ runner.arch }}"
 
-#      # Checkout Repository
-#      - name: 🧾 Checkout Repository
-#        uses: actions/checkout@v4
-#        with:
-#          token: ${{ secrets.TOKEN_GITHUB }}
-
       - uses: actions/checkout@v4.2.2
       - uses: dart-lang/setup-dart@v1.7.1
       - run: dart pub get
@@ -211,6 +205,8 @@ jobs:
           outname=gpth-v$version-$osname
           if [[ "$osname" == windows-* ]]; then
             outname="$outname.exe"
+          else
+            outname="$outname.bin"
           fi
           echo "outname=$outname" >> $GITHUB_OUTPUT
           dart compile exe bin/gpth.dart -o ./$outname
@@ -222,12 +218,6 @@ jobs:
           path: ./${{ steps.build_exe.outputs.outname }}
           if-no-files-found: error
 
-#      - name: 🏷️ Create GH-Release
-#        uses: softprops/action-gh-release@v2.2.2
-#        with:
-#          body_path: ./RELEASE-NOTES.ms
-#          fail_on_unmatched_files: true
-
 
   # ==========================================================================================================================
   # JOB Create Release
@@ -236,9 +226,7 @@ jobs:
     name: 🏷️ Create GH-Release
     needs:
       - build-binaries
-
     runs-on: ubuntu-22.04
-
     outputs:
       tool_version: ${{ steps.extract_version.outputs.tool_version }}
 
@@ -251,19 +239,19 @@ jobs:
           echo "Final-Release: ${{ inputs.final_release }}"
 
       - name: 🏷️ Extract TOOL_VERSION
-        id: extract_version                   # Importante añadir el ID para que outputs pueda encontrar la variable
+        id: extract_version
         run: |
-          # 1️⃣ Obtenemos el valor sin la “v”
+          # 1️⃣ Obtain tool version without “v”
           if [[ "${{ matrix.os }}" == *"windows"* ]]; then
           TOOL_VERSION=$(powershell -Command "(Get-Content pubspec.yaml | Select-String '^version:').ToString().Split(':')[1].Trim()")
           else
           TOOL_VERSION=$(grep '^version:' pubspec.yaml | head -n1 | cut -d' ' -f2)
           fi
-
-          # 2️⃣ Lo ponemos en el entorno de los siguientes steps (opcional)
+          
+          # 2️⃣ We put it on the environment for next steps
           echo "TOOL_VERSION=${TOOL_VERSION}" >> "$GITHUB_ENV"
           
-          # 3️⃣ Creamos la salida del step
+          # 3️⃣ Create step output
           echo "tool_version=${TOOL_VERSION}" >> "$GITHUB_OUTPUT"
           
           echo "✅ TOOL_VERSION = ${TOOL_VERSION}"
@@ -377,13 +365,13 @@ jobs:
           name: RELEASE-NOTES.md
           path: .
 
-      # Confirmar contenido descargado
+      # Confirm downloaded content
       - name: 📂 List downloaded files
         run: |
           ls -lh ./release_files/
           sha256sum ./release_files/*
 
-      # 🚀 Crear release estable (final_release == true)
+      # 🚀 Create stable release (final_release == true)
       - name: 🚀 Create GitHub Release (stable)
         if: ${{ inputs.final_release == true }}
         uses: softprops/action-gh-release@v2.2.2
@@ -402,15 +390,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.TOKEN_GITHUB }}
 
-      # 🚀 Crear prerelease (final_release == false)
+      # 🚀 Create prerelease (final_release == false)
       - name: 🚀 Create GitHub Release (prerelease)
         if: ${{ inputs.final_release == false }}
         uses: softprops/action-gh-release@v2.2.2
         with:
           tag_name: v${{ env.TOOL_VERSION }}
           name: v${{ env.TOOL_VERSION }}
-          # target_commitish: main
-          # discussion_category_name: Announcements  # Descomenta si también quieres discusión en prerelease
+          # discussion_category_name: Announcements  # Uncomment if you also want discussion on prerelease
           draft: false
           prerelease: true
           generate_release_notes: true
@@ -419,4 +406,3 @@ jobs:
             ./release_files/*
         env:
           GITHUB_TOKEN: ${{ secrets.TOKEN_GITHUB }}
-
