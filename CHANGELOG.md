@@ -1,4 +1,4 @@
-## 5.0.0-Xentraxx
+## 5.0.0
 
 ### ✨ **New Features**
   - Support for 7zip and unzip extractors (if found in your system). This is shy the native extractor does not extract properly filenames or dirnames with latin chars.
@@ -31,7 +31,7 @@
   - Now all supported media files are moved from input folder to output folder. So after running GPTH input folder should only contains .json files and unsupported media types.
 
 
-## 4.3.1-Xentraxx
+## 4.3.1
 
 ### 🚀 **Improvements**
   - Improve Performance in Remove Duplicates Step
@@ -40,7 +40,8 @@
 ### 🐛 **Bug Fixes**
   - Added ask for Albums strategy during interactive mode
 
-## 4.3.0-Xentraxx
+
+## 4.3.0
 
 ### ✨ **New Features**
   - New flag `--fileDates` to provide a JSON dictionary with the date per file to void reading it from EXIF when any file does not associated sidecar. (PhotoMigrator creates this file and can now be used by GPTH Tool).
@@ -91,7 +92,6 @@
         - More robust and fault-tolerant album detection.  
 
 ### 🐛 **Bug Fixes**
-
   - Handle per file exception in WriteExif Step. Now the flow continues if any file fails to write EXIF.
   - Fixed interactive mode when asking to limit the file size.
   - Show dictMiss files in log to see those files that have not been found in dates dictionary when it was passed as argument using --fileDates
@@ -99,10 +99,10 @@
   - Fix Progress bar on Step 7: Move files. Now counts the number of real operations instead of number of move instances.
   - Fixed some other silent exceptions.
 
+
 ## 4.1.1-Xentraxx
 
 ### 🐛 **Bug Fixes**
-
   - **changed exif tags to be utilized** - Before we used the following lists of tags in this exact order to find a date to set: 
     - Exiftool reading: 'DateTimeOriginal', 'MediaCreateDate', 'CreationDate', 'TrackCreateDate', 'CreateDate', 'DateTimeDigitized', 'GPSDateStamp' and 'DateTime'.
     - Native dart exif reading: 'Image DateTime', 'EXIF DateTimeOriginal', 'EXIF DateTimeDigitized'.
@@ -115,14 +115,12 @@
   - **Fixed unzipping through command line by automatically detecting if input directory contains zip files**
 
 ### 🚀 **Improvements**
-
   - **Improved non-zero exit code quitting behaviour** - Now with nice descriptive error messages because I was tired of looking up what is responsible for a certain exit code.
   - **Standardized concurrency & logging** - All parallel operations now obtain limits exclusively through `ConcurrencyManager` / `GlobalPools` (hashing, EXIF extraction/writing, duplicate detection, grouping, moving, file I/O). Added consistent one-time or operation-start log lines like `Starting N threads (<operation> concurrency)`; removed deprecated `maxConcurrency` parameters and legacy random placeholder logic from `ProcessingLimits`. Lightweight operations (e.g. disk space checks) intentionally left sequential to avoid overhead.
 
 ## 4.1.0-Xentraxx - Bug Fixes and Performance Improvements
 
 ### ✨ **New Features**
-
 - **Partner Sharing Support** - Added `--divide-partner-shared` flag to separate partner shared media from personal uploads into dedicated `PARTNER_SHARED` folder (Issue #56)
   - Automatically detects partner shared photos from JSON metadata (`googlePhotosOrigin.fromPartnerSharing`)
   - Creates separate folder structure while maintaining date division and album organization
@@ -133,7 +131,6 @@
 - **Displaying version of Exiftool when found** - Instead of just displaying that Exif tool was found, we display the version now as well.
 
 ### 🚀 **Performance Improvements**
-
 - **EXIF processing optimization** - Native `exif_reader` library integration for 15-40% performance improvement in EXIF data extraction
   - Uses fast native library for supported formats (JPEG, TIFF, HEIC, PNG, WebP, AVIF, JXL, CR3, RAF, ARW, DNG, CRW, NEF, NRW)
   - Automatic fallback to ExifTool for unsupported formats or when native extraction fails
@@ -157,7 +154,6 @@
 - **Adaptive concurrency scaling** - Dynamic performance-based concurrency adjustment that scales up to ×24 for high-performance scenarios
 
 ### 🐛 **Bug Fixes**
-
 - **Fixed memory exhaustion during ZIP extraction** - Implemented streaming extraction to handle large ZIP files without running out of memory
 - **Fixed atomic file operations** - Changed to atomic file rename operations to resolve situations where only the json was renamed in file extension correction (Issue #60)
 - **Fixed album relationship processing** - Improved album relationship service to handle edge cases properly (Issue #61)
