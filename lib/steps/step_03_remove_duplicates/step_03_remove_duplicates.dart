@@ -70,6 +70,9 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
       }
 
       print('\n[Step 3/8] Removing duplicates (this may take a while)...');
+      if (context.config.keepDuplicates) {
+        print('[Step 3/8] Flag `--keep-duplicates` detected. Duplicates will be moved to `_Duplicates` subfolder within output folder');
+      }
 
       final duplicateService = ServiceContainer.instance.duplicateDetectionService;
       final bool verify = _isVerifyEnabled();
