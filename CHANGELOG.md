@@ -1,3 +1,9 @@
+## 5.0.2-beta1
+
+### 🚀 **Improvements**
+  - New code re-design
+
+
 ## 5.0.1-beta1
 
 ### 🚀 **Improvements**
