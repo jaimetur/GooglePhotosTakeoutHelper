@@ -211,12 +211,14 @@ gpth --input "/path/to/takeout" --output "/path/to/organized" --albums "shortcut
 
 ### Core Arguments
 
-| Argument         | Description                                                                         |
-|------------------|-------------------------------------------------------------------------------------|
-| `--input`, `-i`  | Input folder containing extracted Takeout or your unextracted zip files             |
-| `--output`, `-o` | Output folder for organized photos                                                  |
-| `--albums`       | Album handling: `shortcut`, `duplicate-copy`, `reverse-shortcut`, `json`, `nothing` |
-| `--help`, `-h`   | Show help and exit                                                                  |
+| Argument            | Description                                                                                                        |
+|---------------------|--------------------------------------------------------------------------------------------------------------------|
+| `--input`, `-i`     | Input folder containing extracted Takeout or your unextracted zip files                                            |
+| `--output`, `-o`    | Output folder for organized photos                                                                                 |
+| `--albums`          | Album handling: `shortcut`, `duplicate-copy`, `reverse-shortcut`, `json`, `nothing`                                |
+| `--keep-input`      | Work on a temporary sibling copy of --input (suffix _tmp), keeping the original untouched                          |
+| `--keep-duplicates` | Keeps all duplicates files found in `_Duplicates` subfolder within in output folder instead of remove them totally |
+| `--help`, `-h`      | Show help and exit                                                                                                 |
 
 ### Organization Options
 
@@ -228,13 +230,13 @@ gpth --input "/path/to/takeout" --output "/path/to/organized" --albums "shortcut
 
 ### Metadata & Processing
 
-| Argument                 | Description                                                                                                              |
-|--------------------------|--------------------------------------------------------------------------------------------------------------------------|
-| `--write-exif`           | Write GPS coordinates and dates to EXIF metadata (enabled by default)                                                    |
-| `--transform-pixel-mp`   | Convert Pixel Motion Photos (.MP/.MV) to .mp4                                                                            |
-| `--guess-from-name`      | Extract dates from filenames (enabled by default)                                                                        |
-| `--update-creation-time` | Sync creation time with modified time (Windows only)                                                                     |
-| `--limit-filesize`       | Skip files larger than 64MB (for low-RAM systems)                                                                        |
+| Argument                 | Description                                                                                                               |
+|--------------------------|---------------------------------------------------------------------------------------------------------------------------|
+| `--write-exif`           | Write GPS coordinates and dates to EXIF metadata (enabled by default)                                                     |
+| `--transform-pixel-mp`   | Convert Pixel Motion Photos (.MP/.MV) to .mp4                                                                             |
+| `--guess-from-name`      | Extract dates from filenames (enabled by default)                                                                         |
+| `--update-creation-time` | Sync creation time with modified time (Windows only)                                                                      |
+| `--limit-filesize`       | Skip files larger than 64MB (for low-RAM systems)                                                                         |
 | `--fileDates`            | Provide a JSON dictionary with the dates per file to avoid reading it from EXIF when any file does not associated sidecar |
 
 > The `--fileDates` argument should be a JSON dictionary that must have as key the full filepath (in unix format) and the value must be a dictionary with at least the key `oldestDate` which contains the date for the given filepath.  

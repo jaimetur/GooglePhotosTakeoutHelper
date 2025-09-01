@@ -221,6 +221,9 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
       final pendingImagesBatch = <MapEntry<File, Map<String, dynamic>>>[];
       final pendingVideosBatch = <MapEntry<File, Map<String, dynamic>>>[];
 
+      // NEW: post-pass queue to enforce filesystem timestamps after all EXIF writes are flushed
+      final List<({File file, DateTime when})> _pendingTsFix = [];
+
       // NEW: write batch with "split on fail" to isolate problematic files quickly.
       Future<void> _writeBatchSafe(final List<MapEntry<File, Map<String, dynamic>>> queue, {required final bool useArgFile, required final bool isVideoBatch}) async {
         if (queue.isEmpty || exifWriter == null) return;
@@ -508,6 +511,13 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
                     );
                     if (rDup['gps'] == true) localGps++;
                     if (rDup['date'] == true) localDate++;
+
+                    // Instead of setting timestamp now (which batching could override), defer to a post-pass
+                    if (effectiveDate != null) {
+                      _pendingTsFix.add((file: dupFile, when: effectiveDate));
+                    } else {
+                      logDebug('Skipping timestamp set for duplicate "${dupFile.path}" (effectiveDate is null).', forcePrint: true);
+                    }
                   }
                 } catch (e) {
                   logWarning(
@@ -546,6 +556,25 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
       } else {
         pendingImagesBatch.clear();
         pendingVideosBatch.clear();
+      }
+
+      // ─────────────────────────────────────────────────────────────────────
+      // Post-pass: enforce filesystem timestamps after all EXIF writes flushed
+      // This prevents ExifTool (batch) from overriding times set earlier.
+      // Also align CreationTime on Windows so Explorer shows expected dates.
+      // ─────────────────────────────────────────────────────────────────────
+      if (_pendingTsFix.isNotEmpty) {
+        final fileOps = FileOperationService();
+        int fixed = 0, errors = 0;
+        for (final task in _pendingTsFix) {
+          try {
+            await fileOps.setFileTimestamp(task.file, task.when);
+            fixed++;
+          } catch (e) {
+            errors++; logWarning('Failed to finalize timestamp for "${task.file.path}": $e', forcePrint: true);
+          }
+        }
+        print('[Step 5/8] Update Duplicates Timestamp post-pass completed (fixed=$fixed, errors=$errors).');
       }
 
       // NEW: print unique counts with primary/secondary split from ExifWriterService
@@ -630,9 +659,10 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
   // 3) Default false
   bool _shouldProcessMovedDuplicates(final ProcessingContext context) {
     try {
-      final dynamic cfg = ServiceContainer.instance.globalConfig;
-      final dynamic v = cfg?.moveDuplicatesToDuplicatesFolder;
-      if (v is bool) return v;
+      // final dynamic cfg = ServiceContainer.instance.globalConfig;
+      // final dynamic v = cfg?.moveDuplicatesToDuplicatesFolder;
+      final dynamic keepDuplicates = context.config.keepDuplicates;
+      if (keepDuplicates is bool) return keepDuplicates;
     } catch (_) {}
     try {
       final env = Platform.environment['GPTH_MOVE_DUPLICATES_TO_DUPLICATES_FOLDER'];

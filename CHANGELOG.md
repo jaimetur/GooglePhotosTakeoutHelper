@@ -4,6 +4,7 @@
   - Support for 7zip and unzip extractors (if found in your system). This is shy the native extractor does not extract properly filenames or dirnames with latin chars.
   - Support new `Extra` files from Google Takeout with following suffixes: `-motion`, `-animation`, `-collage`.
   - New flag `--keep-input` to Work on a temporary sibling copy of --input (suffix _tmp), keeping the original untouched.
+  - New flag `--keep-duplicates` to keep duplicates files in `_Duplicates` subfolder within output folder.
   - Created GitHub Action `build-and-create-release.yml` to Automatically build all binaries, create new release (stable or pre-release), update it wiht the release-notes and upload the binaries to the new release.
 
 ### 🚀 **Improvements**
@@ -24,7 +25,6 @@
   - Added new flag `maxExifVideoBatchSize`in `GlobalConfigService` Class to specify the maximum number of Videos for each batch passed in any call to ExifTool.
   - Added new flag `forceProcessUnsupportedFormats`in `GlobalConfigService` Class to specify if we want to forze process unsupported format such as `.AVI`, `.MPG`or `.BMP` files with ExifTool.
   - Added new flag `silenceUnsupportedWarnings`in `GlobalConfigService` Class to specify if we want to recive or silence warnings due to unsupported format on ExifTool calls.
-  - Added new flag `moveDuplicatesToDuplicatesFolder`in `GlobalConfigService` Class to decide what to do with all duplicates file found (remove them directly or move them to `_Duplicates` subfolder within output folder).
   - Improvements on Statistics results.
 
 ### 🐛 **Bug Fixes**

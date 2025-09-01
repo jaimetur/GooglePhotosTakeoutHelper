@@ -720,6 +720,48 @@ class ConsolidatedInteractiveService with LoggerMixin {
   }
 
   // ============================================================================
+  // NEW: KEEP-DUPLICATES INTERACTIVE QUESTION
+  // ============================================================================
+  /// Asks if the user wants to keep duplicates files in the output folder
+  ///
+  /// Returns:
+  /// - true  -> Duplicates will be move to "_Duplicates" directory within output directory.
+  /// - false -> Duplicates will be removed totally
+  Future<bool> askKeepDuplicates() async {
+
+    print('Do you want to keep duplicates files in `_Duplicates` subfolder within output folder?');
+    print('[1] (Default) - No, you can remove all duplicates found');
+    print('[2] - Yes, create a `_Duplicates` subfolder within output folder (slower)');
+    print('(Type 1 or 2, or press enter for default):');
+
+    while (true) {
+      final input = await readUserInput();
+      switch (input) {
+        case '':
+        case '1':
+        case 'n':
+        case 'no':
+          await _presenter.showUserSelection(
+            input,
+            'remove all duplicates found',
+          );
+          return false;
+        case '2':
+        case 'y':
+        case 'yes':
+          await _presenter.showUserSelection(
+            input,
+            'create a `_Duplicates` subfolder within output folder (slower)',
+          );
+          return true;
+        default:
+          await _presenter.showInvalidAnswerError();
+          continue;
+      }
+    }
+  }
+
+  // ============================================================================
   // PRIVATE HELPER METHODS
   // ============================================================================
 

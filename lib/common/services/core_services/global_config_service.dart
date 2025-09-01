@@ -46,7 +46,7 @@ class GlobalConfigService {
 
   /// Flag to indicate if we want to conserve all Duplicates found during Step 2
   /// and move them to _Duplicates subfolder within output folder.
-  bool moveDuplicatesToDuplicatesFolder = true;
+  bool moveDuplicatesToDuplicatesFolder = false;
 
   // ───────────────────────────────────────────────────────────────────────────
   // Initialization / lifecycle
@@ -75,7 +75,7 @@ class GlobalConfigService {
     maxExifImageBatchSize = 500;
     maxExifVideoBatchSize = 24;
 
-    moveDuplicatesToDuplicatesFolder = true;
+    // moveDuplicatesToDuplicatesFolder = false;
   }
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -92,7 +92,7 @@ class GlobalConfigService {
     if (overrides.containsKey('fallbackToExifToolOnNativeMiss')) fallbackToExifToolOnNativeMiss = _asBool(overrides['fallbackToExifToolOnNativeMiss'], fallbackToExifToolOnNativeMiss);
     if (overrides.containsKey('skipPrecheckForNonJpegInWriter')) skipPrecheckForNonJpegInWriter = _asBool(overrides['skipPrecheckForNonJpegInWriter'], skipPrecheckForNonJpegInWriter);
     if (overrides.containsKey('enableBatching')) enableBatching = _asBool(overrides['enableBatching'], enableBatching);
-    if (overrides.containsKey('moveDuplicatesToDuplicatesFolder')) moveDuplicatesToDuplicatesFolder = _asBool(overrides['moveDuplicatesToDuplicatesFolder'], moveDuplicatesToDuplicatesFolder);
+    // if (overrides.containsKey('moveDuplicatesToDuplicatesFolder')) moveDuplicatesToDuplicatesFolder = _asBool(overrides['moveDuplicatesToDuplicatesFolder'], moveDuplicatesToDuplicatesFolder);
 
 
     // NEW flags
@@ -134,7 +134,7 @@ class GlobalConfigService {
       'silenceUnsupportedWarnings': silenceUnsupportedWarnings,
       'maxExifImageBatchSize': maxExifImageBatchSize,
       'maxExifVideoBatchSize': maxExifVideoBatchSize,
-      'moveDuplicatesToDuplicatesFolder': moveDuplicatesToDuplicatesFolder,
+      // 'moveDuplicatesToDuplicatesFolder': moveDuplicatesToDuplicatesFolder,
       // NOTE: fileDatesDictionary can be very large; usually not needed here.
     };
 

@@ -194,7 +194,7 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
           }
         }
         if (moved) {
-          print('[Step 3/8] Duplicates moved to _Duplicates (flag moveDuplicatesToDuplicatesFolder = true)');
+          print('[Step 3/8] Duplicates moved to _Duplicates (flag --keep-duplicates = true)');
         } else {
           print('[Step 3/8] Duplicates deleted from input folder.');
         }
@@ -246,9 +246,10 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
   /// 3) Default false
   bool _shouldMoveDuplicatesToFolder(final ProcessingContext context) {
     try {
-      final dynamic cfg = ServiceContainer.instance.globalConfig;
-      final dynamic v = cfg?.moveDuplicatesToDuplicatesFolder;
-      if (v is bool) return v;
+      // final dynamic cfg = ServiceContainer.instance.globalConfig;
+      // final dynamic v = cfg?.moveDuplicatesToDuplicatesFolder;
+      final dynamic keepDuplicates = context.config.keepDuplicates;
+      if (keepDuplicates is bool) return keepDuplicates;
     } catch (_) {
       // ignore and fallback
     }

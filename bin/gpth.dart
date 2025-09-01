@@ -305,6 +305,10 @@ ArgParser _createArgumentParser() => ArgParser()
   ..addFlag(
     'keep-input',
     help: 'Work on a temporary sibling copy of --input (suffix _tmp), keeping the original untouched',
+  )
+  ..addFlag(
+    'keep-duplicates',
+    help: 'Keeps all duplicates files found in `_Duplicates` subfolder within in output folder instead of remove them totally',
   );
 
 /// **HELP TEXT DISPLAY**
@@ -363,13 +367,9 @@ Future<ProcessingConfig> _buildConfigFromArgs(final ArgResults res) async {
     return _handleFixMode(res);
   }
   // Set up interactive mode if needed
-  final isInteractiveMode =
-      res['interactive'] || (res.arguments.isEmpty && stdin.hasTerminal);
+  final isInteractiveMode = res['interactive'] || (res.arguments.isEmpty && stdin.hasTerminal);
   // Get input/output paths (interactive or from args)
   final paths = await _getInputOutputPaths(res, isInteractiveMode);
-
-  // NOTE: the --fileDates JSON is now loaded AFTER the second initialize,
-  // inside _loadFileDatesIntoGlobalConfigFromArgs() in main(), to avoid being reset.
 
   // Build configuration using the builder pattern
   final configBuilder = ProcessingConfig.builder(
@@ -431,6 +431,11 @@ Future<ProcessingConfig> _buildConfigFromArgs(final ArgResults res) async {
     final keepInputFlag = await ServiceContainer.instance.interactiveService.askKeepInput();
     configBuilder.keepInput = keepInputFlag;
 
+    // Ask whether to keep the original input (work on "<input>_tmp")
+    print('');
+    final keepDuplicates= await ServiceContainer.instance.interactiveService.askKeepDuplicates();
+    configBuilder.keepDuplicates = keepDuplicates;
+
     // Ask user for creation time update in interactive mode (Windows only)
     if (Platform.isWindows) {
       print('');
@@ -455,7 +460,9 @@ Future<ProcessingConfig> _buildConfigFromArgs(final ArgResults res) async {
     if (res['update-creation-time']) configBuilder.creationTimeUpdate = true;
     if (res['limit-filesize']) configBuilder.fileSizeLimit = true;
     if (res['divide-partner-shared']) configBuilder.dividePartnerShared = true;
-    if (res['keep-input']) configBuilder.keepInput = true; // CLI: honor --keep-input
+    if (res['keep-input']) configBuilder.keepInput = true;
+    if (res['keep-duplicates']) configBuilder.keepDuplicates = true;
+    // if (res['keep-duplicates']) ServiceContainer.instance.globalConfig.moveDuplicatesToDuplicatesFolder = true;
   }
   configBuilder.extensionFixing = extensionFixingMode;
 
@@ -1008,7 +1015,11 @@ void _showResults(
     print('\t${result.creationTimesUpdated} files had their CreationDate updated');
   }
   if (result.duplicatesRemoved > 0) {
-    print('\t${result.duplicatesRemoved} duplicates were found and skipped');
+    if (config.keepDuplicates) {
+      print('\t${result.duplicatesRemoved} duplicates were found and moved to `_Duplicates` subfolder');
+    } else {
+      print('\t${result.duplicatesRemoved} duplicates were found and removed');
+    }
   }
   if (result.coordinatesWrittenToExif > 0) {
     print('\t${result.coordinatesWrittenToExif} files got their coordinates set in EXIF data (from json)');

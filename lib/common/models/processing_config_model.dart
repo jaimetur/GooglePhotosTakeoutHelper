@@ -47,6 +47,7 @@ class ProcessingConfig {
     this.isInteractiveMode = false,
     this.dividePartnerShared = false,
     this.keepInput = false, // keep the original input untouched by working on a temporary copy
+    this.keepDuplicates = false, // keep duplicates files in `_Duplicates` subfolder within output folder
     this.inputExtractedFromZip = false, // If the input have been extracted from ZIP it will be set to true
     final String? userInputRoot, // NEW: original root folder selected/provided by the user
   }) : userInputRoot = userInputRoot ?? inputPath;
@@ -72,6 +73,7 @@ class ProcessingConfig {
   final bool isInteractiveMode;
   final bool dividePartnerShared;
   final bool keepInput;
+  final bool keepDuplicates;
   final bool inputExtractedFromZip;
   final String userInputRoot;
 
@@ -144,6 +146,7 @@ class ProcessingConfig {
     final bool? isInteractiveMode,
     final bool? dividePartnerShared,
     final bool? keepInput,
+    final bool? keepDuplicates,
     final bool? inputExtractedFromZip,
     final String? userInputRoot,
   }) => ProcessingConfig(
@@ -162,6 +165,7 @@ class ProcessingConfig {
         isInteractiveMode: isInteractiveMode ?? this.isInteractiveMode,
         dividePartnerShared: dividePartnerShared ?? this.dividePartnerShared,
         keepInput: keepInput ?? this.keepInput,
+        keepDuplicates: keepDuplicates ?? this.keepDuplicates,
         inputExtractedFromZip: inputExtractedFromZip ?? this.inputExtractedFromZip,
         userInputRoot: userInputRoot ?? this.userInputRoot,
       );
@@ -199,6 +203,7 @@ class ProcessingConfigBuilder {
   bool _isInteractiveMode = false;
   bool _dividePartnerShared = false;
   bool _keepInput = false;
+  bool _keepDuplicates = false;
   bool _inputExtractedFromZip = false;
   String? _userInputRoot; // NEW
 
@@ -284,6 +289,11 @@ class ProcessingConfigBuilder {
     _keepInput = enable;
   }
 
+   /// Keep duplicates files in `_Duplicates` subfolder within output folder.
+  set keepDuplicates(final bool enable) {
+    _keepDuplicates = enable;
+  }
+
   /// Indicate that input comes from an internal ZIP extraction
   set inputExtractedFromZip(final bool value) {
     _inputExtractedFromZip = value;
@@ -312,6 +322,7 @@ class ProcessingConfigBuilder {
       isInteractiveMode: _isInteractiveMode,
       dividePartnerShared: _dividePartnerShared,
       keepInput: _keepInput,
+      keepDuplicates: _keepDuplicates,
       inputExtractedFromZip: _inputExtractedFromZip,
       userInputRoot: _userInputRoot ?? _inputPath, // fallback to _inputPath if not explicitly provided
     );
