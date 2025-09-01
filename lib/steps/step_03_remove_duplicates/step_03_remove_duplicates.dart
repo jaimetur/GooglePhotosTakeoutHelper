@@ -280,14 +280,6 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
     }
   }
 
-  String _safeEntity(final MediaEntity e) {
-    try {
-      return e.primaryFile.path;
-    } catch (_) {
-      return '<unknown-entity>';
-    }
-  }
-
   void _replaceEntityInCollection(
     final MediaEntityCollection col,
     final MediaEntity oldE,
