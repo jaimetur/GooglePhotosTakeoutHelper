@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:gpth/gpth-lib.dart';
 
-
 /// Service for grouping media files by content similarity
 ///
 /// This service provides optimized algorithms for grouping media files
@@ -83,14 +82,12 @@ class ContentGroupingService with LoggerMixin {
     final concurrency = _maxConcurrency;
 
     // Log concurrency usage for consistency
-    logDebug(
-      'Starting $concurrency threads (duplicate size calculation concurrency)',
-    );
+    logDebug('Starting $concurrency threads (duplicate size calculation concurrency)');
 
     for (int i = 0; i < mediaList.length; i += _maxConcurrency) {
       final batch = mediaList.skip(i).take(_maxConcurrency);
       final futures = batch.map((final entity) async {
-        final size = await entity.primaryFile.length();
+        final size = await entity.primaryFile.asFile().length();
         return (entity: entity, size: size);
       });
 
@@ -109,9 +106,7 @@ class ContentGroupingService with LoggerMixin {
     final concurrency = _maxConcurrency;
 
     // Log concurrency usage for consistency
-    logDebug(
-      'Starting $concurrency threads (duplicate hash calculation concurrency)',
-    );
+    logDebug('Starting $concurrency threads (duplicate hash calculation concurrency)');
 
     for (int i = 0; i < mediaWithSameSize.length; i += _maxConcurrency) {
       final batch = mediaWithSameSize.skip(i).take(_maxConcurrency);
@@ -136,7 +131,7 @@ class ContentGroupingService with LoggerMixin {
   /// Calculates content hash for a media entity
   Future<String> _calculateContentHash(final MediaEntity entity) async {
     // Use a simple approach for now - could be enhanced with the MediaHashService
-    final bytes = await entity.primaryFile.readAsBytes();
+    final bytes = await entity.primaryFile.asFile().readAsBytes();
     return bytes.hashCode.toString(); // Simple hash for now
   }
 

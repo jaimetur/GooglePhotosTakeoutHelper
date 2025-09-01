@@ -4,21 +4,21 @@ import 'package:gpth/gpth-lib.dart';
 /// Processing Pipeline for Google Photos Takeout Helper
 ///
 /// This pipeline executes 8 processing steps in their fixed order:
-/// 1. Fix Extensions - Correct mismatched file extensions (configurable)
-/// 2. Discover Media - Find and classify all media files from input directory
-/// 3. Remove Duplicates - Remove duplicate files using content hashing
-/// 4. Extract Dates - Determine accurate timestamps from JSON, EXIF, and filenames
-/// 5. Write EXIF - Embed metadata into files (requires ExifTool for non-JPEG formats)
-/// 6. Find Albums - Detect and merge album relationships between duplicate files
-/// 7. Move Files - Organize files to output structure using selected album behavior
-/// 8. Update Creation Time - Sync file creation timestamps (Windows only, configurable)
+/// 1. Fix Extensions        - Correct mismatched file extensions (configurable)
+/// 2. Discover Media        - Find and classify all media files from input directory
+/// 3. Remove Duplicates     - Remove duplicate files using content hashing
+/// 4. Extract Dates         - Determine accurate timestamps from JSON, EXIF, and filenames
+/// 5. Find Albums           - Normalize and consolidate album relationships
+/// 6. Move Files            - Organize files to output structure using selected album behavior
+/// 7. Write EXIF            - Embed metadata into files already placed in output (requires ExifTool for non-JPEG formats)
+/// 8. Update Creation Time  - Sync file creation timestamps (Windows only, configurable)
 ///
 /// Each step checks configuration flags to determine if it should run.
 /// This eliminates the need for complex builder patterns while maintaining
 /// full flexibility through configuration.
 class ProcessingPipeline {
   /// Create a processing pipeline
-  const   ProcessingPipeline({this.interactiveService});
+  const ProcessingPipeline({this.interactiveService});
 
   /// Optional interactive service for displaying processing summaries and results
   final ConsolidatedInteractiveService? interactiveService;
@@ -47,15 +47,15 @@ class ProcessingPipeline {
     // Configure concurrency manager logging to respect processing configuration
     ConcurrencyManager.logger = LoggingService.fromConfig(context.config);
 
-    // Define the 8 processing steps in fixed order
+    // Define the 8 processing steps in the new fixed order
     final steps = [
-      FixExtensionsStep(), // Step 1
-      DiscoverMediaStep(), // Step 2
-      RemoveDuplicatesStep(), // Step 3
-      ExtractDatesStep(), // Step 4
-      WriteExifStep(), // Step 5
-      FindAlbumsStep(), // Step 6
-      MoveFilesStep(), // Step 7
+      FixExtensionsStep(),   // Step 1
+      DiscoverMediaStep(),   // Step 2
+      RemoveDuplicatesStep(),// Step 3
+      ExtractDatesStep(),    // Step 4
+      FindAlbumsStep(),      // Step 5
+      MoveFilesStep(),       // Step 6
+      WriteExifStep(),       // Step 7  (after moving)
       UpdateCreationTimeStep(), // Step 8
     ];
 
@@ -79,7 +79,9 @@ class ProcessingPipeline {
         'Configuration: ${config.albumBehavior.name} album behavior, '
         '${config.dateDivision.name} date division',
       );
-    } // Execute each step in sequence
+    }
+
+    // Execute each step in sequence
     for (int i = 0; i < steps.length; i++) {
       final step = steps[i];
       final stepNumber = i + 1;
@@ -124,6 +126,7 @@ class ProcessingPipeline {
               creationTimesUpdated = value,
           extractionMethodStats: extractionMethodStats,
         );
+
         if (result.isSuccess) {
           print(
             '✅ ${step.name} completed in ${const FormattingService().formatDuration(result.duration)}',
@@ -136,7 +139,9 @@ class ProcessingPipeline {
           if (result.error != null) {
             print('   Error: ${result.error}');
           }
-        } // Stop processing if a critical step fails
+        }
+
+        // Stop processing if a critical step fails
         if (!result.isSuccess && _isCriticalStep(step)) {
           if (config.verbose) {
             print('\n⚠️  Critical step failed, stopping pipeline execution');
@@ -145,8 +150,7 @@ class ProcessingPipeline {
         }
 
         // Stop after extension fixing in solo mode
-        if (step is FixExtensionsStep &&
-            !config.shouldContinueAfterExtensionFix) {
+        if (step is FixExtensionsStep && !config.shouldContinueAfterExtensionFix) {
           if (config.verbose) {
             print(
               '\n⚠️  Extension fixing solo mode complete, stopping pipeline execution',
@@ -175,19 +179,18 @@ class ProcessingPipeline {
         }
       }
     }
+
     overallStopwatch.stop();
 
     // Calculate final statistics
-    final successfulSteps = stepResults
-        .where((final StepResult r) => r.isSuccess)
-        .length;
-    final failedSteps = stepResults
-        .where((final StepResult r) => !r.isSuccess)
-        .length;
-    final skippedSteps = stepResults
-        .where((final StepResult r) => r.data['skipped'] == true)
-        .length;
+    final successfulSteps =
+        stepResults.where((final StepResult r) => r.isSuccess).length;
+    final failedSteps =
+        stepResults.where((final StepResult r) => !r.isSuccess).length;
+    final skippedSteps =
+        stepResults.where((final StepResult r) => r.data['skipped'] == true).length;
     final totalProcessingTime = overallStopwatch.elapsed;
+
     if (config.verbose && interactiveService != null) {
       // Display warnings and errors summary first
       await interactiveService!.showWarningsAndErrorsSummary(stepResults);
@@ -203,7 +206,8 @@ class ProcessingPipeline {
 
       // Display detailed step results
       await interactiveService!.showStepResults(stepResults, stepTimings);
-    } // Create comprehensive result
+    }
+
     // Extract low-level operation count from Move Files step if present
     int? operationCount;
     for (final r in stepResults) {
@@ -269,7 +273,6 @@ class ProcessingPipeline {
         final methodName = entry.key.toString();
         final count = entry.value as int? ?? 0;
 
-        // Try to find matching enum value
         for (final method in DateTimeExtractionMethod.values) {
           if (method.toString().split('.').last == methodName ||
               method.name == methodName) {

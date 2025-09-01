@@ -59,6 +59,7 @@ export 'common/services/media_services/mime_type_service.dart';
 
 // modules from common/value_objects
 export 'common/value_objects/date_accuracy.dart';
+export 'common/value_objects/file_entity.dart';
 export 'common/value_objects/media_entity.dart';
 export 'common/value_objects/media_entity_collection.dart';
 export 'common/value_objects/media_files_collection.dart';
@@ -95,27 +96,22 @@ export 'steps/step_04_extract_dates/services/data_extractors/folder_year_extract
 export 'steps/step_04_extract_dates/services/data_extractors/json_date_extractor.dart';
 
 // Step 05
-export 'steps/step_05_write_exif/step_05_write_exif.dart';
-export 'steps/step_05_write_exif/services/exif_gps_extractor.dart';
-export 'steps/step_05_write_exif/services/exif_writer_service.dart';
+export 'steps/step_05_find_albums/step_05_find_albums.dart';
 
 // Step 06
-export 'steps/step_06_find_albums/step_06_find_albums.dart';
+export 'steps/step_06_move_files/step_06_move_files.dart';
+export 'steps/step_06_move_files/services/file_operation_service.dart';
+export 'steps/step_06_move_files/services/media_entity_moving_service.dart';
+export 'steps/step_06_move_files/services/moving_context_model.dart';
+export 'steps/step_06_move_files/services/path_generator_service.dart';
+export 'steps/step_06_move_files/services/symlink_service.dart';
+export 'steps/step_06_move_files/strategies/media_entity_moving_strategy.dart';
+export 'steps/step_06_move_files/strategies/moving_strategies.dart';
 
 // Step 07
-export 'steps/step_07_move_files/step_07_move_files.dart';
-export 'steps/step_07_move_files/services/file_operation_service.dart';
-export 'steps/step_07_move_files/services/media_entity_moving_service.dart';
-export 'steps/step_07_move_files/services/moving_context_model.dart';
-export 'steps/step_07_move_files/services/path_generator_service.dart';
-export 'steps/step_07_move_files/services/symlink_service.dart';
-export 'steps/step_07_move_files/strategies/duplicate_copy_moving_strategy.dart';
-export 'steps/step_07_move_files/strategies/json_moving_strategy.dart';
-export 'steps/step_07_move_files/strategies/media_entity_moving_strategy.dart';
-export 'steps/step_07_move_files/strategies/media_entity_moving_strategy_factory.dart';
-export 'steps/step_07_move_files/strategies/nothing_moving_strategy.dart';
-export 'steps/step_07_move_files/strategies/reverse_shortcut_moving_strategy.dart';
-export 'steps/step_07_move_files/strategies/shortcut_moving_strategy.dart';
+export 'steps/step_07_write_exif/step_07_write_exif.dart';
+export 'steps/step_07_write_exif/services/exif_gps_extractor.dart';
+export 'steps/step_07_write_exif/services/exif_writer_service.dart';
 
 // Step 08
 export 'steps/step_08_update_creation_time/step_08_update_creation_time.dart';

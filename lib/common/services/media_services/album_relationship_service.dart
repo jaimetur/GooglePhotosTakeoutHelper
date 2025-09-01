@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:gpth/gpth-lib.dart';
 
-
 /// Service for detecting and managing album relationships between media files
 ///
 /// This service handles the complex logic of merging media files that appear
@@ -98,13 +97,11 @@ class AlbumRelationshipService with LoggerMixin {
       mediaList.map((final entity) async {
         await semSizes.acquire();
         try {
-          final File file = entity.primaryFile;
+          final File file = entity.primaryFile.asFile();
           final int size = await file.length();
           sizeBuckets.putIfAbsent(size, () => <MediaEntity>[]).add(entity);
         } catch (e) {
-          logWarning(
-            'Skipping file during size pass due to error: ${entity.primaryFile.path} - $e',
-          );
+          logWarning('Skipping file during size pass due to error: ${entity.primaryFile.path} - $e');
           // Use a dedicated bucket for unprocessable files keyed by unique path length 0
           sizeBuckets.putIfAbsent(-1, () => <MediaEntity>[]).add(entity);
         } finally {
@@ -143,17 +140,12 @@ class AlbumRelationshipService with LoggerMixin {
         hashingTasks.add(() async {
           await semHash.acquire();
           try {
-            final File file = entity.primaryFile;
-            final String md5hex = await _md5ForFileWithCache(
-              file,
-              expectedSize: size,
-            );
+            final File file = entity.primaryFile.asFile();
+            final String md5hex = await _md5ForFileWithCache(file, expectedSize: size);
             final String contentKey = '${size}_$md5hex';
             groups.putIfAbsent(contentKey, () => <MediaEntity>[]).add(entity);
           } catch (e) {
-            logWarning(
-              'Hashing error, keeping as unique: ${entity.primaryFile.path} - $e',
-            );
+            logWarning('Hashing error, keeping as unique: ${entity.primaryFile.path} - $e');
             final key = 'hash_error_${size}_${entity.primaryFile.path}';
             groups.putIfAbsent(key, () => <MediaEntity>[]).add(entity);
           } finally {
@@ -175,8 +167,7 @@ class AlbumRelationshipService with LoggerMixin {
     required final int expectedSize,
   }) async {
     final FileStat st = await file.stat();
-    final String cacheKey =
-        '${file.path}|${st.size}|${st.modified.millisecondsSinceEpoch}';
+    final String cacheKey = '${file.path}|${st.size}|${st.modified.millisecondsSinceEpoch}';
 
     final String? cached = _hashCache[cacheKey];
     if (cached != null) {
@@ -209,9 +200,7 @@ class AlbumRelationshipService with LoggerMixin {
     required final int readBytes,
   }) async {
     try {
-      final Digest digest = await md5
-          .bind(file.openRead(0, readBytes > 0 ? readBytes : null))
-          .first;
+      final Digest digest = await md5.bind(file.openRead(0, readBytes > 0 ? readBytes : null)).first;
       return digest.toString();
     } catch (e) {
       // If fast mode fails, fallback to full streaming
@@ -249,10 +238,7 @@ class AlbumRelationshipService with LoggerMixin {
 
   /// Finds media entities that only exist in year-based organization
   List<MediaEntity> findYearOnlyMedia(final List<MediaEntity> mediaList) =>
-    mediaList
-        .where((entity) => !entity.hasAlbumAssociations && entity.hasYearBasedFiles)
-        .toList();
-
+      mediaList.where((entity) => !entity.hasAlbumAssociations && entity.hasYearBasedFiles).toList();
 
   /// Gets statistics about album associations
   AlbumStatistics getAlbumStatistics(final List<MediaEntity> mediaList) {
@@ -266,9 +252,7 @@ class AlbumRelationshipService with LoggerMixin {
     }
 
     // Count files with multiple album associations
-    final multiAlbumFiles = albumMedia
-        .where((final entity) => entity.albumNames.length > 1)
-        .length;
+    final multiAlbumFiles = albumMedia.where((final entity) => entity.albumNames.length > 1).length;
 
     return AlbumStatistics(
       totalFiles: mediaList.length,

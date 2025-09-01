@@ -1,20 +1,16 @@
-import 'dart:io';
 import 'package:console_bars/console_bars.dart';
 import 'package:gpth/gpth-lib.dart';
 
-/// Step 7: Move files to output directory
+/// Step 6: Move files to output directory
 ///
-/// This step delegates **all moving logic** to the selected moving strategy
-/// (Shortcut, Duplicate-Copy, Reverse-Shortcut, JSON, Nothing).
-/// It processes **only the primary file** of each entity (per the new model).
-/// Secondary files were already removed/moved in Step 3.
+/// Delegates the moving logic to the selected strategy (Nothing, JSON, Shortcut,
+/// Reverse-Shortcut, Duplicate-Copy). Now we consider both primaryFile and
+/// secondaryFiles per strategy requirements.
 ///
-/// Notes:
-/// - Optional Pixel .MP/.MV → .mp4 transform is applied ONLY to the entity's
-///   primary file (and the entity is updated in the collection before moving).
-/// - No direct album manipulation here; strategies are responsible for it.
-/// - We keep progress and a concise summary based on the results reported
-///   by MediaEntityMovingService/strategies.
+/// IMPORTANT (FileEntity model):
+/// - After each move/copy/symlink, strategies MUST update the involved FileEntity:
+///   fe.targetPath = <final path in output>;
+///   fe.isShortcut = true when a shortcut is created (false otherwise).
 class MoveFilesStep extends ProcessingStep {
   const MoveFilesStep() : super('Move Files');
 
@@ -24,9 +20,9 @@ class MoveFilesStep extends ProcessingStep {
     final stopwatch = Stopwatch()..start();
 
     try {
-      print('[Step 7/8] Moving files to Output folder (this may take a while)...');
+      print('[Step 6/8] Moving files to Output folder (this may take a while)...');
 
-      // 1) Optional pre-pass: transform Pixel .MP/.MV → .mp4 on PRIMARY files.
+      // Optional pre-pass: transform Pixel .MP/.MV → .mp4 ONLY on primary files (in-place, still in input).
       int transformedCount = 0;
       if (context.config.transformPixelMp) {
         transformedCount = await _transformPixelPrimaries(context);
@@ -35,9 +31,8 @@ class MoveFilesStep extends ProcessingStep {
         }
       }
 
-      // 2) Move entities via strategies
       final progressBar = FillingBar(
-        desc: '[Step 7/8] Moving entities',
+        desc: '[Step 6/8] Moving entities',
         total: context.mediaCollection.length,
         width: 50,
       );
@@ -50,12 +45,6 @@ class MoveFilesStep extends ProcessingStep {
 
       final movingService = MediaEntityMovingService();
 
-      // keep original primary paths to diagnose leftovers if desired
-      final originalPrimaryPaths = <String>[];
-      for (final e in context.mediaCollection.entities) {
-        originalPrimaryPaths.add(e.primaryFile.path);
-      }
-
       int entitiesProcessed = 0;
       await for (final _ in movingService.moveMediaEntities(
         context.mediaCollection,
@@ -65,9 +54,9 @@ class MoveFilesStep extends ProcessingStep {
         progressBar.update(entitiesProcessed);
       }
 
-      // 3) Counters / summary (computed from lastResults)
+      // Summary based on lastResults from service
       int primaryMovedCount = 0;
-      int nonPrimaryMoves = 0; // should be 0 under the new pipeline
+      int nonPrimaryMoves = 0;
       int symlinksCreated = 0;
 
       bool _samePath(final String a, final String b) =>
@@ -92,37 +81,8 @@ class MoveFilesStep extends ProcessingStep {
             break;
           case MediaEntityOperationType.copy:
           case MediaEntityOperationType.createJsonReference:
-            // not counted in headline
+            // not headline
             break;
-        }
-      }
-
-      // 4) Lightweight leftover diagnosis (primaries only)
-      if (context.config.verbose) {
-        final movedPrimarySources = <String>{};
-        for (final r in movingService.lastResults) {
-          if (!r.success) continue;
-          if (r.operation.operationType == MediaEntityOperationType.move) {
-            movedPrimarySources.add(r.operation.sourceFile.path);
-          }
-        }
-
-        final leftovers = <String>[];
-        for (final p in originalPrimaryPaths) {
-          final f = File(p);
-          if (!movedPrimarySources.contains(p) && f.existsSync()) {
-            leftovers.add(p);
-          }
-        }
-
-        if (leftovers.isEmpty) {
-          print('\n[Verification] No leftover primary source files detected.');
-        } else {
-          print('\n[Verification] Leftover primary sources still present on disk:');
-          for (final p in leftovers) {
-            print('  • $p');
-          }
-          print('  Total leftovers: ${leftovers.length}\n');
         }
       }
 
@@ -158,40 +118,28 @@ class MoveFilesStep extends ProcessingStep {
   bool shouldSkip(final ProcessingContext context) =>
       context.mediaCollection.isEmpty;
 
-  /// Transform Pixel .MP/.MV → .mp4 ONLY for primary files,
-  /// updating the entities in the collection before moving.
+  /// Transform Pixel .MP/.MV → .mp4 ONLY for primary files (in input).
+  /// Since it still lives in input, update the FileEntity **sourcePath**.
   Future<int> _transformPixelPrimaries(final ProcessingContext context) async {
     int transformed = 0;
 
     final collection = context.mediaCollection;
     final entities = collection.asList(); // snapshot
 
-    for (int idx = 0; idx < entities.length; idx++) {
-      final entity = entities[idx];
+    for (final entity in entities) {
       final primary = entity.primaryFile;
       final lower = primary.path.toLowerCase();
 
       if (lower.endsWith('.mp') || lower.endsWith('.mv')) {
-        final dot = primary.path.lastIndexOf('.');
-        final newPath = dot > 0
-            ? '${primary.path.substring(0, dot)}.mp4'
-            : '${primary.path}.mp4';
+        final oldPath = primary.path;
+        final dot = oldPath.lastIndexOf('.');
+        final newPath =
+            dot > 0 ? '${oldPath.substring(0, dot)}.mp4' : '$oldPath.mp4';
 
         try {
-          final renamed = await primary.rename(newPath);
-
-          // Rebuild the entity WITHOUT using withPrimaryFile(...)
-          final updated = MediaEntity(
-            primaryFile: renamed,
-            secondaryFiles: entity.secondaryFiles,
-            belongToAlbums: entity.belongToAlbums,
-            dateTaken: entity.dateTaken,
-            dateAccuracy: entity.dateAccuracy,
-            dateTimeExtractionMethod: entity.dateTimeExtractionMethod,
-            partnershared: entity.partnershared,
-          );
-
-          collection.replaceAt(idx, updated);
+          final renamed = await primary.asFile().rename(newPath);
+          // IMPORTANT: still input → update sourcePath, not targetPath
+          primary.sourcePath = renamed.path;
           transformed++;
         } catch (e) {
           print('Warning: Failed to transform ${primary.path}: $e');

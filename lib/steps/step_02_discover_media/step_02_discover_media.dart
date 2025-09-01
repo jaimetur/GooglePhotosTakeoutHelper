@@ -1,5 +1,4 @@
 import 'dart:io';
-
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as path;
 import 'package:gpth/gpth-lib.dart';
@@ -95,6 +94,7 @@ import 'package:gpth/gpth-lib.dart';
 /// - Enables proper handling of files that exist in multiple albums
 class DiscoverMediaStep extends ProcessingStep {
   const DiscoverMediaStep() : super('Discover Media');
+
   @override
   Future<StepResult> execute(final ProcessingContext context) async {
     final stopwatch = Stopwatch()..start();
@@ -107,7 +107,9 @@ class DiscoverMediaStep extends ProcessingStep {
         throw Exception(
           'Input directory does not exist: ${context.config.inputPath}',
         );
-      } // Use optimized single-pass directory scanning
+      }
+
+      // Use optimized single-pass directory scanning
       final scanResult = await _scanDirectoriesOptimized(inputDir, context);
       final totalFiles =
           scanResult.yearFolderFiles + scanResult.albumFolderFiles;
@@ -152,10 +154,6 @@ class DiscoverMediaStep extends ProcessingStep {
   }
 
   /// Optimized single-pass directory scanning to avoid multiple traversals
-  ///
-  /// This method scans the input directory once and classifies directories
-  /// as either year folders or album folders, then processes media files
-  /// accordingly. This is much more efficient than the original dual-pass approach.
   Future<_ScanResult> _scanDirectoriesOptimized(
     final Directory inputDir,
     final ProcessingContext context,
@@ -184,20 +182,21 @@ class DiscoverMediaStep extends ProcessingStep {
             albumDirectories.add(entity);
             break;
           case _DirectoryType.other:
-            // Ignore other directories
             break;
         }
       }
-    } // Process year directories
+    }
+
+    // Process year directories
     for (final yearDir in yearDirectories) {
       if (context.config.verbose) {
         print('Scanning year folder: ${path.basename(yearDir.path)}');
       }
       await for (final mediaFile in _getMediaFiles(yearDir, context)) {
-        // Extract partner sharing information from JSON
-        final isPartnerShared = await jsonPartnerSharingExtractor(mediaFile);
+        final isPartnerShared = await jsonPartnerSharingExtractor(
+          File(mediaFile.sourcePath),
+        );
 
-        // Create entity with primaryFile as-is (no secondary files at discovery time)
         final entity = MediaEntity.single(
           file: mediaFile,
           partnershared: isPartnerShared,
@@ -206,18 +205,20 @@ class DiscoverMediaStep extends ProcessingStep {
         context.mediaCollection.add(entity);
         yearFolderFiles++;
       }
-    } // Process album directories
+    }
+
+    // Process album directories
     for (final albumDir in albumDirectories) {
       final albumName = path.basename(albumDir.path);
       if (context.config.verbose) {
         print('Scanning album folder: $albumName');
       }
       await for (final mediaFile in _getMediaFiles(albumDir, context)) {
-        // Extract partner sharing information from JSON
-        final isPartnerShared = await jsonPartnerSharingExtractor(mediaFile);
+        final isPartnerShared = await jsonPartnerSharingExtractor(
+          File(mediaFile.sourcePath),
+        );
 
-        // Create entity with primaryFile from this album and set belongToAlbums metadata
-        final parentDir = mediaFile.parent.path;
+        final parentDir = path.dirname(mediaFile.sourcePath);
         final entity = MediaEntity.single(
           file: mediaFile,
           partnershared: isPartnerShared,
@@ -237,9 +238,6 @@ class DiscoverMediaStep extends ProcessingStep {
     );
   }
 
-  /// Classify a directory as year, album, or other
-  ///
-  /// Uses caching to avoid repeated expensive operations
   Future<_DirectoryType> _classifyDirectory(
     final Directory directory,
     final Map<String, _DirectoryType> cache,
@@ -263,18 +261,15 @@ class DiscoverMediaStep extends ProcessingStep {
   }
 
   /// Get media files from a directory, respecting extension fixing configuration
-  Stream<File> _getMediaFiles(
+  Stream<FileEntity> _getMediaFiles(
     final Directory directory,
     final ProcessingContext context,
   ) async* {
     if (context.config.extensionFixing == ExtensionFixingMode.none) {
-      // When extension fixing is disabled, be more lenient about file detection
-      // Use content-based MIME detection rather than extension-based
       await for (final entity in directory.list(recursive: true)) {
         if (entity is File) {
           try {
-            // Reading first 512 bytes is sufficient for reliable MIME type detection
-            const headerSize = 512; // Read first 512 bytes for MIME detection
+            const headerSize = 512;
             final fileSize = await entity.length();
             final bytesToRead = fileSize < headerSize ? fileSize : headerSize;
 
@@ -287,26 +282,22 @@ class DiscoverMediaStep extends ProcessingStep {
             if (mimeType != null &&
                 (mimeType.startsWith('image/') ||
                     mimeType.startsWith('video/'))) {
-              yield entity;
+              yield FileEntity(sourcePath: entity.path);
               continue;
             }
 
-            // Fallback: check if it has a JSON metadata file (indicating it's a Google Photos media file)
             final metadataFile = File('${entity.path}.json');
             if (await metadataFile.exists()) {
-              yield entity;
+              yield FileEntity(sourcePath: entity.path);
             }
           } catch (e) {
-            // If we can't read the file, skip it
             continue;
           }
         }
       }
     } else {
-      // Use standard media detection when extension fixing is enabled
-      await for (final file
-          in directory.list(recursive: true).wherePhotoVideo()) {
-        yield file;
+      await for (final file in directory.list(recursive: true).wherePhotoVideo()) {
+        yield FileEntity(sourcePath: file.path);
       }
     }
   }
@@ -315,7 +306,6 @@ class DiscoverMediaStep extends ProcessingStep {
   bool shouldSkip(final ProcessingContext context) => false;
 }
 
-/// Result of directory scanning operation
 class _ScanResult {
   const _ScanResult({
     required this.yearFolderFiles,
@@ -326,5 +316,4 @@ class _ScanResult {
   final int albumFolderFiles;
 }
 
-/// Directory classification for efficient processing
 enum _DirectoryType { year, album, other }

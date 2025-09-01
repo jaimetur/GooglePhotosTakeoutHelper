@@ -2,6 +2,7 @@
 
 ### 🚀 **Improvements**
   - New code re-design
+  - `Write EXIF` is now Step 7 (after Move Files step) in order to write EXIF data only to those physical files in output folder (skipping shortcuts).
 
 
 ## 5.0.1-beta1

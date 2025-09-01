@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:gpth/gpth-lib.dart';
 
-/// Step 6: Find and merge album relationships
+/// Step 5: Find and merge album relationships
 ///
 /// This sophisticated step analyzes the media collection to identify files that represent
 /// the same photo/video across different albums and locations, then merges them into
@@ -125,7 +125,7 @@ import 'package:gpth/gpth-lib.dart';
 /// ───────────────────────────────────────────────────────────────────────────
 /// ADAPTATION NOTE (new data model):
 /// In the new pipeline, Step 3 already consolidated duplicates and selected a
-/// single primary per entity. Therefore, Step 6 no longer performs content-based
+/// single primary per entity. Therefore, Step 5 no longer performs content-based
 /// merging. Instead, it consolidates and normalizes album memberships stored in
 /// `belongToAlbums`, ensures each membership has at least one `sourceDirectory`
 /// (parent folder of `primaryFile` as fallback), and emits album statistics.
@@ -139,7 +139,7 @@ class FindAlbumsStep extends ProcessingStep with LoggerMixin {
     final sw = Stopwatch()..start();
 
     try {
-      print('\n[Step 6/8] Finding albums (this may take a while)...');
+      print('\n[Step 5/8] Finding albums (this may take a while)...');
 
       final collection = context.mediaCollection;
       final initial = collection.length;
@@ -242,8 +242,8 @@ class FindAlbumsStep extends ProcessingStep with LoggerMixin {
       final int finalCount = collection.length;
       final int mergedCount = 0; // no entity-level merges in the new model
 
-      print('[Step 6/8] Media with album associations: $mediaWithAlbums');
-      print('[Step 6/8] Distinct album folders detected: $totalAlbums');
+      print('[Step 5/8] Media with album associations: $mediaWithAlbums');
+      print('[Step 5/8] Distinct album folders detected: $totalAlbums');
 
       sw.stop();
       return StepResult.success(
@@ -283,9 +283,11 @@ class FindAlbumsStep extends ProcessingStep with LoggerMixin {
     return n.isEmpty ? name : n;
   }
 
-  String _safeParentDir(final File f) {
+  /// Returns parent directory path from a FileEntity effective path (targetPath if present, else sourcePath).
+  String _safeParentDir(final FileEntity fe) {
     try {
-      return f.parent.path;
+      final String p = fe.path; // effective path (target if moved)
+      return File(p).parent.path;
     } catch (_) {
       return '';
     }

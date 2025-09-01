@@ -69,22 +69,19 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
         return StepResult.success(
           stepName: name,
           duration: totalSw.elapsed,
-          data: {'duplicatesRemoved': 0, 'remainingMedia': 0},
+          data: {'duplicatesRemoved': 0, 'remainingMedia': 0, 'secondaryFilesDetected': 0, 'duplicateFilesRemoved': 0},
           message: 'No media to process.',
         );
       }
 
       print('\n[Step 3/8] Removing duplicates (this may take a while)...');
       if (context.config.keepDuplicates) {
-        print(
-          '[Step 3/8] Flag `--keep-duplicates` detected. Duplicates will be moved to `_Duplicates` subfolder within output folder',
-        );
+        print('[Step 3/8] Flag `--keep-duplicates` detected. Duplicates will be moved to `_Duplicates` subfolder within output folder');
       }
 
       final duplicateService = ServiceContainer.instance.duplicateDetectionService;
       final bool verify = _isVerifyEnabled();
-      final MediaHashService verifier =
-          verify ? MediaHashService() : MediaHashService(maxCacheSize: 1);
+      final MediaHashService verifier = verify ? MediaHashService() : MediaHashService(maxCacheSize: 1);
 
       // ────────────────────────────────────────────────────────────────────────
       // 1) SIZE BUCKETS (cheap pre-partition)  ── old fast pipeline restored
@@ -94,7 +91,7 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
       for (final e in mediaCol.entities) {
         int size;
         try {
-          size = e.primaryFile.lengthSync();
+          size = e.primaryFile.asFile().lengthSync();
         } catch (_) {
           size = -1; // unprocessable bucket
         }
@@ -106,8 +103,7 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
       telem.filesTotal = mediaCol.length;
 
       // Concurrency cap (kept conservative to avoid I/O thrash)
-      final int maxWorkers =
-          ConcurrencyManager().concurrencyFor(ConcurrencyOperation.exif).clamp(1, 8);
+      final int maxWorkers = ConcurrencyManager().concurrencyFor(ConcurrencyOperation.exif).clamp(1, 8);
 
       // Process buckets in slices
       final bucketKeys = sizeBuckets.keys.toList();
@@ -149,14 +145,13 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
           // 3) QUICK SIGNATURE (size | ext | FNV-1a head up to 64KB) split
           // ────────────────────────────────────────────────────────────────
           final qsigSw = Stopwatch()..start();
-          final Map<String, List<MediaEntity>> quickBuckets =
-              <String, List<MediaEntity>>{};
+          final Map<String, List<MediaEntity>> quickBuckets = <String, List<MediaEntity>>{};
           for (final e in extGroup) {
             String sig;
             try {
-              final int size = e.primaryFile.lengthSync();
+              final int size = e.primaryFile.asFile().lengthSync();
               final String ext = _extOf(e.primaryFile.path);
-              sig = await _quickSignature(e.primaryFile, size, ext);
+              sig = await _quickSignature(e.primaryFile.asFile(), size, ext);
             } catch (_) {
               sig = 'qsig-err';
             }
@@ -174,8 +169,7 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
 
             final hashSw = Stopwatch()..start();
             // NOTE: we use the standard groupIdentical here (full content hash + verify equality)
-            final Map<String, List<MediaEntity>> hashGroups =
-                await duplicateService.groupIdentical(q);
+            final Map<String, List<MediaEntity>> hashGroups = await duplicateService.groupIdentical(q);
             hashSw.stop();
             bs.msHashGroups += hashSw.elapsedMilliseconds;
             bs.hashGroups += hashGroups.length;
@@ -214,34 +208,23 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
 
               if (verify) {
                 try {
-                  final String keptHash =
-                      await verifier.calculateFileHash(kept.primaryFile);
+                  final String keptHash = await verifier.calculateFileHash(kept.primaryFile.asFile());
                   for (final d in toRemove) {
                     try {
-                      final String dupHash =
-                          await verifier.calculateFileHash(d.primaryFile);
+                      final String dupHash = await verifier.calculateFileHash(d.primaryFile.asFile());
                       if (dupHash != keptHash) {
-                        logWarning(
-                          'Verification mismatch. Will NOT remove ${d.primaryFile.path} (hash differs from kept).',
-                          forcePrint: true,
-                        );
+                        logWarning('Verification mismatch. Will NOT remove ${d.primaryFile.path} (hash differs from kept).', forcePrint: true);
                         continue;
                       }
                       kept = kept.mergeWith(d);
                       localToRemove.add(d);
                       bs.duplicatesRemoved++;
                     } catch (e) {
-                      logWarning(
-                        'Verification failed for ${d.primaryFile.path}: $e. Skipping removal for safety.',
-                        forcePrint: true,
-                      );
+                      logWarning('Verification failed for ${d.primaryFile.path}: $e. Skipping removal for safety.', forcePrint: true);
                     }
                   }
                 } catch (e) {
-                  logWarning(
-                    'Could not hash kept file ${_safePath(kept.primaryFile)} for verification: $e. Skipping removals for this group.',
-                    forcePrint: true,
-                  );
+                  logWarning('Could not hash kept file ${_safePath(kept.primaryFile.asFile())} for verification: $e. Skipping removals for this group.', forcePrint: true);
                 }
               } else {
                 for (final d in toRemove) {
@@ -284,37 +267,57 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
         _replaceEntityInCollection(mediaCol, r.kept0, r.kept);
       }
 
-      // Apply removals (and physically delete/move duplicates according to configuration)
-      int removedCount = entitiesToRemove.length;
+      // Remove merged-away entities from the collection ONLY (do not delete files here)
+      int removedEntities = entitiesToRemove.length;
       if (entitiesToRemove.isNotEmpty) {
-        print('[Step 3/8] Removing ${entitiesToRemove.length} files from media collection');
-
-        final ioSw = Stopwatch()..start();
-        final bool moved =
-            await _removeOrQuarantineDuplicates(entitiesToRemove, context);
-        ioSw.stop();
-        telem.msRemoveIO += ioSw.elapsedMilliseconds;
-
+        print('[Step 3/8] Removing ${entitiesToRemove.length} merged entities from media collection');
         for (final e in entitiesToRemove) {
           try {
             mediaCol.remove(e);
           } catch (err) {
-            logWarning(
-              'Failed to remove entity ${_safeEntity(e)}: $err',
-              forcePrint: true,
-            );
+            logWarning('Failed to remove entity ${_safeEntity(e)}: $err', forcePrint: true);
           }
-        }
-        if (moved) {
-          print(
-            '[Step 3/8] Duplicates moved to _Duplicates (flag --keep-duplicates = true)',
-          );
-        } else {
-          print('[Step 3/8] Duplicates deleted from input folder.');
         }
       }
 
-      print('[Step 3/8] Remove Duplicates finished, total duplicates found: $removedCount');
+      // ────────────────────────────────────────────────────────────────────────
+      // NEW: Only act on duplicatesFiles for I/O (move/delete), NEVER on secondaryFiles
+      // ────────────────────────────────────────────────────────────────────────
+      // Count secondary files across the collection
+      int totalSecondaryFiles = 0;
+      for (final e in mediaCol.entities) {
+        totalSecondaryFiles += e.secondaryFiles.length;
+      }
+
+      // Gather duplicate files across the collection for I/O
+      final List<FileEntity> duplicateFiles = <FileEntity>[];
+      for (final e in mediaCol.entities) {
+        if (e.duplicatesFiles.isNotEmpty) {
+          duplicateFiles.addAll(e.duplicatesFiles);
+        }
+      }
+
+      // Move/Delete only duplicatesFiles (depending on flag)
+      int duplicateFilesRemoved = 0;
+      if (duplicateFiles.isNotEmpty) {
+        print('[Step 3/8] Processing ${duplicateFiles.length} duplicate files (within-folder duplicates) for removal/quarantine');
+        final ioSw = Stopwatch()..start();
+        final bool moved = await _removeOrQuarantineDuplicateFiles(duplicateFiles, context, onRemoved: () { duplicateFilesRemoved++; });
+        ioSw.stop();
+        telem.msRemoveIO += ioSw.elapsedMilliseconds;
+        if (moved) {
+          print('[Step 3/8] Duplicate files moved to _Duplicates (flag --keep-duplicates = true)');
+        } else {
+          print('[Step 3/8] Duplicate files deleted from input folder.');
+        }
+      } else {
+        print('[Step 3/8] No duplicate files (within-folder) to remove.');
+      }
+
+      print('[Step 3/8] Secondary files detected in collection: $totalSecondaryFiles');
+      print('[Step 3/8] Duplicate files removed/moved: $duplicateFilesRemoved');
+
+      print('[Step 3/8] Remove Duplicates finished, total entities merged away: $removedEntities');
 
       totalSw.stop();
       telem.msTotal = totalSw.elapsedMilliseconds;
@@ -328,9 +331,8 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
         stepName: name,
         duration: totalSw.elapsed,
         data: {
-          'duplicatesRemoved': removedCount,
+          'entitiesMergedAway': removedEntities,
           'remainingMedia': mediaCol.length,
-          // expose some key telemetry for programmatic consumption
           'sizeBuckets': telem.sizeBuckets,
           'quickBuckets': telem.quickBuckets,
           'hashGroups': telem.hashGroups,
@@ -340,9 +342,10 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
           'msHashGroups': telem.msHashGroups,
           'msMergeReplace': telem.msMergeReplace,
           'msRemoveIO': telem.msRemoveIO,
+          'secondaryFilesDetected': totalSecondaryFiles,
+          'duplicateFilesRemoved': duplicateFilesRemoved,
         },
-        message:
-            'Removed $removedCount duplicate files from input folder\n   ${mediaCol.length} media files remain.',
+        message: 'Step 3 completed. Entities merged: $removedEntities. Secondary files: $totalSecondaryFiles. Duplicate files removed/moved: $duplicateFilesRemoved.\n   ${mediaCol.length} media entities remain.',
       );
     } catch (e) {
       totalSw.stop();
@@ -356,8 +359,7 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
   }
 
   @override
-  bool shouldSkip(final ProcessingContext context) =>
-      context.mediaCollection.isEmpty;
+  bool shouldSkip(final ProcessingContext context) => context.mediaCollection.isEmpty;
 
   // ——— helpers ————————————————————————————————————————————————————————————————
 
@@ -379,23 +381,16 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
   /// 3) Default false
   bool _shouldMoveDuplicatesToFolder(final ProcessingContext context) {
     try {
-      // final dynamic cfg = ServiceContainer.instance.globalConfig;
-      // final dynamic v = cfg?.moveDuplicatesToDuplicatesFolder;
       final dynamic keepDuplicates = context.config.keepDuplicates;
       if (keepDuplicates is bool) return keepDuplicates;
-    } catch (_) {
-      // ignore and fallback
-    }
+    } catch (_) {}
     try {
-      final env =
-          Platform.environment['GPTH_MOVE_DUPLICATES_TO_DUPLICATES_FOLDER'];
+      final env = Platform.environment['GPTH_MOVE_DUPLICATES_TO_DUPLICATES_FOLDER'];
       if (env != null) {
         final s = env.trim().toLowerCase();
         return s == '1' || s == 'true' || s == 'yes' || s == 'on';
       }
-    } catch (_) {
-      // ignore
-    }
+    } catch (_) {}
     return false;
   }
 
@@ -427,24 +422,23 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
           col[i] = newE;
           return;
         }
-      } catch (_) {
-        // ignore and continue
-      }
+      } catch (_) {}
     }
   }
 
-  Future<bool> _removeOrQuarantineDuplicates(
-    final Set<MediaEntity> duplicates,
-    final ProcessingContext context,
-  ) async {
-    // If config says "move to _Duplicates", move; otherwise delete from input
+  /// NEW: Move/delete only duplicate files (within-folder duplicates), never secondary files.
+  Future<bool> _removeOrQuarantineDuplicateFiles(
+    final List<FileEntity> duplicates,
+    final ProcessingContext context, {
+    final void Function()? onRemoved,
+  }) async {
     final bool moveToDuplicates = _shouldMoveDuplicatesToFolder(context);
 
     final String inputRoot = context.inputDirectory.path;
     final String outputRoot = context.outputDirectory.path;
 
-    for (final e in duplicates) {
-      final File f = e.primaryFile;
+    for (final fe in duplicates) {
+      final File f = fe.asFile();
 
       // Compute relative path inside input; if it fails, fallback to basename only
       String rel;
@@ -471,9 +465,9 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
         } else {
           await f.delete();
         }
+        onRemoved?.call();
       } catch (ioe) {
-        logWarning('Failed to remove/move duplicate ${f.path}: $ioe',
-            forcePrint: true);
+        logWarning('Failed to remove/move duplicate ${f.path}: $ioe', forcePrint: true);
       }
     }
     return moveToDuplicates;
@@ -494,8 +488,7 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
     final int size,
     final String ext,
   ) async {
-    final int toRead =
-        size > 0 ? (size < 65536 ? size : 65536) : 65536; // 64 KiB cap
+    final int toRead = size > 0 ? (size < 65536 ? size : 65536) : 65536; // 64 KiB cap
     List<int> head = const [];
     try {
       final raf = await file.open();

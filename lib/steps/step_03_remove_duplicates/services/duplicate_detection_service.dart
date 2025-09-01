@@ -3,7 +3,6 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:gpth/gpth-lib.dart';
 
-
 /// Service for detecting duplicate media files based on content hash and size
 ///
 /// This service provides efficient duplicate detection by first grouping files
@@ -81,10 +80,10 @@ class DuplicateDetectionService with LoggerMixin {
       final batch = mediaList.skip(i).take(batchSize);
       final futures = batch.map((final media) async {
         try {
-          final size = await _hashService.calculateFileSize(media.primaryFile);
+          final size = await _hashService.calculateFileSize(File(media.primaryFile.sourcePath));
           return (media: media, size: size);
         } catch (e) {
-          logError('Failed to get size for ${media.primaryFile.path}: $e');
+          logError('Failed to get size for ${media.primaryFile.sourcePath}: $e');
           return null;
         }
       });
@@ -132,10 +131,10 @@ class DuplicateDetectionService with LoggerMixin {
           final batch = mediaWithSameSize.skip(i).take(hashBatchSize);
           final futures = batch.map((final media) async {
             try {
-              final hash = await _hashService.calculateFileHash(media.primaryFile);
+              final hash = await _hashService.calculateFileHash(File(media.primaryFile.sourcePath));
               return (media: media, hash: hash);
             } catch (e) {
-              logError('Failed to calculate hash for ${media.primaryFile.path}: $e');
+              logError('Failed to calculate hash for ${media.primaryFile.sourcePath}: $e');
               return null;
             }
           });
@@ -222,10 +221,10 @@ class DuplicateDetectionService with LoggerMixin {
         duplicatesRemoved += duplicatesToRemove.length;
 
         if (duplicatesToRemove.isNotEmpty) {
-          final keptFile = best.primaryFile.path;
+          final keptFile = best.primaryFile.sourcePath;
           logDebug('Found ${group.length} identical files, keeping: $keptFile');
           for (final duplicate in duplicatesToRemove) {
-            logDebug('  Removing duplicate: ${duplicate.primaryFile.path}');
+            logDebug('  Removing duplicate: ${duplicate.primaryFile.sourcePath}');
           }
         }
       }
@@ -274,8 +273,8 @@ class DuplicateDetectionService with LoggerMixin {
         if (albumComparison != 0) return albumComparison;
 
         // 3. Prefer media with shorter path (likely more original)
-        final pathA = a.primaryFile.path;
-        final pathB = b.primaryFile.path;
+        final pathA = a.primaryFile.sourcePath;
+        final pathB = b.primaryFile.sourcePath;
         return pathA.length.compareTo(pathB.length);
       });
 
@@ -299,14 +298,14 @@ class DuplicateDetectionService with LoggerMixin {
     final MediaEntity media2,
   ) async {
     // Quick size check first
-    final size1 = await _hashService.calculateFileSize(media1.primaryFile);
-    final size2 = await _hashService.calculateFileSize(media2.primaryFile);
+    final size1 = await _hashService.calculateFileSize(File(media1.primaryFile.sourcePath));
+    final size2 = await _hashService.calculateFileSize(File(media2.primaryFile.sourcePath));
 
     if (size1 != size2) return false;
 
     // If sizes match, compare hashes
-    final hash1 = await _hashService.calculateFileHash(media1.primaryFile);
-    final hash2 = await _hashService.calculateFileHash(media2.primaryFile);
+    final hash1 = await _hashService.calculateFileHash(File(media1.primaryFile.sourcePath));
+    final hash2 = await _hashService.calculateFileHash(File(media2.primaryFile.sourcePath));
 
     return hash1 == hash2;
   }
@@ -335,7 +334,7 @@ class DuplicateDetectionService with LoggerMixin {
           // Note: This is an approximation - we'd need to actually calculate sizes
           // For now, we'll use the file size from the first file as estimate
           try {
-            final size = group.first.primaryFile.lengthSync();
+            final size = File(group.first.primaryFile.sourcePath).lengthSync();
             spaceWastedBytes += size;
           } catch (e) {
             // Ignore files that can't be read
@@ -381,10 +380,10 @@ class DuplicateDetectionService with LoggerMixin {
       final batch = mediaList.skip(i).take(sizeBatch);
       final futures = batch.map((final media) async {
         try {
-          final size = await _hashService.calculateFileSize(media.primaryFile);
+          final size = await _hashService.calculateFileSize(File(media.primaryFile.sourcePath));
           return (media: media, size: size);
         } catch (e) {
-          logError('Failed to get size for ${media.primaryFile.path}: $e');
+          logError('Failed to get size for ${media.primaryFile.sourcePath}: $e');
           return null;
         }
       });
@@ -433,13 +432,13 @@ class DuplicateDetectionService with LoggerMixin {
         final batch = group.skip(i).take(fpBatch);
         final futures = batch.map((final media) async {
           try {
-            final f = media.primaryFile;
+            final f = File(media.primaryFile.sourcePath);
             final String fp = await _triSampleFingerprint(f, sampleSizeBytes);
             final key = '${sameSize.key}|$fp';
             return (media: media, key: key);
           } catch (e) {
-            logError('Fingerprint failed for ${media.primaryFile.path}: $e');
-            return (media: media, key: 'ERR|${media.primaryFile.path}');
+            logError('Fingerprint failed for ${media.primaryFile.sourcePath}: $e');
+            return (media: media, key: 'ERR|${media.primaryFile.sourcePath}');
           }
         });
         final res = await Future.wait(futures);
@@ -452,7 +451,7 @@ class DuplicateDetectionService with LoggerMixin {
       for (final List<MediaEntity> fpSub in byFp.values) {
         if (fpSub.length == 1) {
           // unique by fingerprint → treat as unique (keep size marker to avoid hash)
-          output['${sameSize.key}bytes|${fpSub.first.primaryFile.path}'] = [fpSub.first];
+          output['${sameSize.key}bytes|${fpSub.first.primaryFile.sourcePath}'] = [fpSub.first];
           continue;
         }
         final Map<String, List<MediaEntity>> byHash = await _fullHashGroup(fpSub);
@@ -480,7 +479,7 @@ class DuplicateDetectionService with LoggerMixin {
   }
 
   /// Optional convenience alias if you prefer this name in callers.
-  Future<String> computeSha256(final MediaEntity media) => _hashService.calculateFileHash(media.primaryFile);
+  Future<String> computeSha256(final MediaEntity media) => _hashService.calculateFileHash(File(media.primaryFile.sourcePath));
 
   // ─────────────────────────────── helpers ───────────────────────────────
 
@@ -492,11 +491,11 @@ class DuplicateDetectionService with LoggerMixin {
       final batch = files.skip(i).take(hashBatch);
       final futures = batch.map((final media) async {
         try {
-          final h = await _hashService.calculateFileHash(media.primaryFile);
+          final h = await _hashService.calculateFileHash(File(media.primaryFile.sourcePath));
           return (media: media, hash: h);
         } catch (e) {
-          logError('Failed to calculate hash for ${media.primaryFile.path}: $e');
-          return (media: media, hash: 'ERR|${media.primaryFile.path}');
+          logError('Failed to calculate hash for ${media.primaryFile.sourcePath}: $e');
+          return (media: media, hash: 'ERR|${media.primaryFile.sourcePath}');
         }
       });
       final res = await Future.wait(futures);
