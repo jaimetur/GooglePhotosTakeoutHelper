@@ -1,3 +1,9 @@
+## 5.0.1-beta1
+
+### 🚀 **Improvements**
+  - Performance Optimization in Step 3 (Remove Duplicates)
+
+
 ## 5.0.0
 
 ### ✨ **New Features**
