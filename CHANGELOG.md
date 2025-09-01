@@ -1,4 +1,10 @@
-## 5.0.0-Xentraxx
+## 5.0.1
+
+### 🚀 **Improvements**
+  - Performance Optimization in Step 3 (Remove Duplicates)
+
+
+## 5.0.0
 
 ### ✨ **New Features**
   - Support for 7zip and unzip extractors (if found in your system). This is shy the native extractor does not extract properly filenames or dirnames with latin chars.

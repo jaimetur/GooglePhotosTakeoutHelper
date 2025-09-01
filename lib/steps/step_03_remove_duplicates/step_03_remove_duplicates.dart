@@ -189,13 +189,17 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
       if (entitiesToRemove.isNotEmpty) {
         print('[Step 3/8] Removing ${entitiesToRemove.length} files from media collection');
         final bool moved = await _removeOrQuarantineDuplicates(entitiesToRemove, context);
-        for (final e in entitiesToRemove) {
-          try {
-            mediaCol.remove(e);
-          } catch (err) {
-            logWarning('Failed to remove entity ${_safeEntity(e)}: $err', forcePrint: true);
+
+        // NOTE: MediaEntityCollection does not expose `removeWhere`.
+        // Rebuild list once (O(n)) and replace in a single call to avoid repeated scans.
+        final List<MediaEntity> keep = <MediaEntity>[];
+        for (final e in mediaCol.entities) {
+          if (!entitiesToRemove.contains(e)) {
+            keep.add(e);
           }
         }
+        mediaCol.replaceAll(keep);
+
         if (moved) {
           print('[Step 3/8] Duplicates moved to _Duplicates (flag --keep-duplicates = true)');
         } else {
