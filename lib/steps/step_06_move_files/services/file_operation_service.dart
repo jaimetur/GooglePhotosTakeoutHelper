@@ -22,7 +22,7 @@ class FileOperationService with LoggerMixin {
     final Directory targetDirectory, {
     final DateTime? dateTaken,
   }) async {
-    // Ensure target directory exists
+    // Ensure target directory exists (preserving absolute root on Unix/Windows)
     final Directory normalizedTargetDir = Directory(
       _normalizePathForWrite(targetDirectory.path),
     );
@@ -34,7 +34,8 @@ class FileOperationService with LoggerMixin {
         );
 
     try {
-      final resultFile = await sourceFile.rename(targetFile.path);
+      // Use the optimized implementation to automatically handle cross-device moves (EXDEV) via copy+delete when needed.
+      final resultFile = await _moveFileOptimized(sourceFile, targetFile);
 
       // Set file timestamp if dateTaken is provided
       if (dateTaken != null) {
@@ -43,7 +44,7 @@ class FileOperationService with LoggerMixin {
 
       return resultFile;
     } on FileSystemException catch (e) {
-      // Handle cross-device move errors
+      // For unexpected filesystem errors, rethrow a friendly message when it matches typical cross-device hints.
       if (e.osError?.errorCode == 18 || e.message.contains('cross-device')) {
         throw FileOperationException(
           'Cannot move files across different drives. Please select an output location on the same drive as the input.',
@@ -100,7 +101,7 @@ class FileOperationService with LoggerMixin {
         return await source.rename(normalizedDest.path);
       } on FileSystemException catch (e) {
         if (e.osError?.errorCode == 18 || e.message.contains('cross-device')) {
-          // Fall through to copy+delete
+          // Fall through to copy+delete for EXDEV
         } else {
           rethrow;
         }
@@ -137,7 +138,9 @@ class FileOperationService with LoggerMixin {
   /// Check if two paths are on the same drive (for optimization)
   bool _isSameDrive(final String path1, final String path2) {
     if (!Platform.isWindows) {
-      return true; // Unix systems don't have drive letters
+      // Unix-like systems do not use drive letters; still attempt rename first.
+      // If paths span different mount points, rename will throw EXDEV and we fall back to copy+delete.
+      return true;
     }
 
     final drive1 = path1.length >= 2 ? path1.substring(0, 2).toUpperCase() : '';
@@ -157,9 +160,7 @@ class FileOperationService with LoggerMixin {
     // Handle Windows date limitations
     DateTime adjustedTime = timestamp;
     if (Platform.isWindows && timestamp.isBefore(DateTime(1970))) {
-      print(
-        '[Info]: ${file.path} has date $timestamp, which is before 1970 (not supported on Windows) - will be set to 1970-01-01',
-      );
+      print('[Info]: ${file.path} has date $timestamp, which is before 1970 (not supported on Windows) - will be set to 1970-01-01');
       adjustedTime = DateTime(1970);
     }
 
@@ -204,9 +205,7 @@ class FileOperationService with LoggerMixin {
     final concurrency = ConcurrencyManager().concurrencyFor(
       ConcurrencyOperation.fileIO,
     );
-    logDebug(
-      'Starting $concurrency threads (fileIO directory ensure concurrency)',
-    );
+    logDebug('Starting $concurrency threads (fileIO directory ensure concurrency)');
     await Future.wait(
       directories.map(
         (final dir) => pool.withResource(() => ensureDirectoryExists(dir)),
@@ -293,13 +292,24 @@ class FileOperationService with LoggerMixin {
   /// - Removes ASCII control chars.
   /// - Keeps Unicode (accents, emojis) intact.
   /// - Ensures no empty segments remain (replaces with "_").
+  /// - **Preserves absolute root prefixes** ("/", "C:\", and UNC "\\server\share\").
   String _normalizePathForWrite(final String rawPath) {
     if (rawPath.isEmpty) return rawPath;
 
-    // Normalize to forward slashes to split, then rebuild with platform separator.
-    final String unified = rawPath.replaceAll('\\', '/');
-    final parts = unified.split('/').where((final s) => s.isNotEmpty).toList();
-    if (parts.isEmpty) return rawPath;
+    // Preserve the root prefix (Unix "/", Windows drive roots like "C:\" and UNC roots "\\server\share\")
+    final String root = p.rootPrefix(rawPath);
+    final String remainder = rawPath.substring(root.length);
+
+    // Split the remainder by either slash or backslash, ignoring duplicate separators.
+    final List<String> parts = remainder
+        .split(RegExp(r'[\\/]+'))
+        .where((final s) => s.isNotEmpty)
+        .toList();
+
+    if (parts.isEmpty) {
+      // If the path was just a root (e.g., "/"), return it as-is.
+      return root.isNotEmpty ? root : rawPath;
+    }
 
     final List<String> norm = <String>[];
     for (int i = 0; i < parts.length; i++) {
@@ -318,7 +328,13 @@ class FileOperationService with LoggerMixin {
       norm.add(seg);
     }
 
-    return norm.join(Platform.pathSeparator);
+    // Rebuild path with the preserved root.
+    final String joined = norm.join(Platform.pathSeparator);
+    if (root.isEmpty) return joined;
+
+    // Ensure we do not duplicate separators when concatenating root + joined.
+    final bool rootEndsWithSep = root.endsWith('\\') || root.endsWith('/');
+    return rootEndsWithSep ? '$root$joined' : '$root${Platform.pathSeparator}$joined';
   }
 }
 
