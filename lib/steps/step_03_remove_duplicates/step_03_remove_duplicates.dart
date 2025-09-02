@@ -43,7 +43,7 @@ import 'package:path/path.dart' as path;
 ///
 /// ### Metadata Preservation
 /// - **Date Information**: Preserves best available date and accuracy from kept file
-/// - **Album Associations**: Preserved and merged in `belongToAlbums`
+/// - **Album Associations**: Preserved and merged in `albumsMap`
 /// - **EXIF Data**: Maintains original EXIF information from selected file
 /// - **JSON Metadata**: Keeps associated JSON file with selected media file
 ///
@@ -197,8 +197,8 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
                 final bBaseLen = path.basename(b.primaryFile.path).length;
                 if (aBaseLen != bBaseLen) return aBaseLen.compareTo(bBaseLen);
 
-                final aYear = a.belongToAlbums.isEmpty;
-                final bYear = b.belongToAlbums.isEmpty;
+                final aYear = a.albumsMap.isEmpty;
+                final bYear = b.albumsMap.isEmpty;
                 if (aYear != bYear) return aYear ? -1 : 1;
 
                 final aPathLen = a.primaryFile.path.length;

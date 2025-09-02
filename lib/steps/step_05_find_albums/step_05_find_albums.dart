@@ -127,7 +127,7 @@ import 'package:gpth/gpth_lib_exports.dart';
 /// In the new pipeline, Step 3 already consolidated duplicates and selected a
 /// single primary per entity. Therefore, Step 5 no longer performs content-based
 /// merging. Instead, it consolidates and normalizes album memberships stored in
-/// `belongToAlbums`, ensures each membership has at least one `sourceDirectory`
+/// `albumsMap`, ensures each membership has at least one `sourceDirectory`
 /// (parent folder of `primaryFile` as fallback), and emits album statistics.
 /// It keeps return data keys compatible with callers (mergedCount/groupsMerged/albumsMerged).
 /// ───────────────────────────────────────────────────────────────────────────
@@ -171,7 +171,7 @@ class FindAlbumsStep extends ProcessingStep with LoggerMixin {
 
       for (int i = 0; i < collection.length; i++) {
         final e = collection[i];
-        final Map<String, AlbumInfo> albums = e.belongToAlbums;
+        final Map<String, AlbumInfo> albums = e.albumsMap;
 
         if (albums.isEmpty) continue;
         mediaWithAlbums++;
@@ -224,7 +224,7 @@ class FindAlbumsStep extends ProcessingStep with LoggerMixin {
           final updatedEntity = MediaEntity(
             primaryFile: e.primaryFile,
             secondaryFiles: e.secondaryFiles,
-            belongToAlbums: updated,
+            albumsMap: updated,
             dateTaken: e.dateTaken,
             dateAccuracy: e.dateAccuracy,
             dateTimeExtractionMethod: e.dateTimeExtractionMethod,
@@ -234,7 +234,7 @@ class FindAlbumsStep extends ProcessingStep with LoggerMixin {
         }
 
         // Stats (use sanitized keys from the possibly updated entity)
-        for (final albumName in collection[i].belongToAlbums.keys) {
+        for (final albumName in collection[i].albumsMap.keys) {
           if (albumName.trim().isEmpty) continue;
           albumCounts[albumName] = (albumCounts[albumName] ?? 0) + 1;
         }

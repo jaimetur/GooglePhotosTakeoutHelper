@@ -52,7 +52,7 @@ void main() {
     MediaEntity entityFromFile(final File f, final DateTime dt) => MediaEntity(
         primaryFile: FileEntity(sourcePath: f.path),
         secondaryFiles: const <FileEntity>[],
-        belongToAlbums: const <String, AlbumInfo>{},
+        albumsMap: const <String, AlbumInfo>{},
         dateTaken: dt,
         dateAccuracy: null,
         dateTimeExtractionMethod: DateTimeExtractionMethod.none,

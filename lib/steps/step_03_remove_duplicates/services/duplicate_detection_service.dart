@@ -322,8 +322,8 @@ class DuplicateDetectionService with LoggerMixin {
         }
 
         // 2. Prefer media with more album associations (metadata)
-        final albumComparison = b.belongToAlbums.length.compareTo(
-          a.belongToAlbums.length,
+        final albumComparison = b.albumsMap.length.compareTo(
+          a.albumsMap.length,
         );
         if (albumComparison != 0) return albumComparison;
 

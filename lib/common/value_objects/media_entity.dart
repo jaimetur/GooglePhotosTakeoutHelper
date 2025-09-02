@@ -12,7 +12,7 @@ import 'package:gpth/gpth_lib_exports.dart';
 ///     year-folder preference on ties)
 ///   - `secondaryFiles`: original paths of redundant duplicates (kept only as
 ///     metadata after Step 3)
-///   - `belongToAlbums`: album membership metadata
+///   - `albumsMap`: album membership metadata
 ///
 /// EXTENDED MODEL (FileEntity-based):
 /// - `primaryFile` is now a `FileEntity` (not a File)
@@ -45,7 +45,7 @@ class MediaEntity {
     final DateAccuracy? dateAccuracy,
     final DateTimeExtractionMethod? dateTimeExtractionMethod,
     final bool partnershared = false,
-    final Map<String, AlbumInfo>? belongToAlbums,
+    final Map<String, AlbumInfo>? albumsMap,
   }) {
     final all = <FileEntity>[
       primaryFile,
@@ -63,7 +63,7 @@ class MediaEntity {
       dateAccuracy: dateAccuracy,
       dateTimeExtractionMethod: dateTimeExtractionMethod,
       partnerShared: partnershared,
-      belongToAlbums: belongToAlbums ?? const {},
+      albumsMap: albumsMap ?? const {},
     );
   }
 
@@ -74,7 +74,7 @@ class MediaEntity {
     final DateAccuracy? dateAccuracy,
     final DateTimeExtractionMethod? dateTimeExtractionMethod,
     final bool partnerShared = false,
-    final Map<String, AlbumInfo>? belongToAlbums,
+    final Map<String, AlbumInfo>? albumsMap,
   }) => MediaEntity(
     primaryFile: file,
     secondaryFiles: const <FileEntity>[],
@@ -83,7 +83,7 @@ class MediaEntity {
     dateAccuracy: dateAccuracy,
     dateTimeExtractionMethod: dateTimeExtractionMethod,
     partnershared: partnerShared,
-    belongToAlbums: belongToAlbums,
+    albumsMap: albumsMap,
   );
 
   /// Private internal constructor used after normalization.
@@ -95,12 +95,12 @@ class MediaEntity {
     this.dateAccuracy,
     this.dateTimeExtractionMethod,
     this.partnerShared = false,
-    required this.belongToAlbums,
+    required this.albumsMap,
   });
 
   /// Album metadata: album name → AlbumInfo.
   /// This is used to reconstruct album relationships later in the pipeline.
-  final Map<String, AlbumInfo> belongToAlbums;
+  final Map<String, AlbumInfo> albumsMap;
 
   /// Capture/creation datetime (best-known).
   final DateTime? dateTaken;
@@ -127,10 +127,10 @@ class MediaEntity {
   int? get dateTakenAccuracy => dateAccuracy?.value;
 
   /// Whether this media is associated with any album.
-  bool get hasAlbumAssociations => belongToAlbums.isNotEmpty;
+  bool get hasAlbumAssociations => albumsMap.isNotEmpty;
 
   /// All album names where this media belongs to.
-  Set<String> get albumNames => belongToAlbums.keys.toSet();
+  Set<String> get albumNames => albumsMap.keys.toSet();
 
   /// Returns true if any path (primary or secondary/duplicate) lives inside a “year-based” folder.
   ///
@@ -211,13 +211,13 @@ class MediaEntity {
     dateTimeExtractionMethod:
         dateTimeExtractionMethod ?? this.dateTimeExtractionMethod,
     partnerShared: partnerShared,
-    belongToAlbums: belongToAlbums,
+    albumsMap: albumsMap,
   );
 
   /// Returns a copy with album membership updated/added (metadata only).
   MediaEntity withAlbumInfo(final String albumName, {final String? sourceDir}) {
     if (albumName.isEmpty) return this;
-    final existing = belongToAlbums[albumName];
+    final existing = albumsMap[albumName];
     final updated = (existing == null)
         ? AlbumInfo(
             name: albumName,
@@ -229,7 +229,7 @@ class MediaEntity {
               ? existing.addSourceDir(sourceDir)
               : existing);
 
-    final next = Map<String, AlbumInfo>.from(belongToAlbums)
+    final next = Map<String, AlbumInfo>.from(albumsMap)
       ..[albumName] = updated;
 
     return MediaEntity._internal(
@@ -240,7 +240,7 @@ class MediaEntity {
       dateAccuracy: dateAccuracy,
       dateTimeExtractionMethod: dateTimeExtractionMethod,
       partnerShared: partnerShared,
-      belongToAlbums: next,
+      albumsMap: next,
     );
   }
 
@@ -279,10 +279,10 @@ class MediaEntity {
   MediaEntity mergeWith(final MediaEntity other) {
     // 1) Merge album metadata
     final Map<String, AlbumInfo> mergedAlbums = <String, AlbumInfo>{};
-    for (final e in belongToAlbums.entries) {
+    for (final e in albumsMap.entries) {
       mergedAlbums[e.key] = e.value;
     }
-    for (final e in other.belongToAlbums.entries) {
+    for (final e in other.albumsMap.entries) {
       final existing = mergedAlbums[e.key];
       mergedAlbums[e.key] = existing == null
           ? e.value
@@ -337,7 +337,7 @@ class MediaEntity {
       dateAccuracy: bestAccuracy,
       dateTimeExtractionMethod: bestMethod,
       partnerShared: partnerShared || other.partnerShared,
-      belongToAlbums: mergedAlbums,
+      albumsMap: mergedAlbums,
     );
   }
 
@@ -356,8 +356,8 @@ class MediaEntity {
         other.dateTimeExtractionMethod == dateTimeExtractionMethod;
 
     // Compare album keys only (cheap structural equality)
-    final aKeys = belongToAlbums.keys.toSet();
-    final bKeys = other.belongToAlbums.keys.toSet();
+    final aKeys = albumsMap.keys.toSet();
+    final bKeys = other.albumsMap.keys.toSet();
     final sameAlbumKeys =
         aKeys.length == bKeys.length && aKeys.containsAll(bKeys);
 
@@ -385,7 +385,7 @@ class MediaEntity {
     dateAccuracy,
     dateTimeExtractionMethod,
     partnerShared,
-    Object.hashAllUnordered(belongToAlbums.keys),
+    Object.hashAllUnordered(albumsMap.keys),
     Object.hashAllUnordered(secondaryFiles.map(_fileIdentityKey)),
     Object.hashAllUnordered(duplicatesFiles.map(_fileIdentityKey)),
   );
@@ -612,7 +612,7 @@ class MediaEntity {
     dateAccuracy: dateAccuracy,
     dateTimeExtractionMethod: dateTimeExtractionMethod,
     partnerShared: partnerShared,
-    belongToAlbums: belongToAlbums,
+    albumsMap: albumsMap,
   );
 }
 

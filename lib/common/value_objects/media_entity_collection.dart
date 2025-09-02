@@ -211,7 +211,7 @@ class MediaEntityCollection with LoggerMixin {
       }
 
       // Count media with album associations (metadata)
-      if (mediaEntity.belongToAlbums.isNotEmpty) {
+      if (mediaEntity.albumsMap.isNotEmpty) {
         mediaWithAlbums++;
       }
 

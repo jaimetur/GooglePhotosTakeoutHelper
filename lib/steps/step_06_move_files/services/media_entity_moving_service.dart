@@ -13,7 +13,7 @@ import 'package:gpth/gpth_lib_exports.dart';
 /// MediaEntity now exposes:
 ///   - `primaryFile` (the only physical source to move/copy/link),
 ///   - `secondaryFiles` (kept as metadata; duplicates already removed/moved in Step 3),
-///   - album associations via `belongToAlbums` / `albumNames`.
+///   - album associations via `albumsMap` / `albumNames`.
 /// There is NO `files` map anymore. This service therefore expects only one
 /// physical "move" per entity (the primary).
 class MediaEntityMovingService {
@@ -559,13 +559,13 @@ class MovingStrategyUtils {
     return idx < 0 ? '' : normalized.substring(0, idx);
   }
 
-  /// Infer album name for a given file source directory using belongToAlbums metadata.
+  /// Infer album name for a given file source directory using albumsMap metadata.
   /// Returns null if no album matches.
   static String? inferAlbumForSourceDir(
     final MediaEntity entity,
     final String fileSourceDir,
   ) {
-    for (final entry in entity.belongToAlbums.entries) {
+    for (final entry in entity.albumsMap.entries) {
       for (final src in entry.value.sourceDirectories) {
         if (isSubPath(fileSourceDir, src)) return entry.key;
       }
@@ -580,7 +580,7 @@ class MovingStrategyUtils {
   ) {
     final fileDir = dirOf(file.sourcePath);
     final List<String> result = <String>[];
-    for (final entry in entity.belongToAlbums.entries) {
+    for (final entry in entity.albumsMap.entries) {
       for (final src in entry.value.sourceDirectories) {
         if (isSubPath(fileDir, src)) {
           result.add(entry.key);
@@ -597,7 +597,7 @@ class MovingStrategyUtils {
     final FileEntity file,
     final String albumName,
   ) {
-    final info = entity.belongToAlbums[albumName];
+    final info = entity.albumsMap[albumName];
     if (info == null || info.sourceDirectories.isEmpty) return false;
     final fileDir = dirOf(file.sourcePath);
     for (final src in info.sourceDirectories) {

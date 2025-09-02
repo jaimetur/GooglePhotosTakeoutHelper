@@ -123,7 +123,7 @@ class NothingMovingStrategy extends MediaEntityMovingStrategy {
 /// - Move all **primary** files to ALL_PHOTOS (date-structured if needed).
 /// - Do NOT move secondaries.
 /// - Build a JSON with entries for **primary non-canonical (original)** and **secondary non-canonical**,
-///   per album they belonged to (based on belongToAlbums' sourceDirectories):
+///   per album they belonged to (based on albumsMap' sourceDirectories):
 ///   {
 ///     originalFilename,
 ///     primaryRelativePathInOutput,      // ALWAYS with forward slashes

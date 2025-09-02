@@ -33,7 +33,7 @@ void main() {
       return MediaEntity(
         primaryFile: FileEntity(sourcePath: f.path),
         secondaryFiles: const <FileEntity>[],
-        belongToAlbums: const <String, AlbumInfo>{},
+        albumsMap: const <String, AlbumInfo>{},
         dateTaken: dt,
         dateAccuracy: null,
         dateTimeExtractionMethod: DateTimeExtractionMethod.none,

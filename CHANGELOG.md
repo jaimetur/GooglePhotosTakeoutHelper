@@ -4,7 +4,7 @@
 
 ### 🚀 **Improvements**
   - New code re-design to include a new `MediaEntity` model with the following attributes:
-    - `belongToAlbums`: List of AlbumsInfo obects,  where each object represent the album where each file of the media entity have been found. This List which can contain many usefull info related to the Album.
+    - `albumsMap`: List of AlbumsInfo obects,  where each object represent the album where each file of the media entity have been found. This List which can contain many usefull info related to the Album.
     - `dateTaken`: a single dataTaken for all the files within the entity
     - `dateAccuracy`: a single dateAccuracy for all the files within the entity (based on which extraction method have been used to extract the date)
     - `dateTimeExtractionMethod`: a single dateTimeExtractionMethod for all the files within the entity (method used to extract the dataTaken assigned to the entity)
@@ -57,7 +57,7 @@
   - `MediaEntity` Class changed
     - Removed `files` attribute
     - Added `primaryFile` and `secondaryFiles` attributes for a better logic.
-    - Added `belongToAlbums` attribute to store All Albums where the media entity was found as a `AlbumInfo` List which can contain many usefull info related to the Album.
+    - Added `albumsMap` attribute to store All Albums where the media entity was found as a `AlbumInfo` List which can contain many usefull info related to the Album.
     - Adapted all methods to work with this new structure
   - All modules have been adapted to the new `MediaEntity` structure.
   - All Tests have been adapted to the new `MediaEntity` structure.

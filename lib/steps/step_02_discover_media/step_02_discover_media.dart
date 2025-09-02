@@ -225,7 +225,7 @@ class DiscoverMediaStep extends ProcessingStep {
         final entity = MediaEntity.single(
           file: mediaFile,
           partnerShared: isPartnerShared,
-          belongToAlbums: {
+          albumsMap: {
             albumName: AlbumInfo(
               name: albumName,
               sourceDirectories: {parentDir},
