@@ -46,10 +46,7 @@ class FileOperationService with LoggerMixin {
     } on FileSystemException catch (e) {
       // For unexpected filesystem errors, rethrow a friendly message when it matches typical cross-device hints.
       if (e.osError?.errorCode == 18 || e.message.contains('cross-device')) {
-        throw FileOperationException(
-          'Cannot move files across different drives. Please select an output location on the same drive as the input.',
-          originalException: e,
-        );
+        throw FileOperationException('Cannot move files across different drives. Please select an output location on the same drive as the input.', originalException: e);
       }
       rethrow;
     }
@@ -170,10 +167,7 @@ class FileOperationService with LoggerMixin {
       // Sometimes Windows throws error but succeeds anyway
       // Only throw if it's not error code 0
       if (e.errorCode != 0) {
-        throw FileOperationException(
-          "Can't set modification time on $file: $e",
-          originalException: e,
-        );
+        throw FileOperationException("Can't set modification time on $file: $e", originalException: e);
       }
       // Error code 0 means success, so we ignore it
     } catch (e) {
@@ -202,9 +196,7 @@ class FileOperationService with LoggerMixin {
   /// Batch create multiple directories with concurrency control
   Future<void> ensureDirectoriesExist(final List<Directory> directories) async {
     final pool = GlobalPools.poolFor(ConcurrencyOperation.fileIO);
-    final concurrency = ConcurrencyManager().concurrencyFor(
-      ConcurrencyOperation.fileIO,
-    );
+    final concurrency = ConcurrencyManager().concurrencyFor(ConcurrencyOperation.fileIO);
     logDebug('Starting $concurrency threads (fileIO directory ensure concurrency)');
     await Future.wait(
       directories.map(
@@ -220,9 +212,7 @@ class FileOperationService with LoggerMixin {
   }) async {
     final results = <FileOperationResult>[];
     final pool = GlobalPools.poolFor(ConcurrencyOperation.fileIO);
-    final concurrency = ConcurrencyManager().concurrencyFor(
-      ConcurrencyOperation.fileIO,
-    );
+    final concurrency = ConcurrencyManager().concurrencyFor(ConcurrencyOperation.fileIO);
     logDebug('Starting $concurrency threads (fileIO move concurrency)');
     int completed = 0;
 
@@ -232,19 +222,11 @@ class FileOperationService with LoggerMixin {
           final result = await moveFileOptimized(op.source, op.target);
           completed++;
           onProgress?.call(completed, operations.length);
-          return FileOperationResult(
-            success: true,
-            sourceFile: op.source,
-            resultFile: result,
-          );
+          return FileOperationResult(success: true, sourceFile: op.source, resultFile: result);
         } catch (e) {
           completed++;
           onProgress?.call(completed, operations.length);
-          return FileOperationResult(
-            success: false,
-            sourceFile: op.source,
-            error: e.toString(),
-          );
+          return FileOperationResult(success: false, sourceFile: op.source, error: e.toString());
         }
       }),
     );
@@ -287,10 +269,9 @@ class FileOperationService with LoggerMixin {
 
   /// NEW: normalize destination paths before touching the filesystem
   ///
-  /// - Trims **trailing spaces and dots** from **each path segment** (cross-platform)
-  ///   to avoid directories like "Fotos de " that later cause “No such file or directory”.
-  /// - Removes ASCII control chars.
-  /// - Keeps Unicode (accents, emojis) intact.
+  /// - Trims **trailing spaces and dots** from **each path segment** (ASCII-only).
+  /// - Removes ASCII control chars only (0x00..0x1F).
+  /// - **NEVER** transforms Unicode letters (accents, ñ, emojis, etc.).
   /// - Ensures no empty segments remain (replaces with "_").
   /// - **Preserves absolute root prefixes** ("/", "C:\\", and UNC "\\\\server\\share\\").
   /// - **Honors relative semantics** by skipping "." segments and preserving ".." segments.
@@ -313,31 +294,52 @@ class FileOperationService with LoggerMixin {
       if (seg == '.') continue;
       if (seg == '..') { norm.add('..'); continue; }
 
-      // Remove ASCII control characters
-      seg = seg.replaceAll(RegExp(r'[\x00-\x1F]'), '_');
-
-      // Trim trailing spaces/dots (Takeout quirk)
-      seg = seg.replaceAll(RegExp(r'[. ]+$'), '');
+      // Sanitize segment without altering any non-ASCII characters.
+      seg = _sanitizeSegmentPreserveUnicode(seg);
 
       // Avoid empty component
       if (seg.isEmpty) seg = '_';
 
-      // Preserve Unicode; do not touch valid characters
       norm.add(seg);
     }
 
-    // If there were no components after normalization:
-    if (norm.isEmpty) {
-      // Root-only path like "/" -> return root; otherwise return "." to keep a valid relative path.
-      return root.isNotEmpty ? root : '.';
-    }
+    if (norm.isEmpty) return root.isNotEmpty ? root : '.';
 
-    // Rebuild path with the preserved root.
     final String joined = norm.join(Platform.pathSeparator);
     if (root.isEmpty) return joined;
 
     final bool rootEndsWithSep = root.endsWith('\\') || root.endsWith('/');
     return rootEndsWithSep ? '$root$joined' : '$root${Platform.pathSeparator}$joined';
+  }
+
+  /// Sanitizes a single path segment while preserving all Unicode characters.
+  ///
+  /// - Removes ASCII control codes (0x00..0x1F).
+  /// - Trims trailing ASCII '.' (0x2E) and ' ' (0x20) only.
+  /// - Does not change case, normalize, or decompose any Unicode code points.
+  String _sanitizeSegmentPreserveUnicode(final String segment) {
+    if (segment.isEmpty) return segment;
+
+    // 1) Remove ASCII control codes by filtering code units <= 0x1F.
+    final List<int> units = <int>[];
+    for (final cu in segment.codeUnits) {
+      if (cu >= 0x20) units.add(cu);
+    }
+    if (units.isEmpty) return '';
+
+    // 2) Trim trailing ASCII dot/space, preserving everything else verbatim.
+    int end = units.length;
+    while (end > 0) {
+      final cu = units[end - 1];
+      if (cu == 0x20 /* ' ' */ || cu == 0x2E /* '.' */) {
+        end--;
+        continue;
+      }
+      break;
+    }
+
+    if (end <= 0) return '';
+    return String.fromCharCodes(units.sublist(0, end));
   }
 }
 
