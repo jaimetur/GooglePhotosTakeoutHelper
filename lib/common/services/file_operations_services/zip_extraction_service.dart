@@ -89,10 +89,10 @@ class ZipExtractionService {
 
         // ─────────────────────────────────────────────────────────────────────
         // Windows: 7-Zip (PATH + common locations + ./gpth_tool/7zip/7z.exe) -> Native (Dart)
-        // macOS/Linux: unzip (UTF-8 forced) -> 7-Zip (UTF-8 forced) -> Native (Dart)
+        // macOS/Linux: Native (Dart) -> unzip (UTF-8 forced) -> 7-Zip (UTF-8 forced)
         // Rationale:
-        // - Windows native (Dart) may mis-decode legacy zips; 7-Zip handles UTF-8 better with -mcp=65001.
-        // - On *nix, Info-ZIP supports -O UTF-8; prefer it before 7-Zip to avoid locale/codepage issues.
+        // - On *nix, prefer native to keep Unicode intact; fall back to unzip/7-Zip only if needed.
+        // - On Windows, 7-Zip often handles mixed encodings better than native; keep previous order.
         // ─────────────────────────────────────────────────────────────────────
         final extracted = await _extractZipWithStrategy(zip, dir);
         if (!extracted) {
@@ -200,7 +200,23 @@ class ZipExtractionService {
       return false;
     } else {
       // macOS / Linux
-      // 1) Try unzip with UTF-8 override (-O UTF-8)
+      // 1) Try Native (Dart) first to preserve Unicode names as-is
+      try {
+        final ok = await _timed('Native(Dart)', () async {
+          await _extractZipStreamed(zip, destinationDir);
+          return true;
+        });
+        if (ok) {
+          _logger.info('Native streamed extractor succeeded for $zipName');
+          return true;
+        } else {
+          _logger.warning('Native streamed extractor failed for $zipName, trying unzip...');
+        }
+      } catch (e) {
+        _logger.warning('Native streamed extractor threw an error for $zipName: $e');
+      }
+
+      // 2) Try unzip with UTF-8 override (-O UTF-8)
       try {
         final ok = await _timed('unzip', () => _tryExtractWithUnzip(zip, destinationDir));
         if (ok) {
@@ -213,31 +229,17 @@ class ZipExtractionService {
         _logger.warning('unzip extraction threw an error for $zipName: $e');
       }
 
-      // 2) Try 7-Zip (force UTF-8 code page)
+      // 3) Try 7-Zip (force UTF-8 code page)
       try {
         final ok = await _timed('7-Zip', () => _tryExtractWith7zip(zip, destinationDir));
         if (ok) {
           _logger.info('7-Zip extraction succeeded for $zipName');
           return true;
         } else {
-          _logger.warning('7-Zip failed or not found for $zipName, falling back to native streamed extractor...');
+          _logger.warning('7-Zip failed or not found for $zipName, extraction unsuccessful.');
         }
       } catch (e) {
         _logger.warning('7-Zip extraction threw an error for $zipName: $e');
-      }
-
-      // 3) Fallback: native streamed extractor
-      try {
-        final ok = await _timed('Native(Dart)', () async {
-          await _extractZipStreamed(zip, destinationDir);
-          return true;
-        });
-        if (ok) {
-          _logger.info('Native streamed extractor succeeded for $zipName');
-          return true;
-        }
-      } catch (e) {
-        _logger.warning('Native streamed extractor failed for $zipName: $e');
       }
 
       return false;
