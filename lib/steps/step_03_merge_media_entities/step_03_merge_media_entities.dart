@@ -51,8 +51,8 @@ import 'package:path/path.dart' as path;
 /// For maximum throughput on very large datasets, this step calls `DuplicateDetectionService.groupIdenticalFast(...)`,
 /// which pre-clusters by file size and a small tri-sample fingerprint before running full hashes only inside
 /// those subgroups. This dramatically reduces I/O and CPU when many files share sizes but are not identical.
-class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
-  RemoveDuplicatesStep() : super('Remove Duplicates');
+class MergeMediaEntitiesStep extends ProcessingStep with LoggerMixin {
+  MergeMediaEntitiesStep() : super('Merge Media Entities');
 
   @override
   Future<StepResult> execute(final ProcessingContext context) async {
@@ -81,7 +81,7 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
         );
       }
 
-      print('\n[Step 3/8] Removing duplicates (this may take a while)...');
+      print('\n[Step 3/8] Merging identical media entities and removing duplicates (this may take a while)...');
       if (context.config.keepDuplicates) {
         print(
           '[Step 3/8] Flag `--keep-duplicates` detected. Duplicates will be moved to `_Duplicates` subfolder within output folder',
@@ -116,7 +116,7 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
       telem.sizeBuckets = sizeBuckets.length;
       telem.filesTotal = mediaCollection.length;
 
-      // Concurrency caps (no env vars; conservative but higher than previous 1..8)
+      // Concurrency caps (conservative but higher than previous 1..8)
       // - maxWorkersBuckets: parallelism across size buckets (mix of IO & CPU)
       // - maxWorkersQuick  : parallelism inside ext-buckets for quick signatures (I/O-bound)
       final int maxWorkersBuckets = ConcurrencyManager()
@@ -378,14 +378,14 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
 
       // Just before creating multi-path entities line
       print(
-        '[Step 3/8] Processing $initialEntitiesCount media entities from media collection',
+        '[Step 3/8] Processing $initialEntitiesCount media entities from media entities collection',
       );
 
       // Informative message before removing merged-away entities from the collection
       final int removedEntities = entitiesToRemove.length;
       if (removedEntities > 0) {
         print(
-          '[Step 3/8] Creating $removedEntities multi-path media entities (entities with multiple paths for the same file content)',
+          '[Step 3/8] Merged $removedEntities media entities (entities with multiple file paths for the same file content)',
         );
       }
 
@@ -403,6 +403,7 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
         }
       }
 
+      print('[Step 3/8] ${mediaCollection.entities.length} final media entities left');
       // Only act on duplicatesFiles for I/O (move/delete), never secondary files
       // Count secondary files across the collection (with canonical vs albums split)
       int totalSecondaryFiles = 0;
@@ -432,7 +433,7 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
       int duplicateFilesRemoved = 0;
       if (duplicateFiles.isNotEmpty) {
         print(
-          '[Step 3/8] Processing ${duplicateFiles.length} duplicate files (within-folder duplicates) for removal/quarantine',
+          '[Step 3/8] Found ${duplicateFiles.length} duplicates files (within-folder duplicates). Processing them for removal/quarantine',
         );
         final ioSw = Stopwatch()..start();
         final bool moved = await _removeOrQuarantineDuplicateFiles(
@@ -446,13 +447,13 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
         telem.msRemoveIO += ioSw.elapsedMilliseconds;
         if (moved) {
           print(
-            '[Step 3/8] Duplicate files moved to _Duplicates (flag --keep-duplicates = true)',
+            '[Step 3/8] Duplicates files moved to _Duplicates (flag --keep-duplicates = true)',
           );
         } else {
-          print('[Step 3/8] Duplicate files deleted from input folder.');
+          print('[Step 3/8] Duplicates files removed from input folder.');
         }
       } else {
-        print('[Step 3/8] No duplicate files (within-folder) to remove.');
+        print('[Step 3/8] No duplicates files (within-folder) to remove');
       }
 
       // Primary counts (with canonical vs albums split)

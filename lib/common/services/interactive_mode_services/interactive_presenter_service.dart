@@ -677,12 +677,12 @@ class InteractivePresenterService with LoggerMixin {
         }
         break;
 
-      case 'Remove Duplicates':
+      case 'Merge Media Entities':
         if (data['duplicatesRemoved'] != null) {
           print('   Duplicates removed: ${data['duplicatesRemoved']} files');
         }
         if (data['uniqueFiles'] != null) {
-          print('   Unique files remaining: ${data['uniqueFiles']}');
+          print('   Unique files (Media Entities) remaining: ${data['uniqueFiles']}');
         }
         break;
 

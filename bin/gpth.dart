@@ -50,11 +50,12 @@ List<String> _applyAndStripTestMultipliers(final List<String> args) {
 /// 3. Execute ProcessingPipeline with 8 steps:
 ///    - Fix Extensions: Correct mismatched file extensions (optional)
 ///    - Discover Media: Find and classify all media files
-///    - Remove Duplicates: Eliminate duplicate files using content hashing
+///    - Merge Media Entities: Merge identical Media Entities from different folders into a single one
+///      Also, eliminate duplicate files within the same folder using content hashing
 ///    - Extract Dates: Determine accurate timestamps from multiple sources
-///    - Write EXIF: Embed metadata into files (when ExifTool available)
 ///    - Find Albums: Detect and merge album relationships
 ///    - Move Files: Organize files to output structure using selected album behavior
+///    - Write EXIF: Embed metadata into files (when ExifTool available)
 ///    - Update Creation Time: Sync file creation timestamps (Windows only, optional)
 /// 4. Display comprehensive results and statistics
 ///
@@ -775,7 +776,7 @@ Future<void> _configureDependencies(final ProcessingConfig config) async {
 /// The ProcessingPipeline orchestrates 8 sequential steps:
 /// 1. Fix Extensions - Correct mismatched file extensions
 /// 2. Discover Media - Find and classify all media files
-/// 3. Remove Duplicates - Remove duplicate files
+/// 3. Merge Media Entities - Merge identical Media Entities from different folders into a single one
 /// 4. Extract Dates - Determine accurate timestamps
 /// 5. Write EXIF - Embed metadata into files
 /// 6. Find Albums - Merge album relationships

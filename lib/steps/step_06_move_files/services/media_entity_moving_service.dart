@@ -266,6 +266,7 @@ class MediaEntityMovingService {
 
   // Print Summary
   void _printSummary(final List<MediaEntityMovingResult> results) {
+    // Totals per operation kind
     int primaryMoves = 0;
     int nonPrimaryMoves = 0;
     int copiesAllPhotos = 0;
@@ -274,21 +275,65 @@ class MediaEntityMovingService {
     int jsonRefs = 0;
     int failures = 0;
 
+    // NEW: per-destination breakdown (ALL_PHOTOS vs Albums)
+    int primaryMovesAllPhotos = 0;
+    int primaryMovesAlbums = 0;
+
+    int nonPrimaryMovesAllPhotos = 0;
+    int nonPrimaryMovesAlbums = 0;
+
+    int symlinksAllPhotos = 0;
+    int symlinksAlbums = 0;
+
+    int jsonRefsAllPhotos = 0;
+    int jsonRefsAlbums = 0;
+
+    int failuresAllPhotos = 0;
+    int failuresAlbums = 0;
+
+    // NEW: total operations breakdown (independent of success)
+    int totalOpsAllPhotos = 0;
+    int totalOpsAlbums = 0;
+
     for (final r in results) {
+      final op = r.operation;
+
+      // Accumulate TOTAL operations split by target kind (album vs main)
+      if (op.isAlbumFile) {
+        totalOpsAlbums++;
+      } else {
+        totalOpsAllPhotos++;
+      }
+
       if (!r.success) {
         failures++;
+        if (op.isAlbumFile) {
+          failuresAlbums++;
+        } else {
+          failuresAllPhotos++;
+        }
         continue;
       }
 
-      final op = r.operation;
       switch (op.operationType) {
         case MediaEntityOperationType.move:
           final src = op.sourceFile.path;
           final prim = op.mediaEntity.primaryFile.sourcePath; // usar sourcePath
-          if (_samePath(src, prim)) {
+          final isPrimary = _samePath(src, prim);
+          if (isPrimary) {
             primaryMoves++;
+            if (op.isAlbumFile) {
+              primaryMovesAlbums++;
+            } else {
+              primaryMovesAllPhotos++;
+            }
           } else {
             nonPrimaryMoves++;
+            if (op.isAlbumFile) {
+              nonPrimaryMovesAlbums++;
+            } else {
+              nonPrimaryMovesAllPhotos++;
+            }
           }
           break;
 
@@ -303,10 +348,20 @@ class MediaEntityMovingService {
         case MediaEntityOperationType.createSymlink:
         case MediaEntityOperationType.createReverseSymlink:
           symlinksCreated++;
+          if (op.isAlbumFile) {
+            symlinksAlbums++;
+          } else {
+            symlinksAllPhotos++;
+          }
           break;
 
         case MediaEntityOperationType.createJsonReference:
           jsonRefs++;
+          if (op.isAlbumFile) {
+            jsonRefsAlbums++;
+          } else {
+            jsonRefsAllPhotos++;
+          }
           break;
       }
     }
@@ -323,18 +378,34 @@ class MediaEntityMovingService {
 
     print('');
     print('\n[Step 6/8] === Moving Summary ===');
-    print('\t\t\tPrimary files moved: $primaryMoves');
-    print('\t\t\tNon-primary moves: $nonPrimaryMoves');
+    print(
+      '\t\t\tPrimary files moved: $primaryMoves '
+      '(ALL_PHOTOS: $primaryMovesAllPhotos, Albums: $primaryMovesAlbums)',
+    );
+    print(
+      '\t\t\tNon-primary moves: $nonPrimaryMoves '
+      '(ALL_PHOTOS: $nonPrimaryMovesAllPhotos, Albums: $nonPrimaryMovesAlbums)',
+    );
     print(
       '\t\t\tDuplicated copies created: ${copiesAllPhotos + copiesAlbums} '
       '(ALL_PHOTOS: $copiesAllPhotos, Albums: $copiesAlbums)',
     );
-    print('\t\t\tSymlinks created: $symlinksCreated');
-    print('\t\t\tJSON refs created: $jsonRefs');
-    print('\t\t\tFailures: $failures');
+    print(
+      '\t\t\tSymlinks created: $symlinksCreated '
+      '(ALL_PHOTOS: $symlinksAllPhotos, Albums: $symlinksAlbums)',
+    );
+    print(
+      '\t\t\tJSON refs created: $jsonRefs '
+      '(ALL_PHOTOS: $jsonRefsAllPhotos, Albums: $jsonRefsAlbums)',
+    );
+    print(
+      '\t\t\tFailures: $failures '
+      '(ALL_PHOTOS: $failuresAllPhotos, Albums: $failuresAlbums)',
+    );
     print(
       '\t\t\tTotal operations: $totalOps'
-      '${computedOps != totalOps ? ' (computed: $computedOps)' : ''}',
+      '${computedOps != totalOps ? ' (computed: $computedOps)' : ''} '
+      '(ALL_PHOTOS: $totalOpsAllPhotos, Albums: $totalOpsAlbums)',
     );
     print('');
 

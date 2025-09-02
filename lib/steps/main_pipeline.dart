@@ -51,7 +51,7 @@ class ProcessingPipeline {
     final steps = [
       const FixExtensionsStep(), // Step 1
       const DiscoverMediaStep(), // Step 2
-      RemoveDuplicatesStep(), // Step 3
+      MergeMediaEntitiesStep(), // Step 3
       ExtractDatesStep(), // Step 4
       FindAlbumsStep(), // Step 5
       const MoveFilesStep(), // Step 6
@@ -261,7 +261,7 @@ class ProcessingPipeline {
 
     if (step is DiscoverMediaStep) {
       extrasSkipped(data['extrasSkipped'] as int? ?? 0);
-    } else if (step is RemoveDuplicatesStep) {
+    } else if (step is MergeMediaEntitiesStep) {
       duplicatesRemoved(data['duplicatesRemoved'] as int? ?? 0);
     } else if (step is FixExtensionsStep) {
       extensionsFixed(data['extensionsFixed'] as int? ?? 0);

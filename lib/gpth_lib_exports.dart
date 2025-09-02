@@ -69,8 +69,8 @@ export 'steps/step_01_fix_extensions/step_01_fix_extensions.dart';
 export 'steps/step_02_discover_media/services/takeout_folder_classifier_service.dart';
 export 'steps/step_02_discover_media/step_02_discover_media.dart';
 // Step 03
-export 'steps/step_03_remove_duplicates/services/duplicate_detection_service.dart';
-export 'steps/step_03_remove_duplicates/step_03_remove_duplicates.dart';
+export 'steps/step_03_merge_media_entities/services/duplicate_detection_service.dart';
+export 'steps/step_03_merge_media_entities/step_03_merge_media_entities.dart';
 // Step 04
 export 'steps/step_04_extract_dates/services/data_extractors/date_extractor_service.dart';
 export 'steps/step_04_extract_dates/services/data_extractors/exif_date_extractor.dart';

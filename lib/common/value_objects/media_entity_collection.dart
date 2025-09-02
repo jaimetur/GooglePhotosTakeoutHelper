@@ -114,7 +114,7 @@ class MediaEntityCollection with LoggerMixin {
     final Directory? outputDirectory,
   }) async {
     final StepResult res = await _runStep(
-      step: RemoveDuplicatesStep(),
+      step: MergeMediaEntitiesStep(),
       config: config,
       inputDirectory: inputDirectory,
       outputDirectory: outputDirectory,
