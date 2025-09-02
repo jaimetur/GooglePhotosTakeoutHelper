@@ -1,5 +1,5 @@
-import 'dart:io';
 import 'dart:convert'; // Needed for utf8 and latin1
+import 'dart:io';
 
 import 'package:archive/archive_io.dart';
 import 'package:gpth/gpth_lib_exports.dart';
