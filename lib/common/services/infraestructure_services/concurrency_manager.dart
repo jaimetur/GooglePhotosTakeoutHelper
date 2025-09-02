@@ -42,7 +42,7 @@ class ConcurrencyManager {
   static int _standardMultiplier = 2;
   static int _conservativeMultiplier = 2;
   // Disk optimized (I/O heavy) default multiplier.
-  static int _diskOptimizedMultiplier = 2;
+  static int _diskOptimizedMultiplier = 8;
 
   /// Update one or more concurrency multipliers atomically.
   /// Passing null leaves the existing value unchanged.
@@ -100,7 +100,7 @@ class ConcurrencyManager {
     // Apply multiplier then clamp to prevent oversubscription on large core counts.
     // Historic behaviour (v4.0.9) effectively: cores * 2 capped at 8.
     int val = cpuCoreCount * _diskOptimizedMultiplier;
-    const int maxIoConcurrency = 8;
+    const int maxIoConcurrency = 32;
     if (val > maxIoConcurrency) val = maxIoConcurrency;
     return val;
   }

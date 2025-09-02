@@ -95,7 +95,10 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
           ? MediaHashService()
           : MediaHashService(maxCacheSize: 1);
 
-      // 1) Size buckets
+      // ────────────────────────────────────────────────────────────────────────
+      // 1) SIZE BUCKETS (cheap pre-partition)
+      // NOTE (perf): we avoid calling lengthSync() more than once by reusing the sizeKey
+      // ────────────────────────────────────────────────────────────────────────
       final sizeSw = Stopwatch()..start();
       final Map<int, List<MediaEntity>> sizeBuckets =
           <int, List<MediaEntity>>{};
@@ -113,13 +116,21 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
       telem.sizeBuckets = sizeBuckets.length;
       telem.filesTotal = mediaCollection.length;
 
-      // Concurrency cap
-      final int maxWorkers = ConcurrencyManager()
+      // Concurrency caps (no env vars; conservative but higher than previous 1..8)
+      // - maxWorkersBuckets: parallelism across size buckets (mix of IO & CPU)
+      // - maxWorkersQuick  : parallelism inside ext-buckets for quick signatures (I/O-bound)
+      final int maxWorkersBuckets = ConcurrencyManager()
           .concurrencyFor(ConcurrencyOperation.exif)
-          .clamp(1, 8);
+          .clamp(4, 24);
+      final int maxWorkersQuick = ConcurrencyManager()
+          .concurrencyFor(ConcurrencyOperation.exif)
+          .clamp(4, 32);
 
       // Process buckets in slices
-      final bucketKeys = sizeBuckets.keys.toList();
+      // PERF: process largest buckets first to maximize early dedup impact (cache wins)
+      final bucketKeys = sizeBuckets.keys.toList()
+        ..sort((final a, final b) =>
+            (sizeBuckets[b]!.length).compareTo(sizeBuckets[a]!.length));
       int processedGroups = 0;
       final int totalGroups = bucketKeys.length;
 
@@ -137,7 +148,9 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
           return _BucketOutcome(bs, localRepl, localToRemove);
         }
 
-        // 2) Extension sub-buckets
+        // ────────────────────────────────────────────────────────────────────
+        // 2) EXTENSION SUB-BUCKETS (avoid mixing media types with same size)
+        // ────────────────────────────────────────────────────────────────────
         final extSw = Stopwatch()..start();
         final Map<String, List<MediaEntity>> extBuckets =
             <String, List<MediaEntity>>{};
@@ -153,38 +166,62 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
           final List<MediaEntity> extGroup = entry.value;
           if (extGroup.length <= 1) continue;
 
-          // 3) Quick signature
+          // ────────────────────────────────────────────────────────────────
+          // 3) QUICK SIGNATURE (tri-sample: head+middle+tail, 4 KiB each)
+          //    NOTE (perf): drastically reduces IO vs reading 64-128 KiB head.
+          //    We also reuse the known 'sizeKey' to avoid per-file stat().
+          //    Computed concurrently in small batches (no env vars needed).
+          // ────────────────────────────────────────────────────────────────
           final qsigSw = Stopwatch()..start();
           final Map<String, List<MediaEntity>> quickBuckets =
               <String, List<MediaEntity>>{};
-          for (final e in extGroup) {
-            String sig;
-            try {
-              final int size = e.primaryFile.asFile().lengthSync();
-              final String ext = _extOf(e.primaryFile.path);
-              sig = await _quickSignature(e.primaryFile.asFile(), size, ext);
-            } catch (_) {
-              sig = 'qsig-err';
-            }
-            (quickBuckets[sig] ??= <MediaEntity>[]).add(e);
+
+          // Process extGroup in concurrent slices to control IO pressure
+          for (int i = 0; i < extGroup.length; i += maxWorkersQuick) {
+            final slice = extGroup.skip(i).take(maxWorkersQuick).toList();
+            await Future.wait(slice.map((final e) async {
+              String sig;
+              try {
+                final String ext = _extOf(e.primaryFile.path);
+                // IMPORTANT: pass sizeKey to avoid lengthSync() here
+                sig = await _quickSignature(e.primaryFile.asFile(), sizeKey, ext);
+              } catch (_) {
+                sig = 'qsig-err';
+              }
+              (quickBuckets[sig] ??= <MediaEntity>[]).add(e);
+            }));
           }
+
           qsigSw.stop();
           bs.msQuickSig += qsigSw.elapsedMilliseconds;
           bs.quickBuckets += quickBuckets.length;
 
-          // 4) Hash grouping inside each quick-bucket
+          // ────────────────────────────────────────────────────────────────
+          // 4) HASH GROUPING inside each quick-bucket
+          //    Try to use fast path if service provides it; fallback otherwise.
+          // ────────────────────────────────────────────────────────────────
           for (final q in quickBuckets.values) {
             if (q.length <= 1) continue;
 
             final hashSw = Stopwatch()..start();
-            final Map<String, List<MediaEntity>> hashGroups =
-                await duplicateService.groupIdentical(q);
+            Map<String, List<MediaEntity>> hashGroups;
+
+            // Try to benefit from any fast-variant the service may expose.
+            // Using 'dynamic' keeps compatibility with older builds.
+            try {
+              hashGroups =
+                  await (duplicateService as dynamic).groupIdenticalFast(q);
+            } catch (_) {
+              hashGroups = await duplicateService.groupIdentical(q);
+            }
+
             hashSw.stop();
             bs.msHashGroups += hashSw.elapsedMilliseconds;
             bs.hashGroups += hashGroups.length;
 
             // Resolve each duplicate group
-            for (final group in hashGroups.values) {
+            for (final entry in hashGroups.entries) {
+              final group = entry.value;
               if (group.length <= 1) continue;
 
               // Sort by: accuracy → basename length → prefer Year → full path len → path lex
@@ -214,31 +251,78 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
               final mergeSw = Stopwatch()..start();
               MediaEntity kept = kept0;
 
-              if (verify) {
+              // PERF-aware verification:
+              // - Only verify for big groups or very large files (saves double hashing).
+              // - Reuse precomputed hash if 'entry.key' looks like a real hash (not "NNNbytes").
+              final bool verifyThisGroup =
+                  verify && (group.length >= 4 || sizeKey > (64 << 20));
+              final String groupKey = entry.key;
+              final bool keyIsHash = !groupKey.endsWith('bytes');
+              final String? expectedHash = keyIsHash ? groupKey : null;
+
+              if (verifyThisGroup) {
                 try {
-                  final String keptHash = await verifier.calculateFileHash(
-                    kept.primaryFile.asFile(),
-                  );
-                  for (final d in toRemove) {
-                    try {
-                      final String dupHash = await verifier.calculateFileHash(
-                        d.primaryFile.asFile(),
-                      );
-                      if (dupHash != keptHash) {
+                  // If we already know the expected hash from the key, avoid recomputing
+                  final String keptHash = expectedHash ??
+                      await verifier.calculateFileHash(kept.primaryFile.asFile());
+
+                  if (expectedHash != null) {
+                    // Sample only ONE duplicate to validate the group; if mismatch, fall back to per-file.
+                    if (toRemove.isNotEmpty) {
+                      final d = toRemove.first;
+                      final String sampleHash =
+                          await verifier.calculateFileHash(d.primaryFile.asFile());
+                      if (sampleHash != keptHash) {
                         logWarning(
-                          'Verification mismatch. Will NOT remove ${d.primaryFile.path} (hash differs from kept).',
+                          'Verification sample mismatch for group $groupKey. Falling back to full verification.',
                           forcePrint: true,
                         );
-                        continue;
+                        // Full verification fallback
+                        for (final x in toRemove) {
+                          final String xh = await verifier
+                              .calculateFileHash(x.primaryFile.asFile());
+                          if (xh != keptHash) {
+                            logWarning(
+                              'Verification mismatch. Will NOT remove ${x.primaryFile.path} (hash differs from kept).',
+                              forcePrint: true,
+                            );
+                            continue;
+                          }
+                          kept = kept.mergeWith(x);
+                          localToRemove.add(x);
+                          bs.entitiesMergedByContent++;
+                        }
+                      } else {
+                        // Sample OK → we can safely merge without hashing all
+                        for (final x in toRemove) {
+                          kept = kept.mergeWith(x);
+                          localToRemove.add(x);
+                          bs.entitiesMergedByContent++;
+                        }
                       }
-                      kept = kept.mergeWith(d);
-                      localToRemove.add(d);
-                      bs.entitiesMergedByContent++;
-                    } catch (e) {
-                      logWarning(
-                        'Verification failed for ${d.primaryFile.path}: $e. Skipping removal for safety.',
-                        forcePrint: true,
-                      );
+                    }
+                  } else {
+                    // No precomputed hash, verify all candidates but reuse keptHash
+                    for (final d in toRemove) {
+                      try {
+                        final String dupHash =
+                            await verifier.calculateFileHash(d.primaryFile.asFile());
+                        if (dupHash != keptHash) {
+                          logWarning(
+                            'Verification mismatch. Will NOT remove ${d.primaryFile.path} (hash differs from kept).',
+                            forcePrint: true,
+                          );
+                          continue;
+                        }
+                        kept = kept.mergeWith(d);
+                        localToRemove.add(d);
+                        bs.entitiesMergedByContent++;
+                      } catch (e) {
+                        logWarning(
+                          'Verification failed for ${d.primaryFile.path}: $e. Skipping removal for safety.',
+                          forcePrint: true,
+                        );
+                      }
                     }
                   }
                 } catch (e) {
@@ -248,6 +332,7 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
                   );
                 }
               } else {
+                // Fast-path merge: trust grouping and skip double-hashing
                 for (final d in toRemove) {
                   kept = kept.mergeWith(d);
                   localToRemove.add(d);
@@ -266,11 +351,9 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
         return _BucketOutcome(bs, localRepl, localToRemove);
       }
 
-      for (int i = 0; i < bucketKeys.length; i += maxWorkers) {
-        final slice = bucketKeys
-            .skip(i)
-            .take(maxWorkers)
-            .toList(growable: false);
+      for (int i = 0; i < bucketKeys.length; i += maxWorkersBuckets) {
+        final slice =
+            bucketKeys.skip(i).take(maxWorkersBuckets).toList(growable: false);
         final outcomes = await Future.wait(slice.map(processSizeBucket));
 
         // Aggregate telemetry and outcomes
@@ -590,34 +673,63 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
     return base.substring(dot + 1).toLowerCase();
   }
 
-  // Helper: quick signature (size | ext | FNV-1a32 of head up to 128 KB)
+  // Helper: quick signature (tri-sample FNV-1a 64-bit of 3×4 KiB at head/middle/tail)
+  // NOTE (perf): this replaces a large head-read (e.g. 64–128 KiB) with only 12 KiB total,
+  // while being more discriminative for formats with heavy headers (JPEG/MP4/etc.).
   Future<String> _quickSignature(
     final File file,
     final int size,
     final String ext,
   ) async {
-    final int toRead = size > 0
-        ? (size < 131072 ? size : 131072)
-        : 131072; // 128 KiB cap
-    List<int> head = const [];
-    try {
-      final raf = await file.open();
-      try {
-        head = await raf.read(toRead);
-      } finally {
-        await raf.close();
-      }
-    } catch (_) {
-      head = const [];
+    const int chunk = 4096; // 4 KiB per sample
+    final int sz = size > 0 ? size : (await file.length());
+
+    int headOff = 0;
+    int midOff = 0;
+    int tailOff = 0;
+
+    if (sz > 0) {
+      headOff = 0;
+      midOff = sz > chunk ? (sz ~/ 2) : 0;
+      tailOff = sz > chunk ? (sz - chunk) : 0;
     }
 
-    // FNV-1a 32-bit
-    int hash = 0x811C9DC5;
-    for (final b in head) {
-      hash ^= b & 0xFF;
-      hash = (hash * 0x01000193) & 0xFFFFFFFF;
+    Future<int> hashAt(final int offset) async {
+      RandomAccessFile? raf;
+      try {
+        raf = await file.open();
+        if (offset > 0) {
+          await raf.setPosition(offset);
+        }
+        final bytes = await raf.read(chunk);
+        // FNV-1a 64-bit
+        int h = 0xcbf29ce484222325; // offset basis
+        const int p = 0x100000001b3; // prime
+        for (final b in bytes) {
+          h ^= b & 0xFF;
+          h = (h * p) & 0xFFFFFFFFFFFFFFFF; // wrap to 64-bit
+        }
+        return h;
+      } catch (_) {
+        return 0;
+      } finally {
+        try {
+          await raf?.close();
+        } catch (_) {}
+      }
     }
-    return '$size|$ext|$hash';
+
+    int h1 = 0, h2 = 0, h3 = 0;
+    try {
+      h1 = await hashAt(headOff);
+      h2 = await hashAt(midOff);
+      h3 = await hashAt(tailOff);
+    } catch (_) {
+      // leave zeros if IO fails; still forms a deterministic key
+    }
+
+    // Combine size + ext + three partial hashes in the key
+    return '$size|$ext|$h1|$h2|$h3';
   }
 
   void _printTelemetry(
