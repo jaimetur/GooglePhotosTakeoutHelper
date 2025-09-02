@@ -89,10 +89,10 @@ class FileEntity {
   // ────────────────────────────────────────────────────────────────
 
   /// Canonicality rules:
-  /// - Canonical if sourcePath resides under a year folder (19xx/20xx), OR
+  /// - Canonical if sourcePath resides under a folder segment that starts with "Photos from YYYY)" where YYYY is 19xx or 20xx (suffix allowed until next separator), OR
   /// - Canonical if targetPath points to ALL_PHOTOS (versus Albums folders).
   static bool _calculateCanonical(final String source, final String? target) {
-    final yearPattern = RegExp(r'(?:^|[/\\])(19|20)\d{2}(?:$|[/\\])');
+    final yearPattern = RegExp(r'(?:^|[/\\])Photos from (?:19|20)\d{2}\)?[^/\\]*(?:$|[/\\])');
     final allPhotosPattern = RegExp(r'(?:^|[/\\])ALL_PHOTOS(?:$|[/\\])');
 
     final fromYearFolder = yearPattern.hasMatch(source);

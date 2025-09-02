@@ -99,14 +99,13 @@ export 'steps/step_04_extract_dates/services/data_extractors/json_date_extractor
 export 'steps/step_05_find_albums/step_05_find_albums.dart';
 
 // Step 06
+export 'steps/step_06_move_files/moving_strategies/moving_strategies.dart';
 export 'steps/step_06_move_files/step_06_move_files.dart';
 export 'steps/step_06_move_files/services/file_operation_service.dart';
 export 'steps/step_06_move_files/services/media_entity_moving_service.dart';
 export 'steps/step_06_move_files/services/moving_context_model.dart';
 export 'steps/step_06_move_files/services/path_generator_service.dart';
 export 'steps/step_06_move_files/services/symlink_service.dart';
-export 'steps/step_06_move_files/strategies/media_entity_moving_strategy.dart';
-export 'steps/step_06_move_files/strategies/moving_strategies.dart';
 
 // Step 07
 export 'steps/step_07_write_exif/step_07_write_exif.dart';

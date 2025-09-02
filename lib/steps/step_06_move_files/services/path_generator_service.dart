@@ -21,35 +21,28 @@ class PathGeneratorService {
     final MovingContext context, {
     final bool isPartnerShared = false,
   }) {
-    // If partner shared separation is enabled and this is partner shared media
-    if (context.dividePartnerShared && isPartnerShared) {
-      final String folderName = albumKey?.trim() ?? 'PARTNER_SHARED';
-
-      // Apply date division to partner shared folder if it's the main folder
-      final String dateFolder = albumKey == null
-          ? _generateDateFolder(dateTaken, context.dateDivision)
-          : '';
-
-      return Directory(
-        path.join(context.outputDirectory.path, folderName, dateFolder),
-      );
-    }
-
-    // Original logic for non-partner-shared media
-    // final String folderName = albumKey?.trim() ?? 'ALL_PHOTOS';
+    // For Albums folder we use 'Albums' as subfolder. For no Albums folder we use 'ALL_PHOTOS' as subfolder
     final String folderName = albumKey != null
     ? path.join('Albums', albumKey.trim()) // Now All Album's folders will be moved to 'Albums'
     : 'ALL_PHOTOS';
-
 
     // Only apply date division to ALL_PHOTOS, not to Albums
     final String dateFolder = albumKey == null
         ? _generateDateFolder(dateTaken, context.dateDivision)
         : '';
 
-    return Directory(
-      path.join(context.outputDirectory.path, folderName, dateFolder),
+    // If partner shared separation is enabled and this is partner shared media
+    if (context.dividePartnerShared && isPartnerShared) {
+      return Directory(
+        path.join(context.outputDirectory.path, 'PARTNER_SHARED', folderName, dateFolder),
+      );
+    } else {
+      return Directory(
+        path.join(context.outputDirectory.path, folderName, dateFolder),
     );
+    }
+
+
   }
 
   /// Generates the date-based folder structure

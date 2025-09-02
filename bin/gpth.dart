@@ -857,7 +857,7 @@ Future<ProcessingResult> _executeProcessing(
 
   // Diagnostic Log to veryfy if we should clone InputDir
   final bool shouldClone = config.keepInput && !inputExtractedFromZipFlag;
-  _logger.info('keepInput = ${config.keepInput}, inputExtractedFromZip = $inputExtractedFromZipFlag, shouldClone = $shouldClone', forcePrint: true);
+  _logger.info('keepInput = ${config.keepInput}, inputExtractedFromZip = $inputExtractedFromZipFlag => shouldClone = $shouldClone', forcePrint: true);
 
   Directory effectiveInputDir = inputDir;
 

@@ -29,6 +29,9 @@ import 'package:gpth/gpth-lib.dart';
 /// - The best-ranked file across the entity becomes `primaryFile`
 /// - Files in *different* directories than the primary become `secondaryFiles`
 /// - Files in the *same* directory as another better-ranked file become `duplicatesFiles`
+///
+/// NOTE: Rankings are now **sequential per entity**: after ordering by the rules,
+/// each file receives rank `1..N` where `1` is the highest priority.
 class MediaEntity {
   /// Creates a new media entity.
   ///
@@ -59,7 +62,7 @@ class MediaEntity {
       dateTaken: dateTaken,
       dateAccuracy: dateAccuracy,
       dateTimeExtractionMethod: dateTimeExtractionMethod,
-      partnershared: partnershared,
+      partnerShared: partnershared,
       belongToAlbums: belongToAlbums ?? const {},
     );
   }
@@ -92,7 +95,7 @@ class MediaEntity {
     this.dateTaken,
     this.dateAccuracy,
     this.dateTimeExtractionMethod,
-    this.partnershared = false,
+    this.partnerShared = false,
     required this.belongToAlbums,
   });
 
@@ -110,7 +113,7 @@ class MediaEntity {
   final DateTimeExtractionMethod? dateTimeExtractionMethod;
 
   /// Whether this media was shared by a partner (Google Photos partner sharing).
-  final bool partnershared;
+  final bool partnerShared;
 
   /// Canonical (primary) file for this media entity.
   final FileEntity primaryFile;
@@ -204,7 +207,7 @@ class MediaEntity {
         dateAccuracy: dateAccuracy ?? this.dateAccuracy,
         dateTimeExtractionMethod:
             dateTimeExtractionMethod ?? this.dateTimeExtractionMethod,
-        partnershared: partnershared,
+        partnerShared: partnerShared,
         belongToAlbums: belongToAlbums,
       );
 
@@ -232,7 +235,7 @@ class MediaEntity {
       dateTaken: dateTaken,
       dateAccuracy: dateAccuracy,
       dateTimeExtractionMethod: dateTimeExtractionMethod,
-      partnershared: partnershared,
+      partnerShared: partnerShared,
       belongToAlbums: next,
     );
   }
@@ -326,7 +329,7 @@ class MediaEntity {
       dateTaken: bestDate,
       dateAccuracy: bestAccuracy,
       dateTimeExtractionMethod: bestMethod,
-      partnershared: partnershared || other.partnershared,
+      partnerShared: partnerShared || other.partnerShared,
       belongToAlbums: mergedAlbums,
     );
   }
@@ -339,7 +342,7 @@ class MediaEntity {
     // Primary identity comparison
     if (!_sameIdentity(other.primaryFile, primaryFile)) return false;
 
-    final samePartner = other.partnershared == partnershared;
+    final samePartner = other.partnerShared == partnerShared;
     final sameDate = other.dateTaken == dateTaken &&
         other.dateAccuracy == dateAccuracy &&
         other.dateTimeExtractionMethod == dateTimeExtractionMethod;
@@ -368,7 +371,7 @@ class MediaEntity {
         dateTaken,
         dateAccuracy,
         dateTimeExtractionMethod,
-        partnershared,
+        partnerShared,
         Object.hashAllUnordered(belongToAlbums.keys),
         Object.hashAllUnordered(secondaryFiles.map(_fileIdentityKey)),
         Object.hashAllUnordered(duplicatesFiles.map(_fileIdentityKey)),
@@ -379,7 +382,7 @@ class MediaEntity {
     final dateInfo = dateTaken != null ? ', dateTaken: $dateTaken' : '';
     final accuracyInfo =
         dateAccuracy != null ? ' (${dateAccuracy!.description})' : '';
-    final partnerInfo = partnershared ? ', partnershared: true' : '';
+    final partnerInfo = partnerShared ? ', partnershared: true' : '';
     final albumsCount = albumNames.length;
     final secondaries = secondaryFiles.length;
     final duplicates = duplicatesFiles.length;
@@ -397,14 +400,31 @@ class MediaEntity {
       if (!all.any((x) => _sameIdentity(x, f))) all.add(f);
     }
 
-    // 2) Compute ranking for any file missing or needing refresh
-    final ranked = all.map((f) => _withRankingComputed(f, all)).toList(growable: false);
+    // 2) Compute preliminary ranking for shape-compat (not decisive anymore).
+    final prelim = all.map((f) => _withRankingComputed(f, all)).toList(growable: false);
 
-    // 3) Select primary (lowest ranking number wins)
-    ranked.sort(_byRankingThenPath); // stable selection via comparator
+    // 3) Determine final order:
+    //    - Any negative `ranking` means "force to the front" (used by withPrimaryFile)
+    //    - Then apply the canonical/basename/path-length rules
+    final ordered = _orderForRanking(prelim);
+
+    // 4) Assign sequential rankings 1..N (1 = highest priority)
+    final ranked = <FileEntity>[];
+    for (var i = 0; i < ordered.length; i++) {
+      final f = ordered[i];
+      ranked.add(FileEntity(
+        sourcePath: f.sourcePath,
+        targetPath: f.targetPath,
+        isShortcut: f.isShortcut,
+        dateAccuracy: f.dateAccuracy,
+        ranking: i + 1,
+      ));
+    }
+
+    // 5) Select primary (rank 1 wins)
     final primary = ranked.first;
 
-    // 4) Partition by folder:
+    // 6) Partition by folder:
     //    - same-folder worse-ranked files → duplicates
     //    - different-folder files → secondaries
     final primaryDir = _dirOf(primary.sourcePath);
@@ -472,13 +492,12 @@ class MediaEntity {
   /// - Prefer year-folder (canonical) over album-folder
   /// - On tie, shorter basename wins
   /// - On tie, shorter full path wins
+  ///
+  /// IMPORTANT: This function now returns a **provisional** value only.
+  /// Final ranks are assigned **sequentially (1..N)** inside `_normalizeAndSplit`.
   static int _computeRanking(final FileEntity f) {
-    final canonicalScore = _pathIsInYearFolder(f.sourcePath) ? 0 : 1;
-    final base = _basenameOf(f.sourcePath).length;
-    final plen = f.sourcePath.length;
-    // Build a lexicographic tuple (lower is better)
-    // Encode into a single integer while keeping order (small ranges, safe here)
-    return canonicalScore * 1_000_000 + base * 1_000 + plen;
+    // Keep returning 0 to avoid leaking an absolute score. Ordering is decided later.
+    return 0;
   }
 
   /// Comparator: by ranking, then by path (stable)
@@ -486,6 +505,43 @@ class MediaEntity {
     final r = a.ranking.compareTo(b.ranking);
     if (r != 0) return r;
     return a.sourcePath.compareTo(b.sourcePath);
+  }
+
+  /// Orders files for ranking assignment:
+  /// 1) Files with negative `ranking` first (explicit promotion)
+  /// 2) Canonical (year-folder) before album-folder
+  /// 3) Shorter basename first
+  /// 4) Shorter full path first
+  /// 5) Stable tie-breaker by lowercase path
+  static List<FileEntity> _orderForRanking(final List<FileEntity> files) {
+    final forced = <FileEntity>[];
+    final regular = <FileEntity>[];
+    for (final f in files) {
+      if (f.ranking < 0) {
+        forced.add(f);
+      } else {
+        regular.add(f);
+      }
+    }
+    int cmp(final FileEntity a, final FileEntity b) {
+      final ac = _pathIsInYearFolder(a.sourcePath) ? 0 : 1;
+      final bc = _pathIsInYearFolder(b.sourcePath) ? 0 : 1;
+      if (ac != bc) return ac - bc;
+
+      final ab = _basenameOf(a.sourcePath).length;
+      final bb = _basenameOf(b.sourcePath).length;
+      if (ab != bb) return ab - bb;
+
+      final ap = a.sourcePath.length;
+      final bp = b.sourcePath.length;
+      if (ap != bp) return ap - bp;
+
+      return a.sourcePath.toLowerCase().compareTo(b.sourcePath.toLowerCase());
+    }
+
+    forced.sort(cmp);
+    regular.sort(cmp);
+    return <FileEntity>[...forced, ...regular];
   }
 
   static bool _sameIdentity(final FileEntity a, final FileEntity b) {
@@ -534,7 +590,7 @@ class MediaEntity {
         dateTaken: dateTaken,
         dateAccuracy: dateAccuracy,
         dateTimeExtractionMethod: dateTimeExtractionMethod,
-        partnershared: partnershared,
+        partnerShared: partnerShared,
         belongToAlbums: belongToAlbums,
       );
 }

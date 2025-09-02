@@ -247,16 +247,17 @@ class MediaEntityMovingService {
   }
 
   void _logError(final MediaEntityMovingResult result) {
-    print(
-      '[Error] Failed to process ${result.operation.sourceFile.path}: '
-      '${result.errorMessage}',
-    );
+    print('[Error] Failed to process ${result.operation.sourceFile.path}: ${result.errorMessage}');
   }
 
+  // Print Summary
   void _printSummary(final List<MediaEntityMovingResult> results) {
     int primaryMoves = 0;
-    int nonPrimaryMoves = 0; // e.g., if a legacy strategy moved something else
+    int nonPrimaryMoves = 0;
+    int copiesAllPhotos = 0;
+    int copiesAlbums = 0;
     int symlinksCreated = 0;
+    int jsonRefs = 0;
     int failures = 0;
 
     for (final r in results) {
@@ -265,36 +266,57 @@ class MediaEntityMovingService {
         continue;
       }
 
-      switch (r.operation.operationType) {
+      final op = r.operation;
+      switch (op.operationType) {
         case MediaEntityOperationType.move:
-          final src = r.operation.sourceFile.path;
-          final prim = r.operation.mediaEntity.primaryFile.path;
+          final src = op.sourceFile.path;
+          final prim = op.mediaEntity.primaryFile.sourcePath; // usar sourcePath
           if (_samePath(src, prim)) {
             primaryMoves++;
           } else {
             nonPrimaryMoves++;
           }
           break;
+
+        case MediaEntityOperationType.copy:
+          if (op.isAlbumFile) {
+            copiesAlbums++;
+          } else {
+            copiesAllPhotos++;
+          }
+          break;
+
         case MediaEntityOperationType.createSymlink:
         case MediaEntityOperationType.createReverseSymlink:
           symlinksCreated++;
           break;
-        case MediaEntityOperationType.copy:
+
         case MediaEntityOperationType.createJsonReference:
-          // not part of headline counters
+          jsonRefs++;
           break;
       }
     }
 
     final totalOps = results.length;
+    final computedOps = primaryMoves +
+        nonPrimaryMoves +
+        copiesAllPhotos +
+        copiesAlbums +
+        symlinksCreated +
+        jsonRefs +
+        failures;
 
     print('');
     print('\n[Step 7/8] === Moving Summary ===');
     print('\t\t\tPrimary files moved: $primaryMoves');
-    print('\t\t\tNon-primary moves: $nonPrimaryMoves'); // should be 0 under the new pipeline
+    print('\t\t\tNon-primary moves: $nonPrimaryMoves');
+    print('\t\t\tDuplicated copies created: ${copiesAllPhotos + copiesAlbums} '
+          '(ALL_PHOTOS: $copiesAllPhotos, Albums: $copiesAlbums)');
     print('\t\t\tSymlinks created: $symlinksCreated');
+    print('\t\t\tJSON refs created: $jsonRefs');
     print('\t\t\tFailures: $failures');
-    print('\t\t\tTotal operations: $totalOps');
+    print('\t\t\tTotal operations: $totalOps'
+          '${computedOps != totalOps ? ' (computed: $computedOps)' : ''}');
     print('');
 
     if (failures > 0) {
@@ -302,15 +324,14 @@ class MediaEntityMovingService {
       results.where((final r) => !r.success).take(5).forEach((final result) {
         print('  • ${result.operation.sourceFile.path}: ${result.errorMessage}');
       });
-      if (failures > 5) {
-        print('  ... and ${failures - 5} more errors');
-      }
+      final extra = failures - 5;
+      if (extra > 0) print('  ... and $extra more errors');
     }
   }
 
+
   bool _samePath(final String a, final String b) =>
-      a.replaceAll('\\', '/').toLowerCase() ==
-      b.replaceAll('\\', '/').toLowerCase();
+      a.replaceAll('\\', '/').toLowerCase() == b.replaceAll('\\', '/').toLowerCase();
 }
 
 /// Simple semaphore implementation for controlling concurrency
@@ -337,6 +358,270 @@ class _Semaphore {
       completer.complete();
     } else {
       _currentCount++;
+    }
+  }
+}
+
+/// Base class for MediaEntity moving strategies (unchanged public API)
+abstract class MediaEntityMovingStrategy {
+  const MediaEntityMovingStrategy();
+
+  String get name;
+  bool get createsShortcuts;
+  bool get createsDuplicates;
+
+  Stream<MediaEntityMovingResult> processMediaEntity(
+    final MediaEntity entity,
+    final MovingContext context,
+  );
+
+  Future<List<MediaEntityMovingResult>> finalize(
+    final MovingContext context,
+    final List<MediaEntity> processedEntities,
+  ) async =>
+      [];
+
+  void validateContext(final MovingContext context) {}
+}
+
+/// Represents a single file moving operation
+class MediaEntityMovingOperation {
+  const MediaEntityMovingOperation({
+    required this.sourceFile,
+    required this.targetDirectory,
+    required this.operationType,
+    required this.mediaEntity,
+    this.albumKey,
+  });
+
+  final File sourceFile;
+  final Directory targetDirectory;
+  final MediaEntityOperationType operationType;
+  final MediaEntity mediaEntity;
+  final String? albumKey;
+
+  File get targetFile => File('${targetDirectory.path}/${sourceFile.uri.pathSegments.last}');
+
+  bool get isAlbumFile => albumKey != null;
+  bool get isMainFile => albumKey == null;
+}
+
+enum MediaEntityOperationType {
+  move,
+  copy,
+  createSymlink,
+  createReverseSymlink,
+  createJsonReference,
+}
+
+/// Operation result
+class MediaEntityMovingResult {
+  const MediaEntityMovingResult({
+    required this.operation,
+    required this.success,
+    required this.duration,
+    this.resultFile,
+    this.errorMessage,
+  });
+
+  factory MediaEntityMovingResult.success({
+    required final MediaEntityMovingOperation operation,
+    required final File resultFile,
+    required final Duration duration,
+  }) =>
+      MediaEntityMovingResult(
+        operation: operation,
+        success: true,
+        resultFile: resultFile,
+        duration: duration,
+      );
+
+  factory MediaEntityMovingResult.failure({
+    required final MediaEntityMovingOperation operation,
+    required final String errorMessage,
+    required final Duration duration,
+  }) =>
+      MediaEntityMovingResult(
+        operation: operation,
+        success: false,
+        errorMessage: errorMessage,
+        duration: duration,
+      );
+
+  final MediaEntityMovingOperation operation;
+  final bool success;
+  final File? resultFile;
+  final Duration duration;
+  final String? errorMessage;
+
+  bool get isSuccess => success;
+  bool get isFailure => !success;
+}
+
+/// Factory to create strategy by AlbumBehavior
+class MediaEntityMovingStrategyFactory {
+  const MediaEntityMovingStrategyFactory(
+    this._fileService,
+    this._pathService,
+    this._symlinkService,
+  );
+
+  final FileOperationService _fileService;
+  final PathGeneratorService _pathService;
+  final SymlinkService _symlinkService;
+
+  MediaEntityMovingStrategy createStrategy(final AlbumBehavior albumBehavior) {
+    switch (albumBehavior) {
+      case AlbumBehavior.shortcut:
+        return ShortcutMovingStrategy(_fileService, _pathService, _symlinkService);
+      case AlbumBehavior.duplicateCopy:
+        return DuplicateCopyMovingStrategy(_fileService, _pathService);
+      case AlbumBehavior.reverseShortcut:
+        return ReverseShortcutMovingStrategy(_fileService, _pathService, _symlinkService);
+      case AlbumBehavior.json:
+        return JsonMovingStrategy(_fileService, _pathService);
+      case AlbumBehavior.nothing:
+        return NothingMovingStrategy(_fileService, _pathService);
+    }
+  }
+}
+
+/// ─────────────────────────────────────────────────────────────────────────
+/// Common helpers to avoid code duplication across strategies
+/// (centralized in this service module so strategies can import and reuse them)
+/// ─────────────────────────────────────────────────────────────────────────
+class MovingStrategyUtils {
+  const MovingStrategyUtils._();
+
+  /// Generate ALL_PHOTOS target directory (date-structured if needed).
+  static Directory allPhotosDir(
+    final PathGeneratorService pathService,
+    final MediaEntity entity,
+    final MovingContext context,
+  ) {
+    return pathService.generateTargetDirectory(
+      null,
+      entity.dateTaken,
+      context,
+      isPartnerShared: entity.partnerShared,
+    );
+  }
+
+  /// Generate Albums/<albumName> target directory (date-structured if needed).
+  static Directory albumDir(
+    final PathGeneratorService pathService,
+    final String albumName,
+    final MediaEntity entity,
+    final MovingContext context,
+  ) {
+    return pathService.generateTargetDirectory(
+      albumName,
+      entity.dateTaken,
+      context,
+      isPartnerShared: entity.partnerShared,
+    );
+  }
+
+  /// Returns true if 'child' path equals or is a subpath of 'parent'.
+  static bool isSubPath(final String child, final String parent) {
+    final String c = child.replaceAll('\\', '/');
+    final String p = parent.replaceAll('\\', '/');
+    return c == p || c.startsWith('$p/');
+  }
+
+  /// Returns the directory (without trailing slash) of a path, handling both separators.
+  static String dirOf(final String p) {
+    final normalized = p.replaceAll('\\', '/');
+    final idx = normalized.lastIndexOf('/');
+    return idx < 0 ? '' : normalized.substring(0, idx);
+  }
+
+  /// Infer album name for a given file source directory using belongToAlbums metadata.
+  /// Returns null if no album matches.
+  static String? inferAlbumForSourceDir(
+    final MediaEntity entity,
+    final String fileSourceDir,
+  ) {
+    for (final entry in entity.belongToAlbums.entries) {
+      for (final src in entry.value.sourceDirectories) {
+        if (isSubPath(fileSourceDir, src)) return entry.key;
+      }
+    }
+    return entity.albumNames.isNotEmpty ? entity.albumNames.first : null;
+  }
+
+  /// Compute the list of album names a given file (by its source directory) belonged to.
+  static List<String> albumsForFile(
+    final MediaEntity entity,
+    final FileEntity file,
+  ) {
+    final fileDir = dirOf(file.sourcePath);
+    final List<String> result = <String>[];
+    for (final entry in entity.belongToAlbums.entries) {
+      for (final src in entry.value.sourceDirectories) {
+        if (isSubPath(fileDir, src)) {
+          result.add(entry.key);
+          break;
+        }
+      }
+    }
+    return result;
+  }
+
+  /// Predicate: whether [file] belonged to the given [albumName] according to sourceDirectories.
+  static bool fileBelongsToAlbum(
+    final MediaEntity entity,
+    final FileEntity file,
+    final String albumName,
+  ) {
+    final info = entity.belongToAlbums[albumName];
+    if (info == null || info.sourceDirectories.isEmpty) return false;
+    final fileDir = dirOf(file.sourcePath);
+    for (final src in info.sourceDirectories) {
+      if (isSubPath(fileDir, src)) return true;
+    }
+    return false;
+  }
+
+  /// Create a symlink to [target] inside [dir] and try to rename it to [preferredBasename].
+  /// On name collision, appends " (n)" before extension.
+  static Future<File> createSymlinkWithPreferredName(
+    final SymlinkService symlinkService,
+    final Directory dir,
+    final File target,
+    final String preferredBasename,
+  ) async {
+    final File link = await symlinkService.createSymlink(dir, target);
+    final String currentBase = link.uri.pathSegments.last;
+    if (currentBase == preferredBasename) return link;
+
+    final String finalBasename = _resolveUniqueBasename(dir, preferredBasename);
+    final String desiredPath = '${dir.path}/$finalBasename';
+    try {
+      return await link.rename(desiredPath);
+    } catch (_) {
+      return link;
+    }
+  }
+
+  static String _resolveUniqueBasename(final Directory dir, final String base) {
+    final int dot = base.lastIndexOf('.');
+    final String stem = dot > 0 ? base.substring(0, dot) : base;
+    final String ext = dot > 0 ? base.substring(dot) : '';
+    String candidate = base;
+    int idx = 1;
+    while (_existsAny('${dir.path}/$candidate')) {
+      candidate = '$stem ($idx)$ext';
+      idx++;
+    }
+    return candidate;
+  }
+
+  static bool _existsAny(final String fullPath) {
+    try {
+      return File(fullPath).existsSync() || Link(fullPath).existsSync() || Directory(fullPath).existsSync();
+    } catch (_) {
+      return false;
     }
   }
 }

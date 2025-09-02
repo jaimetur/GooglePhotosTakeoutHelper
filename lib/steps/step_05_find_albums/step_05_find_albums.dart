@@ -226,7 +226,7 @@ class FindAlbumsStep extends ProcessingStep with LoggerMixin {
             dateTaken: e.dateTaken,
             dateAccuracy: e.dateAccuracy,
             dateTimeExtractionMethod: e.dateTimeExtractionMethod,
-            partnershared: e.partnershared,
+            partnershared: e.partnerShared,
           );
           collection.replaceAt(i, updatedEntity);
         }

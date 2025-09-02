@@ -274,6 +274,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
                   tagsToWrite['DateTimeOriginal'] = '"$dt"';
                   tagsToWrite['DateTimeDigitized'] = '"$dt"';
                   tagsToWrite['DateTime'] = '"$dt"';
+                  dtWrittenThis = true;
                 }
               }
             }

@@ -68,7 +68,7 @@ class MoveFilesStep extends ProcessingStep {
         switch (r.operation.operationType) {
           case MediaEntityOperationType.move:
             final src = r.operation.sourceFile.path;
-            final prim = r.operation.mediaEntity.primaryFile.path;
+            final prim = r.operation.mediaEntity.primaryFile.sourcePath;
             if (_samePath(src, prim)) {
               primaryMovedCount++;
             } else {

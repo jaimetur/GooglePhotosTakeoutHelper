@@ -29,10 +29,10 @@ import 'package:gpth/gpth-lib.dart';
 /// ## Processing Logic
 ///
 /// ### Timestamp Synchronization
-/// 1. **Source Timestamp**: Uses the file's current last modification time
-/// 2. **Target Timestamp**: Sets creation time to match modification time
-/// 3. **Preservation**: Maintains all other file attributes and metadata
-/// 4. **Verification**: Confirms timestamp update was successful
+/// 1. **Source Timestamp**: Uses the entity's authoritative `dateTaken`
+/// 2. **Target Timestamp**: Sets both CreationTime and LastWriteTime to `dateTaken`
+/// 3. **Preservation**: Keeps LastAccessTime unchanged
+/// 4. **Verification**: Confirms timestamp update was successful (treated as updated on success)
 ///
 /// ### Platform Detection
 /// - **Windows Only**: Operation is only performed on Windows systems
@@ -116,34 +116,79 @@ class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
       }
 
       print('[Step 8/8] Updating creation times (this may take a while)...');
-      int updatedCount = 0;
 
-      // 1. Traverse the output directory and update creation times
-      final outputDir = Directory(context.config.outputPath);
-      if (!await outputDir.exists()) {
-        logWarning('[Step 8/8] Skipping creation time update (output directory not found: ${context.config.outputPath}).', forcePrint: true);
+      // Build the list of output items from the collection
+      // (primary + secondaries with targetPath != null; include shortcuts too).
+      final filesToTouch = <_ToTouch>[];
+      for (final entity in context.mediaCollection.entities) {
+        final dt = entity.dateTaken;
+        if (dt == null) continue;
 
+        final fes = <FileEntity>[entity.primaryFile, ...entity.secondaryFiles];
+        for (final fe in fes) {
+          final tp = fe.targetPath;
+          if (tp == null) continue;
+          filesToTouch.add(_ToTouch(File(tp), dt, isShortcut: fe.isShortcut));
+        }
+      }
+
+      if (filesToTouch.isEmpty) {
+        print('[Step 8/8] No files found to update creation times.');
         stopwatch.stop();
         return StepResult.success(
           stepName: name,
           duration: stopwatch.elapsed,
-          data: {'updatedCount': 0, 'skipped': true},
-          message: 'Creation time update skipped - output directory not found',
+          data: {'updatedCount': 0, 'failedCount': 0, 'skipped': false},
+          message: 'Updated creation times for 0 files',
         );
-      } // 2. For each file, set creation time = last modified time
-      // 3. Use Windows APIs/PowerShell for the operation
-      updatedCount = await _updateCreationTimeRecursively(outputDir);
-
-      if (context.config.verbose) {
-        print('Creation time update completed. Updated $updatedCount files.');
       }
+
+      // Initialize progress bar - always visible
+      final progressBar = FillingBar(
+        desc: '[Step 8/8] Updating creation times',
+        total: filesToTouch.length,
+        width: 50,
+      );
+
+      int updated = 0;
+      int failed = 0;
+
+      for (int i = 0; i < filesToTouch.length; i++) {
+        final f = filesToTouch[i];
+        try {
+          final ok = _setFileTimesToDateTakenSync(
+            f.file.path,
+            f.dateTaken,
+            isShortcut: f.isShortcut,
+          );
+          if (ok) {
+            updated++;
+          } else {
+            failed++;
+          }
+        } catch (_) {
+          failed++;
+        }
+
+        progressBar.update(i + 1);
+        if (i + 1 == filesToTouch.length) {
+          print(''); // newline after progress bar
+        }
+      }
+
+      // Explicit summary line
+      print('[Step 8/8] Creation time update summary → updated: $updated, failed: $failed');
 
       stopwatch.stop();
       return StepResult.success(
         stepName: name,
         duration: stopwatch.elapsed,
-        data: {'updatedCount': updatedCount, 'skipped': false},
-        message: 'Updated creation times for $updatedCount files',
+        data: {
+          'updatedCount': updated,
+          'failedCount': failed,
+          'skipped': false,
+        },
+        message: 'Updated creation times for $updated files',
       );
     } catch (e) {
       stopwatch.stop();
@@ -171,177 +216,83 @@ class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
     return shouldSkipStep;
   }
 
-  /// Updates creation times recursively for all files in the directory
-  ///
-  /// Returns the number of files processed
-  Future<int> _updateCreationTimeRecursively(final Directory directory) async {
-    // Collect all files first to show progress
-    final List<File> allFiles = [];
-    await for (final entity in directory.list(recursive: true)) {
-      if (entity is File) {
-        allFiles.add(entity);
-      }
-    }
-
-    if (allFiles.isEmpty) {
-      print('[Step 8/8] No files found to update creation times.');
-      return 0;
-    }
-
-    // Initialize progress bar - always visible
-    final progressBar = FillingBar(
-      desc: '[Step 8/8] Updating creation times',
-      total: allFiles.length,
-      width: 50,
-    );
-
-    int successCount = 0;
-    int errorCount = 0;
-
-    // Process files with progress reporting
-    for (int i = 0; i < allFiles.length; i++) {
-      final File file = allFiles[i];
-
-      try {
-        if (await _updateFileCreationTimeWin32(file)) {
-          successCount++;
-        } else {
-          errorCount++;
-        }
-      } catch (e) {
-        errorCount++;
-        if (errorCount <= 10) {
-          // Only show first 10 errors to avoid spam
-          print('Failed to update creation time for ${file.path}: $e');
-        }
-      }
-
-      // Update progress bar
-      progressBar.update(i + 1);
-      if (i + 1 == allFiles.length) {
-        print(''); // Add a newline after progress bar completion
-      }
-
-      // Early exit if too many errors (prevents infinite retry scenarios)
-      if (errorCount > 100) {
-        print(''); // Ensure we're on a new line after progress bar
-        print(
-          '⚠️  Too many errors ($errorCount), stopping creation time updates',
-        );
-        break;
-      }
-    }
-
-    if (errorCount > 0) {
-      print('⚠️  Failed to update creation time for $errorCount files');
-    }
-
-    return successCount;
-  }
-
-  /// Updates creation time for a single file using Win32 API
-  ///
-  /// Returns true if successful, false otherwise
-  Future<bool> _updateFileCreationTimeWin32(final File file) async {
-    if (!Platform.isWindows) return false;
-
-    return _updateFileCreationTimeSync(file.path);
-  }
-
-  /// Synchronous Win32 creation time update
-  bool _updateFileCreationTimeSync(final String filePath) {
+  /// Synchronous Win32 creation/write time update to a specific DateTime (entity.dateTaken).
+  /// If [isShortcut] is true, the handle is opened with FILE_FLAG_OPEN_REPARSE_POINT
+  /// so we touch the link itself (not its target). LastAccessTime is preserved as-is.
+  bool _setFileTimesToDateTakenSync(
+    final String filePath,
+    final DateTime dateTaken, {
+    required bool isShortcut,
+  }) {
     try {
       return using((final Arena arena) {
-        // Convert path to wide string for Win32 API
-        final Pointer<Utf16> pathPtr = filePath.toNativeUtf16(allocator: arena);
+        // Convert to extended-length path to avoid MAX_PATH issues on Windows.
+        final String extended = _toExtendedLengthPath(filePath);
+        final Pointer<Utf16> pathPtr = extended.toNativeUtf16(allocator: arena);
 
-        // Open file handle with write access to attributes
+        // Always allow directory handles; don't follow symlinks when touching shortcuts.
+        final int flags = FILE_ATTRIBUTE_NORMAL |
+            FILE_FLAG_BACKUP_SEMANTICS |
+            (isShortcut ? FILE_FLAG_OPEN_REPARSE_POINT : 0);
+
+        // Open file handle with write attributes access
         final int fileHandle = CreateFile(
           pathPtr,
           FILE_WRITE_ATTRIBUTES,
-          FILE_SHARE_READ | FILE_SHARE_WRITE,
-          nullptr,
+          FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+          nullptr, // leave security attributes null
           OPEN_EXISTING,
-          FILE_ATTRIBUTE_NORMAL,
-          NULL,
+          flags,
+          0,
         );
 
         if (fileHandle == INVALID_HANDLE_VALUE) {
-          return false; // Could not open file
+          return false;
         }
 
         try {
-          // Get current file times
-          final Pointer<FILETIME> creationTime = arena<FILETIME>();
-          final Pointer<FILETIME> accessTime = arena<FILETIME>();
-          final Pointer<FILETIME> writeTime = arena<FILETIME>();
+          // Target FILETIME from dateTaken (UTC)
+          final Pointer<FILETIME> pCreation = arena<FILETIME>();
+          final Pointer<FILETIME> pWrite = arena<FILETIME>();
+          _writeDateTimeToFileTimePtr(pCreation, dateTaken.toUtc());
+          _writeDateTimeToFileTimePtr(pWrite, dateTaken.toUtc());
 
-          // Use the Kernel32 API functions from win32 package
-          final kernel32 = DynamicLibrary.open('kernel32.dll');
-          final getFileTimeFunction = kernel32
-              .lookupFunction<
-                Int32 Function(
-                  IntPtr,
-                  Pointer<FILETIME>,
-                  Pointer<FILETIME>,
-                  Pointer<FILETIME>,
-                ),
-                int Function(
-                  int,
-                  Pointer<FILETIME>,
-                  Pointer<FILETIME>,
-                  Pointer<FILETIME>,
-                )
-              >('GetFileTime');
-
-          final setFileTimeFunction = kernel32
-              .lookupFunction<
-                Int32 Function(
-                  IntPtr,
-                  Pointer<FILETIME>,
-                  Pointer<FILETIME>,
-                  Pointer<FILETIME>,
-                ),
-                int Function(
-                  int,
-                  Pointer<FILETIME>,
-                  Pointer<FILETIME>,
-                  Pointer<FILETIME>,
-                )
-              >('SetFileTime');
-
-          final bool getTimesSuccess =
-              getFileTimeFunction(
-                fileHandle,
-                creationTime,
-                accessTime,
-                writeTime,
-              ) !=
-              FALSE;
-
-          if (!getTimesSuccess) {
-            return false;
-          }
-
-          // Set creation time to match write time (last modified time)
-          final bool setTimeSuccess =
-              setFileTimeFunction(
-                fileHandle,
-                writeTime, // Set creation time to write time
-                accessTime, // Keep access time unchanged
-                writeTime, // Keep write time unchanged
-              ) !=
-              FALSE;
-
-          return setTimeSuccess;
+          // Set CreationTime and LastWriteTime = dateTaken; keep LastAccessTime unchanged (nullptr)
+          final bool setOk = SetFileTime(fileHandle, pCreation, nullptr, pWrite) != FALSE;
+          return setOk;
         } finally {
-          // Always close the file handle
           CloseHandle(fileHandle);
         }
       });
-    } catch (e) {
-      // Catch any FFI-related exceptions
+    } catch (_) {
       return false;
     }
   }
+
+  // ------------------------------- Utilities --------------------------------
+
+  /// Convert normal path to extended-length path (\\?\ prefix) for long-path safety on Windows.
+  String _toExtendedLengthPath(final String p) {
+    if (!Platform.isWindows) return p;
+    if (p.startsWith('\\\\?\\')) return p;
+    if (p.startsWith('\\\\')) return '\\\\?\\UNC${p.substring(1)}';
+    return '\\\\?\\$p';
+  }
+
+  /// Write a DateTime (UTC) into a FILETIME pointer.
+  /// FILETIME = 100-nanosecond intervals since January 1, 1601 (UTC).
+  void _writeDateTimeToFileTimePtr(final Pointer<FILETIME> p, final DateTime utc) {
+    const int epochDiff100ns = 116444736000000000; // between 1601-01-01 and 1970-01-01
+    final int ftTicks = utc.millisecondsSinceEpoch * 10000 + epochDiff100ns;
+    p.ref
+      ..dwHighDateTime = (ftTicks >> 32) & 0xFFFFFFFF
+      ..dwLowDateTime = ftTicks & 0xFFFFFFFF;
+  }
+}
+
+class _ToTouch {
+  final File file;
+  final DateTime dateTaken;
+  final bool isShortcut;
+  _ToTouch(this.file, this.dateTaken, {required this.isShortcut});
 }
