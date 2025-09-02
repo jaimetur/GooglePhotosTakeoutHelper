@@ -152,6 +152,11 @@ class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
 
       int updated = 0;
       int failed = 0;
+      // Per-type counters (physical vs shortcuts)
+      int updatedPhysical = 0;
+      int updatedShortcuts = 0;
+      int failedPhysical = 0;
+      int failedShortcuts = 0;
 
       for (int i = 0; i < filesToTouch.length; i++) {
         final f = filesToTouch[i];
@@ -163,11 +168,28 @@ class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
           );
           if (ok) {
             updated++;
+            // Increment per-type updated counters
+            if (f.isShortcut) {
+              updatedShortcuts++;
+            } else {
+              updatedPhysical++;
+            }
           } else {
             failed++;
+            // Increment per-type failed counters
+            if (f.isShortcut) {
+              failedShortcuts++;
+            } else {
+              failedPhysical++;
+            }
           }
         } catch (_) {
           failed++;
+          if (f.isShortcut) {
+            failedShortcuts++;
+          } else {
+            failedPhysical++;
+          }
         }
 
         progressBar.update(i + 1);
@@ -176,8 +198,12 @@ class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
         }
       }
 
-      // Explicit summary line
-      print('[Step 8/8] Creation time update summary → updated: $updated, failed: $failed');
+      // Explicit summary line (with per-type breakdown)
+      print(
+        '[Step 8/8] Update Creation Time Summary → '
+        'updated: $updated (physical=$updatedPhysical, shortcuts=$updatedShortcuts), '
+        'failed: $failed (physical=$failedPhysical, shortcuts=$failedShortcuts)',
+      );
 
       stopwatch.stop();
       return StepResult.success(
@@ -186,6 +212,10 @@ class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
         data: {
           'updatedCount': updated,
           'failedCount': failed,
+          'updatedPhysical': updatedPhysical,
+          'updatedShortcuts': updatedShortcuts,
+          'failedPhysical': failedPhysical,
+          'failedShortcuts': failedShortcuts,
           'skipped': false,
         },
         message: 'Updated creation times for $updated files',

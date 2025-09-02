@@ -1,8 +1,31 @@
 ## 5.0.2-beta1
 
 ### 🚀 **Improvements**
-  - New code re-design
-  - `Write EXIF` is now Step 7 (after Move Files step) in order to write EXIF data only to those physical files in output folder (skipping shortcuts).
+  - New code re-design to include a new `MediaEntity` model with the following attributes:
+    - `belongToAlbums`: List of Albums where any entity file have been found  
+    - `dateTaken`: a single dataTaken for all the files within the entity
+    - `dateAccuracy`: a single dateAccuracy for all the files within the entity (based on which extraction method have been used to extract the date)
+    - `dateTimeExtractionMethod`: a single dateTimeExtractionMethod for all the files within the entity (method used to extract the dataTaken assigned to the entity)
+    - `partnerShared`: true if the entity is partnerShared
+    - `primaryFile`: contains the best ranked file within all the entity files (canonical first, then secondaries ranked by lenght of basename, then lenght of pathname)
+    - `secondaryFiles`: contains all the secondary files in the entity
+    - `duplicatesFiles`: contains files which has at least one more file within the entity in the same folder (duplicates within folder)
+  - Now, all identical content files are collected within the same MediaEntity.
+    - In a typical Takeout, you might have the same file within `Photos from yyyy` folder and within one or more Album folder
+    - So, both of them are collected within the same entity and will not be considered as duplicated because one of them could have associated json and the others not
+    - So, we should extract dates for all the entity files.
+  - If one entity contains two or more files within the same folder, then this is a duplicated file (based on content), even if they have different names and the tool will remove the worst ranked duplicated file.
+  - Now `Write EXIF` have been moved to Step 7 (after Move Files step) in order to write EXIF data only to those physical files in output folder (skipping shortcuts). 
+    - This changed was needed because until Step 6 (based on the selected album strategy), don't create the output physical files, we don't know which files need EXIF write. 
+    - With this change we reduce a lot the number of EXIF files to write because we can skip writing EXIF for shortcut files created by shorcut or reverse-shortcut strategy, but also we can skip all secondaryFiles if selected strategy is None or Json. 
+    - The only strategy that has no benefit from this change is duplicate-copy, because in this strategy all files in output folder are physical files and all of them need to have EXIF written.
+  - `Step 3: Remove Duplicates` now only consider within-folder duplicates. And take care of the primaryFile/secondaryFiles based on a ranking for the rest of the pipeline.
+  - `Step 7: Write EXIF` now take into account all the files in the MediaEntity file except duplicatesFiles and files with `isShortcut=true` attribute. 
+  - `Step 8: Update Creation Time`now take into account all the files in the MediaEntity file except duplicatesFiles.
+  - `Step 8: Update Creation Time`now update creation time also for shortcuts.
+  - Added more statistics to `Step 3: Remove Duplicate` 
+  - Added more statistics to `Step 6: Move Files` 
+  - Added more statistics to `Step 8: Update Creation Time`.
 
 
 ## 5.0.1-beta1

@@ -307,7 +307,7 @@ class MediaEntityMovingService {
         failures;
 
     print('');
-    print('\n[Step 7/8] === Moving Summary ===');
+    print('\n[Step 6/8] === Moving Summary ===');
     print('\t\t\tPrimary files moved: $primaryMoves');
     print('\t\t\tNon-primary moves: $nonPrimaryMoves');
     print('\t\t\tDuplicated copies created: ${copiesAllPhotos + copiesAlbums} '

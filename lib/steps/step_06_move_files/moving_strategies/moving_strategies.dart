@@ -327,7 +327,8 @@ class ShortcutMovingStrategy extends MediaEntityMovingStrategy {
     final bool primaryWasCanonical = entity.primaryFile.isCanonical;
 
     // 1) Move primary to ALL_PHOTOS (canonical physical location)
-    final Directory allPhotosDir = MovingStrategyUtils.allPhotosDir(_pathService, entity, context);
+    final Directory allPhotosDir =
+        MovingStrategyUtils.allPhotosDir(_pathService, entity, context);
 
     final sw = Stopwatch()..start();
     final File src = entity.primaryFile.asFile(); // <-- capture pre-move
@@ -368,16 +369,23 @@ class ShortcutMovingStrategy extends MediaEntityMovingStrategy {
       return;
     }
 
+    // We’ll collect synthetic secondaries here to avoid mutating the list while iterating.
+    final List<FileEntity> pendingShortcutSecondaries = <FileEntity>[];
+
     // 2) For each album, create shortcuts only for non-canonical files that belonged to that album
     for (final albumName in entity.albumNames) {
-      final Directory albumDir = MovingStrategyUtils.albumDir(_pathService, albumName, entity, context);
+      final Directory albumDir =
+          MovingStrategyUtils.albumDir(_pathService, albumName, entity, context);
 
       // Primary shortcut only if originally non-canonical AND it belonged to this album
-      if (!primaryWasCanonical && MovingStrategyUtils.fileBelongsToAlbum(entity, entity.primaryFile, albumName)) {
+      if (!primaryWasCanonical &&
+          MovingStrategyUtils.fileBelongsToAlbum(
+              entity, entity.primaryFile, albumName)) {
         final String desiredName = path.basename(entity.primaryFile.sourcePath);
         final ssw = Stopwatch()..start();
         try {
-          final File shortcut = await MovingStrategyUtils.createSymlinkWithPreferredName(
+          final File shortcut = await MovingStrategyUtils
+              .createSymlinkWithPreferredName(
             _symlinkService,
             albumDir,
             movedPrimary,
@@ -385,7 +393,11 @@ class ShortcutMovingStrategy extends MediaEntityMovingStrategy {
           );
           ssw.stop();
 
-          // Primary's FileEntity remains pointing to the physical file in ALL_PHOTOS.
+          // Add a synthetic secondary for this primary shortcut
+          pendingShortcutSecondaries.add(
+            _buildShortcutClone(entity.primaryFile, shortcut.path),
+          );
+
           yield MediaEntityMovingResult.success(
             operation: MediaEntityMovingOperation(
               sourceFile: movedPrimary,
@@ -407,7 +419,8 @@ class ShortcutMovingStrategy extends MediaEntityMovingStrategy {
               mediaEntity: entity,
               albumKey: albumName,
             ),
-            errorMessage: 'Failed to create album shortcut for non-canonical primary: $e',
+            errorMessage:
+                'Failed to create album shortcut for non-canonical primary: $e',
             duration: elapsed,
           );
         }
@@ -416,12 +429,15 @@ class ShortcutMovingStrategy extends MediaEntityMovingStrategy {
       // Shortcuts for non-canonical secondaries that belonged to this album
       for (final sec in entity.secondaryFiles) {
         if (sec.isCanonical == true) continue;
-        if (!MovingStrategyUtils.fileBelongsToAlbum(entity, sec, albumName)) continue;
+        if (!MovingStrategyUtils.fileBelongsToAlbum(entity, sec, albumName)) {
+          continue;
+        }
 
         final String desiredName = path.basename(sec.sourcePath);
         final ssw = Stopwatch()..start();
         try {
-          final File shortcut = await MovingStrategyUtils.createSymlinkWithPreferredName(
+          final File shortcut = await MovingStrategyUtils
+              .createSymlinkWithPreferredName(
             _symlinkService,
             albumDir,
             movedPrimary,
@@ -429,8 +445,16 @@ class ShortcutMovingStrategy extends MediaEntityMovingStrategy {
           );
           ssw.stop();
 
-          sec.targetPath = shortcut.path;
-          sec.isShortcut = true;
+          if (sec.targetPath == null) {
+            // First album that represents this secondary → use the existing FileEntity
+            sec.targetPath = shortcut.path;
+            sec.isShortcut = true;
+          } else {
+            // This secondary already represents another album; clone a new one for this shortcut
+            pendingShortcutSecondaries.add(
+              _buildShortcutClone(sec, shortcut.path),
+            );
+          }
 
           yield MediaEntityMovingResult.success(
             operation: MediaEntityMovingOperation(
@@ -459,11 +483,29 @@ class ShortcutMovingStrategy extends MediaEntityMovingStrategy {
         }
       }
     }
+
+    // Append synthetic shortcut secondaries after loops (safe)
+    if (pendingShortcutSecondaries.isNotEmpty) {
+      entity.secondaryFiles.addAll(pendingShortcutSecondaries);
+    }
   }
 
   @override
   void validateContext(final MovingContext context) {}
+
+  // Builds a brand-new FileEntity representing a shortcut on output.
+  // Uses your real constructor exactly (canonicality will be auto-recomputed from targetPath).
+  FileEntity _buildShortcutClone(final FileEntity src, final String shortcutPath) {
+    return FileEntity(
+      sourcePath: src.sourcePath,             // keep original source
+      targetPath: shortcutPath,               // symlink path in Albums
+      isShortcut: true,                       // mark as shortcut
+      dateAccuracy: src.dateAccuracy,         // preserve metadata if relevant
+      ranking: src.ranking,                   // keep ranking
+    );
+  }
 }
+
 
 /// Reverse-Shortcut strategy:
 /// - Move **all non-canonical** files (primary and/or secondaries) physically into Albums/<Album>.
@@ -565,10 +607,17 @@ class ReverseShortcutMovingStrategy extends MediaEntityMovingStrategy {
           final File shortcut = await _symlinkService.createSymlink(allPhotosDir, bestMoved);
           ssw.stop();
 
-          if (!identical(entity.primaryFile, best)) {
-            entity.primaryFile.targetPath = shortcut.path;
-            entity.primaryFile.isShortcut = true;
-          }
+          // ❗ En lugar de modificar el primary para que apunte al symlink,
+          //    añadimos un secondary sintético que representa el atajo creado en ALL_PHOTOS.
+          entity.secondaryFiles.add(
+            FileEntity(
+              sourcePath: best.sourcePath,   // conserva el origen original del "best"
+              targetPath: shortcut.path,     // ruta real del symlink creado
+              isShortcut: true,              // marcar como atajo
+              dateAccuracy: best.dateAccuracy,
+              ranking: best.ranking,
+            ),
+          );
 
           yield MediaEntityMovingResult.success(
             operation: MediaEntityMovingOperation(
@@ -655,6 +704,7 @@ class ReverseShortcutMovingStrategy extends MediaEntityMovingStrategy {
     return files.first;
   }
 }
+
 
 /// Duplicate-Copy strategy:
 /// - For each file (primary + secondaries):
