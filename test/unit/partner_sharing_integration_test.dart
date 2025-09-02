@@ -96,7 +96,7 @@ void main() {
         );
 
         // Album folders don't get date division
-        expect(targetDir.path, equals(path.join('/output', 'Albums', 'Family Album')));
+        expect(targetDir.path, equals(path.join('/output', 'PARTNER_SHARED', 'Albums', 'Family Album')));
       });
 
       test('ignores partner sharing when dividePartnerShared is disabled', () {
@@ -113,8 +113,8 @@ void main() {
           isPartnerShared: true,
         );
 
-        // Should go to ./PARTNER_SHARED/ALL_PHOTOS if partner shared
-        expect(targetDir.path, equals(path.join('/output', 'PARTNER_SHARED', 'ALL_PHOTOS')));
+        // Should go to ./ALL_PHOTOS if dividePartnerShared is disabled
+        expect(targetDir.path, equals(path.join('/output', 'ALL_PHOTOS')));
       });
     });
 
