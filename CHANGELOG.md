@@ -13,12 +13,13 @@
   - Now, all identical content files are collected within the same MediaEntity.
     - In a typical Takeout, you might have the same file within `Photos from yyyy` folder and within one or more Album folder
     - So, both of them are collected within the same entity and will not be considered as duplicated because one of them could have associated json and the others not
-    - So, we should extract dates for all the entity files.
-  - If one entity contains two or more files within the same folder, then this is a duplicated file (based on content), even if they have different names and the tool will remove the worst ranked duplicated file.
+    - So, we should extract dates for all the the files within the same media entity.
+  - If one media entity contains two or more files within the same folder, then this is a duplicated file (based on content), even if they have different names, and the tool will remove the worst ranked duplicated file.
   - Now `Write EXIF` have been moved to Step 7 (after Move Files step) in order to write EXIF data only to those physical files in output folder (skipping shortcuts). 
     - This changed was needed because until Step 6 (based on the selected album strategy), don't create the output physical files, we don't know which files need EXIF write. 
     - With this change we reduce a lot the number of EXIF files to write because we can skip writing EXIF for shortcut files created by shorcut or reverse-shortcut strategy, but also we can skip all secondaryFiles if selected strategy is None or Json. 
     - The only strategy that has no benefit from this change is duplicate-copy, because in this strategy all files in output folder are physical files and all of them need to have EXIF written.
+  - Performance Optimization in `Step 3: Remove Duplicates`.
   - `Step 3: Remove Duplicates` now only consider within-folder duplicates. And take care of the primaryFile/secondaryFiles based on a ranking for the rest of the pipeline.
   - `Step 7: Write EXIF` now take into account all the files in the MediaEntity file except duplicatesFiles and files with `isShortcut=true` attribute. 
   - `Step 8: Update Creation Time`now take into account all the files in the MediaEntity file except duplicatesFiles.

@@ -126,8 +126,8 @@ void main() {
 
         final personalEntity = MediaEntity.single(file: file);
 
-        expect(partnerSharedEntity.partnershared, isTrue);
-        expect(personalEntity.partnershared, isFalse);
+        expect(partnerSharedEntity.partnerShared, isTrue);
+        expect(personalEntity.partnerShared, isFalse);
       });
 
       test('preserves partner sharing when merging with album copy', () async {
@@ -145,7 +145,7 @@ void main() {
         expect(merged.length, 1);
         final entityWithNewFile = merged.first;
 
-        expect(entityWithNewFile.partnershared, isTrue);
+        expect(entityWithNewFile.partnerShared, isTrue);
         expect(entityWithNewFile.hasAlbumAssociations, isTrue);
         expect(entityWithNewFile.albumNames, contains('Album'));
       });
@@ -157,7 +157,7 @@ void main() {
 
         final entityWithDate = entity.withDate(dateTaken: DateTime.now());
 
-        expect(entityWithDate.partnershared, isTrue);
+        expect(entityWithDate.partnerShared, isTrue);
       });
 
       test('merges partner sharing correctly (OR logic)', () {
@@ -172,13 +172,13 @@ void main() {
         final personalEntity = MediaEntity.single(file: file2);
 
         final merged1 = partnerSharedEntity.mergeWith(personalEntity);
-        expect(merged1.partnershared, isTrue);
+        expect(merged1.partnerShared, isTrue);
 
         final merged2 = personalEntity.mergeWith(partnerSharedEntity);
-        expect(merged2.partnershared, isTrue);
+        expect(merged2.partnerShared, isTrue);
 
         final merged3 = personalEntity.mergeWith(personalEntity);
-        expect(merged3.partnershared, isFalse);
+        expect(merged3.partnerShared, isFalse);
       });
 
       test('includes partner sharing in equality comparison', () {

@@ -182,7 +182,7 @@ void main() {
           null,
           entity.dateTaken,
           context,
-          isPartnerShared: entity.partnershared,
+          isPartnerShared: entity.partnerShared,
         );
 
         expect(
