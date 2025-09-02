@@ -26,6 +26,7 @@
   - Added more statistics to `Step 3: Remove Duplicate` 
   - Added more statistics to `Step 6: Move Files` 
   - Added more statistics to `Step 8: Update Creation Time`.
+  - Total execution time is now shown as hh:mm:ss instead of only minutes.
 
 
 ## 5.0.1-beta1
