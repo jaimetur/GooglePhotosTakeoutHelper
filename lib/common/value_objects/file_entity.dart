@@ -12,16 +12,16 @@ import 'package:gpth/gpth-lib.dart';
 class FileEntity {
   FileEntity({
     required final String sourcePath,
-    String? targetPath,
-    bool isShortcut = false,
-    DateAccuracy? dateAccuracy,
-    int ranking = 0,
-  })  : _sourcePath = sourcePath,
-        _targetPath = targetPath,
-        _isShortcut = isShortcut,
-        _dateAccuracy = dateAccuracy,
-        _ranking = ranking,
-        _isCanonical = _calculateCanonical(sourcePath, targetPath);
+    final String? targetPath,
+    final bool isShortcut = false,
+    final DateAccuracy? dateAccuracy,
+    final int ranking = 0,
+  }) : _sourcePath = sourcePath,
+       _targetPath = targetPath,
+       _isShortcut = isShortcut,
+       _dateAccuracy = dateAccuracy,
+       _ranking = ranking,
+       _isCanonical = _calculateCanonical(sourcePath, targetPath);
 
   String _sourcePath;
   String? _targetPath;
@@ -92,7 +92,9 @@ class FileEntity {
   /// - Canonical if sourcePath resides under a folder segment that starts with "Photos from YYYY)" where YYYY is 19xx or 20xx (suffix allowed until next separator), OR
   /// - Canonical if targetPath points to ALL_PHOTOS (versus Albums folders).
   static bool _calculateCanonical(final String source, final String? target) {
-    final yearPattern = RegExp(r'(?:^|[/\\])Photos from (?:19|20)\d{2}\)?[^/\\]*(?:$|[/\\])');
+    final yearPattern = RegExp(
+      r'(?:^|[/\\])Photos from (?:19|20)\d{2}\)?[^/\\]*(?:$|[/\\])',
+    );
     final allPhotosPattern = RegExp(r'(?:^|[/\\])ALL_PHOTOS(?:$|[/\\])');
 
     final fromYearFolder = yearPattern.hasMatch(source);
@@ -102,9 +104,7 @@ class FileEntity {
   }
 
   @override
-  String toString() {
-    return 'FileEntity(sourcePath=$_sourcePath, targetPath=$_targetPath, '
+  String toString() => 'FileEntity(sourcePath=$_sourcePath, targetPath=$_targetPath, '
         'path=$path, isCanonical=$_isCanonical, isShortcut=$_isShortcut, '
         'dateAccuracy=$_dateAccuracy, ranking=$_ranking)';
-  }
 }

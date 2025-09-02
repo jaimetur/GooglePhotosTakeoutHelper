@@ -239,25 +239,22 @@ void main() {
         expect(result, isFalse);
       });
 
-      test(
-        'returns false for files with same size but different hash',
-        () async {
-          final file1 = fixture.createImageWithExif('image1.jpg');
-          final file2 = fixture.createImageWithExif('image2.jpg');
+      test('returns false for files with same size but different hash', () async {
+        final file1 = fixture.createImageWithExif('image1.jpg');
+        final file2 = fixture.createImageWithExif('image2.jpg');
 
-          final media1 = createTestMediaEntity(file1);
-          final media2 = createTestMediaEntity(file2);
+        final media1 = createTestMediaEntity(file1);
+        final media2 = createTestMediaEntity(file2);
 
-          mockHashService.mockFileSize(file1, 1000);
-          mockHashService.mockFileSize(file2, 1000);
-          mockHashService.mockFileHash(file1, 'hash1');
-          mockHashService.mockFileHash(file2, 'hash2');
+        mockHashService.mockFileSize(file1, 1000);
+        mockHashService.mockFileSize(file2, 1000);
+        mockHashService.mockFileHash(file1, 'hash1');
+        mockHashService.mockFileHash(file2, 'hash2');
 
-          final result = await service.areDuplicates(media1, media2);
+        final result = await service.areDuplicates(media1, media2);
 
-          expect(result, isFalse);
-        },
-      );
+        expect(result, isFalse);
+      });
     });
 
     group('calculateStats', () {
@@ -387,24 +384,20 @@ class MockMediaHashService implements MediaHashService {
   }
 
   @override
-  Future<({String hash, int size})> calculateHashAndSize(
-    final File file,
-  ) async {
+  Future<({String hash, int size})> calculateHashAndSize(final File file) async {
     final hash = await calculateFileHash(file);
     final size = await calculateFileSize(file);
     return (hash: hash, size: size);
   }
 
   @override
-  Future<Map<String, String>> calculateMultipleHashes(
-    final List<File> files,
-  ) async {
+  Future<Map<String, String>> calculateMultipleHashes(final List<File> files) async {
     final results = <String, String>{};
     for (final file in files) {
       try {
         final hash = await calculateFileHash(file);
         results[file.path] = hash;
-      } catch (e) {
+      } catch (_) {
         // Skip files that can't be hashed
       }
     }
@@ -424,14 +417,14 @@ class MockMediaHashService implements MediaHashService {
 
   @override
   Future<List<({String path, String hash, int size, bool success})>>
-  calculateHashAndSizeBatch(final List<File> files) async {
+      calculateHashAndSizeBatch(final List<File> files) async {
     final results = <({String path, String hash, int size, bool success})>[];
     for (final file in files) {
       try {
         final hash = await calculateFileHash(file);
         final size = await calculateFileSize(file);
         results.add((path: file.path, hash: hash, size: size, success: true));
-      } catch (e) {
+      } catch (_) {
         results.add((path: file.path, hash: '', size: 0, success: false));
       }
     }
@@ -440,11 +433,11 @@ class MockMediaHashService implements MediaHashService {
 
   @override
   Map<String, dynamic> getCacheStats() => {
-    'hashCacheSize': _fileHashes.length,
-    'sizeCacheSize': _fileSizes.length,
-    'maxCacheSize': maxCacheSize,
-    'cacheUtilization': '0.0%',
-  };
+        'hashCacheSize': _fileHashes.length,
+        'sizeCacheSize': _fileSizes.length,
+        'maxCacheSize': maxCacheSize,
+        'cacheUtilization': '0.0%',
+      };
 
   @override
   void clearCache() {
@@ -455,15 +448,16 @@ class MockMediaHashService implements MediaHashService {
 
 /// Helper function to create test MediaEntity
 MediaEntity createTestMediaEntity(final File file) =>
-    MediaEntity.single(file: file);
+    MediaEntity.single(file: FileEntity(sourcePath: file.path));
 
 /// Helper function to create test MediaEntity with date information
 MediaEntity createTestMediaEntityWithDate(
   final File file, {
   final DateTime? dateTaken,
   final DateAccuracy? dateAccuracy,
-}) => MediaEntity.single(
-  file: file,
-  dateTaken: dateTaken,
-  dateAccuracy: dateAccuracy,
-);
+}) =>
+    MediaEntity.single(
+      file: FileEntity(sourcePath: file.path),
+      dateTaken: dateTaken,
+      dateAccuracy: dateAccuracy,
+    );

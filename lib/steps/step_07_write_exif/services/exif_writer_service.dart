@@ -1,9 +1,10 @@
 import 'dart:io';
 import 'dart:typed_data';
+
 import 'package:coordinate_converter/coordinate_converter.dart';
+import 'package:gpth/gpth-lib.dart';
 import 'package:image/image.dart';
 import 'package:intl/intl.dart';
-import 'package:gpth/gpth-lib.dart';
 
 /// Service that writes EXIF data (fast native JPEG path + adaptive exiftool batching).
 /// Includes detailed instrumentation of counts and durations (seconds).
@@ -27,7 +28,11 @@ class ExifWriterService with LoggerMixin {
   static final Set<String> _gpsTouchedPrimary = <String>{};
   static final Set<String> _gpsTouchedSecondary = <String>{};
 
-  static void _markTouched(final File file, {required bool date, required bool gps}) {
+  static void _markTouched(
+    final File file, {
+    required final bool date,
+    required final bool gps,
+  }) {
     final p = file.path;
     _touchedFiles.add(p);
     if (date) _dateTouchedFiles.add(p);
@@ -35,7 +40,10 @@ class ExifWriterService with LoggerMixin {
   }
 
   /// NEW: public helpers so Step 5 (who knows primary vs secondary) can annotate the unique sets accordingly.
-  static void markDateTouchedFromStep5(final File file, {required bool isPrimary}) {
+  static void markDateTouchedFromStep5(
+    final File file, {
+    required final bool isPrimary,
+  }) {
     final p = file.path;
     _touchedFiles.add(p);
     _dateTouchedFiles.add(p);
@@ -49,7 +57,10 @@ class ExifWriterService with LoggerMixin {
     }
   }
 
-  static void markGpsTouchedFromStep5(final File file, {required bool isPrimary}) {
+  static void markGpsTouchedFromStep5(
+    final File file, {
+    required final bool isPrimary,
+  }) {
     final p = file.path;
     _touchedFiles.add(p);
     _gpsTouchedFiles.add(p);
@@ -91,13 +102,15 @@ class ExifWriterService with LoggerMixin {
 
   // ExifTool path (success/fail split by type)
   // IMPORTANT: “Processed” means success + fail (for symmetry with Native).
-  static int exiftoolProcessedFiles = 0;    // success + fail (single or batch)
-  static int exiftoolSuccessFiles = 0;      // success only
-  static int exiftoolFailFiles = 0;         // fail only
+  static int exiftoolProcessedFiles = 0; // success + fail (single or batch)
+  static int exiftoolSuccessFiles = 0; // success only
+  static int exiftoolFailFiles = 0; // fail only
 
   // Routing breakdown for ExifTool
-  static int exiftoolDirectFiles = 0;       // sent directly (non-JPEG or decided to go exiftool)
-  static int exiftoolFallbackFiles = 0;     // routed to exiftool after a native JPEG attempt failed
+  static int exiftoolDirectFiles =
+      0; // sent directly (non-JPEG or decided to go exiftool)
+  static int exiftoolFallbackFiles =
+      0; // routed to exiftool after a native JPEG attempt failed
 
   // ExifTool success by category
   static int exiftoolDateWritten = 0;
@@ -117,14 +130,22 @@ class ExifWriterService with LoggerMixin {
   static Duration exiftoolGpsDur = Duration.zero;
   static Duration exiftoolCombinedDur = Duration.zero;
 
-  static String _fmtSec(final Duration d) => '${(d.inMilliseconds / 1000.0).toStringAsFixed(3)}s';
+  static String _fmtSec(final Duration d) =>
+      '${(d.inMilliseconds / 1000.0).toStringAsFixed(3)}s';
 
   /// Print instrumentation lines; reset counters optionally.
-  static void dumpWriterStats({final bool reset = true, final LoggerMixin? logger}) {
+  static void dumpWriterStats({
+    final bool reset = true,
+    final LoggerMixin? logger,
+  }) {
     // Native totals: processed = successes + fails
     final int nativeProcessed =
-        nativeDateWritten + nativeGpsWritten + nativeCombinedWritten +
-        nativeDateFails + nativeGpsFails + nativeCombinedFails;
+        nativeDateWritten +
+        nativeGpsWritten +
+        nativeCombinedWritten +
+        nativeDateFails +
+        nativeGpsFails +
+        nativeCombinedFails;
 
     final lines = <String>[
       '[WRITE-EXIF] Native  : totalFiles=$nativeProcessed, dateWritten=$nativeDateWritten, gpsWritten=$nativeGpsWritten, combinedWritten=$nativeCombinedWritten, dateFails=$nativeDateFails, gpsFails=$nativeGpsFails, combinedFails=$nativeCombinedFails, dateTime=${_fmtSec(nativeDateTimeDur)}, gpsTime=${_fmtSec(nativeGpsDur)}, combinedTime=${_fmtSec(nativeCombinedDur)}',
@@ -178,24 +199,61 @@ class ExifWriterService with LoggerMixin {
 
   /// Heuristic: determine if this exiftool write looks like a fallback after a native JPEG attempt.
   /// In current Step 5 implementation, tags for JPEG are only enqueued when native fails.
-  static bool _looksLikeFallbackToExiftool(final File file, final Map<String, dynamic> tags) {
+  static bool _looksLikeFallbackToExiftool(
+    final File file,
+    final Map<String, dynamic> tags,
+  ) {
     final p = file.path.toLowerCase();
     if (!(p.endsWith('.jpg') || p.endsWith('.jpeg'))) return false;
     final keys = tags.keys;
-    final hasDate = keys.any((k) => k == 'DateTimeOriginal' || k == 'DateTimeDigitized' || k == 'DateTime');
-    final hasGps = keys.any((k) => k == 'GPSLatitude' || k == 'GPSLongitude' || k == 'GPSLatitudeRef' || k == 'GPSLongitudeRef');
+    final hasDate = keys.any(
+      (final k) =>
+          k == 'DateTimeOriginal' ||
+          k == 'DateTimeDigitized' ||
+          k == 'DateTime',
+    );
+    final hasGps = keys.any(
+      (final k) =>
+          k == 'GPSLatitude' ||
+          k == 'GPSLongitude' ||
+          k == 'GPSLatitudeRef' ||
+          k == 'GPSLongitudeRef',
+    );
     return hasDate || hasGps;
   }
 
   /// Classify tag map into (date/gps/combined) for counters.
-  static ({bool isDate, bool isGps, bool isCombined}) _classifyTags(final Map<String, dynamic> tags) {
+  static ({bool isDate, bool isGps, bool isCombined}) _classifyTags(
+    final Map<String, dynamic> tags,
+  ) {
     final keys = tags.keys;
-    final hasDate = keys.any((k) => k == 'DateTimeOriginal' || k == 'DateTimeDigitized' || k == 'DateTime');
-    final hasGps = keys.any((k) => k == 'GPSLatitude' || k == 'GPSLongitude' || k == 'GPSLatitudeRef' || k == 'GPSLongitudeRef');
-    return (isDate: hasDate && !hasGps, isGps: !hasDate && hasGps, isCombined: hasDate && hasGps);
+    final hasDate = keys.any(
+      (final k) =>
+          k == 'DateTimeOriginal' ||
+          k == 'DateTimeDigitized' ||
+          k == 'DateTime',
+    );
+    final hasGps = keys.any(
+      (final k) =>
+          k == 'GPSLatitude' ||
+          k == 'GPSLongitude' ||
+          k == 'GPSLatitudeRef' ||
+          k == 'GPSLongitudeRef',
+    );
+    return (
+      isDate: hasDate && !hasGps,
+      isGps: !hasDate && hasGps,
+      isCombined: hasDate && hasGps,
+    );
   }
 
-  static void _countExiftoolSuccess(final bool isDate, final bool isGps, final bool isCombined, final Duration elapsed, final File file) {
+  static void _countExiftoolSuccess(
+    final bool isDate,
+    final bool isGps,
+    final bool isCombined,
+    final Duration elapsed,
+    final File file,
+  ) {
     exiftoolSuccessFiles++;
     if (isCombined) {
       exiftoolCombinedWritten++;
@@ -215,7 +273,11 @@ class ExifWriterService with LoggerMixin {
     }
   }
 
-  static void _countExiftoolFail(final bool isDate, final bool isGps, final bool isCombined) {
+  static void _countExiftoolFail(
+    final bool isDate,
+    final bool isGps,
+    final bool isCombined,
+  ) {
     exiftoolFailFiles++;
     if (isCombined) {
       exiftoolCombinedFails++;
@@ -231,9 +293,10 @@ class ExifWriterService with LoggerMixin {
   Future<bool> writeTagsWithExifTool(
     final File file,
     final Map<String, dynamic> tags, {
-    final bool countAsCombined = false, // kept for backward compat, but classification below is preferred
-    final bool isDate = false,          // kept for backward compat
-    final bool isGps = false,           // kept for backward compat
+    final bool countAsCombined =
+        false, // kept for backward compat, but classification below is preferred
+    final bool isDate = false, // kept for backward compat
+    final bool isGps = false, // kept for backward compat
   }) async {
     if (tags.isEmpty) return false;
 
@@ -246,7 +309,11 @@ class ExifWriterService with LoggerMixin {
 
     // Count as “processed” no matter success or failure (symmetry with Native).
     exiftoolProcessedFiles++;
-    if (looksFallback) exiftoolFallbackFiles++; else exiftoolDirectFiles++;
+    if (looksFallback) {
+      exiftoolFallbackFiles++;
+    } else {
+      exiftoolDirectFiles++;
+    }
 
     try {
       await _exifTool.writeExifData(file, tags);
@@ -255,7 +322,9 @@ class ExifWriterService with LoggerMixin {
       return true;
     } catch (e) {
       _countExiftoolFail(asDate, asGps, asCombined);
-      logError('Failed to write tags ${tags.keys.toList()} to ${file.path}: $e');
+      logError(
+        'Failed to write tags ${tags.keys.toList()} to ${file.path}: $e',
+      );
       return false;
     }
   }
@@ -270,7 +339,16 @@ class ExifWriterService with LoggerMixin {
     if (batch.isEmpty) return;
 
     // Before running the batch, classify every entry so we can record processed and routing consistently.
-    final entriesMeta = <({File file, bool isDate, bool isGps, bool isCombined, bool isFallback})>[];
+    final entriesMeta =
+        <
+          ({
+            File file,
+            bool isDate,
+            bool isGps,
+            bool isCombined,
+            bool isFallback,
+          })
+        >[];
     int countDate = 0, countGps = 0, countCombined = 0;
     int direct = 0, fallback = 0;
 
@@ -284,8 +362,17 @@ class ExifWriterService with LoggerMixin {
         isCombined: cls.isCombined,
         isFallback: isFallback,
       ));
-      if (cls.isCombined) countCombined++; else if (cls.isDate) countDate++; else if (cls.isGps) countGps++;
-      if (isFallback) fallback++; else direct++;
+      if (cls.isCombined) {
+        countCombined++;
+      } else if (cls.isDate)
+        countDate++;
+      else if (cls.isGps)
+        countGps++;
+      if (isFallback) {
+        fallback++;
+      } else {
+        direct++;
+      }
     }
 
     // Mark all entries as “processed” and attribute routing now (batch is one attempt).
@@ -293,7 +380,10 @@ class ExifWriterService with LoggerMixin {
     exiftoolDirectFiles += direct;
     exiftoolFallbackFiles += fallback;
 
-    final totalTagged = (countDate + countGps + countCombined).clamp(1, 1 << 30); // avoid div/0
+    final totalTagged = (countDate + countGps + countCombined).clamp(
+      1,
+      1 << 30,
+    ); // avoid div/0
     final sw = Stopwatch()..start();
     try {
       if (useArgFileWhenLarge) {
@@ -316,7 +406,9 @@ class ExifWriterService with LoggerMixin {
       if (countGps > 0) {
         exiftoolGpsWritten += countGps;
         exiftoolGpsDur += elapsed * (countGps / totalTagged);
-        logDebug('[WRITE-EXIF] GPS written via exiftool (batch): $countGps files');
+        logDebug(
+          '[WRITE-EXIF] GPS written via exiftool (batch): $countGps files',
+        );
       }
 
       // All entries succeeded → count successes and mark unique files by type.
@@ -348,7 +440,10 @@ class ExifWriterService with LoggerMixin {
     try {
       final Uint8List orig = await file.readAsBytes();
       final exif = decodeJpgExif(orig);
-      if (exif == null || exif.isEmpty) { nativeDateFails++; return false; }
+      if (exif == null || exif.isEmpty) {
+        nativeDateFails++;
+        return false;
+      }
 
       final fmt = DateFormat('yyyy:MM:dd HH:mm:ss');
       final dt = fmt.format(dateTime);
@@ -358,7 +453,10 @@ class ExifWriterService with LoggerMixin {
       exif.exifIfd['DateTimeDigitized'] = dt;
 
       final Uint8List? out = injectJpgExif(orig, exif);
-      if (out == null) { nativeDateFails++; return false; }
+      if (out == null) {
+        nativeDateFails++;
+        return false;
+      }
 
       await file.writeAsBytes(out);
       nativeDateWritten++;
@@ -381,7 +479,10 @@ class ExifWriterService with LoggerMixin {
     try {
       final Uint8List orig = await file.readAsBytes();
       final exif = decodeJpgExif(orig);
-      if (exif == null || exif.isEmpty) { nativeGpsFails++; return false; }
+      if (exif == null || exif.isEmpty) {
+        nativeGpsFails++;
+        return false;
+      }
 
       exif.gpsIfd.gpsLatitude = coords.toDD().latitude;
       exif.gpsIfd.gpsLongitude = coords.toDD().longitude;
@@ -389,7 +490,10 @@ class ExifWriterService with LoggerMixin {
       exif.gpsIfd.gpsLongitudeRef = coords.longDirection.abbreviation;
 
       final Uint8List? out = injectJpgExif(orig, exif);
-      if (out == null) { nativeGpsFails++; return false; }
+      if (out == null) {
+        nativeGpsFails++;
+        return false;
+      }
 
       await file.writeAsBytes(out);
       nativeGpsWritten++;
@@ -414,7 +518,10 @@ class ExifWriterService with LoggerMixin {
     try {
       final Uint8List orig = await file.readAsBytes();
       final exif = decodeJpgExif(orig);
-      if (exif == null || exif.isEmpty) { nativeCombinedFails++; return false; }
+      if (exif == null || exif.isEmpty) {
+        nativeCombinedFails++;
+        return false;
+      }
 
       final fmt = DateFormat('yyyy:MM:dd HH:mm:ss');
       final dt = fmt.format(dateTime);
@@ -429,7 +536,10 @@ class ExifWriterService with LoggerMixin {
       exif.gpsIfd.gpsLongitudeRef = coords.longDirection.abbreviation;
 
       final Uint8List? out = injectJpgExif(orig, exif);
-      if (out == null) { nativeCombinedFails++; return false; }
+      if (out == null) {
+        nativeCombinedFails++;
+        return false;
+      }
 
       await file.writeAsBytes(out);
       nativeCombinedWritten++;

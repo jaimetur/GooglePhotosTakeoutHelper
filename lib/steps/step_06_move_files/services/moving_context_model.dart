@@ -1,7 +1,7 @@
 import 'dart:io';
 
-import 'package:path/path.dart' as path;
 import 'package:gpth/gpth-lib.dart';
+import 'package:path/path.dart' as path;
 
 /// Domain model representing the context for moving operations
 ///

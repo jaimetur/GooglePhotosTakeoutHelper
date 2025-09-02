@@ -3,10 +3,12 @@
 /// Extracted from utils.dart to provide a clean, reusable set of extensions
 /// for file operations throughout the application.
 library;
+
 import 'dart:io';
+
+import 'package:gpth/gpth-lib.dart';
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
-import 'package:gpth/gpth-lib.dart';
 
 /// Extension methods for `Iterable<FileSystemEntity>`
 extension FileSystemEntityIterableExtension on Iterable<FileSystemEntity> {

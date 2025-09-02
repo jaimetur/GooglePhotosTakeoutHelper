@@ -137,8 +137,12 @@ class ExtractDatesStep extends ProcessingStep with LoggerMixin {
       final collection = context.mediaCollection;
 
       // --- Parity with previous implementation: explicit “threads” (concurrency) log.
-      final maxConcurrency = ConcurrencyManager().concurrencyFor(ConcurrencyOperation.exif);
-      print('[Step 4/8] Starting $maxConcurrency threads (exif date extraction concurrency)');
+      final maxConcurrency = ConcurrencyManager().concurrencyFor(
+        ConcurrencyOperation.exif,
+      );
+      print(
+        '[Step 4/8] Starting $maxConcurrency threads (exif date extraction concurrency)',
+      );
 
       // Build extractor callables bound to File (as in your config), but we will decide
       // per extractor whether to probe primary only (EXIF) or primary+secondaries (others).
@@ -153,7 +157,7 @@ class ExtractDatesStep extends ProcessingStep with LoggerMixin {
         DateTimeExtractionMethod.folderYear,
       ];
 
-      DateAccuracy _accuracyFor(final DateTimeExtractionMethod method) {
+      DateAccuracy accuracyFor(final DateTimeExtractionMethod method) {
         switch (method) {
           case DateTimeExtractionMethod.json:
             return DateAccuracy.fromInt(1);
@@ -173,29 +177,48 @@ class ExtractDatesStep extends ProcessingStep with LoggerMixin {
       // Stats + progress (same semantics as before)
       final extractionStats = <DateTimeExtractionMethod, int>{};
       var completed = 0;
-      final progressBar = FillingBar(desc: '[Step 4/8] Processing media files', total: collection.length, width: 50);
+      final progressBar = FillingBar(
+        desc: '[Step 4/8] Processing media files',
+        total: collection.length,
+        width: 50,
+      );
 
       for (int i = 0; i < collection.length; i += maxConcurrency) {
-        final batch = collection.asList().skip(i).take(maxConcurrency).toList(growable: false);
+        final batch = collection
+            .asList()
+            .skip(i)
+            .take(maxConcurrency)
+            .toList(growable: false);
         final batchStartIndex = i;
 
-        final futures = batch.asMap().entries.map((entry) async {
+        final futures = batch.asMap().entries.map((final entry) async {
           final batchIndex = entry.key;
           final media = entry.value;
           final actualIndex = batchStartIndex + batchIndex;
 
           // If already has a date, keep it (parity with previous behavior)
           if (media.dateTaken != null) {
-            final method = media.dateTimeExtractionMethod ?? DateTimeExtractionMethod.none;
-            return {'index': actualIndex, 'mediaFile': media, 'extractionMethod': method};
+            final method =
+                media.dateTimeExtractionMethod ?? DateTimeExtractionMethod.none;
+            return {
+              'index': actualIndex,
+              'mediaFile': media,
+              'extractionMethod': method,
+            };
           }
 
           DateTime? foundDate;
           DateTimeExtractionMethod methodUsed = DateTimeExtractionMethod.none;
 
           // Iterate extractors in priority order
-          for (int extractorIndex = 0; extractorIndex < fileExtractors.length; extractorIndex++) {
-            final method = extractorIndex < extractorMethods.length ? extractorMethods[extractorIndex] : DateTimeExtractionMethod.guess;
+          for (
+            int extractorIndex = 0;
+            extractorIndex < fileExtractors.length;
+            extractorIndex++
+          ) {
+            final method = extractorIndex < extractorMethods.length
+                ? extractorMethods[extractorIndex]
+                : DateTimeExtractionMethod.guess;
             final extractor = fileExtractors[extractorIndex];
 
             try {
@@ -223,23 +246,38 @@ class ExtractDatesStep extends ProcessingStep with LoggerMixin {
                 if (foundDate != null) break;
               }
             } catch (e) {
-              logWarning('Extractor failed for ${_safePath(media.primaryFile.asFile())}: $e', forcePrint: true);
+              logWarning(
+                'Extractor failed for ${_safePath(media.primaryFile.asFile())}: $e',
+                forcePrint: true,
+              );
             }
           }
 
           // Build updated entity with entity-level date/accuracy/method
-          final DateAccuracy acc = _accuracyFor(foundDate != null ? methodUsed : DateTimeExtractionMethod.none);
+          final DateAccuracy acc = accuracyFor(
+            foundDate != null ? methodUsed : DateTimeExtractionMethod.none,
+          );
           final MediaEntity updated = media.withDate(
             dateTaken: foundDate ?? media.dateTaken,
             dateAccuracy: acc,
-            dateTimeExtractionMethod: foundDate != null ? methodUsed : DateTimeExtractionMethod.none,
+            dateTimeExtractionMethod: foundDate != null
+                ? methodUsed
+                : DateTimeExtractionMethod.none,
           );
 
           if (foundDate != null) {
-            logDebug('Date extracted for ${media.primaryFile.path}: $foundDate (method: ${methodUsed.name}, accuracy: ${acc.value})');
+            logDebug(
+              'Date extracted for ${media.primaryFile.path}: $foundDate (method: ${methodUsed.name}, accuracy: ${acc.value})',
+            );
           }
 
-          return {'index': actualIndex, 'mediaFile': updated, 'extractionMethod': foundDate != null ? methodUsed : DateTimeExtractionMethod.none};
+          return {
+            'index': actualIndex,
+            'mediaFile': updated,
+            'extractionMethod': foundDate != null
+                ? methodUsed
+                : DateTimeExtractionMethod.none,
+          };
         });
 
         final results = await Future.wait(futures);
@@ -262,8 +300,17 @@ class ExtractDatesStep extends ProcessingStep with LoggerMixin {
       print('');
       print('[Step 4/8] Date extraction completed:');
       print('\n[Step 4/8] === Date Extraction Summary ===');
-      final byName = <String, int>{for (final e in extractionStats.entries) e.key.name: e.value};
-      const order = ['json', 'exif', 'guess', 'jsonTryHard', 'folderYear', 'none'];
+      final byName = <String, int>{
+        for (final e in extractionStats.entries) e.key.name: e.value,
+      };
+      const order = [
+        'json',
+        'exif',
+        'guess',
+        'jsonTryHard',
+        'folderYear',
+        'none',
+      ];
       for (final k in order) {
         print('\t\t\t$k: ${byName[k] ?? 0} files');
       }
@@ -272,14 +319,22 @@ class ExtractDatesStep extends ProcessingStep with LoggerMixin {
       ExifDateExtractor.dumpStats(
         reset: true,
         loggerMixin: this,
-        exiftoolFallbackEnabled: ServiceContainer.instance.globalConfig.fallbackToExifToolOnNativeMiss == true,
+        exiftoolFallbackEnabled:
+            ServiceContainer
+                .instance
+                .globalConfig
+                .fallbackToExifToolOnNativeMiss ==
+            true,
       );
 
       sw.stop();
       return StepResult.success(
         stepName: name,
         duration: sw.elapsed,
-        data: {'extractionStats': extractionStats, 'processedMedia': collection.length},
+        data: {
+          'extractionStats': extractionStats,
+          'processedMedia': collection.length,
+        },
         message: 'Extracted dates for ${collection.length} files',
       );
     } catch (e) {
@@ -294,7 +349,8 @@ class ExtractDatesStep extends ProcessingStep with LoggerMixin {
   }
 
   @override
-  bool shouldSkip(final ProcessingContext context) => context.mediaCollection.isEmpty;
+  bool shouldSkip(final ProcessingContext context) =>
+      context.mediaCollection.isEmpty;
 
   String _safePath(final File f) {
     try {

@@ -1,7 +1,8 @@
 import 'dart:io';
+
+import 'package:gpth/gpth-lib.dart';
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as path;
-import 'package:gpth/gpth-lib.dart';
 
 /// Step 2: Discover and classify media files
 ///
@@ -124,7 +125,9 @@ class DiscoverMediaStep extends ProcessingStep {
         extrasSkipped = result.removedCount;
 
         if (context.config.verbose) {
-          print('Skipped $extrasSkipped extra files due to skipExtras configuration');
+          print(
+            'Skipped $extrasSkipped extra files due to skipExtras configuration',
+          );
         }
       }
 
@@ -199,7 +202,7 @@ class DiscoverMediaStep extends ProcessingStep {
 
         final entity = MediaEntity.single(
           file: mediaFile,
-          partnershared: isPartnerShared,
+          partnerShared: isPartnerShared,
         );
 
         context.mediaCollection.add(entity);
@@ -221,9 +224,12 @@ class DiscoverMediaStep extends ProcessingStep {
         final parentDir = path.dirname(mediaFile.sourcePath);
         final entity = MediaEntity.single(
           file: mediaFile,
-          partnershared: isPartnerShared,
+          partnerShared: isPartnerShared,
           belongToAlbums: {
-            albumName: AlbumInfo(name: albumName, sourceDirectories: {parentDir})
+            albumName: AlbumInfo(
+              name: albumName,
+              sourceDirectories: {parentDir},
+            ),
           },
         );
 
@@ -296,7 +302,8 @@ class DiscoverMediaStep extends ProcessingStep {
         }
       }
     } else {
-      await for (final file in directory.list(recursive: true).wherePhotoVideo()) {
+      await for (final file
+          in directory.list(recursive: true).wherePhotoVideo()) {
         yield FileEntity(sourcePath: file.path);
       }
     }

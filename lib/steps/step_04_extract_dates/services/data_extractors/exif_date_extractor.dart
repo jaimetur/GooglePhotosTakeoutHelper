@@ -1,9 +1,10 @@
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
+
 import 'package:exif_reader/exif_reader.dart';
-import 'package:mime/mime.dart';
 import 'package:gpth/gpth-lib.dart';
+import 'package:mime/mime.dart';
 
 class _SmartReadResult {
   _SmartReadResult(this.bytes, this.usedHeadOnly);
@@ -29,29 +30,29 @@ class ExifDateExtractor with LoggerMixin {
   // ────────────────────────────────────────────────────────────────────────────
   // Instrumentation (per-process static counters + timers)
   // ────────────────────────────────────────────────────────────────────────────
-  static int _total = 0;                            // files attempted by this extractor
-  static int _videoDirect = 0;                      // direct exiftool route due to video/*
+  static int _total = 0; // files attempted by this extractor
+  static int _videoDirect = 0; // direct exiftool route due to video/*
 
-  static int _dictTried = 0;                        // tries of dictionary lookups
-  static int _dictHit = 0;                          // found a valid date
-  static int _dictMiss = 0;                         // not found or not valid date
+  static int _dictTried = 0; // tries of dictionary lookups
+  static int _dictHit = 0; // found a valid date
+  static int _dictMiss = 0; // not found or not valid date
   static Duration _dictDuration = Duration.zero;
 
-  static int _nativeSupported = 0;                  // files with a native-supported MIME
+  static int _nativeSupported = 0; // files with a native-supported MIME
   static int _nativeUnsupported =
       0; // files routed to exiftool due to unsupported/unknown MIME
-  static int _nativeHeadReads = 0;                  // native fast head-only reads
-  static int _nativeFullReads = 0;                  // native full-file reads
-  static int _nativeTried = 0;                      // equals _mimeNativeSupported
-  static int _nativeHit = 0;                        // native returned a valid DateTime
-  static int _nativeMiss = 0;                       // native returned null
+  static int _nativeHeadReads = 0; // native fast head-only reads
+  static int _nativeFullReads = 0; // native full-file reads
+  static int _nativeTried = 0; // equals _mimeNativeSupported
+  static int _nativeHit = 0; // native returned a valid DateTime
+  static int _nativeMiss = 0; // native returned null
 
-  static int _exiftoolDirectTried = 0;              // tried exiftool directly (videos/unsupported)
-  static int _exiftoolDirectHit = 0;                // exiftool direct found a date
-  static int _exiftoolFallbackTried = 0;            // native miss re-tried via exiftool
-  static int _exiftoolFallbackHit = 0;              // fallback succeeded
-  static int _exiftoolFail = 0;                     // exiftool returned null or threw
-
+  static int _exiftoolDirectTried =
+      0; // tried exiftool directly (videos/unsupported)
+  static int _exiftoolDirectHit = 0; // exiftool direct found a date
+  static int _exiftoolFallbackTried = 0; // native miss re-tried via exiftool
+  static int _exiftoolFallbackHit = 0; // fallback succeeded
+  static int _exiftoolFail = 0; // exiftool returned null or threw
 
   static Duration _nativeDuration = Duration.zero;
   static Duration _exiftoolDuration = Duration.zero;
@@ -68,13 +69,13 @@ class ExifDateExtractor with LoggerMixin {
     final LoggerMixin? loggerMixin,
     final bool exiftoolFallbackEnabled = false,
   }) {
-    final line_calls =
+    final lineCalls =
         '[READ-EXIF] Calls=$_total | videos=$_videoDirect | nativeSupported=$_nativeSupported | unsupported=$_nativeUnsupported';
-    final line_dict =
+    final lineDict =
         '[READ-EXIF] ExternalDict: tried=$_dictTried, hit=$_dictHit, miss=$_dictMiss, time=${_fmtSec(_dictDuration)}';
-    final line_native =
+    final lineNative =
         '[READ-EXIF] Native: tried=$_nativeTried, hit=$_nativeHit, miss=$_nativeMiss, headReads=$_nativeHeadReads, fullReads=$_nativeFullReads, time=${_fmtSec(_nativeDuration)}';
-    final line_exiftool =
+    final lineExiftool =
         '[READ-EXIF] Exiftool: directTried=$_exiftoolDirectTried , directHit=$_exiftoolDirectHit, fallbackTried=$_exiftoolFallbackTried, fallbackHit=$_exiftoolFallbackHit, errors=$_exiftoolFail, time=${_fmtSec(_exiftoolDuration)} (exiftoolFallbackEnabled = $exiftoolFallbackEnabled)';
 
     // Only show the dictionary stats line when a global fileDatesDictionary is present
@@ -88,21 +89,21 @@ class ExifDateExtractor with LoggerMixin {
 
     if (loggerMixin != null) {
       print('');
-      loggerMixin.logInfo(line_calls, forcePrint: true);
+      loggerMixin.logInfo(lineCalls, forcePrint: true);
       if (showDictLine) {
-        loggerMixin.logInfo(line_dict, forcePrint: true);
+        loggerMixin.logInfo(lineDict, forcePrint: true);
       }
-      loggerMixin.logInfo(line_native, forcePrint: true);
-      loggerMixin.logInfo(line_exiftool, forcePrint: true);
+      loggerMixin.logInfo(lineNative, forcePrint: true);
+      loggerMixin.logInfo(lineExiftool, forcePrint: true);
       print('');
     } else {
       print('');
-      print(line_calls);
+      print(lineCalls);
       if (showDictLine) {
-        print(line_dict);
+        print(lineDict);
       }
-      print(line_native);
-      print(line_exiftool);
+      print(lineNative);
+      print(lineExiftool);
       print('');
     }
 

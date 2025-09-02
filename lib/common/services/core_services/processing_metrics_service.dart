@@ -19,23 +19,25 @@ class ProcessingMetricsService {
     switch (albumOption) {
       case 'shortcut':
       case 'duplicate-copy':
-      case 'reverse-shortcut': {
-        int total = 0;
-        for (final MediaEntity e in collection.media) {
-          total += 1 + e.albumNames.length;
+      case 'reverse-shortcut':
+        {
+          int total = 0;
+          for (final MediaEntity e in collection.media) {
+            total += 1 + e.albumNames.length;
+          }
+          return total;
         }
-        return total;
-      }
       case 'json':
         return collection.media.length;
 
-      case 'nothing': {
-        int total = 0;
-        for (final MediaEntity e in collection.media) {
-          if (_entityHasYearBasedFiles(e)) total++;
+      case 'nothing':
+        {
+          int total = 0;
+          for (final MediaEntity e in collection.media) {
+            if (_entityHasYearBasedFiles(e)) total++;
+          }
+          return total;
         }
-        return total;
-      }
 
       default:
         throw ArgumentError.value(
@@ -86,7 +88,10 @@ class ProcessingMetricsService {
       'json',
       'nothing',
     ]) {
-      stats['outputCount_$option'] = calculateOutputFileCount(collection, option);
+      stats['outputCount_$option'] = calculateOutputFileCount(
+        collection,
+        option,
+      );
     }
 
     return stats;
@@ -109,10 +114,10 @@ class ProcessingMetricsService {
   bool _pathLooksYearBased(final String p) {
     final s = p.replaceAll('\\', '/').toLowerCase();
     // Common localized patterns for Google Takeout year folders
-    if (RegExp(r'/photos from \d{4}/').hasMatch(s)) return true;   // English
-    if (RegExp(r'/fotos de \d{4}/').hasMatch(s)) return true;      // Spanish
-    if (RegExp(r'/fotos del \d{4}/').hasMatch(s)) return true;     // Spanish alt.
-    if (RegExp(r'/fotos desde \d{4}/').hasMatch(s)) return true;   // Spanish alt.
+    if (RegExp(r'/photos from \d{4}/').hasMatch(s)) return true; // English
+    if (RegExp(r'/fotos de \d{4}/').hasMatch(s)) return true; // Spanish
+    if (RegExp(r'/fotos del \d{4}/').hasMatch(s)) return true; // Spanish alt.
+    if (RegExp(r'/fotos desde \d{4}/').hasMatch(s)) return true; // Spanish alt.
     return false;
   }
 }

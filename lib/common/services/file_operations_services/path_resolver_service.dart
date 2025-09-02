@@ -63,7 +63,9 @@ class PathResolverService {
     final inputDir = Directory(normalizedInput);
 
     if (!inputDir.existsSync()) {
-      throw DirectoryNotFoundException('Input directory does not exist: $normalizedInput');
+      throw DirectoryNotFoundException(
+        'Input directory does not exist: $normalizedInput',
+      );
     }
 
     // Try the current path first - maybe it's already the Google Photos directory
@@ -113,16 +115,18 @@ class PathResolverService {
       final contents = directory.listSync();
 
       // Look for "Photos from YYYY" pattern
-      final hasYearFolders = contents
-          .whereType<Directory>()
-          .any((d) => _isYearFolder(d));
+      final hasYearFolders = contents.whereType<Directory>().any(
+        _isYearFolder,
+      );
 
       if (hasYearFolders) {
         return true;
       }
 
       // Alternative: Check for album folders with media files
-      final hasAlbumFolders = contents.whereType<Directory>().any(_hasMediaFiles);
+      final hasAlbumFolders = contents.whereType<Directory>().any(
+        _hasMediaFiles,
+      );
 
       return hasAlbumFolders;
     } catch (e) {
@@ -224,7 +228,9 @@ class PathResolverService {
 
       // Look for any folders or media files
       final hasDirectories = contents.whereType<Directory>().isNotEmpty;
-      final hasFiles = contents.whereType<File>().any((final file) => _isMediaFile(file) || _isJsonFile(file));
+      final hasFiles = contents.whereType<File>().any(
+        (final file) => _isMediaFile(file) || _isJsonFile(file),
+      );
 
       return hasDirectories || hasFiles;
     } catch (e) {
@@ -302,7 +308,8 @@ class PathResolverService {
   ///
   /// @param file File to check
   /// @returns true if this is a JSON metadata file
-  static bool _isJsonFile(final File file) => path.extension(file.path).toLowerCase() == '.json';
+  static bool _isJsonFile(final File file) =>
+      path.extension(file.path).toLowerCase() == '.json';
 
   // ─────────────────────────────────────────────────────────────────────────────
   // NEW: Public path normalizer
@@ -326,7 +333,8 @@ class PathResolverService {
       for (int i = 0; i < segments.length; i++) {
         final seg = segments[i];
         // Keep root segments untouched (e.g., "C:" or "/" or "\\server\share")
-        if (i == 0 && (seg.isEmpty || seg == ctx.separator || seg.endsWith(':'))) {
+        if (i == 0 &&
+            (seg.isEmpty || seg == ctx.separator || seg.endsWith(':'))) {
           fixed.add(seg);
           continue;
         }

@@ -1,15 +1,16 @@
 // lib/io/input_clone_service.dart
 
 import 'dart:io';
-import 'package:path/path.dart' as p;
+
 import 'package:gpth/gpth-lib.dart';
+import 'package:path/path.dart' as p;
 
 /// Service that creates an exact working copy of an input directory.
 /// The copy is placed next to the original directory with a "_tmp" suffix
 /// and is intended to be used as the input for the rest of the run.
 ///
 /// Key points:
-/// - Sibling folder named "<originalName>_tmp" (or _tmp2, _tmp3... if already exists).
+/// - Sibling folder named "originalName_tmp" (or _tmp2, _tmp3... if already exists).
 /// - Recursively copies files and directories, best-effort preservation of timestamps.
 /// - Skips re-copy if the destination path equals the source path.
 /// - Recreates symlinks when possible; if not, falls back to copying the target contents (best-effort).
@@ -17,12 +18,17 @@ import 'package:gpth/gpth-lib.dart';
 class InputCloneService with LoggerMixin {
   /// Creates a sibling working copy of [src] and returns that directory.
   ///
-  /// If "<basename>_tmp" already exists, this will try "<basename>_tmp2", "_tmp3", etc.
+  /// If "basename_tmp" already exists, this will try "basename_tmp2", "_tmp3", etc.
   /// The returned directory will be used as the effective input for the rest of the run.
-  Future<Directory> cloneToSiblingTmp(final Directory src, {final String suffix = '_tmp'}) async {
+  Future<Directory> cloneToSiblingTmp(
+    final Directory src, {
+    final String suffix = '_tmp',
+  }) async {
     final Directory resolvedSrc = Directory(p.normalize(src.path));
     if (!await resolvedSrc.exists()) {
-      throw StateError('Source input directory does not exist: ${resolvedSrc.path}');
+      throw StateError(
+        'Source input directory does not exist: ${resolvedSrc.path}',
+      );
     }
 
     // Compute destination path next to the original folder
@@ -32,7 +38,8 @@ class InputCloneService with LoggerMixin {
 
     // Avoid copying into itself, and pick a unique destination
     int attempt = 1;
-    while (p.equals(candidate, resolvedSrc.path) || await Directory(candidate).exists()) {
+    while (p.equals(candidate, resolvedSrc.path) ||
+        await Directory(candidate).exists()) {
       attempt++;
       candidate = p.join(parent, '$baseName$suffix$attempt');
     }
@@ -48,19 +55,27 @@ class InputCloneService with LoggerMixin {
   // Internals
   // ───────────────────────────────────────────────────────────────────────────
 
-  Future<void> _copyDirectory(final Directory source, final Directory destination) async {
+  Future<void> _copyDirectory(
+    final Directory source,
+    final Directory destination,
+  ) async {
     // Create destination root if missing
     if (!await destination.exists()) {
       await destination.create(recursive: true);
     }
 
     // We copy breadth-first to ensure parent directories exist for files
-    await for (final entity in source.list(recursive: true, followLinks: false)) {
+    await for (final entity in source.list(
+      recursive: true,
+      followLinks: false,
+    )) {
       final String rel = p.relative(entity.path, from: source.path);
       final String targetPath = p.join(destination.path, rel);
 
       try {
-        final FileSystemEntityType type = await entity.stat().then((s) => s.type);
+        final FileSystemEntityType type = await entity.stat().then(
+          (final s) => s.type,
+        );
 
         if (type == FileSystemEntityType.directory) {
           final dir = Directory(targetPath);
@@ -80,7 +95,10 @@ class InputCloneService with LoggerMixin {
               final real = await File(entity.path).resolveSymbolicLinks();
               await _copyFile(File(real), File(targetPath));
             } catch (e) {
-              logWarning('Failed to recreate/copy symlink $rel: $e', forcePrint: true);
+              logWarning(
+                'Failed to recreate/copy symlink $rel: $e',
+                forcePrint: true,
+              );
             }
           }
         } else {
@@ -115,7 +133,10 @@ class InputCloneService with LoggerMixin {
         } catch (_) {}
       } catch (_) {}
     } catch (e) {
-      logWarning('Failed to copy file ${src.path} -> ${dst.path}: $e', forcePrint: true);
+      logWarning(
+        'Failed to copy file ${src.path} -> ${dst.path}: $e',
+        forcePrint: true,
+      );
     }
   }
 }

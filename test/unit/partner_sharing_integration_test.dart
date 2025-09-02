@@ -165,9 +165,11 @@ void main() {
     group('MediaEntity Partner Sharing Integration', () {
       test('partner shared flag is preserved through path generation', () {
         final file = fixture.createFile('partner_photo.jpg', [1, 2, 3]);
+
+        // Wrap the File in a FileEntity for the new API
         final entity = MediaEntity.single(
-          file: file,
-          partnershared: true,
+          file: FileEntity(sourcePath: file.path),
+          partnerShared: true, // NOTE: property is camelCase now
           dateTaken: DateTime(2023, 5, 15),
         );
 

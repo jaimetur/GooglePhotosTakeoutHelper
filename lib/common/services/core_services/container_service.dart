@@ -1,6 +1,5 @@
 import 'package:gpth/gpth-lib.dart';
 
-
 /// Service container for dependency injection
 ///
 /// Manages the lifecycle of all application services and provides
@@ -34,49 +33,63 @@ class ServiceContainer {
 
   GlobalConfigService get globalConfig {
     if (_globalConfig == null) {
-      throw StateError('ServiceContainer not initialized. Call initialize() first.');
+      throw StateError(
+        'ServiceContainer not initialized. Call initialize() first.',
+      );
     }
     return _globalConfig!;
   }
 
   LoggingService get loggingService {
     if (_loggingService == null) {
-      throw StateError('ServiceContainer not initialized. Call initialize() first.');
+      throw StateError(
+        'ServiceContainer not initialized. Call initialize() first.',
+      );
     }
     return _loggingService!;
   }
 
   FormattingService get utilityService {
     if (_utilityService == null) {
-      throw StateError('ServiceContainer not initialized. Call initialize() first.');
+      throw StateError(
+        'ServiceContainer not initialized. Call initialize() first.',
+      );
     }
     return _utilityService!;
   }
 
   ConsolidatedDiskSpaceService get diskSpaceService {
     if (_diskSpaceService == null) {
-      throw StateError('ServiceContainer not initialized. Call initialize() first.');
+      throw StateError(
+        'ServiceContainer not initialized. Call initialize() first.',
+      );
     }
     return _diskSpaceService!;
   }
 
   ConsolidatedInteractiveService get interactiveService {
     if (_interactiveService == null) {
-      throw StateError('ServiceContainer not initialized. Call initialize() first.');
+      throw StateError(
+        'ServiceContainer not initialized. Call initialize() first.',
+      );
     }
     return _interactiveService!;
   }
 
   DuplicateDetectionService get duplicateDetectionService {
     if (_duplicateDetectionService == null) {
-      throw StateError('ServiceContainer not initialized. Call initialize() first.');
+      throw StateError(
+        'ServiceContainer not initialized. Call initialize() first.',
+      );
     }
     return _duplicateDetectionService!;
   }
 
   AlbumRelationshipService get albumRelationshipService {
     if (_albumRelationshipService == null) {
-      throw StateError('ServiceContainer not initialized. Call initialize() first.');
+      throw StateError(
+        'ServiceContainer not initialized. Call initialize() first.',
+      );
     }
     return _albumRelationshipService!;
   }
@@ -103,9 +116,9 @@ class ServiceContainer {
 
     // Media services
     final mediaHashService = MediaHashService()..logger = _loggingService!;
-    _duplicateDetectionService =
-        DuplicateDetectionService(hashService: mediaHashService)
-          ..logger = _loggingService!;
+    _duplicateDetectionService = DuplicateDetectionService(
+      hashService: mediaHashService,
+    )..logger = _loggingService!;
     _albumRelationshipService = AlbumRelationshipService()
       ..logger = _loggingService!;
 
@@ -137,8 +150,9 @@ class ServiceContainer {
       _loggingService!.info('ExifTool initialized.');
     } else {
       _globalConfig!.exifToolInstalled = false;
-      _loggingService!
-          .warning('Exiftool not found! Continuing without EXIF support...');
+      _loggingService!.warning(
+        'Exiftool not found! Continuing without EXIF support...',
+      );
     }
   }
 

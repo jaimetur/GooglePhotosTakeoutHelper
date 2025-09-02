@@ -49,13 +49,13 @@ class ProcessingPipeline {
 
     // Define the 8 processing steps in the new fixed order
     final steps = [
-      FixExtensionsStep(),   // Step 1
-      DiscoverMediaStep(),   // Step 2
-      RemoveDuplicatesStep(),// Step 3
-      ExtractDatesStep(),    // Step 4
-      FindAlbumsStep(),      // Step 5
-      MoveFilesStep(),       // Step 6
-      WriteExifStep(),       // Step 7  (after moving)
+      const FixExtensionsStep(), // Step 1
+      const DiscoverMediaStep(), // Step 2
+      RemoveDuplicatesStep(), // Step 3
+      ExtractDatesStep(), // Step 4
+      FindAlbumsStep(), // Step 5
+      const MoveFilesStep(), // Step 6
+      WriteExifStep(), // Step 7  (after moving)
       UpdateCreationTimeStep(), // Step 8
     ];
 
@@ -150,7 +150,8 @@ class ProcessingPipeline {
         }
 
         // Stop after extension fixing in solo mode
-        if (step is FixExtensionsStep && !config.shouldContinueAfterExtensionFix) {
+        if (step is FixExtensionsStep &&
+            !config.shouldContinueAfterExtensionFix) {
           if (config.verbose) {
             print(
               '\n⚠️  Extension fixing solo mode complete, stopping pipeline execution',
@@ -183,12 +184,15 @@ class ProcessingPipeline {
     overallStopwatch.stop();
 
     // Calculate final statistics
-    final successfulSteps =
-        stepResults.where((final StepResult r) => r.isSuccess).length;
-    final failedSteps =
-        stepResults.where((final StepResult r) => !r.isSuccess).length;
-    final skippedSteps =
-        stepResults.where((final StepResult r) => r.data['skipped'] == true).length;
+    final successfulSteps = stepResults
+        .where((final StepResult r) => r.isSuccess)
+        .length;
+    final failedSteps = stepResults
+        .where((final StepResult r) => !r.isSuccess)
+        .length;
+    final skippedSteps = stepResults
+        .where((final StepResult r) => r.data['skipped'] == true)
+        .length;
     final totalProcessingTime = overallStopwatch.elapsed;
 
     if (config.verbose && interactiveService != null) {

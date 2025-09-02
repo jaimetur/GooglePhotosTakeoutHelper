@@ -1,9 +1,9 @@
 import 'dart:io';
+
 import 'package:collection/collection.dart';
+import 'package:gpth/gpth-lib.dart';
 import 'package:path/path.dart' as path;
 import 'package:unorm_dart/unorm_dart.dart' as unorm;
-import 'package:gpth/gpth-lib.dart';
-
 
 /// Service for finding corresponding JSON metadata files for media files
 ///
@@ -15,7 +15,8 @@ import 'package:gpth/gpth-lib.dart';
 /// false matches while maximizing success rate.
 class JsonMetadataMatcherService with LoggerMixin {
   /// EditedVersionDetectorService instance for handling extra format operations
-  static const EditedVersionDetectorService _extrasService = EditedVersionDetectorService();
+  static const EditedVersionDetectorService _extrasService =
+      EditedVersionDetectorService();
 
   /// Attempts to find the corresponding JSON file for a media file
   ///
@@ -59,9 +60,9 @@ class JsonMetadataMatcherService with LoggerMixin {
         // Calculate all possible truncations based on available space
         final List<String> truncatedSuffixes =
             _generateTruncatedSupplementalSuffixes(
-          processedName,
-          maxLength: 51,
-        );
+              processedName,
+              maxLength: 51,
+            );
 
         for (final suffix in truncatedSuffixes) {
           final File truncatedFile = File(
@@ -443,7 +444,9 @@ String _removeExtraComplete(final String filename) {
   // https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/pull/247
   final String normalizedFilename = unorm.nfc(filename);
   final String ext = path.extension(normalizedFilename);
-  final String nameWithoutExt = path.basenameWithoutExtension(normalizedFilename);
+  final String nameWithoutExt = path.basenameWithoutExtension(
+    normalizedFilename,
+  );
 
   for (final String extra in extraFormats) {
     // Check for exact suffix match with optional digit pattern

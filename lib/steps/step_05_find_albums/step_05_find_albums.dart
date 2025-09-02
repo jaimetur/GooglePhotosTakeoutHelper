@@ -208,9 +208,11 @@ class FindAlbumsStep extends ProcessingStep with LoggerMixin {
             final String parent = _safeParentDir(e.primaryFile);
             final AlbumInfo patched = info.addSourceDir(parent);
             if (!identical(updated, albums) || changed) {
-              updated = Map<String, AlbumInfo>.from(updated)..[entry.key] = patched;
+              updated = Map<String, AlbumInfo>.from(updated)
+                ..[entry.key] = patched;
             } else {
-              updated = Map<String, AlbumInfo>.from(albums)..[entry.key] = patched;
+              updated = Map<String, AlbumInfo>.from(albums)
+                ..[entry.key] = patched;
             }
             enrichedAlbumInfos++;
             changed = true;
@@ -240,7 +242,7 @@ class FindAlbumsStep extends ProcessingStep with LoggerMixin {
 
       final int totalAlbums = albumCounts.length;
       final int finalCount = collection.length;
-      final int mergedCount = 0; // no entity-level merges in the new model
+      const int mergedCount = 0; // no entity-level merges in the new model
 
       print('[Step 5/8] Media with album associations: $mediaWithAlbums');
       print('[Step 5/8] Distinct album folders detected: $totalAlbums');
@@ -260,7 +262,8 @@ class FindAlbumsStep extends ProcessingStep with LoggerMixin {
           'albumCounts': albumCounts,
           'enrichedAlbumInfos': enrichedAlbumInfos,
         },
-        message: 'Found $totalAlbums different albums ($mergedCount albums were merged)',
+        message:
+            'Found $totalAlbums different albums ($mergedCount albums were merged)',
       );
     } catch (e) {
       sw.stop();
@@ -274,7 +277,8 @@ class FindAlbumsStep extends ProcessingStep with LoggerMixin {
   }
 
   @override
-  bool shouldSkip(final ProcessingContext context) => context.mediaCollection.isEmpty;
+  bool shouldSkip(final ProcessingContext context) =>
+      context.mediaCollection.isEmpty;
 
   // ───────────────────────────── Helpers ─────────────────────────────
 

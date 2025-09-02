@@ -6,7 +6,7 @@ import 'package:gpth/gpth-lib.dart';
 /// lives inside each step's `execute`.
 class MediaEntityCollection with LoggerMixin {
   MediaEntityCollection([final List<MediaEntity>? initial])
-      : _media = initial?.toList(growable: true) ?? <MediaEntity>[];
+    : _media = initial?.toList(growable: true) ?? <MediaEntity>[];
 
   final List<MediaEntity> _media;
 
@@ -86,9 +86,9 @@ class MediaEntityCollection with LoggerMixin {
   /// Returns:
   /// { 'coordinatesWritten': <int>, 'dateTimesWritten': <int> }
   Future<Map<String, int>> writeExifData({
-    ProcessingConfig? config,
-    Directory? inputDirectory,
-    Directory? outputDirectory,
+    final ProcessingConfig? config,
+    final Directory? inputDirectory,
+    final Directory? outputDirectory,
   }) async {
     final StepResult res = await _runStep(
       step: WriteExifStep(),
@@ -109,9 +109,9 @@ class MediaEntityCollection with LoggerMixin {
   ///
   /// Returns the number of removed duplicates when available, otherwise 0.
   Future<int> removeDuplicates({
-    ProcessingConfig? config,
-    Directory? inputDirectory,
-    Directory? outputDirectory,
+    final ProcessingConfig? config,
+    final Directory? inputDirectory,
+    final Directory? outputDirectory,
   }) async {
     final StepResult res = await _runStep(
       step: RemoveDuplicatesStep(),
@@ -135,9 +135,9 @@ class MediaEntityCollection with LoggerMixin {
   /// Returns a normalized map of counters when present, otherwise an empty map.
   /// Keys usually include: 'filesProcessed', 'validDates', 'invalidDates', etc.
   Future<Map<String, int>> extractDates({
-    ProcessingConfig? config,
-    Directory? inputDirectory,
-    Directory? outputDirectory,
+    final ProcessingConfig? config,
+    final Directory? inputDirectory,
+    final Directory? outputDirectory,
   }) async {
     final StepResult res = await _runStep(
       step: ExtractDatesStep(),
@@ -167,9 +167,9 @@ class MediaEntityCollection with LoggerMixin {
   ///
   /// Returns the number of merged groups when available, and replaces internal list if the step provides it.
   Future<int> findAlbums({
-    ProcessingConfig? config,
-    Directory? inputDirectory,
-    Directory? outputDirectory,
+    final ProcessingConfig? config,
+    final Directory? inputDirectory,
+    final Directory? outputDirectory,
   }) async {
     final StepResult res = await _runStep(
       step: FindAlbumsStep(),
@@ -219,8 +219,10 @@ class MediaEntityCollection with LoggerMixin {
       totalFiles += 1 + mediaEntity.secondaryFiles.length;
 
       // Track extraction method distribution
-      final method = mediaEntity.dateTimeExtractionMethod ?? DateTimeExtractionMethod.none;
-      extractionMethodDistribution[method] = (extractionMethodDistribution[method] ?? 0) + 1;
+      final method =
+          mediaEntity.dateTimeExtractionMethod ?? DateTimeExtractionMethod.none;
+      extractionMethodDistribution[method] =
+          (extractionMethodDistribution[method] ?? 0) + 1;
     }
 
     return ProcessingStatistics(
@@ -238,9 +240,9 @@ class MediaEntityCollection with LoggerMixin {
 
   Future<StepResult> _runStep({
     required final ProcessingStep step,
-    ProcessingConfig? config,
-    Directory? inputDirectory,
-    Directory? outputDirectory,
+    final ProcessingConfig? config,
+    final Directory? inputDirectory,
+    final Directory? outputDirectory,
   }) async {
     final ProcessingConfig cfg = _resolveConfig(config);
     final Directory inDir = inputDirectory ?? Directory.current;
@@ -253,7 +255,7 @@ class MediaEntityCollection with LoggerMixin {
       outputDirectory: outDir,
     );
 
-    return await step.execute(ctx);
+    return step.execute(ctx);
   }
 
   /// Resolves a ProcessingConfig, casting ServiceContainer.instance.globalConfig
@@ -274,7 +276,7 @@ class MediaEntityCollection with LoggerMixin {
   Map<String, dynamic> _asMap(final Object? data) {
     if (data is Map<String, dynamic>) return data;
     if (data is Map) {
-      return Map<String, dynamic>.from(data.map((k, v) => MapEntry('$k', v)));
+      return Map<String, dynamic>.from(data.map((final k, final v) => MapEntry('$k', v)));
     }
     return const <String, dynamic>{};
   }

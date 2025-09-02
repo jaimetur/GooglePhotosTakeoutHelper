@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:gpth/gpth-lib.dart';
 
-
 /// Service for handling interactive user interface and console interactions
 ///
 /// Extracted from interactive.dart to separate UI concerns from core business logic.
@@ -784,7 +783,9 @@ class InteractivePresenterService with LoggerMixin {
         print('You selected: 2 - No, work on the original input');
         return false;
       }
-      await showInvalidAnswerError('Please type 1, 2 or press enter for default');
+      await showInvalidAnswerError(
+        'Please type 1, 2 or press enter for default',
+      );
     }
   }
 }

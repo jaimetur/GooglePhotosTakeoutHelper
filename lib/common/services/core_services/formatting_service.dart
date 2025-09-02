@@ -1,6 +1,7 @@
 import 'dart:io';
-import 'package:proper_filesize/proper_filesize.dart';
+
 import 'package:gpth/gpth-lib.dart';
+import 'package:proper_filesize/proper_filesize.dart';
 
 /// Consolidated utility service for common formatting and utility operations
 ///
@@ -41,12 +42,16 @@ class FormattingService {
     final minutes = seconds ~/ 60;
     final remainingSeconds = seconds % 60;
     if (minutes < 60) {
-      return remainingSeconds > 0 ? '${minutes}m ${remainingSeconds}s' : '${minutes}m';
+      return remainingSeconds > 0
+          ? '${minutes}m ${remainingSeconds}s'
+          : '${minutes}m';
     }
 
     final hours = minutes ~/ 60;
     final remainingMinutes = minutes % 60;
-    return remainingMinutes > 0 ? '${hours}h ${remainingMinutes}m' : '${hours}h';
+    return remainingMinutes > 0
+        ? '${hours}h ${remainingMinutes}m'
+        : '${hours}h';
   }
 
   /// Formats an integer with thousands separators.
@@ -54,9 +59,9 @@ class FormattingService {
   /// [number] The number to format.
   /// Returns a string like "1,234,567".
   String formatNumber(final int number) => number.toString().replaceAllMapped(
-        RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-        (final Match m) => '${m[1]},',
-      );
+    RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+    (final Match m) => '${m[1]},',
+  );
 
   // ============================================================================
   // FILE OPERATIONS
@@ -125,13 +130,17 @@ class FormattingService {
   /// Validates that a file exists and is readable.
   FormattingValidationResult validateFile(final File file) {
     if (!file.existsSync()) {
-      return FormattingValidationResult.failure('File does not exist: ${file.path}');
+      return FormattingValidationResult.failure(
+        'File does not exist: ${file.path}',
+      );
     }
     try {
       final raf = file.openSync();
       raf.closeSync();
     } catch (_) {
-      return FormattingValidationResult.failure('File is not accessible: ${file.path}');
+      return FormattingValidationResult.failure(
+        'File is not accessible: ${file.path}',
+      );
     }
     return const FormattingValidationResult.success();
   }
@@ -242,10 +251,10 @@ class FormattingService {
   bool _pathLooksYearBased(final String p) {
     final s = p.replaceAll('\\', '/').toLowerCase();
     // Common localized patterns for Google Takeout year folders
-    if (RegExp(r'/photos from \d{4}/').hasMatch(s)) return true;   // English
-    if (RegExp(r'/fotos de \d{4}/').hasMatch(s)) return true;      // Spanish
-    if (RegExp(r'/fotos del \d{4}/').hasMatch(s)) return true;     // Spanish alt.
-    if (RegExp(r'/fotos desde \d{4}/').hasMatch(s)) return true;   // Spanish alt.
+    if (RegExp(r'/photos from \d{4}/').hasMatch(s)) return true; // English
+    if (RegExp(r'/fotos de \d{4}/').hasMatch(s)) return true; // Spanish
+    if (RegExp(r'/fotos del \d{4}/').hasMatch(s)) return true; // Spanish alt.
+    if (RegExp(r'/fotos desde \d{4}/').hasMatch(s)) return true; // Spanish alt.
     return false;
   }
 }
@@ -286,7 +295,7 @@ class FormattingValidationResult {
 
   /// Creates a failed validation result with a message.
   const FormattingValidationResult.failure(final String message)
-      : this._(isSuccess: false, message: message);
+    : this._(isSuccess: false, message: message);
 
   /// Whether the validation was successful.
   final bool isSuccess;

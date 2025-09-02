@@ -39,13 +39,13 @@ class MediaEntity {
   /// secondary, and duplicates according to the rules described above.
   factory MediaEntity({
     required final FileEntity primaryFile,
-    List<FileEntity>? secondaryFiles,
-    List<FileEntity>? duplicatesFiles,
+    final List<FileEntity>? secondaryFiles,
+    final List<FileEntity>? duplicatesFiles,
     final DateTime? dateTaken,
     final DateAccuracy? dateAccuracy,
     final DateTimeExtractionMethod? dateTimeExtractionMethod,
     final bool partnershared = false,
-    Map<String, AlbumInfo>? belongToAlbums,
+    final Map<String, AlbumInfo>? belongToAlbums,
   }) {
     final all = <FileEntity>[
       primaryFile,
@@ -73,19 +73,18 @@ class MediaEntity {
     final DateTime? dateTaken,
     final DateAccuracy? dateAccuracy,
     final DateTimeExtractionMethod? dateTimeExtractionMethod,
-    final bool partnershared = false,
-    Map<String, AlbumInfo>? belongToAlbums,
-  }) =>
-      MediaEntity(
-        primaryFile: file,
-        secondaryFiles: const <FileEntity>[],
-        duplicatesFiles: const <FileEntity>[],
-        dateTaken: dateTaken,
-        dateAccuracy: dateAccuracy,
-        dateTimeExtractionMethod: dateTimeExtractionMethod,
-        partnershared: partnershared,
-        belongToAlbums: belongToAlbums,
-      );
+    final bool partnerShared = false,
+    final Map<String, AlbumInfo>? belongToAlbums,
+  }) => MediaEntity(
+    primaryFile: file,
+    secondaryFiles: const <FileEntity>[],
+    duplicatesFiles: const <FileEntity>[],
+    dateTaken: dateTaken,
+    dateAccuracy: dateAccuracy,
+    dateTimeExtractionMethod: dateTimeExtractionMethod,
+    partnershared: partnerShared,
+    belongToAlbums: belongToAlbums,
+  );
 
   /// Private internal constructor used after normalization.
   const MediaEntity._internal({
@@ -160,17 +159,22 @@ class MediaEntity {
   int get duplicatesCount => duplicatesFiles.length;
 
   /// Returns all secondary files.
-  List<FileEntity> getSecondaries() => List<FileEntity>.unmodifiable(secondaryFiles);
+  List<FileEntity> getSecondaries() =>
+      List<FileEntity>.unmodifiable(secondaryFiles);
 
   /// Returns all duplicate files.
-  List<FileEntity> getDuplicates() => List<FileEntity>.unmodifiable(duplicatesFiles);
+  List<FileEntity> getDuplicates() =>
+      List<FileEntity>.unmodifiable(duplicatesFiles);
 
   /// Returns the total number of files in the entity.
   int get totalFilesCount => 1 + secondaryFiles.length + duplicatesFiles.length;
 
   /// Returns all files in the entity, including the primary one.
-  List<FileEntity> getAllFiles() =>
-      <FileEntity>[primaryFile, ...secondaryFiles, ...duplicatesFiles];
+  List<FileEntity> getAllFiles() => <FileEntity>[
+    primaryFile,
+    ...secondaryFiles,
+    ...duplicatesFiles,
+  ];
 
   /// Returns the best-ranked file (i.e., the current primary).
   FileEntity getBestRankedFile() => primaryFile;
@@ -178,12 +182,12 @@ class MediaEntity {
   /// Returns a copy swapping the given `secondary` with the current `primary`.
   /// The former primary becomes a secondary; normalization is applied afterward.
   MediaEntity swapPrimaryWithSecondary(final FileEntity secondary) {
-    if (!secondaryFiles.any((f) => _sameIdentity(f, secondary))) return this;
+    if (!secondaryFiles.any((final f) => _sameIdentity(f, secondary))) return this;
     final all = getAllFiles();
     // Promote the provided secondary by lowering its ranking to beat all others.
     final promoted = _withRankingAdjusted(secondary, -1);
     final replacedAll = all
-        .map((f) => _sameIdentity(f, secondary) ? promoted : f)
+        .map((final f) => _sameIdentity(f, secondary) ? promoted : f)
         .toList(growable: false);
     final normalized = _normalizeAndSplit(replacedAll);
     return _copyWithFiles(normalized);
@@ -198,18 +202,17 @@ class MediaEntity {
     final DateTime? dateTaken,
     final DateAccuracy? dateAccuracy,
     final DateTimeExtractionMethod? dateTimeExtractionMethod,
-  }) =>
-      MediaEntity._internal(
-        primaryFile: primaryFile,
-        secondaryFiles: secondaryFiles,
-        duplicatesFiles: duplicatesFiles,
-        dateTaken: dateTaken ?? this.dateTaken,
-        dateAccuracy: dateAccuracy ?? this.dateAccuracy,
-        dateTimeExtractionMethod:
-            dateTimeExtractionMethod ?? this.dateTimeExtractionMethod,
-        partnerShared: partnerShared,
-        belongToAlbums: belongToAlbums,
-      );
+  }) => MediaEntity._internal(
+    primaryFile: primaryFile,
+    secondaryFiles: secondaryFiles,
+    duplicatesFiles: duplicatesFiles,
+    dateTaken: dateTaken ?? this.dateTaken,
+    dateAccuracy: dateAccuracy ?? this.dateAccuracy,
+    dateTimeExtractionMethod:
+        dateTimeExtractionMethod ?? this.dateTimeExtractionMethod,
+    partnerShared: partnerShared,
+    belongToAlbums: belongToAlbums,
+  );
 
   /// Returns a copy with album membership updated/added (metadata only).
   MediaEntity withAlbumInfo(final String albumName, {final String? sourceDir}) {
@@ -218,12 +221,13 @@ class MediaEntity {
     final updated = (existing == null)
         ? AlbumInfo(
             name: albumName,
-            sourceDirectories:
-                sourceDir != null && sourceDir.isNotEmpty ? {sourceDir} : const {},
+            sourceDirectories: sourceDir != null && sourceDir.isNotEmpty
+                ? {sourceDir}
+                : const {},
           )
         : (sourceDir != null && sourceDir.isNotEmpty
-            ? existing.addSourceDir(sourceDir)
-            : existing);
+              ? existing.addSourceDir(sourceDir)
+              : existing);
 
     final next = Map<String, AlbumInfo>.from(belongToAlbums)
       ..[albumName] = updated;
@@ -244,7 +248,7 @@ class MediaEntity {
   /// entity will be normalized, so it might become primary or duplicate.
   MediaEntity withSecondaryFile(final FileEntity file) {
     final all = getAllFiles();
-    if (all.any((f) => _sameIdentity(f, file))) return this;
+    if (all.any((final f) => _sameIdentity(f, file))) return this;
 
     final rankedNew = _withRankingComputed(file, all);
     final normalized = _normalizeAndSplit([...all, rankedNew]);
@@ -257,10 +261,11 @@ class MediaEntity {
   /// to become the best-ranked candidate before splitting again.
   MediaEntity withPrimaryFile(final FileEntity newPrimary) {
     final all = getAllFiles();
-    if (!all.any((f) => _sameIdentity(f, newPrimary))) return this;
+    if (!all.any((final f) => _sameIdentity(f, newPrimary))) return this;
     final forcedBest = _withRankingAdjusted(newPrimary, -1);
-    final replacedAll =
-        all.map((f) => _sameIdentity(f, newPrimary) ? forcedBest : f).toList();
+    final replacedAll = all
+        .map((final f) => _sameIdentity(f, newPrimary) ? forcedBest : f)
+        .toList();
     final normalized = _normalizeAndSplit(replacedAll);
     return _copyWithFiles(normalized);
   }
@@ -279,7 +284,9 @@ class MediaEntity {
     }
     for (final e in other.belongToAlbums.entries) {
       final existing = mergedAlbums[e.key];
-      mergedAlbums[e.key] = existing == null ? e.value : existing.merge(e.value);
+      mergedAlbums[e.key] = existing == null
+          ? e.value
+          : existing.merge(e.value);
     }
 
     // 2) Pick the best date/accuracy/method
@@ -314,11 +321,11 @@ class MediaEntity {
     // 3) Merge files by identity (sourcePath + targetPath + isShortcut)
     final mergedAll = <FileEntity>[];
     void addUnique(final FileEntity f) {
-      if (!mergedAll.any((x) => _sameIdentity(x, f))) mergedAll.add(f);
+      if (!mergedAll.any((final x) => _sameIdentity(x, f))) mergedAll.add(f);
     }
 
-    for (final f in getAllFiles()) addUnique(f);
-    for (final f in other.getAllFiles()) addUnique(f);
+    getAllFiles().forEach(addUnique);
+    other.getAllFiles().forEach(addUnique);
 
     final normalized = _normalizeAndSplit(mergedAll);
 
@@ -343,14 +350,16 @@ class MediaEntity {
     if (!_sameIdentity(other.primaryFile, primaryFile)) return false;
 
     final samePartner = other.partnerShared == partnerShared;
-    final sameDate = other.dateTaken == dateTaken &&
+    final sameDate =
+        other.dateTaken == dateTaken &&
         other.dateAccuracy == dateAccuracy &&
         other.dateTimeExtractionMethod == dateTimeExtractionMethod;
 
     // Compare album keys only (cheap structural equality)
     final aKeys = belongToAlbums.keys.toSet();
     final bKeys = other.belongToAlbums.keys.toSet();
-    final sameAlbumKeys = aKeys.length == bKeys.length && aKeys.containsAll(bKeys);
+    final sameAlbumKeys =
+        aKeys.length == bKeys.length && aKeys.containsAll(bKeys);
 
     // Compare secondaries and duplicates by identity sets
     bool listEq(final List<FileEntity> a, final List<FileEntity> b) {
@@ -362,26 +371,31 @@ class MediaEntity {
     final sameSecondaries = listEq(secondaryFiles, other.secondaryFiles);
     final sameDuplicates = listEq(duplicatesFiles, other.duplicatesFiles);
 
-    return samePartner && sameDate && sameAlbumKeys && sameSecondaries && sameDuplicates;
+    return samePartner &&
+        sameDate &&
+        sameAlbumKeys &&
+        sameSecondaries &&
+        sameDuplicates;
   }
 
   @override
   int get hashCode => Object.hash(
-        _fileIdentityKey(primaryFile),
-        dateTaken,
-        dateAccuracy,
-        dateTimeExtractionMethod,
-        partnerShared,
-        Object.hashAllUnordered(belongToAlbums.keys),
-        Object.hashAllUnordered(secondaryFiles.map(_fileIdentityKey)),
-        Object.hashAllUnordered(duplicatesFiles.map(_fileIdentityKey)),
-      );
+    _fileIdentityKey(primaryFile),
+    dateTaken,
+    dateAccuracy,
+    dateTimeExtractionMethod,
+    partnerShared,
+    Object.hashAllUnordered(belongToAlbums.keys),
+    Object.hashAllUnordered(secondaryFiles.map(_fileIdentityKey)),
+    Object.hashAllUnordered(duplicatesFiles.map(_fileIdentityKey)),
+  );
 
   @override
   String toString() {
     final dateInfo = dateTaken != null ? ', dateTaken: $dateTaken' : '';
-    final accuracyInfo =
-        dateAccuracy != null ? ' (${dateAccuracy!.description})' : '';
+    final accuracyInfo = dateAccuracy != null
+        ? ' (${dateAccuracy!.description})'
+        : '';
     final partnerInfo = partnerShared ? ', partnershared: true' : '';
     final albumsCount = albumNames.length;
     final secondaries = secondaryFiles.length;
@@ -397,11 +411,13 @@ class MediaEntity {
     // 1) Deduplicate by identity
     final all = <FileEntity>[];
     for (final f in allRaw) {
-      if (!all.any((x) => _sameIdentity(x, f))) all.add(f);
+      if (!all.any((final x) => _sameIdentity(x, f))) all.add(f);
     }
 
     // 2) Compute preliminary ranking for shape-compat (not decisive anymore).
-    final prelim = all.map((f) => _withRankingComputed(f, all)).toList(growable: false);
+    final prelim = all
+        .map((final f) => _withRankingComputed(f, all))
+        .toList(growable: false);
 
     // 3) Determine final order:
     //    - Any negative `ranking` means "force to the front" (used by withPrimaryFile)
@@ -412,13 +428,15 @@ class MediaEntity {
     final ranked = <FileEntity>[];
     for (var i = 0; i < ordered.length; i++) {
       final f = ordered[i];
-      ranked.add(FileEntity(
-        sourcePath: f.sourcePath,
-        targetPath: f.targetPath,
-        isShortcut: f.isShortcut,
-        dateAccuracy: f.dateAccuracy,
-        ranking: i + 1,
-      ));
+      ranked.add(
+        FileEntity(
+          sourcePath: f.sourcePath,
+          targetPath: f.targetPath,
+          isShortcut: f.isShortcut,
+          dateAccuracy: f.dateAccuracy,
+          ranking: i + 1,
+        ),
+      );
     }
 
     // 5) Select primary (rank 1 wins)
@@ -460,11 +478,18 @@ class MediaEntity {
       }
     }
 
-    return _SplitResult(primary: primary, secondaries: secondaries, duplicates: duplicates);
+    return _SplitResult(
+      primary: primary,
+      secondaries: secondaries,
+      duplicates: duplicates,
+    );
   }
 
   /// Compute or refresh ranking for `file` against the full set `all`.
-  static FileEntity _withRankingComputed(final FileEntity file, final List<FileEntity> all) {
+  static FileEntity _withRankingComputed(
+    final FileEntity file,
+    final List<FileEntity> all,
+  ) {
     final rank = _computeRanking(file);
     // produce a new FileEntity with updated ranking (keeping all other fields)
     return FileEntity(
@@ -478,15 +503,16 @@ class MediaEntity {
   }
 
   /// Adjust ranking to a specific value (used to force a promotion).
-  static FileEntity _withRankingAdjusted(final FileEntity file, final int ranking) {
-    return FileEntity(
+  static FileEntity _withRankingAdjusted(
+    final FileEntity file,
+    final int ranking,
+  ) => FileEntity(
       sourcePath: file.sourcePath,
       targetPath: file.targetPath,
       isShortcut: file.isShortcut,
       dateAccuracy: file.dateAccuracy,
       ranking: ranking,
     );
-  }
 
   /// Ranking calculation:
   /// - Prefer year-folder (canonical) over album-folder
@@ -495,10 +521,7 @@ class MediaEntity {
   ///
   /// IMPORTANT: This function now returns a **provisional** value only.
   /// Final ranks are assigned **sequentially (1..N)** inside `_normalizeAndSplit`.
-  static int _computeRanking(final FileEntity f) {
-    // Keep returning 0 to avoid leaking an absolute score. Ordering is decided later.
-    return 0;
-  }
+  static int _computeRanking(final FileEntity f) => 0; // Keep returning 0 to avoid leaking an absolute score. Ordering is decided later.
 
   /// Comparator: by ranking, then by path (stable)
   static int _byRankingThenPath(final FileEntity a, final FileEntity b) {
@@ -544,11 +567,9 @@ class MediaEntity {
     return <FileEntity>[...forced, ...regular];
   }
 
-  static bool _sameIdentity(final FileEntity a, final FileEntity b) {
-    return a.sourcePath == b.sourcePath &&
+  static bool _sameIdentity(final FileEntity a, final FileEntity b) => a.sourcePath == b.sourcePath &&
         a.targetPath == b.targetPath &&
         a.isShortcut == b.isShortcut;
-  }
 
   static String _fileIdentityKey(final FileEntity f) =>
       '${f.isShortcut ? 'S' : 'F'}|${f.targetPath ?? ''}|${f.sourcePath}';
@@ -565,7 +586,7 @@ class MediaEntity {
     return idx < 0 ? normalized : normalized.substring(idx + 1);
   }
 
-  static bool _pathIsInYearFolder(String p) {
+  static bool _pathIsInYearFolder(final String p) {
     final normalized = p.replaceAll('\\', '/');
     final segments = normalized.split('/');
 
@@ -584,15 +605,15 @@ class MediaEntity {
   }
 
   MediaEntity _copyWithFiles(final _SplitResult norm) => MediaEntity._internal(
-        primaryFile: norm.primary,
-        secondaryFiles: norm.secondaries,
-        duplicatesFiles: norm.duplicates,
-        dateTaken: dateTaken,
-        dateAccuracy: dateAccuracy,
-        dateTimeExtractionMethod: dateTimeExtractionMethod,
-        partnerShared: partnerShared,
-        belongToAlbums: belongToAlbums,
-      );
+    primaryFile: norm.primary,
+    secondaryFiles: norm.secondaries,
+    duplicatesFiles: norm.duplicates,
+    dateTaken: dateTaken,
+    dateAccuracy: dateAccuracy,
+    dateTimeExtractionMethod: dateTimeExtractionMethod,
+    partnerShared: partnerShared,
+    belongToAlbums: belongToAlbums,
+  );
 }
 
 /// Helper container for normalized split.
@@ -611,10 +632,8 @@ class _SplitResult {
 /// Strongly-typed album metadata for a media entity.
 /// Kept minimal on purpose but easily extensible (cover, description, id, etc.).
 class AlbumInfo {
-  const AlbumInfo({
-    required this.name,
-    Set<String>? sourceDirectories,
-  }) : sourceDirectories = sourceDirectories ?? const {};
+  const AlbumInfo({required this.name, final Set<String>? sourceDirectories})
+    : sourceDirectories = sourceDirectories ?? const {};
 
   /// Album display/name key (already sanitized by the discovery layer).
   final String name;
@@ -634,10 +653,12 @@ class AlbumInfo {
   AlbumInfo merge(final AlbumInfo other) {
     if (other.name != name) return this;
     if (other.sourceDirectories.isEmpty) return this;
-    final next = Set<String>.from(sourceDirectories)..addAll(other.sourceDirectories);
+    final next = Set<String>.from(sourceDirectories)
+      ..addAll(other.sourceDirectories);
     return AlbumInfo(name: name, sourceDirectories: next);
   }
 
   @override
-  String toString() => 'AlbumInfo(name: $name, dirs: ${sourceDirectories.length})';
+  String toString() =>
+      'AlbumInfo(name: $name, dirs: ${sourceDirectories.length})';
 }

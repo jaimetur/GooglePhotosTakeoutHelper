@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:gpth/gpth-lib.dart';
 
-
 /// Domain service for handling interactive configuration logic
 ///
 /// This service contains the business logic for configuring the processing
@@ -47,7 +46,9 @@ class InteractiveConfigurationService {
     final directory = Directory(path);
 
     if (!directory.existsSync()) {
-      return InteractiveValidationResult.failure('Directory does not exist: $path');
+      return InteractiveValidationResult.failure(
+        'Directory does not exist: $path',
+      );
     }
 
     final takeoutDir = Directory('$path/Takeout');
@@ -72,7 +73,9 @@ class InteractiveConfigurationService {
         directory.createSync(recursive: true);
         return InteractiveValidationResult.success();
       } catch (e) {
-        return InteractiveValidationResult.failure('Cannot create output directory: $e');
+        return InteractiveValidationResult.failure(
+          'Cannot create output directory: $e',
+        );
       }
     }
 
@@ -103,11 +106,15 @@ class InteractiveConfigurationService {
 
     for (final zip in zipFiles) {
       if (!zip.existsSync()) {
-        return InteractiveValidationResult.failure('ZIP file does not exist: ${zip.path}');
+        return InteractiveValidationResult.failure(
+          'ZIP file does not exist: ${zip.path}',
+        );
       }
 
       if (zip.lengthSync() == 0) {
-        return InteractiveValidationResult.failure('ZIP file is empty: ${zip.path}');
+        return InteractiveValidationResult.failure(
+          'ZIP file is empty: ${zip.path}',
+        );
       }
     }
 
@@ -153,9 +160,13 @@ class InteractiveConfigurationService {
 
 /// Result of a validation operation
 class InteractiveValidationResult {
-  const InteractiveValidationResult._({required this.isValid, this.errorMessage});
+  const InteractiveValidationResult._({
+    required this.isValid,
+    this.errorMessage,
+  });
 
-  factory InteractiveValidationResult.success() => const InteractiveValidationResult._(isValid: true);
+  factory InteractiveValidationResult.success() =>
+      const InteractiveValidationResult._(isValid: true);
 
   factory InteractiveValidationResult.failure(final String message) =>
       InteractiveValidationResult._(isValid: false, errorMessage: message);

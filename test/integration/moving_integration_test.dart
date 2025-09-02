@@ -26,18 +26,27 @@ void main() {
     });
 
     test('moving service processes media entities without UnimplementedError', () async {
-      // Entity 1: normal (solo año)
+      // Entity 1: normal (year-only)
       final f1 = fixture.createFile('2023/test1.jpg', [1, 2, 3]);
-      final e1 = MediaEntity.single(file: f1, dateTaken: DateTime(2023, 6, 15));
+      final e1 = MediaEntity.single(
+        file: FileEntity(sourcePath: f1.path),
+        dateTaken: DateTime(2023, 6, 15),
+      );
 
-      // Entity 2: mismo contenido en año + álbum → se fusiona en una entidad con albumNames=['Vacation']
+      // Entity 2: same content in year + album → merged into one entity with albumNames=['Vacation']
       final bytes2 = [4, 5, 6];
       final f2Year = fixture.createFile('2023/test2.jpg', bytes2);
       final f2Album = fixture.createFile('Albums/Vacation/test2.jpg', bytes2);
 
       final merged = await albumSvc.detectAndMergeAlbums([
-        MediaEntity.single(file: f2Year, dateTaken: DateTime(2023, 7, 20)),
-        MediaEntity.single(file: f2Album, dateTaken: DateTime(2023, 7, 20)),
+        MediaEntity.single(
+          file: FileEntity(sourcePath: f2Year.path),
+          dateTaken: DateTime(2023, 7, 20),
+        ),
+        MediaEntity.single(
+          file: FileEntity(sourcePath: f2Album.path),
+          dateTaken: DateTime(2023, 7, 20),
+        ),
       ]);
       final e2 = merged.single;
 
@@ -52,23 +61,29 @@ void main() {
 
       final movingService = MediaEntityMovingService();
 
-      // No debe lanzar UnimplementedError
+      // Should not throw UnimplementedError
       expect(() async {
         await for (final _ in movingService.moveMediaEntities(collection, context)) {
-          // progreso
+          // progress
         }
       }, returnsNormally);
     });
 
     test('shortcut strategy creates expected directory structure', () async {
-      // Simula año + álbum (mismo contenido) y fusiona en una sola entidad
+      // Simulate year + album (same content) and merge into a single entity
       final bytes = [1, 2, 3];
       final y = fixture.createFile('2023/vacation_photo.jpg', bytes);
       final a = fixture.createFile('Albums/Summer Vacation/vacation_photo.jpg', bytes);
 
       final merged = await albumSvc.detectAndMergeAlbums([
-        MediaEntity.single(file: y, dateTaken: DateTime(2023, 8, 15)),
-        MediaEntity.single(file: a, dateTaken: DateTime(2023, 8, 15)),
+        MediaEntity.single(
+          file: FileEntity(sourcePath: y.path),
+          dateTaken: DateTime(2023, 8, 15),
+        ),
+        MediaEntity.single(
+          file: FileEntity(sourcePath: a.path),
+          dateTaken: DateTime(2023, 8, 15),
+        ),
       ]);
       final entity = merged.single;
 
@@ -90,24 +105,30 @@ void main() {
 
       expect(processedCount, equals(1));
 
-      // Verifica ALL_PHOTOS
+      // Verify ALL_PHOTOS directory
       final allPhotosDir = Directory('${outputDir.path}/ALL_PHOTOS/2023');
       expect(allPhotosDir.existsSync(), isTrue);
 
-      // Verifica carpeta de álbum (aplanada)
+      // Verify flattened album directory
       final albumDir = Directory('${outputDir.path}/Summer Vacation');
       expect(albumDir.existsSync(), isTrue);
     });
 
     test('json strategy creates albums-info.json', () async {
-      // Año + álbum (mismo contenido) → una sola entidad tras merge
+      // Year + album (same content) → single merged entity
       final bytes = [1, 2, 3];
       final y = fixture.createFile('2023/family_photo.jpg', bytes);
       final a = fixture.createFile('Albums/Family/family_photo.jpg', bytes);
 
       final merged = await albumSvc.detectAndMergeAlbums([
-        MediaEntity.single(file: y, dateTaken: DateTime(2023, 9, 10)),
-        MediaEntity.single(file: a, dateTaken: DateTime(2023, 9, 10)),
+        MediaEntity.single(
+          file: FileEntity(sourcePath: y.path),
+          dateTaken: DateTime(2023, 9, 10),
+        ),
+        MediaEntity.single(
+          file: FileEntity(sourcePath: a.path),
+          dateTaken: DateTime(2023, 9, 10),
+        ),
       ]);
       final entity = merged.single;
 
@@ -122,10 +143,10 @@ void main() {
       final movingService = MediaEntityMovingService();
 
       await for (final _ in movingService.moveMediaEntities(collection, context)) {
-        // progreso
+        // progress
       }
 
-      // Debe existir el JSON de álbumes
+      // albums-info.json must exist
       final jsonFile = File('${outputDir.path}/albums-info.json');
       expect(jsonFile.existsSync(), isTrue);
     });
@@ -133,7 +154,10 @@ void main() {
     test('all album behaviors work without errors', () async {
       for (final behavior in AlbumBehavior.values) {
         final f = fixture.createFile('2023/test_${behavior.value}.jpg', [1, 2, 3]);
-        final e = MediaEntity.single(file: f, dateTaken: DateTime(2023, 6, 15));
+        final e = MediaEntity.single(
+          file: FileEntity(sourcePath: f.path),
+          dateTaken: DateTime(2023, 6, 15),
+        );
 
         final collection = MediaEntityCollection([e]);
         final outputDir = fixture.createDirectory('output_${behavior.value}');
@@ -148,7 +172,7 @@ void main() {
         expect(
           () async {
             await for (final _ in movingService.moveMediaEntities(collection, context)) {
-              // progreso
+              // progress
             }
           },
           returnsNormally,

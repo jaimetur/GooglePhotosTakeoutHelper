@@ -17,21 +17,24 @@ void main() {
 
     // Helpers ────────────────────────────────────────────────────────────────
     // Creates a year-only entity with the provided bytes.
-    Future<MediaEntity> _yearOnly({
-      required String path,
-      required List<int> bytes,
-      DateTime? date,
+    Future<MediaEntity> yearOnly({
+      required final String path,
+      required final List<int> bytes,
+      final DateTime? date,
     }) async {
       final file = fixture.createFile(path, Uint8List.fromList(bytes));
-      return MediaEntity.single(file: file, dateTaken: date);
+      return MediaEntity.single(
+        file: FileEntity(sourcePath: file.path),
+        dateTaken: date,
+      );
     }
 
     // Creates an album-only entity (under Albums/<album>/...) with the provided bytes.
-    Future<MediaEntity> _albumOnly({
-      required String album,
-      required String name,
-      required List<int> bytes,
-      DateTime? date,
+    Future<MediaEntity> albumOnly({
+      required final String album,
+      required final String name,
+      required final List<int> bytes,
+      final DateTime? date,
     }) async {
       final fAlbum = fixture.createFile(
         'Albums/$album/$name',
@@ -39,28 +42,41 @@ void main() {
       );
       // No year file, so this is album-only.
       final merged = await albumSvc.detectAndMergeAlbums([
-        MediaEntity.single(file: fAlbum, dateTaken: date),
+        MediaEntity.single(
+          file: FileEntity(sourcePath: fAlbum.path),
+          dateTaken: date,
+        ),
       ]);
       return merged.single;
     }
 
     // Creates an entity with year + multiple albums (each album has its own path).
-    Future<MediaEntity> _yearPlusAlbums({
-      required String yearPath,
-      required String name,
-      required List<String> albums,
-      required List<int> bytes,
+    Future<MediaEntity> yearPlusAlbums({
+      required final String yearPath,
+      required final String name,
+      required final List<String> albums,
+      required final List<int> bytes,
       final DateTime? date,
     }) async {
       final entities = <MediaEntity>[];
       final fYear = fixture.createFile(yearPath, Uint8List.fromList(bytes));
-      entities.add(MediaEntity.single(file: fYear, dateTaken: date));
+      entities.add(
+        MediaEntity.single(
+          file: FileEntity(sourcePath: fYear.path),
+          dateTaken: date,
+        ),
+      );
       for (final a in albums) {
         final fAlbum = fixture.createFile(
           'Albums/$a/$name',
           Uint8List.fromList(bytes),
         );
-        entities.add(MediaEntity.single(file: fAlbum, dateTaken: date));
+        entities.add(
+          MediaEntity.single(
+            file: FileEntity(sourcePath: fAlbum.path),
+            dateTaken: date,
+          ),
+        );
       }
       final merged = await albumSvc.detectAndMergeAlbums(entities);
       return merged.single;
@@ -82,7 +98,7 @@ void main() {
     group('calculateOutputFileCount', () {
       test('calculates correctly for shortcut option (keeping 4)', () async {
         // A: year-only → 1 association
-        final eA = await _yearOnly(
+        final eA = await yearOnly(
           path: '2023/photo1.jpg',
           bytes: [1, 1, 1],
         );
@@ -98,13 +114,13 @@ void main() {
           Uint8List.fromList(bytesB),
         );
         final mergedB = await albumSvc.detectAndMergeAlbums([
-          MediaEntity.single(file: fB1),
-          MediaEntity.single(file: fB2),
+          MediaEntity.single(file: FileEntity(sourcePath: fB1.path)),
+          MediaEntity.single(file: FileEntity(sourcePath: fB2.path)),
         ]);
         final eB = mergedB.single;
 
         // C: year-only → 1 association
-        final eC = await _yearOnly(
+        final eC = await yearOnly(
           path: '2023/photo3.jpg',
           bytes: [3, 3, 3],
         );
@@ -118,7 +134,7 @@ void main() {
 
       test('calculates correctly for duplicate-copy option', () async {
         // A: year-only → 1
-        final eA = await _yearOnly(
+        final eA = await yearOnly(
           path: '2023/photo1.jpg',
           bytes: [4, 4, 4],
         );
@@ -134,12 +150,14 @@ void main() {
           Uint8List.fromList(bytesB),
         );
         final eB = (await albumSvc.detectAndMergeAlbums([
-          MediaEntity.single(file: fB1),
-          MediaEntity.single(file: fB2),
-        ])).single;
+          MediaEntity.single(file: FileEntity(sourcePath: fB1.path)),
+          MediaEntity.single(file: FileEntity(sourcePath: fB2.path)),
+        ]))
+            .single;
 
         final collection = MediaEntityCollection([eA, eB]);
-        final result = service.calculateOutputFileCount(collection, 'duplicate-copy');
+        final result =
+            service.calculateOutputFileCount(collection, 'duplicate-copy');
 
         // 1 + 2 = 3
         expect(result, equals(3));
@@ -147,7 +165,7 @@ void main() {
 
       test('calculates correctly for reverse-shortcut option', () async {
         // Same as previous: 1 + 2 = 3
-        final eA = await _yearOnly(
+        final eA = await yearOnly(
           path: '2023/photo1.jpg',
           bytes: [6, 6, 6],
         );
@@ -161,9 +179,10 @@ void main() {
           Uint8List.fromList(bytesB),
         );
         final eB = (await albumSvc.detectAndMergeAlbums([
-          MediaEntity.single(file: fB1),
-          MediaEntity.single(file: fB2),
-        ])).single;
+          MediaEntity.single(file: FileEntity(sourcePath: fB1.path)),
+          MediaEntity.single(file: FileEntity(sourcePath: fB2.path)),
+        ]))
+            .single;
 
         final collection = MediaEntityCollection([eA, eB]);
         final result =
@@ -174,7 +193,7 @@ void main() {
 
       test('calculates correctly for json option', () async {
         // JSON counts one per entity
-        final eA = await _yearOnly(path: '2023/photo1.jpg', bytes: [8]);
+        final eA = await yearOnly(path: '2023/photo1.jpg', bytes: [8]);
         final bytesB = [9];
         final fB1 = fixture.createFile(
           'Albums/vacation/photo2.jpg',
@@ -185,10 +204,11 @@ void main() {
           Uint8List.fromList(bytesB),
         );
         final eB = (await albumSvc.detectAndMergeAlbums([
-          MediaEntity.single(file: fB1),
-          MediaEntity.single(file: fB2),
-        ])).single;
-        final eC = await _yearOnly(path: '2023/photo3.jpg', bytes: [10]);
+          MediaEntity.single(file: FileEntity(sourcePath: fB1.path)),
+          MediaEntity.single(file: FileEntity(sourcePath: fB2.path)),
+        ]))
+            .single;
+        final eC = await yearOnly(path: '2023/photo3.jpg', bytes: [10]);
 
         final collection = MediaEntityCollection([eA, eB, eC]);
         final result = service.calculateOutputFileCount(collection, 'json');
@@ -198,8 +218,8 @@ void main() {
       });
 
       test('calculates correctly for nothing option', () async {
-        final eA = await _yearOnly(path: '2023/photo1.jpg', bytes: [11]);
-        final eB = await _yearOnly(path: '2023/photo2.jpg', bytes: [12]);
+        final eA = await yearOnly(path: '2023/photo1.jpg', bytes: [11]);
+        final eB = await yearOnly(path: '2023/photo2.jpg', bytes: [12]);
 
         final collection = MediaEntityCollection([eA, eB]);
         final result = service.calculateOutputFileCount(collection, 'nothing');
@@ -208,7 +228,7 @@ void main() {
       });
 
       test('throws for invalid album option', () async {
-        final e = await _yearOnly(path: '2023/photo.jpg', bytes: [13]);
+        final e = await yearOnly(path: '2023/photo.jpg', bytes: [13]);
         final collection = MediaEntityCollection([e]);
 
         expect(
@@ -228,14 +248,14 @@ void main() {
     group('calculateStatistics', () {
       test('calculates basic statistics correctly', () async {
         // e1: has date
-        final e1 = await _yearOnly(
+        final e1 = await yearOnly(
           path: '2023/photo1.jpg',
           bytes: [21],
           date: DateTime(2023),
         );
 
         // e2: album-only (one album), also has date
-        final e2 = await _albumOnly(
+        final e2 = await albumOnly(
           album: 'vacation',
           name: 'photo2.jpg',
           bytes: [22],
@@ -243,7 +263,7 @@ void main() {
         );
 
         // e3: no date
-        final e3 = await _yearOnly(
+        final e3 = await yearOnly(
           path: '2023/photo3.jpg',
           bytes: [23],
         );
@@ -259,7 +279,7 @@ void main() {
       });
 
       test('includes output counts for all album options', () async {
-        final e = await _yearOnly(path: '2023/photo.jpg', bytes: [24]);
+        final e = await yearOnly(path: '2023/photo.jpg', bytes: [24]);
         final collection = MediaEntityCollection([e]);
 
         final stats = service.calculateStatistics(collection);
@@ -288,10 +308,10 @@ void main() {
 
       test('correctly identifies media with albums', () async {
         // e1: year-only → 1
-        final e1 = await _yearOnly(path: '2023/p1.jpg', bytes: [31]);
+        final e1 = await yearOnly(path: '2023/p1.jpg', bytes: [31]);
 
         // e2: album-only (vacation) → 1
-        final e2 = await _albumOnly(
+        final e2 = await albumOnly(
           album: 'vacation',
           name: 'p2.jpg',
           bytes: [32],
@@ -308,9 +328,10 @@ void main() {
           Uint8List.fromList(bytesE3),
         );
         final e3 = (await albumSvc.detectAndMergeAlbums([
-          MediaEntity.single(file: f1),
-          MediaEntity.single(file: f2),
-        ])).single;
+          MediaEntity.single(file: FileEntity(sourcePath: f1.path)),
+          MediaEntity.single(file: FileEntity(sourcePath: f2.path)),
+        ]))
+            .single;
 
         final collection = MediaEntityCollection([e1, e2, e3]);
         final stats = service.calculateStatistics(collection);
@@ -321,7 +342,7 @@ void main() {
 
       test('counts total files correctly with multiple associations', () async {
         // e1: year + 1 album → 2
-        final e1 = await _yearPlusAlbums(
+        final e1 = await yearPlusAlbums(
           yearPath: '2023/p1.jpg',
           name: 'p1.jpg',
           albums: ['vacation'],
@@ -343,10 +364,11 @@ void main() {
           Uint8List.fromList(bytesE2),
         );
         final e2 = (await albumSvc.detectAndMergeAlbums([
-          MediaEntity.single(file: a),
-          MediaEntity.single(file: b),
-          MediaEntity.single(file: c),
-        ])).single;
+          MediaEntity.single(file: FileEntity(sourcePath: a.path)),
+          MediaEntity.single(file: FileEntity(sourcePath: b.path)),
+          MediaEntity.single(file: FileEntity(sourcePath: c.path)),
+        ]))
+            .single;
 
         final collection = MediaEntityCollection([e1, e2]);
         final stats = service.calculateStatistics(collection);

@@ -19,8 +19,10 @@ class InputOutputPaths {
   const InputOutputPaths({
     required this.inputPath,
     required this.outputPath,
-    this.extractedFromZip = false, // NEW: set to true when the input was produced by ZIP extraction
-    final String? userInputRoot, // NEW: original user-provided root (before resolveGooglePhotosPath)
+    this.extractedFromZip =
+        false, // NEW: set to true when the input was produced by ZIP extraction
+    final String?
+    userInputRoot, // NEW: original user-provided root (before resolveGooglePhotosPath)
   }) : userInputRoot = userInputRoot ?? inputPath;
 
   /// Path to the directory containing Google Photos Takeout media files.
@@ -56,5 +58,9 @@ class InputOutputPaths {
           userInputRoot == other.userInputRoot);
 
   @override
-  int get hashCode => inputPath.hashCode ^ outputPath.hashCode ^ extractedFromZip.hashCode ^ userInputRoot.hashCode;
+  int get hashCode =>
+      inputPath.hashCode ^
+      outputPath.hashCode ^
+      extractedFromZip.hashCode ^
+      userInputRoot.hashCode;
 }

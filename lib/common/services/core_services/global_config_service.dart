@@ -25,7 +25,8 @@ class GlobalConfigService {
   bool skipPrecheckForNonJpegInWriter = false;
 
   // Seppeds up Step 5 by sending files by batches to ExifTool on evey ExifTool call
-  bool enableBatching = true; // Disable this if you observe any abnormal dates in your output files.
+  bool enableBatching =
+      true; // Disable this if you observe any abnormal dates in your output files.
   int maxExifImageBatchSize = 1000;
   int maxExifVideoBatchSize = 24;
 
@@ -86,29 +87,64 @@ class GlobalConfigService {
   /// Unknown keys are ignored. Values are validated and coerced when safe.
   void applyOverrides(final Map<String, dynamic> overrides) {
     // Booleans
-    if (overrides.containsKey('isVerbose')) isVerbose = _asBool(overrides['isVerbose'], isVerbose);
-    if (overrides.containsKey('enforceMaxFileSize')) enforceMaxFileSize = _asBool(overrides['enforceMaxFileSize'], enforceMaxFileSize);
-    if (overrides.containsKey('exifToolInstalled')) exifToolInstalled = _asBool(overrides['exifToolInstalled'], exifToolInstalled);
-    if (overrides.containsKey('fallbackToExifToolOnNativeMiss')) fallbackToExifToolOnNativeMiss = _asBool(overrides['fallbackToExifToolOnNativeMiss'], fallbackToExifToolOnNativeMiss);
-    if (overrides.containsKey('skipPrecheckForNonJpegInWriter')) skipPrecheckForNonJpegInWriter = _asBool(overrides['skipPrecheckForNonJpegInWriter'], skipPrecheckForNonJpegInWriter);
-    if (overrides.containsKey('enableBatching')) enableBatching = _asBool(overrides['enableBatching'], enableBatching);
+    if (overrides.containsKey('isVerbose')) {
+      isVerbose = _asBool(overrides['isVerbose'], isVerbose);
+    }
+    if (overrides.containsKey('enforceMaxFileSize')) {
+      enforceMaxFileSize = _asBool(
+        overrides['enforceMaxFileSize'],
+        enforceMaxFileSize,
+      );
+    }
+    if (overrides.containsKey('exifToolInstalled')) {
+      exifToolInstalled = _asBool(
+        overrides['exifToolInstalled'],
+        exifToolInstalled,
+      );
+    }
+    if (overrides.containsKey('fallbackToExifToolOnNativeMiss')) {
+      fallbackToExifToolOnNativeMiss = _asBool(
+        overrides['fallbackToExifToolOnNativeMiss'],
+        fallbackToExifToolOnNativeMiss,
+      );
+    }
+    if (overrides.containsKey('skipPrecheckForNonJpegInWriter')) {
+      skipPrecheckForNonJpegInWriter = _asBool(
+        overrides['skipPrecheckForNonJpegInWriter'],
+        skipPrecheckForNonJpegInWriter,
+      );
+    }
+    if (overrides.containsKey('enableBatching')) {
+      enableBatching = _asBool(overrides['enableBatching'], enableBatching);
+    }
     // if (overrides.containsKey('moveDuplicatesToDuplicatesFolder')) moveDuplicatesToDuplicatesFolder = _asBool(overrides['moveDuplicatesToDuplicatesFolder'], moveDuplicatesToDuplicatesFolder);
-
 
     // NEW flags
     if (overrides.containsKey('forceProcessUnsupportedFormats')) {
-      forceProcessUnsupportedFormats = _asBool(overrides['forceProcessUnsupportedFormats'], forceProcessUnsupportedFormats);
+      forceProcessUnsupportedFormats = _asBool(
+        overrides['forceProcessUnsupportedFormats'],
+        forceProcessUnsupportedFormats,
+      );
     }
     if (overrides.containsKey('silenceUnsupportedWarnings')) {
-      silenceUnsupportedWarnings = _asBool(overrides['silenceUnsupportedWarnings'], silenceUnsupportedWarnings);
+      silenceUnsupportedWarnings = _asBool(
+        overrides['silenceUnsupportedWarnings'],
+        silenceUnsupportedWarnings,
+      );
     }
 
     // Ints
     if (overrides.containsKey('maxExifImageBatchSize')) {
-      maxExifImageBatchSize = _asInt(overrides['maxExifImageBatchSize'], maxExifImageBatchSize);
+      maxExifImageBatchSize = _asInt(
+        overrides['maxExifImageBatchSize'],
+        maxExifImageBatchSize,
+      );
     }
     if (overrides.containsKey('maxExifVideoBatchSize')) {
-      maxExifVideoBatchSize = _asInt(overrides['maxExifVideoBatchSize'], maxExifVideoBatchSize);
+      maxExifVideoBatchSize = _asInt(
+        overrides['maxExifVideoBatchSize'],
+        maxExifVideoBatchSize,
+      );
     }
 
     // Dates dictionary (allow pass-through if structure matches)
@@ -116,7 +152,12 @@ class GlobalConfigService {
       final v = overrides['fileDatesDictionary'];
       if (v is Map<String, dynamic>) {
         // Best-effort cast; the writer only reads the expected shape.
-        fileDatesDictionary = v.map((final k, final val) => MapEntry(k, (val is Map<String, dynamic>) ? val : <String, dynamic>{}));
+        fileDatesDictionary = v.map(
+          (final k, final val) => MapEntry(
+            k,
+            (val is Map<String, dynamic>) ? val : <String, dynamic>{},
+          ),
+        );
       }
     }
   }
@@ -124,25 +165,25 @@ class GlobalConfigService {
   /// NEW: Expose as a plain JSON-like map so other modules can read flags
   /// without tight coupling (used by Step 5 _resolveInt/_resolveUnsupportedPolicy).
   Map<String, dynamic> toJson() => <String, dynamic>{
-      'isVerbose': isVerbose,
-      'enforceMaxFileSize': enforceMaxFileSize,
-      'exifToolInstalled': exifToolInstalled,
-      'fallbackToExifToolOnNativeMiss': fallbackToExifToolOnNativeMiss,
-      'skipPrecheckForNonJpegInWriter': skipPrecheckForNonJpegInWriter,
-      'enableBatching': enableBatching,
-      'forceProcessUnsupportedFormats': forceProcessUnsupportedFormats,
-      'silenceUnsupportedWarnings': silenceUnsupportedWarnings,
-      'maxExifImageBatchSize': maxExifImageBatchSize,
-      'maxExifVideoBatchSize': maxExifVideoBatchSize,
-      // 'moveDuplicatesToDuplicatesFolder': moveDuplicatesToDuplicatesFolder,
-      // NOTE: fileDatesDictionary can be very large; usually not needed here.
-    };
+    'isVerbose': isVerbose,
+    'enforceMaxFileSize': enforceMaxFileSize,
+    'exifToolInstalled': exifToolInstalled,
+    'fallbackToExifToolOnNativeMiss': fallbackToExifToolOnNativeMiss,
+    'skipPrecheckForNonJpegInWriter': skipPrecheckForNonJpegInWriter,
+    'enableBatching': enableBatching,
+    'forceProcessUnsupportedFormats': forceProcessUnsupportedFormats,
+    'silenceUnsupportedWarnings': silenceUnsupportedWarnings,
+    'maxExifImageBatchSize': maxExifImageBatchSize,
+    'maxExifVideoBatchSize': maxExifVideoBatchSize,
+    // 'moveDuplicatesToDuplicatesFolder': moveDuplicatesToDuplicatesFolder,
+    // NOTE: fileDatesDictionary can be very large; usually not needed here.
+  };
 
   // ───────────────────────────────────────────────────────────────────────────
   // Private helpers
   // ───────────────────────────────────────────────────────────────────────────
 
-  bool _asBool(dynamic v, bool fallback) {
+  bool _asBool(final dynamic v, final bool fallback) {
     if (v is bool) return v;
     if (v is String) {
       final s = v.toLowerCase().trim();
@@ -152,7 +193,7 @@ class GlobalConfigService {
     return fallback;
   }
 
-  int _asInt(dynamic v, int fallback) {
+  int _asInt(final dynamic v, final int fallback) {
     if (v is int) return v;
     if (v is String) {
       final parsed = int.tryParse(v.trim());

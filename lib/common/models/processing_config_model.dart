@@ -46,10 +46,14 @@ class ProcessingConfig {
     this.verbose = false,
     this.isInteractiveMode = false,
     this.dividePartnerShared = false,
-    this.keepInput = false, // keep the original input untouched by working on a temporary copy
-    this.keepDuplicates = false, // keep duplicates files in `_Duplicates` subfolder within output folder
-    this.inputExtractedFromZip = false, // If the input have been extracted from ZIP it will be set to true
-    final String? userInputRoot, // NEW: original root folder selected/provided by the user
+    this.keepInput =
+        false, // keep the original input untouched by working on a temporary copy
+    this.keepDuplicates =
+        false, // keep duplicates files in `_Duplicates` subfolder within output folder
+    this.inputExtractedFromZip =
+        false, // If the input have been extracted from ZIP it will be set to true
+    final String?
+    userInputRoot, // NEW: original root folder selected/provided by the user
   }) : userInputRoot = userInputRoot ?? inputPath;
 
   /// Creates a builder for configuring ProcessingConfig
@@ -150,25 +154,25 @@ class ProcessingConfig {
     final bool? inputExtractedFromZip,
     final String? userInputRoot,
   }) => ProcessingConfig(
-        inputPath: inputPath ?? this.inputPath,
-        outputPath: outputPath ?? this.outputPath,
-        albumBehavior: albumBehavior ?? this.albumBehavior,
-        dateDivision: dateDivision ?? this.dateDivision,
-        writeExif: writeExif ?? this.writeExif,
-        skipExtras: skipExtras ?? this.skipExtras,
-        guessFromName: guessFromName ?? this.guessFromName,
-        extensionFixing: extensionFixing ?? this.extensionFixing,
-        transformPixelMp: transformPixelMp ?? this.transformPixelMp,
-        updateCreationTime: updateCreationTime ?? this.updateCreationTime,
-        limitFileSize: limitFileSize ?? this.limitFileSize,
-        verbose: verbose ?? this.verbose,
-        isInteractiveMode: isInteractiveMode ?? this.isInteractiveMode,
-        dividePartnerShared: dividePartnerShared ?? this.dividePartnerShared,
-        keepInput: keepInput ?? this.keepInput,
-        keepDuplicates: keepDuplicates ?? this.keepDuplicates,
-        inputExtractedFromZip: inputExtractedFromZip ?? this.inputExtractedFromZip,
-        userInputRoot: userInputRoot ?? this.userInputRoot,
-      );
+    inputPath: inputPath ?? this.inputPath,
+    outputPath: outputPath ?? this.outputPath,
+    albumBehavior: albumBehavior ?? this.albumBehavior,
+    dateDivision: dateDivision ?? this.dateDivision,
+    writeExif: writeExif ?? this.writeExif,
+    skipExtras: skipExtras ?? this.skipExtras,
+    guessFromName: guessFromName ?? this.guessFromName,
+    extensionFixing: extensionFixing ?? this.extensionFixing,
+    transformPixelMp: transformPixelMp ?? this.transformPixelMp,
+    updateCreationTime: updateCreationTime ?? this.updateCreationTime,
+    limitFileSize: limitFileSize ?? this.limitFileSize,
+    verbose: verbose ?? this.verbose,
+    isInteractiveMode: isInteractiveMode ?? this.isInteractiveMode,
+    dividePartnerShared: dividePartnerShared ?? this.dividePartnerShared,
+    keepInput: keepInput ?? this.keepInput,
+    keepDuplicates: keepDuplicates ?? this.keepDuplicates,
+    inputExtractedFromZip: inputExtractedFromZip ?? this.inputExtractedFromZip,
+    userInputRoot: userInputRoot ?? this.userInputRoot,
+  );
 }
 
 /// Builder pattern for creating ProcessingConfig instances with fluent API
@@ -289,7 +293,7 @@ class ProcessingConfigBuilder {
     _keepInput = enable;
   }
 
-   /// Keep duplicates files in `_Duplicates` subfolder within output folder.
+  /// Keep duplicates files in `_Duplicates` subfolder within output folder.
   set keepDuplicates(final bool enable) {
     _keepDuplicates = enable;
   }
@@ -324,7 +328,9 @@ class ProcessingConfigBuilder {
       keepInput: _keepInput,
       keepDuplicates: _keepDuplicates,
       inputExtractedFromZip: _inputExtractedFromZip,
-      userInputRoot: _userInputRoot ?? _inputPath, // fallback to _inputPath if not explicitly provided
+      userInputRoot:
+          _userInputRoot ??
+          _inputPath, // fallback to _inputPath if not explicitly provided
     );
 
     // Validate the configuration before returning

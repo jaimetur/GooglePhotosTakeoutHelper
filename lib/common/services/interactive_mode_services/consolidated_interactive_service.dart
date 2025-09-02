@@ -3,14 +3,14 @@ import 'dart:io';
 
 import 'package:file_picker_desktop/file_picker_desktop.dart';
 
-import 'interactive_presenter_service.dart';
 import '../../../steps/steps_pipeline.dart';
 import '../../models/processing_config_model.dart';
+import '../core_services/container_service.dart';
 import '../core_services/formatting_service.dart';
 import '../core_services/global_config_service.dart';
 import '../core_services/logging_service.dart';
-import '../core_services/container_service.dart';
 import '../file_operations_services/zip_extraction_service.dart';
+import 'interactive_presenter_service.dart';
 
 /// Consolidated interactive service that combines all user interaction functionality
 ///
@@ -104,10 +104,10 @@ class ConsolidatedInteractiveService with LoggerMixin {
       if (answer != null &&
           answer >= 0 &&
           answer < InteractivePresenterService.albumOptions.length) {
-        final String choice = InteractivePresenterService.albumOptions.keys.elementAt(
-          answer,
-        );
-        final String description = InteractivePresenterService.albumOptions[choice]!;
+        final String choice = InteractivePresenterService.albumOptions.keys
+            .elementAt(answer);
+        final String description =
+            InteractivePresenterService.albumOptions[choice]!;
         await _presenter.showUserSelection(input, '$choice: $description');
         return choice;
       }
@@ -256,7 +256,7 @@ class ConsolidatedInteractiveService with LoggerMixin {
           );
           return false;
         case 'no':
-           await _presenter.showUserSelection(
+          await _presenter.showUserSelection(
             input,
             'no, don\'t limit file sizes',
           );
@@ -602,7 +602,9 @@ class ConsolidatedInteractiveService with LoggerMixin {
     final directory = Directory(path);
 
     if (!directory.existsSync()) {
-      return FormattingValidationResult.failure('Input directory does not exist: $path');
+      return FormattingValidationResult.failure(
+        'Input directory does not exist: $path',
+      );
     }
 
     // Check if directory contains Google Photos takeout structure
@@ -630,7 +632,9 @@ class ConsolidatedInteractiveService with LoggerMixin {
         directory.createSync(recursive: true);
         return const FormattingValidationResult.success();
       } catch (e) {
-        return FormattingValidationResult.failure('Cannot create output directory: $e');
+        return FormattingValidationResult.failure(
+          'Cannot create output directory: $e',
+        );
       }
     }
 
@@ -728,10 +732,13 @@ class ConsolidatedInteractiveService with LoggerMixin {
   /// - true  -> Duplicates will be move to "_Duplicates" directory within output directory.
   /// - false -> Duplicates will be removed totally
   Future<bool> askKeepDuplicates() async {
-
-    print('Do you want to keep duplicates files in `_Duplicates` subfolder within output folder?');
+    print(
+      'Do you want to keep duplicates files in `_Duplicates` subfolder within output folder?',
+    );
     print('[1] (Default) - No, you can remove all duplicates found');
-    print('[2] - Yes, create a `_Duplicates` subfolder within output folder (slower)');
+    print(
+      '[2] - Yes, create a `_Duplicates` subfolder within output folder (slower)',
+    );
     print('(Type 1 or 2, or press enter for default):');
 
     while (true) {

@@ -18,11 +18,11 @@ import 'package:gpth/gpth-lib.dart';
 /// physical "move" per entity (the primary).
 class MediaEntityMovingService {
   MediaEntityMovingService()
-      : _strategyFactory = MediaEntityMovingStrategyFactory(
-          FileOperationService(),
-          PathGeneratorService(),
-          SymlinkService(),
-        );
+    : _strategyFactory = MediaEntityMovingStrategyFactory(
+        FileOperationService(),
+        PathGeneratorService(),
+        SymlinkService(),
+      );
 
   /// Custom constructor for dependency injection (useful for testing)
   MediaEntityMovingService.withDependencies({
@@ -30,10 +30,10 @@ class MediaEntityMovingService {
     required final PathGeneratorService pathService,
     required final SymlinkService symlinkService,
   }) : _strategyFactory = MediaEntityMovingStrategyFactory(
-          fileService,
-          pathService,
-          symlinkService,
-        );
+         fileService,
+         pathService,
+         symlinkService,
+       );
 
   final MediaEntityMovingStrategyFactory _strategyFactory;
 
@@ -41,7 +41,8 @@ class MediaEntityMovingService {
   final List<MediaEntityMovingResult> _lastResults = [];
 
   /// Expose an immutable view of the last results after a run
-  List<MediaEntityMovingResult> get lastResults => List.unmodifiable(_lastResults);
+  List<MediaEntityMovingResult> get lastResults =>
+      List.unmodifiable(_lastResults);
 
   /// Moves media entities according to the provided context
   ///
@@ -98,7 +99,8 @@ class MediaEntityMovingService {
         );
         final synthetic = MediaEntityMovingResult.failure(
           operation: syntheticOp,
-          errorMessage: 'No MOVE operation emitted by strategy for primary file',
+          errorMessage:
+              'No MOVE operation emitted by strategy for primary file',
           duration: Duration.zero,
         );
         allResults.add(synthetic);
@@ -177,10 +179,17 @@ class MediaEntityMovingService {
               final String primarySourcePath = entity.primaryFile.path;
               var primaryMoveEmitted = false;
 
-              await for (final r in strategy.processMediaEntity(entity, context)) {
+              await for (final r in strategy.processMediaEntity(
+                entity,
+                context,
+              )) {
                 results.add(r);
-                if (r.operation.operationType == MediaEntityOperationType.move) {
-                  if (_samePath(r.operation.sourceFile.path, primarySourcePath)) {
+                if (r.operation.operationType ==
+                    MediaEntityOperationType.move) {
+                  if (_samePath(
+                    r.operation.sourceFile.path,
+                    primarySourcePath,
+                  )) {
                     primaryMoveEmitted = true;
                   }
                 }
@@ -195,7 +204,8 @@ class MediaEntityMovingService {
                       operationType: MediaEntityOperationType.move,
                       mediaEntity: entity,
                     ),
-                    errorMessage: 'No MOVE operation emitted by strategy for primary file',
+                    errorMessage:
+                        'No MOVE operation emitted by strategy for primary file',
                     duration: Duration.zero,
                   ),
                 );
@@ -240,14 +250,18 @@ class MediaEntityMovingService {
   void _logResult(final MediaEntityMovingResult result) {
     final operation = result.operation;
     final status = result.success ? 'SUCCESS' : 'FAILED';
-    print('[${operation.operationType.name.toUpperCase()}] $status: ${operation.sourceFile.path}');
+    print(
+      '[${operation.operationType.name.toUpperCase()}] $status: ${operation.sourceFile.path}',
+    );
     if (result.resultFile != null) {
       print('  → ${result.resultFile!.path}');
     }
   }
 
   void _logError(final MediaEntityMovingResult result) {
-    print('[Error] Failed to process ${result.operation.sourceFile.path}: ${result.errorMessage}');
+    print(
+      '[Error] Failed to process ${result.operation.sourceFile.path}: ${result.errorMessage}',
+    );
   }
 
   // Print Summary
@@ -298,7 +312,8 @@ class MediaEntityMovingService {
     }
 
     final totalOps = results.length;
-    final computedOps = primaryMoves +
+    final computedOps =
+        primaryMoves +
         nonPrimaryMoves +
         copiesAllPhotos +
         copiesAlbums +
@@ -310,28 +325,34 @@ class MediaEntityMovingService {
     print('\n[Step 6/8] === Moving Summary ===');
     print('\t\t\tPrimary files moved: $primaryMoves');
     print('\t\t\tNon-primary moves: $nonPrimaryMoves');
-    print('\t\t\tDuplicated copies created: ${copiesAllPhotos + copiesAlbums} '
-          '(ALL_PHOTOS: $copiesAllPhotos, Albums: $copiesAlbums)');
+    print(
+      '\t\t\tDuplicated copies created: ${copiesAllPhotos + copiesAlbums} '
+      '(ALL_PHOTOS: $copiesAllPhotos, Albums: $copiesAlbums)',
+    );
     print('\t\t\tSymlinks created: $symlinksCreated');
     print('\t\t\tJSON refs created: $jsonRefs');
     print('\t\t\tFailures: $failures');
-    print('\t\t\tTotal operations: $totalOps'
-          '${computedOps != totalOps ? ' (computed: $computedOps)' : ''}');
+    print(
+      '\t\t\tTotal operations: $totalOps'
+      '${computedOps != totalOps ? ' (computed: $computedOps)' : ''}',
+    );
     print('');
 
     if (failures > 0) {
       print('\nErrors encountered:');
       results.where((final r) => !r.success).take(5).forEach((final result) {
-        print('  • ${result.operation.sourceFile.path}: ${result.errorMessage}');
+        print(
+          '  • ${result.operation.sourceFile.path}: ${result.errorMessage}',
+        );
       });
       final extra = failures - 5;
       if (extra > 0) print('  ... and $extra more errors');
     }
   }
 
-
   bool _samePath(final String a, final String b) =>
-      a.replaceAll('\\', '/').toLowerCase() == b.replaceAll('\\', '/').toLowerCase();
+      a.replaceAll('\\', '/').toLowerCase() ==
+      b.replaceAll('\\', '/').toLowerCase();
 }
 
 /// Simple semaphore implementation for controlling concurrency
@@ -378,8 +399,7 @@ abstract class MediaEntityMovingStrategy {
   Future<List<MediaEntityMovingResult>> finalize(
     final MovingContext context,
     final List<MediaEntity> processedEntities,
-  ) async =>
-      [];
+  ) async => [];
 
   void validateContext(final MovingContext context) {}
 }
@@ -400,7 +420,8 @@ class MediaEntityMovingOperation {
   final MediaEntity mediaEntity;
   final String? albumKey;
 
-  File get targetFile => File('${targetDirectory.path}/${sourceFile.uri.pathSegments.last}');
+  File get targetFile =>
+      File('${targetDirectory.path}/${sourceFile.uri.pathSegments.last}');
 
   bool get isAlbumFile => albumKey != null;
   bool get isMainFile => albumKey == null;
@@ -428,25 +449,23 @@ class MediaEntityMovingResult {
     required final MediaEntityMovingOperation operation,
     required final File resultFile,
     required final Duration duration,
-  }) =>
-      MediaEntityMovingResult(
-        operation: operation,
-        success: true,
-        resultFile: resultFile,
-        duration: duration,
-      );
+  }) => MediaEntityMovingResult(
+    operation: operation,
+    success: true,
+    resultFile: resultFile,
+    duration: duration,
+  );
 
   factory MediaEntityMovingResult.failure({
     required final MediaEntityMovingOperation operation,
     required final String errorMessage,
     required final Duration duration,
-  }) =>
-      MediaEntityMovingResult(
-        operation: operation,
-        success: false,
-        errorMessage: errorMessage,
-        duration: duration,
-      );
+  }) => MediaEntityMovingResult(
+    operation: operation,
+    success: false,
+    errorMessage: errorMessage,
+    duration: duration,
+  );
 
   final MediaEntityMovingOperation operation;
   final bool success;
@@ -473,11 +492,19 @@ class MediaEntityMovingStrategyFactory {
   MediaEntityMovingStrategy createStrategy(final AlbumBehavior albumBehavior) {
     switch (albumBehavior) {
       case AlbumBehavior.shortcut:
-        return ShortcutMovingStrategy(_fileService, _pathService, _symlinkService);
+        return ShortcutMovingStrategy(
+          _fileService,
+          _pathService,
+          _symlinkService,
+        );
       case AlbumBehavior.duplicateCopy:
         return DuplicateCopyMovingStrategy(_fileService, _pathService);
       case AlbumBehavior.reverseShortcut:
-        return ReverseShortcutMovingStrategy(_fileService, _pathService, _symlinkService);
+        return ReverseShortcutMovingStrategy(
+          _fileService,
+          _pathService,
+          _symlinkService,
+        );
       case AlbumBehavior.json:
         return JsonMovingStrategy(_fileService, _pathService);
       case AlbumBehavior.nothing:
@@ -498,14 +525,12 @@ class MovingStrategyUtils {
     final PathGeneratorService pathService,
     final MediaEntity entity,
     final MovingContext context,
-  ) {
-    return pathService.generateTargetDirectory(
+  ) => pathService.generateTargetDirectory(
       null,
       entity.dateTaken,
       context,
       isPartnerShared: entity.partnerShared,
     );
-  }
 
   /// Generate Albums/<albumName> target directory (date-structured if needed).
   static Directory albumDir(
@@ -513,14 +538,12 @@ class MovingStrategyUtils {
     final String albumName,
     final MediaEntity entity,
     final MovingContext context,
-  ) {
-    return pathService.generateTargetDirectory(
+  ) => pathService.generateTargetDirectory(
       albumName,
       entity.dateTaken,
       context,
       isPartnerShared: entity.partnerShared,
     );
-  }
 
   /// Returns true if 'child' path equals or is a subpath of 'parent'.
   static bool isSubPath(final String child, final String parent) {
@@ -619,7 +642,9 @@ class MovingStrategyUtils {
 
   static bool _existsAny(final String fullPath) {
     try {
-      return File(fullPath).existsSync() || Link(fullPath).existsSync() || Directory(fullPath).existsSync();
+      return File(fullPath).existsSync() ||
+          Link(fullPath).existsSync() ||
+          Directory(fullPath).existsSync();
     } catch (_) {
       return false;
     }

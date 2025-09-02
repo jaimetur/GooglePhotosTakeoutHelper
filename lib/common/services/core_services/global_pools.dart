@@ -1,5 +1,5 @@
-import 'package:pool/pool.dart';
 import 'package:gpth/gpth-lib.dart';
+import 'package:pool/pool.dart';
 
 /// Central registry of shared Pool instances.
 ///

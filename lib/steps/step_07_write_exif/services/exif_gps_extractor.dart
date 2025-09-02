@@ -1,8 +1,9 @@
 import 'dart:io';
 import 'dart:typed_data';
+
 import 'package:exif_reader/exif_reader.dart';
-import 'package:mime/mime.dart';
 import 'package:gpth/gpth-lib.dart';
+import 'package:mime/mime.dart';
 
 /// GPS extractor with instrumentation (time in seconds).
 class ExifCoordinateExtractor with LoggerMixin {

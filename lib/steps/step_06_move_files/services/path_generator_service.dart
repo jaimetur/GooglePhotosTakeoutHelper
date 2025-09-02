@@ -1,7 +1,7 @@
 import 'dart:io';
 
-import 'package:path/path.dart' as path;
 import 'package:gpth/gpth-lib.dart';
+import 'package:path/path.dart' as path;
 
 /// Service responsible for generating file and directory paths
 ///
@@ -23,8 +23,11 @@ class PathGeneratorService {
   }) {
     // For Albums folder we use 'Albums' as subfolder. For no Albums folder we use 'ALL_PHOTOS' as subfolder
     final String folderName = albumKey != null
-    ? path.join('Albums', albumKey.trim()) // Now All Album's folders will be moved to 'Albums'
-    : 'ALL_PHOTOS';
+        ? path.join(
+            'Albums',
+            albumKey.trim(),
+          ) // Now All Album's folders will be moved to 'Albums'
+        : 'ALL_PHOTOS';
 
     // Only apply date division to ALL_PHOTOS, not to Albums
     final String dateFolder = albumKey == null
@@ -34,15 +37,18 @@ class PathGeneratorService {
     // If partner shared separation is enabled and this is partner shared media
     if (context.dividePartnerShared && isPartnerShared) {
       return Directory(
-        path.join(context.outputDirectory.path, 'PARTNER_SHARED', folderName, dateFolder),
+        path.join(
+          context.outputDirectory.path,
+          'PARTNER_SHARED',
+          folderName,
+          dateFolder,
+        ),
       );
     } else {
       return Directory(
         path.join(context.outputDirectory.path, folderName, dateFolder),
-    );
+      );
     }
-
-
   }
 
   /// Generates the date-based folder structure

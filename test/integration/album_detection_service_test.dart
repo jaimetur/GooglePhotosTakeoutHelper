@@ -1,6 +1,7 @@
-/// Test suite for AlbumDetectionService
+/// Test suite for AlbumRelationshipService
 ///
-/// Tests the album detection functionality for Google Photos Takeout processing.
+/// Verifies album detection/normalization and statistics against the
+/// Google Photos Takeout processing model (new data model with FileEntity).
 library;
 
 import 'dart:io';
@@ -10,7 +11,7 @@ import 'package:test/test.dart';
 import '../setup/test_setup.dart';
 
 void main() {
-  group('AlbumDetectionService', () {
+  group('AlbumRelationshipService', () {
     late AlbumRelationshipService service;
     late TestFixture fixture;
 
@@ -27,15 +28,28 @@ void main() {
       await ServiceContainer.reset();
     });
 
+    /// Helper: build a MediaEntity using the new FileEntity-based model.
+    MediaEntity _entityFromFile(final File f, final DateTime dt) {
+      return MediaEntity(
+        primaryFile: FileEntity(sourcePath: f.path),
+        secondaryFiles: const <FileEntity>[],
+        belongToAlbums: const <String, AlbumInfo>{},
+        dateTaken: dt,
+        dateAccuracy: null,
+        dateTimeExtractionMethod: DateTimeExtractionMethod.none,
+        partnershared: false,
+      );
+    }
+
     group('Album Detection and Merging', () {
       test('detects and merges duplicate files from albums', () async {
-        // Mismo contenido en año y en un álbum → deben fusionarse
+        // Same content in year and album → should merge and keep album membership
         final yearPhoto = fixture.createFile('2023/IMG_001.jpg', [1, 2, 3, 4, 5]);
         final albumPhoto = fixture.createFile('Albums/Vacation/IMG_001.jpg', [1, 2, 3, 4, 5]);
 
         final entities = [
-          MediaEntity.single(file: yearPhoto, dateTaken: DateTime(2023)),
-          MediaEntity.single(file: albumPhoto, dateTaken: DateTime(2023)),
+          _entityFromFile(yearPhoto, DateTime(2023)),
+          _entityFromFile(albumPhoto, DateTime(2023)),
         ];
 
         final merged = await service.detectAndMergeAlbums(entities);
@@ -51,8 +65,8 @@ void main() {
         final photo2 = fixture.createFile('2023/IMG_002.jpg', [4, 5, 6]);
 
         final entities = [
-          MediaEntity.single(file: photo1, dateTaken: DateTime(2023)),
-          MediaEntity.single(file: photo2, dateTaken: DateTime(2023, 1, 2)),
+          _entityFromFile(photo1, DateTime(2023)),
+          _entityFromFile(photo2, DateTime(2023, 1, 2)),
         ];
 
         final merged = await service.detectAndMergeAlbums(entities);
@@ -68,7 +82,7 @@ void main() {
 
       test('handles single file without merging', () async {
         final photo = fixture.createFile('IMG_001.jpg', [1, 2, 3]);
-        final entity = MediaEntity.single(file: photo, dateTaken: DateTime(2023));
+        final entity = _entityFromFile(photo, DateTime(2023));
 
         final merged = await service.detectAndMergeAlbums([entity]);
 
@@ -83,9 +97,9 @@ void main() {
         final album2Photo = fixture.createFile('Albums/Summer/IMG_001.jpg', content);
 
         final entities = [
-          MediaEntity.single(file: yearPhoto, dateTaken: DateTime(2023)),
-          MediaEntity.single(file: album1Photo, dateTaken: DateTime(2023)),
-          MediaEntity.single(file: album2Photo, dateTaken: DateTime(2023)),
+          _entityFromFile(yearPhoto, DateTime(2023)),
+          _entityFromFile(album1Photo, DateTime(2023)),
+          _entityFromFile(album2Photo, DateTime(2023)),
         ];
 
         final merged = await service.detectAndMergeAlbums(entities);
@@ -103,8 +117,8 @@ void main() {
         final albumPhoto = fixture.createFile('Albums/Vacation/IMG_002.jpg', [4, 5, 6]);
 
         final entities = [
-          MediaEntity.single(file: yearPhoto, dateTaken: DateTime(2023)),
-          MediaEntity.single(file: albumPhoto, dateTaken: DateTime(2023, 1, 2)),
+          _entityFromFile(yearPhoto, DateTime(2023)),
+          _entityFromFile(albumPhoto, DateTime(2023, 1, 2)),
         ];
 
         final albumMedia = service.findAlbumMedia(entities);
@@ -119,8 +133,8 @@ void main() {
         final yearPhoto2 = fixture.createFile('2023/IMG_002.jpg', [4, 5, 6]);
 
         final entities = [
-          MediaEntity.single(file: yearPhoto1, dateTaken: DateTime(2023)),
-          MediaEntity.single(file: yearPhoto2, dateTaken: DateTime(2023, 1, 2)),
+          _entityFromFile(yearPhoto1, DateTime(2023)),
+          _entityFromFile(yearPhoto2, DateTime(2023, 1, 2)),
         ];
 
         final yearOnlyMedia = service.findYearOnlyMedia(entities);
@@ -133,8 +147,8 @@ void main() {
         final albumPhoto = fixture.createFile('Albums/Vacation/IMG_002.jpg', [4, 5, 6]);
 
         final entities = [
-          MediaEntity.single(file: yearPhoto, dateTaken: DateTime(2023)),
-          MediaEntity.single(file: albumPhoto, dateTaken: DateTime(2023, 1, 2)),
+          _entityFromFile(yearPhoto, DateTime(2023)),
+          _entityFromFile(albumPhoto, DateTime(2023, 1, 2)),
         ];
 
         final albumMedia = service.findAlbumMedia(entities);
@@ -152,12 +166,12 @@ void main() {
         final albumPhoto2 = fixture.createFile('Albums/Family/IMG_003.jpg', [7, 8, 9]);
 
         final entities = [
-          MediaEntity.single(file: yearPhoto, dateTaken: DateTime(2023)),
-          MediaEntity.single(file: albumPhoto1, dateTaken: DateTime(2023, 1, 2)),
-          MediaEntity.single(file: albumPhoto2, dateTaken: DateTime(2023, 1, 3)),
+          _entityFromFile(yearPhoto, DateTime(2023)),
+          _entityFromFile(albumPhoto1, DateTime(2023, 1, 2)),
+          _entityFromFile(albumPhoto2, DateTime(2023, 1, 3)),
         ];
 
-        // Para estadísticas básicas no necesitamos merge explícito
+        // Basic stats do not require explicit merging
         final stats = service.getAlbumStatistics(entities);
 
         expect(stats.totalFiles, equals(3));
@@ -169,14 +183,14 @@ void main() {
       });
 
       test('handles files with multiple album associations', () async {
-        // Dos copias del MISMO contenido en dos álbumes distintos → tras merge, 1 entidad con 2 álbumes
+        // Two copies with the SAME content in different albums → after merge, 1 entity with 2 albums
         final content = [1, 2, 3];
         final a1 = fixture.createFile('Albums/Vacation/IMG_001.jpg', content);
         final a2 = fixture.createFile('Albums/Summer/IMG_001.jpg', content);
 
         final merged = await service.detectAndMergeAlbums([
-          MediaEntity.single(file: a1, dateTaken: DateTime(2023)),
-          MediaEntity.single(file: a2, dateTaken: DateTime(2023)),
+          _entityFromFile(a1, DateTime(2023)),
+          _entityFromFile(a2, DateTime(2023)),
         ]);
 
         final stats = service.getAlbumStatistics(merged);
@@ -203,8 +217,8 @@ void main() {
         final albumPhoto = fixture.createFile('Albums/Vacation/IMG_002.jpg', [4, 5, 6]);
 
         final entities = [
-          MediaEntity.single(file: yearPhoto, dateTaken: DateTime(2023)),
-          MediaEntity.single(file: albumPhoto, dateTaken: DateTime(2023, 1, 2)),
+          _entityFromFile(yearPhoto, DateTime(2023)),
+          _entityFromFile(albumPhoto, DateTime(2023, 1, 2)),
         ];
 
         final stats = service.getAlbumStatistics(entities);
@@ -220,7 +234,7 @@ void main() {
     group('Error Handling', () {
       test('handles corrupt files gracefully during merging', () async {
         final corruptFile = fixture.createFile('corrupt.jpg', []);
-        final entity = MediaEntity.single(file: corruptFile, dateTaken: DateTime(2023));
+        final entity = _entityFromFile(corruptFile, DateTime(2023));
 
         final merged = await service.detectAndMergeAlbums([entity]);
 
@@ -229,7 +243,7 @@ void main() {
 
       test('handles non-existent files gracefully', () {
         final nonExistentFile = File('${fixture.basePath}/nonexistent.jpg');
-        final entity = MediaEntity.single(file: nonExistentFile, dateTaken: DateTime(2023));
+        final entity = _entityFromFile(nonExistentFile, DateTime(2023));
 
         final stats = service.getAlbumStatistics([entity]);
         expect(stats.totalFiles, equals(1));

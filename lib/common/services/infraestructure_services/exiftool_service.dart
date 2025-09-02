@@ -1,8 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'package:path/path.dart' as path;
+
 import 'package:gpth/gpth-lib.dart';
+import 'package:path/path.dart' as path;
 
 /// Infrastructure service for ExifTool external process management.
 /// Keeps 4.2.2 performance behavior while restoring robust path discovery
@@ -27,7 +28,9 @@ class ExifToolService with LoggerMixin {
     final bool showDiscoveryMessage = true,
   }) async {
     final isWindows = Platform.isWindows;
-    final exiftoolNames = isWindows ? ['exiftool.exe', 'exiftool'] : ['exiftool'];
+    final exiftoolNames = isWindows
+        ? ['exiftool.exe', 'exiftool']
+        : ['exiftool'];
 
     // 1) PATH
     for (final name in exiftoolNames) {
@@ -53,7 +56,9 @@ class ExifToolService with LoggerMixin {
     } catch (_) {}
 
     final scriptPath = Platform.script.toFilePath();
-    final scriptDir = scriptPath.isNotEmpty ? File(scriptPath).parent.path : null;
+    final scriptDir = scriptPath.isNotEmpty
+        ? File(scriptPath).parent.path
+        : null;
     if (scriptDir != null && showDiscoveryMessage) {
       print('Script directory: $scriptDir');
     }
@@ -80,7 +85,9 @@ class ExifToolService with LoggerMixin {
             if (result.exitCode == 0) {
               if (showDiscoveryMessage) {
                 final version = result.stdout.toString().trim();
-                print('ExifTool found: ${exiftoolFile.path} (version $version)');
+                print(
+                  'ExifTool found: ${exiftoolFile.path} (version $version)',
+                );
               }
               return ExifToolService(exiftoolFile.path);
             }
@@ -172,13 +179,16 @@ class ExifToolService with LoggerMixin {
   }
 
   /// One-shot execution. Batch minimizes launches, but we still use one-shot here.
-  Future<String> executeCommand(final List<String> args) async => _executeOneShot(args);
+  Future<String> executeCommand(final List<String> args) async =>
+      _executeOneShot(args);
 
   Future<String> _executeOneShot(final List<String> args) async {
     try {
       final result = await Process.run(exiftoolPath, args);
       if (result.exitCode != 0) {
-        logger.error('ExifTool command failed with exit code ${result.exitCode}');
+        logger.error(
+          'ExifTool command failed with exit code ${result.exitCode}',
+        );
         logger.error('Command: $exiftoolPath ${args.join(' ')}');
         logger.error('Stderr: ${result.stderr}');
         throw Exception('ExifTool command failed: ${result.stderr}');
@@ -226,7 +236,9 @@ class ExifToolService with LoggerMixin {
     if (output.contains('error') ||
         output.contains('Error') ||
         output.contains("weren't updated due to errors")) {
-      throw Exception('ExifTool failed to write metadata to ${file.path}: $output');
+      throw Exception(
+        'ExifTool failed to write metadata to ${file.path}: $output',
+      );
     }
   }
 
@@ -277,7 +289,9 @@ class ExifToolService with LoggerMixin {
     }
 
     // Persist to a temp file, pass with -@
-    final tmp = await File('${Directory.systemTemp.path}${Platform.pathSeparator}exif_args_${DateTime.now().microsecondsSinceEpoch}.txt').create();
+    final tmp = await File(
+      '${Directory.systemTemp.path}${Platform.pathSeparator}exif_args_${DateTime.now().microsecondsSinceEpoch}.txt',
+    ).create();
     await tmp.writeAsString(buf.toString());
 
     try {
@@ -290,7 +304,9 @@ class ExifToolService with LoggerMixin {
     } finally {
       try {
         await tmp.delete();
-      } catch (_) {/* ignore */}
+      } catch (_) {
+        /* ignore */
+      }
     }
   }
 

@@ -1,6 +1,7 @@
 import 'dart:io';
-import 'package:path/path.dart' as path;
+
 import 'package:gpth/gpth-lib.dart';
+import 'package:path/path.dart' as path;
 
 /// Step 3: Remove duplicate media files
 ///
@@ -74,7 +75,7 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
             'duplicatesRemoved': 0,
             'remainingMedia': 0,
             'secondaryFilesDetected': 0,
-            'duplicateFilesRemoved': 0
+            'duplicateFilesRemoved': 0,
           },
           message: 'No media to process.',
         );
@@ -82,17 +83,22 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
 
       print('\n[Step 3/8] Removing duplicates (this may take a while)...');
       if (context.config.keepDuplicates) {
-        print('[Step 3/8] Flag `--keep-duplicates` detected. Duplicates will be moved to `_Duplicates` subfolder within output folder');
+        print(
+          '[Step 3/8] Flag `--keep-duplicates` detected. Duplicates will be moved to `_Duplicates` subfolder within output folder',
+        );
       }
 
-      final duplicateService = ServiceContainer.instance.duplicateDetectionService;
+      final duplicateService =
+          ServiceContainer.instance.duplicateDetectionService;
       final bool verify = _isVerifyEnabled();
-      final MediaHashService verifier =
-          verify ? MediaHashService() : MediaHashService(maxCacheSize: 1);
+      final MediaHashService verifier = verify
+          ? MediaHashService()
+          : MediaHashService(maxCacheSize: 1);
 
       // 1) Size buckets
       final sizeSw = Stopwatch()..start();
-      final Map<int, List<MediaEntity>> sizeBuckets = <int, List<MediaEntity>>{};
+      final Map<int, List<MediaEntity>> sizeBuckets =
+          <int, List<MediaEntity>>{};
       for (final mediaEntity in mediaCollection.entities) {
         int size;
         try {
@@ -108,8 +114,9 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
       telem.filesTotal = mediaCollection.length;
 
       // Concurrency cap
-      // TODO: Restore clamp to 1,8
-      final int maxWorkers = ConcurrencyManager().concurrencyFor(ConcurrencyOperation.exif).clamp(1, 1);
+      final int maxWorkers = ConcurrencyManager()
+          .concurrencyFor(ConcurrencyOperation.exif)
+          .clamp(1, 8);
 
       // Process buckets in slices
       final bucketKeys = sizeBuckets.keys.toList();
@@ -120,7 +127,7 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
       final List<_Replacement> pendingReplacements = <_Replacement>[];
       final Set<MediaEntity> entitiesToRemove = <MediaEntity>{};
 
-      Future<_BucketOutcome> _processSizeBucket(final int sizeKey) async {
+      Future<_BucketOutcome> processSizeBucket(final int sizeKey) async {
         final _BucketStats bs = _BucketStats();
         final List<_Replacement> localRepl = <_Replacement>[];
         final Set<MediaEntity> localToRemove = <MediaEntity>{};
@@ -132,7 +139,8 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
 
         // 2) Extension sub-buckets
         final extSw = Stopwatch()..start();
-        final Map<String, List<MediaEntity>> extBuckets = <String, List<MediaEntity>>{};
+        final Map<String, List<MediaEntity>> extBuckets =
+            <String, List<MediaEntity>>{};
         for (final e in candidates) {
           final String ext = _extOf(e.primaryFile.path);
           (extBuckets[ext] ??= <MediaEntity>[]).add(e);
@@ -147,7 +155,8 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
 
           // 3) Quick signature
           final qsigSw = Stopwatch()..start();
-          final Map<String, List<MediaEntity>> quickBuckets = <String, List<MediaEntity>>{};
+          final Map<String, List<MediaEntity>> quickBuckets =
+              <String, List<MediaEntity>>{};
           for (final e in extGroup) {
             String sig;
             try {
@@ -179,7 +188,7 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
               if (group.length <= 1) continue;
 
               // Sort by: accuracy → basename length → prefer Year → full path len → path lex
-              group.sort((a, b) {
+              group.sort((final a, final b) {
                 final aAcc = a.dateAccuracy?.value ?? 999;
                 final bAcc = b.dateAccuracy?.value ?? 999;
                 if (aAcc != bAcc) return aAcc.compareTo(bAcc);
@@ -207,12 +216,14 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
 
               if (verify) {
                 try {
-                  final String keptHash =
-                      await verifier.calculateFileHash(kept.primaryFile.asFile());
+                  final String keptHash = await verifier.calculateFileHash(
+                    kept.primaryFile.asFile(),
+                  );
                   for (final d in toRemove) {
                     try {
-                      final String dupHash =
-                          await verifier.calculateFileHash(d.primaryFile.asFile());
+                      final String dupHash = await verifier.calculateFileHash(
+                        d.primaryFile.asFile(),
+                      );
                       if (dupHash != keptHash) {
                         logWarning(
                           'Verification mismatch. Will NOT remove ${d.primaryFile.path} (hash differs from kept).',
@@ -256,8 +267,11 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
       }
 
       for (int i = 0; i < bucketKeys.length; i += maxWorkers) {
-        final slice = bucketKeys.skip(i).take(maxWorkers).toList(growable: false);
-        final outcomes = await Future.wait(slice.map(_processSizeBucket));
+        final slice = bucketKeys
+            .skip(i)
+            .take(maxWorkers)
+            .toList(growable: false);
+        final outcomes = await Future.wait(slice.map(processSizeBucket));
 
         // Aggregate telemetry and outcomes
         for (final out in outcomes) {
@@ -268,7 +282,9 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
 
         processedGroups += slice.length;
         if ((processedGroups % 50) == 0) {
-          logDebug('[Step 3/8] Progress: processed $processedGroups/$totalGroups size groups...');
+          logDebug(
+            '[Step 3/8] Progress: processed $processedGroups/$totalGroups size groups...',
+          );
         }
       }
 
@@ -278,12 +294,16 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
       }
 
       // Just before creating multi-path entities line
-      print('[Step 3/8] Processing $initialEntitiesCount media entities from media collection');
+      print(
+        '[Step 3/8] Processing $initialEntitiesCount media entities from media collection',
+      );
 
       // Informative message before removing merged-away entities from the collection
       final int removedEntities = entitiesToRemove.length;
       if (removedEntities > 0) {
-        print('[Step 3/8] Creating $removedEntities multi-path media entities (entities with multiple paths for the same file content)');
+        print(
+          '[Step 3/8] Creating $removedEntities multi-path media entities (entities with multiple paths for the same file content)',
+        );
       }
 
       // Remove merged-away entities from the collection ONLY (do not delete files here)
@@ -292,7 +312,10 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
           try {
             mediaCollection.remove(e);
           } catch (err) {
-            logWarning('Failed to remove entity ${_safeEntity(e)}: $err', forcePrint: true);
+            logWarning(
+              'Failed to remove entity ${_safeEntity(e)}: $err',
+              forcePrint: true,
+            );
           }
         }
       }
@@ -325,7 +348,9 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
       // Move/Delete only duplicatesFiles (depending on flag)
       int duplicateFilesRemoved = 0;
       if (duplicateFiles.isNotEmpty) {
-        print('[Step 3/8] Processing ${duplicateFiles.length} duplicate files (within-folder duplicates) for removal/quarantine');
+        print(
+          '[Step 3/8] Processing ${duplicateFiles.length} duplicate files (within-folder duplicates) for removal/quarantine',
+        );
         final ioSw = Stopwatch()..start();
         final bool moved = await _removeOrQuarantineDuplicateFiles(
           duplicateFiles,
@@ -337,7 +362,9 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
         ioSw.stop();
         telem.msRemoveIO += ioSw.elapsedMilliseconds;
         if (moved) {
-          print('[Step 3/8] Duplicate files moved to _Duplicates (flag --keep-duplicates = true)');
+          print(
+            '[Step 3/8] Duplicate files moved to _Duplicates (flag --keep-duplicates = true)',
+          );
         } else {
           print('[Step 3/8] Duplicate files deleted from input folder.');
         }
@@ -362,14 +389,24 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
       final int nonCanonicalAll = primaryFromAlbums + secondaryFromAlbums;
 
       // Requested lines (order: Primary above Secondary; plus Canonical / Non-Canonical totals)
-      print('[Step 3/8] Primary files in collection: $primaryFilesCount ($primaryCanonical canonical | $primaryFromAlbums from albums)');
-      print('[Step 3/8] Secondary files in collection: $totalSecondaryFiles ($secondaryCanonical canonical | $secondaryFromAlbums from albums)');
-      print('[Step 3/8] Canonical files (within \'Photos from...\' folder): $canonicalAll');
-      print('[Step 3/8] Non-Canonical files (within Album folder): $nonCanonicalAll');
+      print(
+        '[Step 3/8] Primary files in collection: $primaryFilesCount ($primaryCanonical canonical | $primaryFromAlbums from albums)',
+      );
+      print(
+        '[Step 3/8] Secondary files in collection: $totalSecondaryFiles ($secondaryCanonical canonical | $secondaryFromAlbums from albums)',
+      );
+      print(
+        '[Step 3/8] Canonical files (within \'Photos from...\' folder): $canonicalAll',
+      );
+      print(
+        '[Step 3/8] Non-Canonical files (within Album folder): $nonCanonicalAll',
+      );
 
       print('[Step 3/8] Duplicate files removed/moved: $duplicateFilesRemoved');
 
-      print('[Step 3/8] Remove Duplicates finished, total entities merged away: $removedEntities');
+      print(
+        '[Step 3/8] Remove Duplicates finished, total entities merged away: $removedEntities',
+      );
 
       totalSw.stop();
       telem.msTotal = totalSw.elapsedMilliseconds;
@@ -425,7 +462,8 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
   }
 
   @override
-  bool shouldSkip(final ProcessingContext context) => context.mediaCollection.isEmpty;
+  bool shouldSkip(final ProcessingContext context) =>
+      context.mediaCollection.isEmpty;
 
   // ——— helpers ————————————————————————————————————————————————————————————————
 
@@ -451,7 +489,8 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
       if (keepDuplicates is bool) return keepDuplicates;
     } catch (_) {}
     try {
-      final env = Platform.environment['GPTH_MOVE_DUPLICATES_TO_DUPLICATES_FOLDER'];
+      final env =
+          Platform.environment['GPTH_MOVE_DUPLICATES_TO_DUPLICATES_FOLDER'];
       if (env != null) {
         final s = env.trim().toLowerCase();
         return s == '1' || s == 'true' || s == 'yes' || s == 'on';
@@ -533,7 +572,10 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
         }
         onRemoved?.call();
       } catch (ioe) {
-        logWarning('Failed to remove/move duplicate ${f.path}: $ioe', forcePrint: true);
+        logWarning(
+          'Failed to remove/move duplicate ${f.path}: $ioe',
+          forcePrint: true,
+        );
       }
     }
     return moveToDuplicates;
@@ -554,7 +596,9 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
     final int size,
     final String ext,
   ) async {
-    final int toRead = size > 0 ? (size < 131072 ? size : 131072) : 131072; // 128 KiB cap
+    final int toRead = size > 0
+        ? (size < 131072 ? size : 131072)
+        : 131072; // 128 KiB cap
     List<int> head = const [];
     try {
       final raf = await file.open();
@@ -570,12 +614,11 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
     // FNV-1a 32-bit
     int hash = 0x811C9DC5;
     for (final b in head) {
-      hash ^= (b & 0xFF);
+      hash ^= b & 0xFF;
       hash = (hash * 0x01000193) & 0xFFFFFFFF;
     }
     return '$size|$ext|$hash';
   }
-
 
   void _printTelemetry(
     final _Telemetry t, {
@@ -585,7 +628,7 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
     required final int canonicalFilesInCollection,
     required final int nonCanonicalFilesInCollection,
   }) {
-    String ms(num v) => '${v.toStringAsFixed(0)} ms';
+    String ms(final num v) => '${v.toStringAsFixed(0)} ms';
     print(''); // spacing
     print('[Step 3/8] Telemetry summary:');
     print('  Files total                        : ${t.filesTotal}');
@@ -594,11 +637,15 @@ class RemoveDuplicatesStep extends ProcessingStep with LoggerMixin {
     print('  Quick buckets                      : ${t.quickBuckets}');
     print('  Hash groups                        : ${t.hashGroups}');
     // Clarify counters to avoid confusion:
-    print('  Merged media entities (by content) : ${t.entitiesMergedByContent}');
+    print(
+      '  Merged media entities (by content) : ${t.entitiesMergedByContent}',
+    );
     print('  Primary files in collection        : $primaryFilesInCollection');
     print('  Secondary files in collection      : $secondaryFilesInCollection');
     print('  Canonical files (ALL_PHOTOS/Year)  : $canonicalFilesInCollection');
-    print('  Non-Canonical files (Albums)       : $nonCanonicalFilesInCollection');
+    print(
+      '  Non-Canonical files (Albums)       : $nonCanonicalFilesInCollection',
+    );
     print('  Duplicate files removed (I/O)      : $duplicateFilesRemovedIO');
     print('  Time total                         : ${ms(t.msTotal)}');
     print('    - Size scan                      : ${ms(t.msSizeScan)}');

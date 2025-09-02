@@ -29,10 +29,9 @@ void main() {
     group('MediaEntity Class - Object Creation and Property Management', () {
       test('creates MediaEntity object with required properties', () {
         final file = fixture.createFile('test.jpg', [1, 2, 3]);
-        final entity = MediaEntity.single(file: file);
+        final entity = MediaEntity.single(file: FileEntity(sourcePath: file.path));
 
-        expect(entity.primaryFile, file);
-        // En el modelo nuevo, si no hay ruta de álbum, no hay asociaciones
+        expect(entity.primaryFile.path, file.path);
         expect(entity.hasAlbumAssociations, isFalse);
         expect(entity.albumNames, isEmpty);
         expect(entity.dateTaken, isNull);
@@ -42,38 +41,38 @@ void main() {
       test('creates MediaEntity object with date information', () {
         final file = fixture.createFile('test.jpg', [1, 2, 3]);
         final entity = MediaEntity.single(
-          file: file,
+          file: FileEntity(sourcePath: file.path),
           dateTaken: DateTime(2023, 5, 15),
         );
 
-        expect(entity.primaryFile, file);
+        expect(entity.primaryFile.path, file.path);
         expect(entity.dateTaken, DateTime(2023, 5, 15));
       });
 
       test('generates consistent content identifiers (by content equality)', () async {
         final file1 = fixture.createFile('test1.jpg', [1, 2, 3]);
-        final file2 = fixture.createFile('test2.jpg', [1, 2, 3]); // mismo contenido
-        final file3 = fixture.createFile('test3.jpg', [4, 5, 6]); // distinto
+        final file2 = fixture.createFile('test2.jpg', [1, 2, 3]); // same content
+        final file3 = fixture.createFile('test3.jpg', [4, 5, 6]); // different
 
-        final entity1 = MediaEntity.single(file: file1);
-        final entity2 = MediaEntity.single(file: file2);
-        final entity3 = MediaEntity.single(file: file3);
+        final entity1 = MediaEntity.single(file: FileEntity(sourcePath: file1.path));
+        final entity2 = MediaEntity.single(file: FileEntity(sourcePath: file2.path));
+        final entity3 = MediaEntity.single(file: FileEntity(sourcePath: file3.path));
 
-        expect(await entity1.primaryFile.readAsBytes(),
-               await entity2.primaryFile.readAsBytes());
-        expect(await entity1.primaryFile.readAsBytes(),
-               isNot(await entity3.primaryFile.readAsBytes()));
+        expect(await entity1.primaryFile.asFile().readAsBytes(),
+            await entity2.primaryFile.asFile().readAsBytes());
+        expect(await entity1.primaryFile.asFile().readAsBytes(),
+            isNot(await entity3.primaryFile.asFile().readAsBytes()));
       });
 
       test('supports album associations after merge (multiple sources)', () async {
-        // Mismo contenido en año y en álbum → tras merge, una entidad con albumNames=['extra']
+        // Same content in year and in album → after merge, one entity with albumNames=['extra']
         final c = [1, 2, 3];
         final yearFile = fixture.createFile('2023/test.jpg', c);
         final albumFile = fixture.createFile('Albums/extra/test.jpg', c);
 
         final merged = await albumSvc.detectAndMergeAlbums([
-          MediaEntity.single(file: yearFile),
-          MediaEntity.single(file: albumFile),
+          MediaEntity.single(file: FileEntity(sourcePath: yearFile.path)),
+          MediaEntity.single(file: FileEntity(sourcePath: albumFile.path)),
         ]);
 
         expect(merged.length, 1);
@@ -84,7 +83,7 @@ void main() {
 
       test('handles MediaEntity objects without date information', () {
         final file = fixture.createFile('test.jpg', [1, 2, 3]);
-        final entity = MediaEntity.single(file: file);
+        final entity = MediaEntity.single(file: FileEntity(sourcePath: file.path));
 
         expect(entity.dateTaken, isNull);
         expect(entity.dateTakenAccuracy, isNull);
@@ -94,21 +93,21 @@ void main() {
     group('MediaEntityCollection - Duplicate Detection and Management', () {
       test('removeDuplicates identifies and removes duplicate files', () async {
         final file1 = fixture.createFile('test1.jpg', [1, 2, 3]);
-        final file2 = fixture.createFile('test2.jpg', [1, 2, 3]); // Duplicado
+        final file2 = fixture.createFile('test2.jpg', [1, 2, 3]); // duplicate
         final file3 = fixture.createFile('test3.jpg', [4, 5, 6]);
 
         final collection = MediaEntityCollection([
-          MediaEntity.single(file: file1),
-          MediaEntity.single(file: file2),
-          MediaEntity.single(file: file3),
+          MediaEntity.single(file: FileEntity(sourcePath: file1.path)),
+          MediaEntity.single(file: FileEntity(sourcePath: file2.path)),
+          MediaEntity.single(file: FileEntity(sourcePath: file3.path)),
         ]);
 
         final removedCount = await collection.removeDuplicates();
 
         expect(removedCount, 1);
         expect(collection.length, 2);
-        expect(collection.entities.any((e) => e.primaryFile.path == file1.path), isTrue);
-        expect(collection.entities.any((e) => e.primaryFile.path == file3.path), isTrue);
+        expect(collection.entities.any((final e) => e.primaryFile.path == file1.path), isTrue);
+        expect(collection.entities.any((final e) => e.primaryFile.path == file3.path), isTrue);
       });
 
       test('handles duplicate detection with many files efficiently', () async {
@@ -116,11 +115,11 @@ void main() {
 
         for (int i = 0; i < 100; i++) {
           final file = fixture.createFile('test$i.jpg', [i + 1]);
-          collection.add(MediaEntity.single(file: file));
+          collection.add(MediaEntity.single(file: FileEntity(sourcePath: file.path)));
         }
 
         final dup = fixture.createFile('duplicate.jpg', [1]);
-        collection.add(MediaEntity.single(file: dup));
+        collection.add(MediaEntity.single(file: FileEntity(sourcePath: dup.path)));
 
         final start = DateTime.now();
         final removedCount = await collection.removeDuplicates();
@@ -134,14 +133,14 @@ void main() {
 
     group('Album Detection and Management - File Relationship Handling', () {
       test('findAlbums merges duplicate files from different albums', () async {
-        // Año + Álbum (mismo contenido) → tras findAlbums debe quedar 1 entidad con albumNames=['Vacation']
+        // Year + Album (same content) → after findAlbums there must be 1 entity with albumNames=['Vacation']
         final c = [1, 2, 3];
         final yearFile = fixture.createFile('2023/photo.jpg', c);
         final albumFile = fixture.createFile('Albums/Vacation/photo.jpg', c);
 
         final collection = MediaEntityCollection([
-          MediaEntity.single(file: yearFile, dateTaken: DateTime(2023)),
-          MediaEntity.single(file: albumFile, dateTaken: DateTime(2023)),
+          MediaEntity.single(file: FileEntity(sourcePath: yearFile.path), dateTaken: DateTime(2023)),
+          MediaEntity.single(file: FileEntity(sourcePath: albumFile.path), dateTaken: DateTime(2023)),
         ]);
 
         final originalLength = collection.length;
@@ -161,8 +160,8 @@ void main() {
         final f2 = fixture.createFile('Albums/Album/photo1.jpg', c);
 
         final collection = MediaEntityCollection([
-          MediaEntity.single(file: f1, dateTaken: DateTime(2023)),
-          MediaEntity.single(file: f2, dateTaken: DateTime(2023)),
+          MediaEntity.single(file: FileEntity(sourcePath: f1.path), dateTaken: DateTime(2023)),
+          MediaEntity.single(file: FileEntity(sourcePath: f2.path), dateTaken: DateTime(2023)),
         ]);
 
         await collection.findAlbums();
@@ -189,7 +188,7 @@ void main() {
           final content = List<int>.filled(1024 * 1024, i);
           final file = fixture.createLargeTestFile('large_test$i.jpg', content: content);
           createdFiles.add(file);
-          collection.add(MediaEntity.single(file: file));
+          collection.add(MediaEntity.single(file: FileEntity(sourcePath: file.path)));
         }
 
         for (int i = 1; i < createdFiles.length; i++) {
@@ -215,7 +214,7 @@ void main() {
 
         for (int i = 0; i < 50; i++) {
           final file = fixture.createFile('memory_test$i.jpg', [i]);
-          collection.add(MediaEntity.single(file: file));
+          collection.add(MediaEntity.single(file: FileEntity(sourcePath: file.path)));
         }
 
         await collection.removeDuplicates();
@@ -226,13 +225,13 @@ void main() {
 
       test('modern grouping correctly groups media by content', () async {
         final f1 = fixture.createFile('test1.jpg', [1, 2, 3]);
-        final f2 = fixture.createFile('test2.jpg', [1, 2, 3]); // mismo contenido
+        final f2 = fixture.createFile('test2.jpg', [1, 2, 3]); // same content
         final f3 = fixture.createFile('test3.jpg', [4, 5, 6]);
 
         final collection = MediaEntityCollection([
-          MediaEntity.single(file: f1),
-          MediaEntity.single(file: f2),
-          MediaEntity.single(file: f3),
+          MediaEntity.single(file: FileEntity(sourcePath: f1.path)),
+          MediaEntity.single(file: FileEntity(sourcePath: f2.path)),
+          MediaEntity.single(file: FileEntity(sourcePath: f3.path)),
         ]);
 
         final duplicateService = ServiceContainer.instance.duplicateDetectionService;
@@ -240,10 +239,10 @@ void main() {
 
         expect(grouped.length, 2);
 
-        final duplicateGroup = grouped.values.firstWhere((g) => g.length > 1);
+        final duplicateGroup = grouped.values.firstWhere((final g) => g.length > 1);
         expect(duplicateGroup.length, 2);
-        expect(duplicateGroup.any((e) => e.primaryFile.path == f1.path), isTrue);
-        expect(duplicateGroup.any((e) => e.primaryFile.path == f2.path), isTrue);
+        expect(duplicateGroup.any((final e) => e.primaryFile.path == f1.path), isTrue);
+        expect(duplicateGroup.any((final e) => e.primaryFile.path == f2.path), isTrue);
       });
     });
 
@@ -255,8 +254,8 @@ void main() {
         final collection = MediaEntityCollection();
         expect(collection.isEmpty, isTrue);
 
-        final e1 = MediaEntity.single(file: f1);
-        final e2 = MediaEntity.single(file: f2);
+        final e1 = MediaEntity.single(file: FileEntity(sourcePath: f1.path));
+        final e2 = MediaEntity.single(file: FileEntity(sourcePath: f2.path));
 
         collection.add(e1);
         expect(collection.length, 1);
@@ -273,15 +272,15 @@ void main() {
       });
 
       test('provides accurate statistics', () async {
-        final f1 = fixture.createFile('2023/test1.jpg', [1, 2, 3]); // año
-        final f2 = fixture.createFile('Albums/Album/test2.jpg', [4, 5, 6]); // álbum
+        final f1 = fixture.createFile('2023/test1.jpg', [1, 2, 3]); // year
+        final f2 = fixture.createFile('Albums/Album/test2.jpg', [4, 5, 6]); // album
 
         final collection = MediaEntityCollection([
-          MediaEntity.single(file: f1, dateTaken: DateTime(2023)),
-          MediaEntity.single(file: f2),
+          MediaEntity.single(file: FileEntity(sourcePath: f1.path), dateTaken: DateTime(2023)),
+          MediaEntity.single(file: FileEntity(sourcePath: f2.path)),
         ]);
 
-        // Detecta álbumes antes de calcular stats
+        // Detect albums before calculating stats
         await collection.findAlbums();
 
         final stats = collection.getStatistics();
@@ -306,7 +305,7 @@ void main() {
 
         final collection = MediaEntityCollection();
         final mediaEntity = MediaEntity.single(
-          file: testImage,
+          file: FileEntity(sourcePath: testImage.path),
           dateTaken: DateTime.fromMillisecondsSinceEpoch(1609459200 * 1000),
         );
         collection.add(mediaEntity);
@@ -317,8 +316,7 @@ void main() {
           expect(results.containsKey('coordinatesWritten'), isTrue);
           expect(results.containsKey('dateTimesWritten'), isTrue);
         } catch (e) {
-          // Entorno de test sin servicios completos puede lanzar: aceptable
-          // Mantén el try/catch tal como lo tenías
+          // Tests can run without full services; ignore failures in that case.
         }
 
         await jsonFile.delete();
@@ -351,16 +349,16 @@ void main() {
 ''');
 
         collection.addAll([
-          MediaEntity.single(file: file1),
-          MediaEntity.single(file: file2),
-          MediaEntity.single(file: file3),
+          MediaEntity.single(file: FileEntity(sourcePath: file1.path)),
+          MediaEntity.single(file: FileEntity(sourcePath: file2.path)),
+          MediaEntity.single(file: FileEntity(sourcePath: file3.path)),
         ]);
 
         try {
           final results = await collection.writeExifData();
           expect(results, isA<Map<String, int>>());
         } catch (_) {
-          // ver comentario anterior
+          // See comment above
         }
 
         await json1.delete();
@@ -407,7 +405,7 @@ void main() {
           await jf.writeAsString(s['json'] as String);
 
           collection.add(MediaEntity.single(
-            file: file,
+            file: FileEntity(sourcePath: file.path),
             dateTaken: (s['hasDate'] as bool)
                 ? DateTime.fromMillisecondsSinceEpoch(1609459200 * 1000)
                 : null,
@@ -418,10 +416,10 @@ void main() {
           final results = await collection.writeExifData();
           expect(results, isA<Map<String, int>>());
         } catch (_) {
-          // ver comentario anterior
+          // See comment above
         }
 
-        // Limpieza de JSON auxiliares
+        // Cleanup helper JSONs
         for (final s in scenarios) {
           final jf = File('${fixture.basePath}/${s['name']}.json');
           if (await jf.exists()) await jf.delete();

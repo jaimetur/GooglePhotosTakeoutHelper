@@ -20,14 +20,18 @@ class MoveFilesStep extends ProcessingStep {
     final stopwatch = Stopwatch()..start();
 
     try {
-      print('[Step 6/8] Moving files to Output folder (this may take a while)...');
+      print(
+        '[Step 6/8] Moving files to Output folder (this may take a while)...',
+      );
 
       // Optional pre-pass: transform Pixel .MP/.MV → .mp4 ONLY on primary files (in-place, still in input).
       int transformedCount = 0;
       if (context.config.transformPixelMp) {
         transformedCount = await _transformPixelPrimaries(context);
         if (context.config.verbose) {
-          print('Transformed $transformedCount Pixel .MP/.MV primary files to .mp4');
+          print(
+            'Transformed $transformedCount Pixel .MP/.MV primary files to .mp4',
+          );
         }
       }
 
@@ -59,7 +63,7 @@ class MoveFilesStep extends ProcessingStep {
       int nonPrimaryMoves = 0;
       int symlinksCreated = 0;
 
-      bool _samePath(final String a, final String b) =>
+      bool samePath(final String a, final String b) =>
           a.replaceAll('\\', '/').toLowerCase() ==
           b.replaceAll('\\', '/').toLowerCase();
 
@@ -69,7 +73,7 @@ class MoveFilesStep extends ProcessingStep {
           case MediaEntityOperationType.move:
             final src = r.operation.sourceFile.path;
             final prim = r.operation.mediaEntity.primaryFile.sourcePath;
-            if (_samePath(src, prim)) {
+            if (samePath(src, prim)) {
               primaryMovedCount++;
             } else {
               nonPrimaryMoves++;
@@ -133,8 +137,9 @@ class MoveFilesStep extends ProcessingStep {
       if (lower.endsWith('.mp') || lower.endsWith('.mv')) {
         final oldPath = primary.path;
         final dot = oldPath.lastIndexOf('.');
-        final newPath =
-            dot > 0 ? '${oldPath.substring(0, dot)}.mp4' : '$oldPath.mp4';
+        final newPath = dot > 0
+            ? '${oldPath.substring(0, dot)}.mp4'
+            : '$oldPath.mp4';
 
         try {
           final renamed = await primary.asFile().rename(newPath);

@@ -1,8 +1,8 @@
 import 'dart:io';
 
+import 'package:gpth/gpth-lib.dart';
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as path;
-import 'package:gpth/gpth-lib.dart';
 
 /// Service for detecting and fixing incorrect file extensions
 ///
@@ -16,7 +16,8 @@ class FileExtensionCorrectorService with LoggerMixin {
   /// Creates a new file extension corrector service
   FileExtensionCorrectorService() : _mimeTypeService = const MimeTypeService();
   final MimeTypeService _mimeTypeService;
-  static const EditedVersionDetectorService _extrasService = EditedVersionDetectorService();
+  static const EditedVersionDetectorService _extrasService =
+      EditedVersionDetectorService();
 
   /// Fixes incorrectly named files by renaming them to match their actual MIME type
   ///

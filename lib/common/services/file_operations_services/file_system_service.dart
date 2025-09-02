@@ -149,10 +149,14 @@ class FileSystemService {
   }) async {
     final exists = await dir.exists();
     if (shouldExist && !exists) {
-      return FileSystemValidationResult.failure('Directory does not exist: ${dir.path}');
+      return FileSystemValidationResult.failure(
+        'Directory does not exist: ${dir.path}',
+      );
     }
     if (!shouldExist && exists) {
-      return FileSystemValidationResult.failure('Directory already exists: ${dir.path}');
+      return FileSystemValidationResult.failure(
+        'Directory already exists: ${dir.path}',
+      );
     }
     return const FileSystemValidationResult.success();
   }

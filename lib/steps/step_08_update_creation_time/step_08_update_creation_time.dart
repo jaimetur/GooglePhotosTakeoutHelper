@@ -1,10 +1,11 @@
 import 'dart:async';
 import 'dart:ffi';
 import 'dart:io';
+
 import 'package:console_bars/console_bars.dart';
 import 'package:ffi/ffi.dart';
-import 'package:win32/win32.dart';
 import 'package:gpth/gpth-lib.dart';
+import 'package:win32/win32.dart';
 
 /// Step 8: Update creation times (Windows only)
 ///
@@ -97,7 +98,7 @@ class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
   @override
   Future<StepResult> execute(final ProcessingContext context) async {
     final stopwatch = Stopwatch()..start();
-    print ('');
+    print('');
 
     try {
       if (!Platform.isWindows || !context.config.updateCreationTime) {
@@ -105,7 +106,10 @@ class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
             ? 'not supported on this platform (${Platform.operatingSystem})'
             : 'disabled in configuration';
 
-        logWarning('[Step 8/8] Skipping creation time update ($reason).', forcePrint: true);
+        logWarning(
+          '[Step 8/8] Skipping creation time update ($reason).',
+          forcePrint: true,
+        );
         stopwatch.stop();
         return StepResult.success(
           stepName: name,
@@ -240,7 +244,10 @@ class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
       final reason = !Platform.isWindows
           ? 'not supported on this platform (${Platform.operatingSystem})'
           : 'disabled in configuration';
-      logWarning('[Step 8/8] Skipping creation time update ($reason).', forcePrint: true);
+      logWarning(
+        '[Step 8/8] Skipping creation time update ($reason).',
+        forcePrint: true,
+      );
     }
 
     return shouldSkipStep;
@@ -252,7 +259,7 @@ class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
   bool _setFileTimesToDateTakenSync(
     final String filePath,
     final DateTime dateTaken, {
-    required bool isShortcut,
+    required final bool isShortcut,
   }) {
     try {
       return using((final Arena arena) {
@@ -261,7 +268,8 @@ class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
         final Pointer<Utf16> pathPtr = extended.toNativeUtf16(allocator: arena);
 
         // Always allow directory handles; don't follow symlinks when touching shortcuts.
-        final int flags = FILE_ATTRIBUTE_NORMAL |
+        final int flags =
+            FILE_ATTRIBUTE_NORMAL |
             FILE_FLAG_BACKUP_SEMANTICS |
             (isShortcut ? FILE_FLAG_OPEN_REPARSE_POINT : 0);
 
@@ -288,7 +296,8 @@ class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
           _writeDateTimeToFileTimePtr(pWrite, dateTaken.toUtc());
 
           // Set CreationTime and LastWriteTime = dateTaken; keep LastAccessTime unchanged (nullptr)
-          final bool setOk = SetFileTime(fileHandle, pCreation, nullptr, pWrite) != FALSE;
+          final bool setOk =
+              SetFileTime(fileHandle, pCreation, nullptr, pWrite) != FALSE;
           return setOk;
         } finally {
           CloseHandle(fileHandle);
@@ -311,8 +320,12 @@ class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
 
   /// Write a DateTime (UTC) into a FILETIME pointer.
   /// FILETIME = 100-nanosecond intervals since January 1, 1601 (UTC).
-  void _writeDateTimeToFileTimePtr(final Pointer<FILETIME> p, final DateTime utc) {
-    const int epochDiff100ns = 116444736000000000; // between 1601-01-01 and 1970-01-01
+  void _writeDateTimeToFileTimePtr(
+    final Pointer<FILETIME> p,
+    final DateTime utc,
+  ) {
+    const int epochDiff100ns =
+        116444736000000000; // between 1601-01-01 and 1970-01-01
     final int ftTicks = utc.millisecondsSinceEpoch * 10000 + epochDiff100ns;
     p.ref
       ..dwHighDateTime = (ftTicks >> 32) & 0xFFFFFFFF
@@ -321,8 +334,8 @@ class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
 }
 
 class _ToTouch {
+  _ToTouch(this.file, this.dateTaken, {required this.isShortcut});
   final File file;
   final DateTime dateTaken;
   final bool isShortcut;
-  _ToTouch(this.file, this.dateTaken, {required this.isShortcut});
 }

@@ -1,7 +1,8 @@
 import 'dart:io';
+
 import 'package:emoji_regex/emoji_regex.dart' as regex;
-import 'package:path/path.dart' as path;
 import 'package:gpth/gpth-lib.dart';
+import 'package:path/path.dart' as path;
 
 /// Service for sanitizing filenames and handling emoji characters
 class FilenameSanitizerService with LoggerMixin {

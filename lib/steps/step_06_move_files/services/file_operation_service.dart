@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:path/path.dart' as p;
 import 'package:gpth/gpth-lib.dart';
+import 'package:path/path.dart' as p;
 
 /// High-performance file operation service with optimized I/O and concurrency control
 ///
@@ -23,12 +23,15 @@ class FileOperationService with LoggerMixin {
     final DateTime? dateTaken,
   }) async {
     // Ensure target directory exists
-    final Directory normalizedTargetDir = Directory(_normalizePathForWrite(targetDirectory.path));
+    final Directory normalizedTargetDir = Directory(
+      _normalizePathForWrite(targetDirectory.path),
+    );
     await normalizedTargetDir.create(recursive: true);
 
-    final File targetFile = ServiceContainer.instance.utilityService.findUniqueFileName(
-      File(p.join(normalizedTargetDir.path, p.basename(sourceFile.path))),
-    );
+    final File targetFile = ServiceContainer.instance.utilityService
+        .findUniqueFileName(
+          File(p.join(normalizedTargetDir.path, p.basename(sourceFile.path))),
+        );
 
     try {
       final resultFile = await sourceFile.rename(targetFile.path);
@@ -59,25 +62,29 @@ class FileOperationService with LoggerMixin {
     final File sourceFile,
     final Directory targetDirectory, {
     final DateTime? dateTaken,
-  }) async =>
-      GlobalPools.poolFor(ConcurrencyOperation.fileIO).withResource(() async {
-        // Ensure target directory exists
-        final Directory normalizedTargetDir = Directory(_normalizePathForWrite(targetDirectory.path));
-        await normalizedTargetDir.create(recursive: true);
+  }) async => GlobalPools.poolFor(ConcurrencyOperation.fileIO).withResource(
+    () async {
+      // Ensure target directory exists
+      final Directory normalizedTargetDir = Directory(
+        _normalizePathForWrite(targetDirectory.path),
+      );
+      await normalizedTargetDir.create(recursive: true);
 
-        final File targetFile = ServiceContainer.instance.utilityService.findUniqueFileName(
-          File(p.join(normalizedTargetDir.path, p.basename(sourceFile.path))),
-        );
+      final File targetFile = ServiceContainer.instance.utilityService
+          .findUniqueFileName(
+            File(p.join(normalizedTargetDir.path, p.basename(sourceFile.path))),
+          );
 
-        final resultFile = await _moveFileOptimized(sourceFile, targetFile);
+      final resultFile = await _moveFileOptimized(sourceFile, targetFile);
 
-        // Set file timestamp if dateTaken is provided
-        if (dateTaken != null) {
-          await setFileTimestamp(resultFile, dateTaken);
-        }
+      // Set file timestamp if dateTaken is provided
+      if (dateTaken != null) {
+        await setFileTimestamp(resultFile, dateTaken);
+      }
 
-        return resultFile;
-      });
+      return resultFile;
+    },
+  );
 
   /// Internal optimized file move implementation
   Future<File> _moveFileOptimized(
@@ -150,7 +157,9 @@ class FileOperationService with LoggerMixin {
     // Handle Windows date limitations
     DateTime adjustedTime = timestamp;
     if (Platform.isWindows && timestamp.isBefore(DateTime(1970))) {
-      print('[Info]: ${file.path} has date $timestamp, which is before 1970 (not supported on Windows) - will be set to 1970-01-01');
+      print(
+        '[Info]: ${file.path} has date $timestamp, which is before 1970 (not supported on Windows) - will be set to 1970-01-01',
+      );
       adjustedTime = DateTime(1970);
     }
 
@@ -160,7 +169,10 @@ class FileOperationService with LoggerMixin {
       // Sometimes Windows throws error but succeeds anyway
       // Only throw if it's not error code 0
       if (e.errorCode != 0) {
-        throw FileOperationException("Can't set modification time on $file: $e", originalException: e);
+        throw FileOperationException(
+          "Can't set modification time on $file: $e",
+          originalException: e,
+        );
       }
       // Error code 0 means success, so we ignore it
     } catch (e) {
@@ -178,7 +190,9 @@ class FileOperationService with LoggerMixin {
 
   /// Ensures a directory exists, creating it if necessary
   Future<void> ensureDirectoryExists(final Directory directory) async {
-    final Directory normalized = Directory(_normalizePathForWrite(directory.path));
+    final Directory normalized = Directory(
+      _normalizePathForWrite(directory.path),
+    );
     if (!await normalized.exists()) {
       await normalized.create(recursive: true);
     }
@@ -187,10 +201,16 @@ class FileOperationService with LoggerMixin {
   /// Batch create multiple directories with concurrency control
   Future<void> ensureDirectoriesExist(final List<Directory> directories) async {
     final pool = GlobalPools.poolFor(ConcurrencyOperation.fileIO);
-    final concurrency = ConcurrencyManager().concurrencyFor(ConcurrencyOperation.fileIO);
-    logDebug('Starting $concurrency threads (fileIO directory ensure concurrency)');
+    final concurrency = ConcurrencyManager().concurrencyFor(
+      ConcurrencyOperation.fileIO,
+    );
+    logDebug(
+      'Starting $concurrency threads (fileIO directory ensure concurrency)',
+    );
     await Future.wait(
-      directories.map((final dir) => pool.withResource(() => ensureDirectoryExists(dir))),
+      directories.map(
+        (final dir) => pool.withResource(() => ensureDirectoryExists(dir)),
+      ),
     );
   }
 
@@ -201,22 +221,34 @@ class FileOperationService with LoggerMixin {
   }) async {
     final results = <FileOperationResult>[];
     final pool = GlobalPools.poolFor(ConcurrencyOperation.fileIO);
-    final concurrency = ConcurrencyManager().concurrencyFor(ConcurrencyOperation.fileIO);
+    final concurrency = ConcurrencyManager().concurrencyFor(
+      ConcurrencyOperation.fileIO,
+    );
     logDebug('Starting $concurrency threads (fileIO move concurrency)');
     int completed = 0;
 
-    final futures = operations.map((final op) async => pool.withResource(() async {
-          try {
-            final result = await moveFileOptimized(op.source, op.target);
-            completed++;
-            onProgress?.call(completed, operations.length);
-            return FileOperationResult(success: true, sourceFile: op.source, resultFile: result);
-          } catch (e) {
-            completed++;
-            onProgress?.call(completed, operations.length);
-            return FileOperationResult(success: false, sourceFile: op.source, error: e.toString());
-          }
-        }));
+    final futures = operations.map(
+      (final op) async => pool.withResource(() async {
+        try {
+          final result = await moveFileOptimized(op.source, op.target);
+          completed++;
+          onProgress?.call(completed, operations.length);
+          return FileOperationResult(
+            success: true,
+            sourceFile: op.source,
+            resultFile: result,
+          );
+        } catch (e) {
+          completed++;
+          onProgress?.call(completed, operations.length);
+          return FileOperationResult(
+            success: false,
+            sourceFile: op.source,
+            error: e.toString(),
+          );
+        }
+      }),
+    );
 
     results.addAll(await Future.wait(futures));
     return results;
@@ -234,12 +266,15 @@ class FileOperationService with LoggerMixin {
     final DateTime? dateTaken,
   }) async {
     // Ensure target directory exists
-    final Directory normalizedTargetDir = Directory(_normalizePathForWrite(targetDirectory.path));
+    final Directory normalizedTargetDir = Directory(
+      _normalizePathForWrite(targetDirectory.path),
+    );
     await normalizedTargetDir.create(recursive: true);
 
-    final File targetFile = ServiceContainer.instance.utilityService.findUniqueFileName(
-      File(p.join(normalizedTargetDir.path, p.basename(sourceFile.path))),
-    );
+    final File targetFile = ServiceContainer.instance.utilityService
+        .findUniqueFileName(
+          File(p.join(normalizedTargetDir.path, p.basename(sourceFile.path))),
+        );
 
     final resultFile = await _copyFileStreaming(sourceFile, targetFile);
 
@@ -263,7 +298,7 @@ class FileOperationService with LoggerMixin {
 
     // Normalize to forward slashes to split, then rebuild with platform separator.
     final String unified = rawPath.replaceAll('\\', '/');
-    final parts = unified.split('/').where((s) => s.isNotEmpty).toList();
+    final parts = unified.split('/').where((final s) => s.isNotEmpty).toList();
     if (parts.isEmpty) return rawPath;
 
     final List<String> norm = <String>[];

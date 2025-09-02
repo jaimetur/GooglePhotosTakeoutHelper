@@ -1,6 +1,5 @@
 import 'package:gpth/gpth-lib.dart';
 
-
 /// Domain model representing the results and statistics of a complete GPTH processing run
 ///
 /// This replaces the scattered variables like countDuplicates, exifccounter, etc.
@@ -73,11 +72,13 @@ class ProcessingResult {
       buffer.writeln('\t$duplicatesRemoved duplicates were found and skipped');
     }
     if (coordinatesWrittenToExif > 0) {
-      buffer.writeln('\t$coordinatesWrittenToExif files got their coordinates set in EXIF data (from json)',
+      buffer.writeln(
+        '\t$coordinatesWrittenToExif files got their coordinates set in EXIF data (from json)',
       );
     }
     if (dateTimesWrittenToExif > 0) {
-      buffer.writeln('\t$dateTimesWrittenToExif files got their DateTime set in EXIF data',
+      buffer.writeln(
+        '\t$dateTimesWrittenToExif files got their DateTime set in EXIF data',
       );
     }
     if (extensionsFixed > 0) {
@@ -87,7 +88,8 @@ class ProcessingResult {
       buffer.writeln('\t$extrasSkipped extras were skipped');
     }
     if (creationTimesUpdated > 0) {
-      buffer.writeln('\t$creationTimesUpdated files had their CreationDate updated',
+      buffer.writeln(
+        '\t$creationTimesUpdated files had their CreationDate updated',
       );
     }
 
@@ -95,7 +97,8 @@ class ProcessingResult {
       buffer.writeln('\tAlbum behavior: $albumBehavior');
     }
     if (totalMoveOperations != null) {
-      buffer.writeln('\tFile operations (move/copy/symlink/json): $totalMoveOperations',
+      buffer.writeln(
+        '\tFile operations (move/copy/symlink/json): $totalMoveOperations',
       );
     }
 
@@ -113,9 +116,10 @@ class ProcessingResult {
     final minutes = d.inMinutes.remainder(60);
     final seconds = d.inSeconds.remainder(60);
 
-    final durationPretty = '${hours}h '
-               '${minutes.toString().padLeft(2, '0')}m '
-               '${seconds.toString().padLeft(2, '0')}s';
+    final durationPretty =
+        '${hours}h '
+        '${minutes.toString().padLeft(2, '0')}m '
+        '${seconds.toString().padLeft(2, '0')}s';
 
     buffer.writeln('\nIn total the script took $durationPretty to complete');
 

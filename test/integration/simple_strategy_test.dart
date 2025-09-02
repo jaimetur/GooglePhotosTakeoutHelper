@@ -40,16 +40,19 @@ void main() {
 
     test('MediaEntity.single basic properties (no album)', () {
       final sourceFile = fixture.createFile('2023/test.jpg', [1, 2, 3]);
+
+      // IMPORTANT: MediaEntity.single now expects a FileEntity, not a File
       final entity = MediaEntity.single(
-        file: sourceFile,
+        file: FileEntity(sourcePath: sourceFile.path),
         dateTaken: DateTime(2023, 6, 15),
       );
 
-      print('Primary file: ${entity.primaryFile.path}');
+      print('Primary file (effective path): ${entity.primaryFile.path}');
       print('hasAlbumAssociations: ${entity.hasAlbumAssociations}');
       print('albumNames: ${entity.albumNames}');
 
-      expect(entity.primaryFile, sourceFile);
+      // Compare paths (FileEntity vs File)
+      expect(entity.primaryFile.path, equals(sourceFile.path));
       expect(entity.hasAlbumAssociations, isFalse);
       expect(entity.albumNames, isEmpty);
     });
@@ -57,17 +60,19 @@ void main() {
     test('NothingMovingStrategy can process a single year-based file', () async {
       final strategy = NothingMovingStrategy(fileService, pathService);
 
-      // Coloca el fichero bajo un año para que sea “year-based”
+      // Place the file under a year folder so it is "year-based"
       final sourceFile = fixture.createFile('2023/test.jpg', [1, 2, 3]);
+
+      // Use FileEntity wrapper
       final entity = MediaEntity.single(
-        file: sourceFile,
+        file: FileEntity(sourcePath: sourceFile.path),
         dateTaken: DateTime(2023, 6, 15),
       );
 
       final results = <MediaEntityMovingResult>[];
       try {
         print('About to process entity with strategy...');
-        print('Entity primaryFile: ${entity.primaryFile.path}');
+        print('Entity primaryFile (effective path): ${entity.primaryFile.path}');
         print('Entity hasAlbumAssociations: ${entity.hasAlbumAssociations}');
 
         await for (final result in strategy.processMediaEntity(entity, context)) {
@@ -82,7 +87,7 @@ void main() {
         expect(results.length, equals(1));
         expect(results.first.success, isTrue);
 
-        // Verifica que movió a ALL_PHOTOS/2023 (comportamiento de NothingMovingStrategy)
+        // Verify it moved to ALL_PHOTOS/2023 (behavior of NothingMovingStrategy)
         final allPhotosDir = Directory('${outputDir.path}/ALL_PHOTOS/2023');
         expect(allPhotosDir.existsSync(), isTrue);
       } catch (e, stackTrace) {

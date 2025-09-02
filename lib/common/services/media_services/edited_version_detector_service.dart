@@ -1,6 +1,6 @@
+import 'package:gpth/gpth-lib.dart';
 import 'package:path/path.dart' as path;
 import 'package:unorm_dart/unorm_dart.dart' as unorm;
-import 'package:gpth/gpth-lib.dart';
 
 /// Service for handling "extra" format files (edited versions)
 ///
@@ -19,8 +19,9 @@ class EditedVersionDetectorService {
   /// [filename] Filename to check (can include path and extension)
   /// Returns true if the file appears to be an edited version
   bool isExtra(final String filename) {
-    final String name =
-        path.withoutExtension(path.basename(filename)).toLowerCase();
+    final String name = path
+        .withoutExtension(path.basename(filename))
+        .toLowerCase();
     for (final String extra in extraFormats) {
       // macOS may use NFD; normalize to NFC so suffixes with accents match.
       if (unorm.nfc(name).endsWith(extra)) {
@@ -45,8 +46,9 @@ class EditedVersionDetectorService {
 
     for (final MediaEntity entity in collection.media) {
       final String base = path.basename(entity.primaryFile.path);
-      final String name =
-          path.withoutExtension(base).toLowerCase(); // primary file only
+      final String name = path
+          .withoutExtension(base)
+          .toLowerCase(); // primary file only
       final String normalizedName = unorm.nfc(name);
 
       bool isExtraEntity = false;
@@ -101,13 +103,16 @@ class EditedVersionDetectorService {
   String? removeCompleteExtraFormats(final String filename) {
     final String normalizedFilename = unorm.nfc(filename);
     final String originalExt = path.extension(normalizedFilename);
-    final String nameWithoutExt =
-        path.basenameWithoutExtension(normalizedFilename);
+    final String nameWithoutExt = path.basenameWithoutExtension(
+      normalizedFilename,
+    );
 
     for (final String suffix in extraFormats) {
       if (nameWithoutExt.toLowerCase().endsWith(suffix)) {
-        final String cleanName =
-            nameWithoutExt.substring(0, nameWithoutExt.length - suffix.length);
+        final String cleanName = nameWithoutExt.substring(
+          0,
+          nameWithoutExt.length - suffix.length,
+        );
         final String dirname = path.dirname(normalizedFilename);
         return dirname == '.'
             ? '$cleanName$originalExt'
@@ -143,14 +148,17 @@ class EditedVersionDetectorService {
   /// Strategy 3: Cross-extension pattern matching
   String? removeCrossExtensionExtraFormats(final String filename) {
     final String normalizedFilename = unorm.nfc(filename);
-    final String nameWithoutExt =
-        path.basenameWithoutExtension(normalizedFilename);
+    final String nameWithoutExt = path.basenameWithoutExtension(
+      normalizedFilename,
+    );
     final String ext = path.extension(normalizedFilename);
 
     for (final String suffix in extraFormats) {
       if (nameWithoutExt.toLowerCase().endsWith(suffix)) {
-        final String baseName =
-            nameWithoutExt.substring(0, nameWithoutExt.length - suffix.length);
+        final String baseName = nameWithoutExt.substring(
+          0,
+          nameWithoutExt.length - suffix.length,
+        );
 
         // If the edited version is a video now, try restoring a typical photo extension
         if (['.mp4', '.mov', '.avi'].contains(ext.toLowerCase())) {
@@ -176,19 +184,20 @@ class EditedVersionDetectorService {
 
     if (lastDashMatch == null) return null;
 
-    final String beforeDash =
-        path.basenameWithoutExtension(normalizedFilename)
-            .substring(0, lastDashMatch.start);
+    final String beforeDash = path
+        .basenameWithoutExtension(normalizedFilename)
+        .substring(0, lastDashMatch.start);
     final String afterDash = lastDashMatch.group(0)!;
 
     for (final String suffix in extraFormats) {
       final String suffixWithoutDash = suffix.substring(1);
-      final String afterDashClean =
-          afterDash.replaceAll(RegExp(r'\(\d+\)'), '').substring(1);
+      final String afterDashClean = afterDash
+          .replaceAll(RegExp(r'\(\d+\)'), '')
+          .substring(1);
 
-      if (suffixWithoutDash
-              .toLowerCase()
-              .startsWith(afterDashClean.toLowerCase()) &&
+      if (suffixWithoutDash.toLowerCase().startsWith(
+            afterDashClean.toLowerCase(),
+          ) &&
           afterDashClean.length >= 2) {
         final String dirname = path.dirname(normalizedFilename);
         return dirname == '.'
