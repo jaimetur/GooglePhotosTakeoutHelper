@@ -6,7 +6,7 @@ library;
 
 import 'dart:io';
 
-import 'package:gpth/gpth-lib.dart';
+import 'package:gpth/gpth_lib_exports.dart';
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
 

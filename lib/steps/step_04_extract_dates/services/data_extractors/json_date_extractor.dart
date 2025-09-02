@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:coordinate_converter/coordinate_converter.dart';
-import 'package:gpth/gpth-lib.dart';
+import 'package:gpth/gpth_lib_exports.dart';
 
 /// Finds corresponding json file with info from media file and gets 'photoTakenTime' from it
 Future<DateTime?> jsonDateTimeExtractor(

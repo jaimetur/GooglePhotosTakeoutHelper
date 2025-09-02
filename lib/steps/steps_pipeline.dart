@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:gpth/gpth-lib.dart';
+import 'package:gpth/gpth_lib_exports.dart';
 
 /// Abstract base class for all GPTH processing steps
 ///

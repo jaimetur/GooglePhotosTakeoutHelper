@@ -1,4 +1,4 @@
-import 'package:gpth/gpth-lib.dart';
+import 'package:gpth/gpth_lib_exports.dart';
 
 /// Domain model representing the results and statistics of a complete GPTH processing run
 ///

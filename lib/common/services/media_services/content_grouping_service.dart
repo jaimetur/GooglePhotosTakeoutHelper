@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:gpth/gpth-lib.dart';
+import 'package:gpth/gpth_lib_exports.dart';
 
 /// Service for grouping media files by content similarity
 ///

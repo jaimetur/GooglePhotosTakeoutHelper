@@ -2,7 +2,7 @@ import 'dart:io';
 import 'dart:isolate';
 
 import 'package:ffi/ffi.dart';
-import 'package:gpth/gpth-lib.dart';
+import 'package:gpth/gpth_lib_exports.dart';
 import 'package:path/path.dart' as p;
 import 'package:win32/win32.dart';
 

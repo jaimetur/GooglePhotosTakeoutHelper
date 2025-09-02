@@ -1,5 +1,5 @@
 /// Public barrel of the library.
-/// Import this from apps/bin/tests: `import 'package:<your_package_name>/gpth-lib.dart';`
+/// Import this from apps/bin/tests: `import 'package:<your_package_name>/gpth_lib_exports.dart';`
 library gpth;
 
 /*

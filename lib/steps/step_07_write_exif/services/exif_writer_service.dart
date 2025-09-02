@@ -2,7 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:coordinate_converter/coordinate_converter.dart';
-import 'package:gpth/gpth-lib.dart';
+import 'package:gpth/gpth_lib_exports.dart';
 import 'package:image/image.dart';
 import 'package:intl/intl.dart';
 

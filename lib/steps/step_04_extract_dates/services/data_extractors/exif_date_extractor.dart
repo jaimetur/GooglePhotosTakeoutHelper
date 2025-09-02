@@ -3,7 +3,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:exif_reader/exif_reader.dart';
-import 'package:gpth/gpth-lib.dart';
+import 'package:gpth/gpth_lib_exports.dart';
 import 'package:mime/mime.dart';
 
 class _SmartReadResult {

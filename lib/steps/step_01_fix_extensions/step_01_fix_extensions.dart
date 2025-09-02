@@ -1,4 +1,4 @@
-import 'package:gpth/gpth-lib.dart';
+import 'package:gpth/gpth_lib_exports.dart';
 
 /// Step 1: Fix incorrect file extensions
 ///

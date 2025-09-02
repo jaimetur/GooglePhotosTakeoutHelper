@@ -1,4 +1,4 @@
-import 'package:gpth/gpth-lib.dart';
+import 'package:gpth/gpth_lib_exports.dart';
 
 /// Service for managing global application configuration and state
 ///
@@ -183,7 +183,7 @@ class GlobalConfigService {
   // Private helpers
   // ───────────────────────────────────────────────────────────────────────────
 
-  bool _asBool(final dynamic v, final bool fallback) {
+  bool _asBool(final v, final bool fallback) {
     if (v is bool) return v;
     if (v is String) {
       final s = v.toLowerCase().trim();

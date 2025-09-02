@@ -3,7 +3,7 @@
 /// Tests the logging functionality with different levels and configurations.
 library;
 
-import 'package:gpth/gpth-lib.dart';
+import 'package:gpth/gpth_lib_exports.dart';
 import 'package:test/test.dart';
 
 void main() {

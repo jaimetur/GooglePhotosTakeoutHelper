@@ -4,7 +4,7 @@
 /// and provide the expected behavior for user interaction operations.
 library;
 
-import 'package:gpth/gpth-lib.dart';
+import 'package:gpth/gpth_lib_exports.dart';
 import 'package:test/test.dart';
 
 void main() {

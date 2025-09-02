@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:gpth/gpth-lib.dart';
+import 'package:gpth/gpth_lib_exports.dart';
 
 /// Represents a single file entity within GPTH.
 /// Encapsulates source and target paths, canonicality, shortcut status,

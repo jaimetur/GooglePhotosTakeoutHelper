@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:console_bars/console_bars.dart';
-import 'package:gpth/gpth-lib.dart';
+import 'package:gpth/gpth_lib_exports.dart';
 import 'package:intl/intl.dart';
 import 'package:mime/mime.dart';
 

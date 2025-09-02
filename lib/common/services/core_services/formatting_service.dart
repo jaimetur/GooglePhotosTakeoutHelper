@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:gpth/gpth-lib.dart';
+import 'package:gpth/gpth_lib_exports.dart';
 import 'package:proper_filesize/proper_filesize.dart';
 
 /// Consolidated utility service for common formatting and utility operations

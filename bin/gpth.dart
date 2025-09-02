@@ -1,9 +1,10 @@
 // ignore_for_file: unintended_html_in_doc_comment
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:args/args.dart';
+import 'package:gpth/gpth_lib_exports.dart';
 import 'package:path/path.dart' as path;
-import 'package:gpth/gpth-lib.dart';
 
 // Parses hidden test-only flags from argv, applies them, and returns a list
 // with those flags removed so ArgParser won't choke on unknown options.

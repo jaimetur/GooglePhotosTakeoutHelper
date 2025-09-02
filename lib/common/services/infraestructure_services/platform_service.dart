@@ -2,7 +2,7 @@ import 'dart:ffi';
 import 'dart:io';
 
 import 'package:ffi/ffi.dart';
-import 'package:gpth/gpth-lib.dart';
+import 'package:gpth/gpth_lib_exports.dart';
 import 'package:win32/win32.dart';
 
 /// Service for platform-specific operations and disk space detection

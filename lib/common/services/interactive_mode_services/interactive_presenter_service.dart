@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:gpth/gpth-lib.dart';
+import 'package:gpth/gpth_lib_exports.dart';
 
 /// Service for handling interactive user interface and console interactions
 ///

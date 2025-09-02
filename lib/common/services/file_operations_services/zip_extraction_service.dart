@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:archive/archive_io.dart';
-import 'package:gpth/gpth-lib.dart';
+import 'package:gpth/gpth_lib_exports.dart';
 import 'package:path/path.dart' as p;
 
 /// Service for handling ZIP file extraction with safety checks and error handling.

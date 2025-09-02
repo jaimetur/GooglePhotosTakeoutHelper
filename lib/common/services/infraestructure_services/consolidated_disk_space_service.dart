@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:gpth/gpth-lib.dart';
+import 'package:gpth/gpth_lib_exports.dart';
 
 /// Consolidated service for all disk space operations across different platforms
 ///

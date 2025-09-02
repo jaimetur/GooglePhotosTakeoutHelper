@@ -8,7 +8,7 @@ library;
 
 import 'dart:convert';
 import 'dart:io';
-import 'package:gpth/gpth-lib.dart';
+import 'package:gpth/gpth_lib_exports.dart';
 import 'package:test/test.dart';
 
 import '../setup/test_setup.dart';

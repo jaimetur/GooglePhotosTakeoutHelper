@@ -34,7 +34,7 @@ import 'dart:io';
 
 import 'package:emoji_regex/emoji_regex.dart' as regex;
 import 'package:exif_reader/exif_reader.dart';
-import 'package:gpth/gpth-lib.dart';
+import 'package:gpth/gpth_lib_exports.dart';
 import 'package:path/path.dart' as path;
 import 'package:test/test.dart';
 

@@ -1,5 +1,5 @@
 import 'package:console_bars/console_bars.dart';
-import 'package:gpth/gpth-lib.dart';
+import 'package:gpth/gpth_lib_exports.dart';
 
 /// Step 6: Move files to output directory
 ///

@@ -1,4 +1,4 @@
-import 'package:gpth/gpth-lib.dart';
+import 'package:gpth/gpth_lib_exports.dart';
 import 'package:path/path.dart' as path;
 import 'package:unorm_dart/unorm_dart.dart' as unorm;
 

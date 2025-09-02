@@ -1,7 +1,7 @@
 /// Simple test to verify the MediaEntity moving strategies are working
 library;
 
-import 'package:gpth/gpth-lib.dart';
+import 'package:gpth/gpth_lib_exports.dart';
 import 'package:test/test.dart';
 
 void main() {

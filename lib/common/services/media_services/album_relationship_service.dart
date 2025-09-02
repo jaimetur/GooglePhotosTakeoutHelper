@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:io';
 import 'package:crypto/crypto.dart';
-import 'package:gpth/gpth-lib.dart';
+import 'package:gpth/gpth_lib_exports.dart';
 
 /// Service for detecting and managing album relationships between media files
 ///
