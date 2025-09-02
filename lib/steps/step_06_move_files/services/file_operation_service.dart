@@ -292,28 +292,26 @@ class FileOperationService with LoggerMixin {
   /// - Removes ASCII control chars.
   /// - Keeps Unicode (accents, emojis) intact.
   /// - Ensures no empty segments remain (replaces with "_").
-  /// - **Preserves absolute root prefixes** ("/", "C:\", and UNC "\\server\share\").
+  /// - **Preserves absolute root prefixes** ("/", "C:\\", and UNC "\\\\server\\share\\").
+  /// - **Honors relative semantics** by skipping "." segments and preserving ".." segments.
   String _normalizePathForWrite(final String rawPath) {
     if (rawPath.isEmpty) return rawPath;
 
-    // Preserve the root prefix (Unix "/", Windows drive roots like "C:\" and UNC roots "\\server\share\")
+    // Preserve the root prefix (Unix "/", Windows drive roots like "C:\\" and UNC roots "\\\\server\\share\\")
     final String root = p.rootPrefix(rawPath);
     final String remainder = rawPath.substring(root.length);
 
-    // Split the remainder by either slash or backslash, ignoring duplicate separators.
-    final List<String> parts = remainder
-        .split(RegExp(r'[\\/]+'))
-        .where((final s) => s.isNotEmpty)
-        .toList();
-
-    if (parts.isEmpty) {
-      // If the path was just a root (e.g., "/"), return it as-is.
-      return root.isNotEmpty ? root : rawPath;
-    }
+    // Split by slash or backslash, allowing duplicates.
+    final List<String> rawParts = remainder.split(RegExp(r'[\\/]+'));
 
     final List<String> norm = <String>[];
-    for (int i = 0; i < parts.length; i++) {
-      var seg = parts[i];
+    for (int i = 0; i < rawParts.length; i++) {
+      var seg = rawParts[i];
+      if (seg.isEmpty) continue;
+
+      // Keep relative semantics: skip "." and preserve ".." literally.
+      if (seg == '.') continue;
+      if (seg == '..') { norm.add('..'); continue; }
 
       // Remove ASCII control characters
       seg = seg.replaceAll(RegExp(r'[\x00-\x1F]'), '_');
@@ -328,11 +326,16 @@ class FileOperationService with LoggerMixin {
       norm.add(seg);
     }
 
+    // If there were no components after normalization:
+    if (norm.isEmpty) {
+      // Root-only path like "/" -> return root; otherwise return "." to keep a valid relative path.
+      return root.isNotEmpty ? root : '.';
+    }
+
     // Rebuild path with the preserved root.
     final String joined = norm.join(Platform.pathSeparator);
     if (root.isEmpty) return joined;
 
-    // Ensure we do not duplicate separators when concatenating root + joined.
     final bool rootEndsWithSep = root.endsWith('\\') || root.endsWith('/');
     return rootEndsWithSep ? '$root$joined' : '$root${Platform.pathSeparator}$joined';
   }
