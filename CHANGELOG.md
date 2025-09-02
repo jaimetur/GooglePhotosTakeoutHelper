@@ -47,7 +47,7 @@
 ## 5.0.0
 
 ### ✨ **New Features**
-  - Support for 7zip and unzip extractors (if found in your system). This is shy the native extractor does not extract properly filenames or dirnames with latin chars.
+  - Support for 7zip and unzip extractors (if found in your system). This is because the native extractor does not extract properly filenames or dirnames with UTF-8/latin1 chars.
   - Support new `Extra` files from Google Takeout with following suffixes: `-motion`, `-animation`, `-collage`.
   - New flag `--keep-input` to Work on a temporary sibling copy of --input (suffix _tmp), keeping the original untouched.
   - New flag `--keep-duplicates` to keep duplicates files in `_Duplicates` subfolder within output folder.

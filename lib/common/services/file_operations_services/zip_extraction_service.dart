@@ -1,3 +1,4 @@
+import 'dart:convert'; // Needed for utf8 and latin1
 import 'dart:io';
 
 import 'package:archive/archive_io.dart';
@@ -83,20 +84,19 @@ class ZipExtractionService {
         // Log file size for large files
         if (zipSize > 1024 * 1024 * 1024) {
           // > 1GB
-          _logger.info(
-            'Processing large ZIP file: ${p.basename(zip.path)} (${zipSize ~/ (1024 * 1024)}MB)',
-          );
+          _logger.info('Processing large ZIP file: ${p.basename(zip.path)} (${zipSize ~/ (1024 * 1024)}MB)');
         }
 
         // ─────────────────────────────────────────────────────────────────────
         // Windows: 7-Zip (PATH + common locations + ./gpth_tool/7zip/7z.exe) -> Native (Dart)
-        // macOS/Linux: 7-Zip -> unzip -> Native (Dart)
+        // macOS/Linux: unzip (UTF-8 forced) -> 7-Zip (UTF-8 forced) -> Native (Dart)
+        // Rationale:
+        // - Windows native (Dart) may mis-decode legacy zips; 7-Zip handles UTF-8 better with -mcp=65001.
+        // - On *nix, Info-ZIP supports -O UTF-8; prefer it before 7-Zip to avoid locale/codepage issues.
         // ─────────────────────────────────────────────────────────────────────
         final extracted = await _extractZipWithStrategy(zip, dir);
         if (!extracted) {
-          _logger.warning(
-            'No external extractor succeeded; falling back to native streamed extractor (safety fallback).',
-          );
+          _logger.warning('No external extractor succeeded; falling back to native streamed extractor (safety fallback).');
           await _extractZipStreamed(zip, dir);
         }
 
@@ -131,22 +131,16 @@ class ZipExtractionService {
           _logger.error('');
           _logger.error('❌ MEMORY EXHAUSTION ERROR');
           _logger.error('ZIP file too large: ${p.basename(zip.path)}');
-          _logger.error(
-            'Available memory insufficient for processing this file.',
-          );
+          _logger.error('Available memory insufficient for processing this file.');
           _logger.error('');
           _logger.error('🔧 SOLUTIONS:');
-          _logger.error(
-            '1. Extract ZIP files manually using your system tools',
-          );
+          _logger.error('1. Extract ZIP files manually using your system tools');
           _logger.error('2. Use smaller ZIP files (split large exports)');
           _logger.error('3. Run GPTH on the manually extracted folder');
           _logger.error('4. Increase available memory and try again');
           _logger.error('');
           _logger.error('Manual extraction guide:');
-          _logger.error(
-            'https://github.com/Xentraxx/GooglePhotosTakeoutHelper#manual-extraction',
-          );
+          _logger.error('https://github.com/Xentraxx/GooglePhotosTakeoutHelper#manual-extraction');
           _logger.warning('Continuing with remaining ZIP files...');
         } else {
           try {
@@ -176,19 +170,14 @@ class ZipExtractionService {
     _logger.info('Starting extraction strategy for $zipName');
 
     if (Platform.isWindows) {
-      // 1) Try 7-Zip with deep discovery
+      // 1) Try 7-Zip with deep discovery (forced UTF-8 code page)
       try {
-        final ok = await _timed(
-          '7-Zip',
-          () => _tryExtractWith7zip(zip, destinationDir),
-        );
+        final ok = await _timed('7-Zip', () => _tryExtractWith7zip(zip, destinationDir));
         if (ok) {
           _logger.info('7-Zip extraction succeeded for $zipName');
           return true;
         } else {
-          _logger.warning(
-            '7-Zip not available or failed for $zipName, using native streamed extractor...',
-          );
+          _logger.warning('7-Zip not available or failed for $zipName, using native streamed extractor...');
         }
       } catch (e) {
         _logger.warning('7-Zip extraction threw an error for $zipName: $e');
@@ -211,40 +200,30 @@ class ZipExtractionService {
       return false;
     } else {
       // macOS / Linux
-      // 1) Try 7-Zip
+      // 1) Try unzip with UTF-8 override (-O UTF-8)
       try {
-        final ok = await _timed(
-          '7-Zip',
-          () => _tryExtractWith7zip(zip, destinationDir),
-        );
-        if (ok) {
-          _logger.info('7-Zip extraction succeeded for $zipName');
-          return true;
-        } else {
-          _logger.warning(
-            '7-Zip failed or not found for $zipName, trying unzip...',
-          );
-        }
-      } catch (e) {
-        _logger.warning('7-Zip extraction threw an error for $zipName: $e');
-      }
-
-      // 2) Try unzip
-      try {
-        final ok = await _timed(
-          'unzip',
-          () => _tryExtractWithUnzip(zip, destinationDir),
-        );
+        final ok = await _timed('unzip', () => _tryExtractWithUnzip(zip, destinationDir));
         if (ok) {
           _logger.info('unzip succeeded for $zipName');
           return true;
         } else {
-          _logger.warning(
-            'unzip failed for $zipName, falling back to native streamed extractor...',
-          );
+          _logger.warning('unzip failed for $zipName, trying 7-Zip...');
         }
       } catch (e) {
         _logger.warning('unzip extraction threw an error for $zipName: $e');
+      }
+
+      // 2) Try 7-Zip (force UTF-8 code page)
+      try {
+        final ok = await _timed('7-Zip', () => _tryExtractWith7zip(zip, destinationDir));
+        if (ok) {
+          _logger.info('7-Zip extraction succeeded for $zipName');
+          return true;
+        } else {
+          _logger.warning('7-Zip failed or not found for $zipName, falling back to native streamed extractor...');
+        }
+      } catch (e) {
+        _logger.warning('7-Zip extraction threw an error for $zipName: $e');
       }
 
       // 3) Fallback: native streamed extractor
@@ -274,61 +253,43 @@ class ZipExtractionService {
     try {
       final ok = await action();
       sw.stop();
-      _logger.debug(
-        '[$label] completed in ${sw.elapsed.inMilliseconds} ms (success=$ok)',
-        forcePrint: true,
-      );
+      _logger.debug('[$label] completed in ${sw.elapsed.inMilliseconds} ms (success=$ok)', forcePrint: true);
       return ok;
     } catch (e) {
       sw.stop();
-      _logger.debug(
-        '[$label] failed in ${sw.elapsed.inMilliseconds} ms with error: $e',
-        forcePrint: true,
-      );
+      _logger.debug('[$label] failed in ${sw.elapsed.inMilliseconds} ms with error: $e', forcePrint: true);
       rethrow;
     }
   }
 
   /// Try 7-Zip (7z/7za/7zz). Returns true on success.
   /// Windows: searches PATH and common install locations (Program Files, Chocolatey, Scoop) and ./gpth_tool/7zip/7z.exe.
+  /// NEW: forces UTF-8 filenames with -mcp=65001 and ensures UTF-8 locale on *nix to avoid mojibake.
   Future<bool> _tryExtractWith7zip(
     final File zip,
     final Directory destinationDir,
   ) async {
-    final String? sevenZip = Platform.isWindows
-        ? await _find7zipWindows()
-        : await _whichFirst(['7z', '7za', '7zz']);
+    final String? sevenZip = Platform.isWindows ? await _find7zipWindows() : await _whichFirst(['7z', '7za', '7zz']);
     if (sevenZip == null) {
-      _logger.debug(
-        '7-Zip not found; skipping 7-Zip extraction. Hint: add 7-Zip to PATH or place it at ./gpth_tool/7zip/7z.exe',
-        forcePrint: true,
-      );
+      _logger.debug('7-Zip not found; skipping 7-Zip extraction. Hint: add 7-Zip to PATH or place it at ./gpth_tool/7zip/7z.exe', forcePrint: true);
       return false;
     }
 
     final String zipPath = zip.path;
     final String outDir = destinationDir.path;
 
-    // 7z x "<zip>" -o"<outDir>" -y -aoa -mmt=on
-    final List<String> args = [
-      'x',
-      zipPath,
-      '-o$outDir',
-      '-y',
-      '-aoa',
-      '-mmt=on',
-    ];
-    _logger.debug(
-      'Running 7-Zip: $sevenZip ${args.join(' ')}',
-      forcePrint: true,
-    );
+    // 7z x "<zip>" -o"<outDir>" -y -aoa -mmt=on -mcp=65001
+    // -mcp=65001 -> force UTF-8 for filenames (helps when archives lack proper UTF-8 flag)
+    final List<String> args = ['x', zipPath, '-o$outDir', '-y', '-aoa', '-mmt=on', '-mcp=65001'];
+    _logger.debug('Running 7-Zip: $sevenZip ${args.join(' ')}', forcePrint: true);
 
     try {
-      final ProcessResult result = await Process.run(
-        sevenZip,
-        args,
-        runInShell: true,
-      );
+      final Map<String, String> env = Map<String, String>.from(Platform.environment);
+      if (!Platform.isWindows) {
+        env['LANG'] = env['LANG'] ?? 'C.UTF-8';
+        env['LC_ALL'] = env['LC_ALL'] ?? 'C.UTF-8';
+      }
+      final ProcessResult result = await Process.run(sevenZip, args, runInShell: true, environment: env);
       _logger.debug('7-Zip exitCode: ${result.exitCode}', forcePrint: true);
       final String so = (result.stdout ?? '').toString().trim();
       final String se = (result.stderr ?? '').toString().trim();
@@ -360,9 +321,7 @@ class ZipExtractionService {
       if (chocolatey != null) p.join(chocolatey, 'bin', '7z.exe'),
       if (scoop != null) p.join(scoop, 'apps', '7zip', 'current', '7z.exe'),
       // Project-relative bundled location (recommended to ship): ./gpth_tool/7zip/7z.exe
-      p.normalize(
-        p.join(Directory.current.path, 'gpth_tool', '7zip', '7z.exe'),
-      ),
+      p.normalize(p.join(Directory.current.path, 'gpth_tool', '7zip', '7z.exe')),
     ];
 
     for (final path in candidates) {
@@ -376,6 +335,7 @@ class ZipExtractionService {
   }
 
   /// Try unzip (macOS/Linux). Returns true on success.
+  /// NEW: forces UTF-8 filenames with `-O UTF-8` to avoid locale-dependent decoding.
   Future<bool> _tryExtractWithUnzip(
     final File zip,
     final Directory destinationDir,
@@ -383,29 +343,22 @@ class ZipExtractionService {
     if (Platform.isWindows) return false;
     final String? unzipCmd = await _which('unzip');
     if (unzipCmd == null) {
-      _logger.debug(
-        'unzip not found on PATH; skipping unzip extraction',
-        forcePrint: true,
-      );
+      _logger.debug('unzip not found on PATH; skipping unzip extraction', forcePrint: true);
       return false;
     }
 
     final String zipPath = zip.path;
     final String outDir = destinationDir.path;
 
-    // unzip -o "<zip>" -d "<outDir>"
-    final List<String> args = ['-o', zipPath, '-d', outDir];
-    _logger.debug(
-      'Running unzip: $unzipCmd ${args.join(' ')}',
-      forcePrint: true,
-    );
+    // unzip -O UTF-8 -o "<zip>" -d "<outDir>"
+    final List<String> args = ['-O', 'UTF-8', '-o', zipPath, '-d', outDir];
+    _logger.debug('Running unzip: $unzipCmd ${args.join(' ')}', forcePrint: true);
 
     try {
-      final ProcessResult result = await Process.run(
-        unzipCmd,
-        args,
-        runInShell: true,
-      );
+      final Map<String, String> env = Map<String, String>.from(Platform.environment);
+      env['LANG'] = env['LANG'] ?? 'C.UTF-8';
+      env['LC_ALL'] = env['LC_ALL'] ?? 'C.UTF-8';
+      final ProcessResult result = await Process.run(unzipCmd, args, runInShell: true, environment: env);
       _logger.debug('unzip exitCode: ${result.exitCode}', forcePrint: true);
       final String so = (result.stdout ?? '').toString().trim();
       final String se = (result.stderr ?? '').toString().trim();
@@ -422,9 +375,7 @@ class ZipExtractionService {
   Future<String?> _which(final String cmd) async {
     try {
       if (Platform.isWindows) {
-        final ProcessResult res = await Process.run('where', [
-          cmd,
-        ], runInShell: true);
+        final ProcessResult res = await Process.run('where', [cmd], runInShell: true);
         if (res.exitCode == 0) {
           final String out = (res.stdout ?? '').toString().trim();
           if (out.isNotEmpty) {
@@ -433,9 +384,7 @@ class ZipExtractionService {
           }
         }
       } else {
-        final ProcessResult res = await Process.run('which', [
-          cmd,
-        ], runInShell: true);
+        final ProcessResult res = await Process.run('which', [cmd], runInShell: true);
         if (res.exitCode == 0) {
           final String out = (res.stdout ?? '').toString().trim();
           return out.isEmpty ? null : out;
@@ -457,6 +406,7 @@ class ZipExtractionService {
   /// Streamed extraction using archive v4 `decodeStream` API.
   ///
   /// Applies a mojibake fix (¥ -> Ñ/ñ) before sanitizing, then standard sanitization.
+  /// NEW: also applies a conservative UTF-8-from-Latin1 repair when typical mojibake markers are found (e.g., 'Ã', 'Â').
   Future<void> _extractZipStreamed(
     final File zip,
     final Directory destinationDir,
@@ -478,17 +428,18 @@ class ZipExtractionService {
       }
 
       // Heuristic fix for mojibake where Ñ/ñ became ¥
-      final fixedName = _fixMojibakeYenToEnye(entry.name);
+      final fixedYen = _fixMojibakeYenToEnye(entry.name);
 
-      // Diagnostics: log fixed form
-      if (enableNameDiagnostics &&
-          fixedName != entry.name &&
-          _looksSuspicious(fixedName)) {
-        _logNameDiagnostics('fixed', fixedName);
+      // Conservative UTF-8-from-Latin1 reverse repair (handles "Ãñ", "Ã¡", etc.)
+      final fixedUtf8 = _attemptUtf8FromLatin1(fixedYen);
+
+      // Diagnostics: log fixed form(s)
+      if (enableNameDiagnostics && fixedUtf8 != entry.name && _looksSuspicious(fixedUtf8)) {
+        _logNameDiagnostics('fixed', fixedUtf8);
       }
 
       // Sanitize after fixing
-      final String sanitizedRelative = _sanitizeFileName(fixedName);
+      final String sanitizedRelative = _sanitizeFileName(fixedUtf8);
 
       if (enableNameDiagnostics && _looksSuspicious(sanitizedRelative)) {
         _logNameDiagnostics('sanitized', sanitizedRelative);
@@ -499,9 +450,7 @@ class ZipExtractionService {
       // Zip Slip protection
       final String entryDirCanonical = p.canonicalize(p.dirname(fullPath));
       if (!entryDirCanonical.startsWith(destCanonical)) {
-        throw SecurityException(
-          'Path traversal attempt detected: ${entry.name} -> $fullPath',
-        );
+        throw SecurityException('Path traversal attempt detected: ${entry.name} -> $fullPath');
       }
 
       if (entry.isFile) {
@@ -519,13 +468,9 @@ class ZipExtractionService {
 
         // Preserve file modification time if available
         try {
-          await File(fullPath).setLastModified(
-            DateTime.fromMillisecondsSinceEpoch(entry.lastModTime * 1000),
-          );
+          await File(fullPath).setLastModified(DateTime.fromMillisecondsSinceEpoch(entry.lastModTime * 1000));
         } catch (e) {
-          _logger.warning(
-            'Warning: Could not set modification time for $fullPath: $e',
-          );
+          _logger.warning('Warning: Could not set modification time for $fullPath: $e');
         }
       } else if (entry.isDirectory) {
         final Directory outDir = Directory(fullPath);
@@ -546,22 +491,38 @@ class ZipExtractionService {
     final runes = name.runes.toList();
     final buffer = StringBuffer();
 
-    bool isLatinUpper(final int r) =>
-        (r >= 0x41 && r <= 0x5A) || r == 0x00D1; // A-Z or Ñ
+    bool isLatinUpper(final int r) => (r >= 0x41 && r <= 0x5A) || r == 0x00D1; // A-Z or Ñ
     for (int i = 0; i < runes.length; i++) {
       final r = runes[i];
       if (r == 0x00A5) {
         final prev = i > 0 ? runes[i - 1] : null;
         final next = i + 1 < runes.length ? runes[i + 1] : null;
-        final upperContext =
-            (prev != null && isLatinUpper(prev)) ||
-            (next != null && isLatinUpper(next));
+        final upperContext = (prev != null && isLatinUpper(prev)) || (next != null && isLatinUpper(next));
         buffer.write(upperContext ? 'Ñ' : 'ñ');
       } else {
         buffer.write(String.fromCharCode(r));
       }
     }
     return buffer.toString();
+  }
+
+  /// Conservative UTF-8-from-Latin1 repair for typical mojibake like "Ãñ", "Ã¡", "Ã©", "Â·", etc.
+  /// It only triggers when the string contains clear mojibake markers and the round-trip produces a "cleaner" string.
+  String _attemptUtf8FromLatin1(final String name) {
+    // Fast-path: if it doesn't look like classic UTF-8-as-Latin1 mojibake, return as is.
+    if (!name.contains('Ã') && !name.contains('Â')) return name;
+
+    try {
+      // Re-interpret current Unicode scalars as Latin-1 bytes, then decode as UTF-8.
+      final bytes = latin1.encode(name);
+      final decoded = utf8.decode(bytes, allowMalformed: true);
+
+      // Accept only if it actually removes mojibake markers and keeps length sensible.
+      final looksBetter = (decoded != name) && !decoded.contains('Ã') && !decoded.contains('Â');
+      return looksBetter ? decoded : name;
+    } catch (_) {
+      return name;
+    }
   }
 
   /// Sanitizes file and directory names inside the archive path.
@@ -645,21 +606,14 @@ class ZipExtractionService {
   /// Returns true if the name contains characters that usually indicate encoding issues.
   // ignore: prefer_expression_function_bodies
   bool _looksSuspicious(final String name) {
-    return name.contains('¥') || name.contains('�') || name.contains('~');
+    return name.contains('¥') || name.contains('�') || name.contains('~') || name.contains('Ã') || name.contains('Â');
     // The tilde (~) often appears in DOS 8.3 short names (e.g., RESIDE~4).
   }
 
   /// Logs the name with code points for diagnostics.
   void _logNameDiagnostics(final String stage, final String name) {
-    final codePoints = name.runes
-        .map(
-          (final r) => 'U+${r.toRadixString(16).toUpperCase().padLeft(4, '0')}',
-        )
-        .join(' ');
-    _logger.info(
-      '[NameDiag][$stage] "$name"  ->  $codePoints',
-      forcePrint: true,
-    );
+    final codePoints = name.runes.map((final r) => 'U+${r.toRadixString(16).toUpperCase().padLeft(4, '0')}').join(' ');
+    _logger.info('[NameDiag][$stage] "$name"  ->  $codePoints', forcePrint: true);
   }
 
   /// Handles extraction errors with detailed error messages and user guidance.
@@ -679,29 +633,19 @@ class ZipExtractionService {
 
     if (isArchiveError) {
       _logger.error('💥 ZIP Archive Error:');
-      _logger.error(
-        'The ZIP file appears to be corrupted or uses an unsupported format.',
-      );
+      _logger.error('The ZIP file appears to be corrupted or uses an unsupported format.');
       _logger.error('');
       _logger.error('🔧 Suggested Solutions:');
       _logger.error('• Re-download the ZIP file from Google Takeout');
       _logger.error('• Verify the file wasn\'t corrupted during download');
-      _logger.error(
-        '• Try extracting manually with your system\'s built-in extractor',
-      );
+      _logger.error('• Try extracting manually with your system\'s built-in extractor');
     } else if (isPathError) {
       _logger.error('📁 Path/File Error:');
-      _logger.error(
-        'There was an issue accessing files or creating directories.',
-      );
+      _logger.error('There was an issue accessing files or creating directories.');
       _logger.error('');
       _logger.error('🔧 Suggested Solutions:');
-      _logger.error(
-        '• Ensure you have sufficient permissions in the target directory',
-      );
-      _logger.error(
-        '• Check that the target path is not too long (Windows limitation)',
-      );
+      _logger.error('• Ensure you have sufficient permissions in the target directory');
+      _logger.error('• Check that the target path is not too long (Windows limitation)');
       _logger.error('• Verify sufficient disk space is available');
     } else if (isFileSystemError) {
       _logger.error('💾 File System Error:');
@@ -709,9 +653,7 @@ class ZipExtractionService {
       _logger.error('');
       _logger.error('🔧 Suggested Solutions:');
       _logger.error('• Check file permissions on the ZIP file');
-      _logger.error(
-        '• Ensure the ZIP file is not currently open in another program',
-      );
+      _logger.error('• Ensure the ZIP file is not currently open in another program');
       _logger.error('• Verify the target directory is writable');
     } else {
       _logger.error('⚠️  Unexpected Error:');
@@ -723,22 +665,14 @@ class ZipExtractionService {
     _logger.error('');
     _logger.error('🔄 Alternative Options:');
     _logger.error('• Extract ZIP files manually using your system tools');
-    _logger.error(
-      '• Use GPTH with command-line options on pre-extracted files',
-    );
-    _logger.error(
-      '• See manual extraction guide: https://github.com/Xentraxx/GooglePhotosTakeoutHelper?tab=readme-ov-file#command-line-usage',
-    );
+    _logger.error('• Use GPTH with command-line options on pre-extracted files');
+    _logger.error('• See manual extraction guide: https://github.com/Xentraxx/GooglePhotosTakeoutHelper?tab=readme-ov-file#command-line-usage');
     _logger.error('');
     _logger.error('===============================================');
     _logger.error('');
     _logger.error('⚠️  ZIP EXTRACTION FAILED - CONTINUING WITH PROCESSING');
-    _logger.error(
-      'The ZIP extraction failed, but GPTH will continue processing',
-    );
-    _logger.error(
-      'any files that were successfully extracted before the error.',
-    );
+    _logger.error('The ZIP extraction failed, but GPTH will continue processing');
+    _logger.error('any files that were successfully extracted before the error.');
     _logger.error('Please check the extraction directory for partial results.');
 
     // Propagate to caller
