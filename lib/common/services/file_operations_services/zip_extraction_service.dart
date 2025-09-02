@@ -1,5 +1,5 @@
-import 'dart:convert'; // Needed for utf8 and latin1
 import 'dart:io';
+import 'dart:convert'; // Needed for utf8 and latin1
 
 import 'package:archive/archive_io.dart';
 import 'package:gpth/gpth_lib_exports.dart';
@@ -255,11 +255,11 @@ class ZipExtractionService {
     try {
       final ok = await action();
       sw.stop();
-      _logger.debug('[$label] completed in ${sw.elapsed.inMilliseconds} ms (success=$ok)', forcePrint: true);
+      _logger.debug('[$label] completed in ${sw.elapsed.inMilliseconds} ms (success=$ok)');
       return ok;
     } catch (e) {
       sw.stop();
-      _logger.debug('[$label] failed in ${sw.elapsed.inMilliseconds} ms with error: $e', forcePrint: true);
+      _logger.debug('[$label] failed in ${sw.elapsed.inMilliseconds} ms with error: $e');
       rethrow;
     }
   }
@@ -273,7 +273,7 @@ class ZipExtractionService {
   ) async {
     final String? sevenZip = Platform.isWindows ? await _find7zipWindows() : await _whichFirst(['7z', '7za', '7zz']);
     if (sevenZip == null) {
-      _logger.debug('7-Zip not found; skipping 7-Zip extraction. Hint: add 7-Zip to PATH or place it at ./gpth_tool/7zip/7z.exe', forcePrint: true);
+      _logger.debug('7-Zip not found; skipping 7-Zip extraction. Hint: add 7-Zip to PATH or place it at ./gpth_tool/7zip/7z.exe');
       return false;
     }
 
@@ -283,7 +283,7 @@ class ZipExtractionService {
     // 7z x "<zip>" -o"<outDir>" -y -aoa -mmt=on -mcp=65001
     // -mcp=65001 -> force UTF-8 for filenames (helps when archives lack proper UTF-8 flag)
     final List<String> args = ['x', zipPath, '-o$outDir', '-y', '-aoa', '-mmt=on', '-mcp=65001'];
-    _logger.debug('Running 7-Zip: $sevenZip ${args.join(' ')}', forcePrint: true);
+    _logger.debug('Running 7-Zip: $sevenZip ${args.join(' ')}');
 
     try {
       final Map<String, String> env = Map<String, String>.from(Platform.environment);
@@ -292,14 +292,14 @@ class ZipExtractionService {
         env['LC_ALL'] = env['LC_ALL'] ?? 'C.UTF-8';
       }
       final ProcessResult result = await Process.run(sevenZip, args, runInShell: true, environment: env);
-      _logger.debug('7-Zip exitCode: ${result.exitCode}', forcePrint: true);
+      _logger.debug('7-Zip exitCode: ${result.exitCode}');
       final String so = (result.stdout ?? '').toString().trim();
       final String se = (result.stderr ?? '').toString().trim();
-      if (so.isNotEmpty) _logger.debug('7-Zip stdout: $so', forcePrint: true);
-      if (se.isNotEmpty) _logger.debug('7-Zip stderr: $se', forcePrint: true);
+      if (so.isNotEmpty) _logger.debug('7-Zip stdout: $so');
+      if (se.isNotEmpty) _logger.debug('7-Zip stderr: $se');
       return result.exitCode == 0;
     } catch (e) {
-      _logger.debug('7-Zip invocation failed: $e', forcePrint: true);
+      _logger.debug('7-Zip invocation failed: $e');
       return false;
     }
   }
@@ -329,7 +329,7 @@ class ZipExtractionService {
     for (final path in candidates) {
       final f = File(path);
       if (await f.exists()) {
-        _logger.debug('Found 7-Zip at: $path', forcePrint: true);
+        _logger.debug('Found 7-Zip at: $path');
         return path;
       }
     }
@@ -345,7 +345,7 @@ class ZipExtractionService {
     if (Platform.isWindows) return false;
     final String? unzipCmd = await _which('unzip');
     if (unzipCmd == null) {
-      _logger.debug('unzip not found on PATH; skipping unzip extraction', forcePrint: true);
+      _logger.debug('unzip not found on PATH; skipping unzip extraction');
       return false;
     }
 
@@ -354,21 +354,21 @@ class ZipExtractionService {
 
     // unzip -O UTF-8 -o "<zip>" -d "<outDir>"
     final List<String> args = ['-O', 'UTF-8', '-o', zipPath, '-d', outDir];
-    _logger.debug('Running unzip: $unzipCmd ${args.join(' ')}', forcePrint: true);
+    _logger.debug('Running unzip: $unzipCmd ${args.join(' ')}');
 
     try {
       final Map<String, String> env = Map<String, String>.from(Platform.environment);
       env['LANG'] = env['LANG'] ?? 'C.UTF-8';
       env['LC_ALL'] = env['LC_ALL'] ?? 'C.UTF-8';
       final ProcessResult result = await Process.run(unzipCmd, args, runInShell: true, environment: env);
-      _logger.debug('unzip exitCode: ${result.exitCode}', forcePrint: true);
+      _logger.debug('unzip exitCode: ${result.exitCode}');
       final String so = (result.stdout ?? '').toString().trim();
       final String se = (result.stderr ?? '').toString().trim();
-      if (so.isNotEmpty) _logger.debug('unzip stdout: $so', forcePrint: true);
-      if (se.isNotEmpty) _logger.debug('unzip stderr: $se', forcePrint: true);
+      if (so.isNotEmpty) _logger.debug('unzip stdout: $so');
+      if (se.isNotEmpty) _logger.debug('unzip stderr: $se');
       return result.exitCode == 0;
     } catch (e) {
-      _logger.debug('unzip invocation failed: $e', forcePrint: true);
+      _logger.debug('unzip invocation failed: $e');
       return false;
     }
   }
@@ -408,7 +408,9 @@ class ZipExtractionService {
   /// Streamed extraction using archive v4 `decodeStream` API.
   ///
   /// Applies a mojibake fix (¥ -> Ñ/ñ) before sanitizing, then standard sanitization.
-  /// NEW: also applies a conservative UTF-8-from-Latin1 repair when typical mojibake markers are found (e.g., 'Ã', 'Â').
+  /// NEW: also applies two conservative repairs when typical mojibake markers are found:
+  ///   1) UTF-8-from-Latin1 reverse repair (handles "Ã±", "Ã¡", etc.)
+  ///   2) CP437-from-Latin1 repair for Spanish letters (fixes "a¤o"->"año", "mam "->"mamá")
   Future<void> _extractZipStreamed(
     final File zip,
     final Directory destinationDir,
@@ -435,13 +437,16 @@ class ZipExtractionService {
       // Conservative UTF-8-from-Latin1 reverse repair (handles "Ãñ", "Ã¡", etc.)
       final fixedUtf8 = _attemptUtf8FromLatin1(fixedYen);
 
+      // CP437-from-Latin1 repair for common Spanish letters (fixes "a¤o", "mam ", etc.)
+      final fixedCp437 = _attemptCp437FromLatin1(fixedUtf8);
+
       // Diagnostics: log fixed form(s)
-      if (enableNameDiagnostics && fixedUtf8 != entry.name && _looksSuspicious(fixedUtf8)) {
-        _logNameDiagnostics('fixed', fixedUtf8);
+      if (enableNameDiagnostics && fixedCp437 != entry.name && _looksSuspicious(fixedCp437)) {
+        _logNameDiagnostics('fixed', fixedCp437);
       }
 
       // Sanitize after fixing
-      final String sanitizedRelative = _sanitizeFileName(fixedUtf8);
+      final String sanitizedRelative = _sanitizeFileName(fixedCp437);
 
       if (enableNameDiagnostics && _looksSuspicious(sanitizedRelative)) {
         _logNameDiagnostics('sanitized', sanitizedRelative);
@@ -527,6 +532,42 @@ class ZipExtractionService {
     }
   }
 
+  /// CP437-from-Latin1 repair focused on Spanish letters seen as Latin-1 symbols.
+  /// This fixes cases like:
+  ///   - "a¤o" -> "año"  (Latin1 '¤' U+00A4 is CP437 0xA4 -> 'ñ')
+  ///   - "mam " -> "mamá" (Latin1 NBSP U+00A0 is CP437 0xA0 -> 'á')
+  /// Also maps a few other common bytes for í/ó/ú/Ñ when they appear as Latin-1 symbols.
+  String _attemptCp437FromLatin1(final String name) {
+    // Fast path: only run if we detect likely CP437-bytes-shown-as-Latin1.
+    final bool likely = name.contains('\u00A0') || name.contains('\u00A4') || name.contains('¢') || name.contains('£');
+    if (!likely) return name;
+
+    // Minimal targeted map for Spanish letters (extend if more cases appear).
+    const Map<String, String> latin1ToCp437Spanish = <String, String>{
+      '\u00A0': 'á', // 0xA0 -> á
+      '\u00A1': 'í', // 0xA1 -> í (if it ever appears)
+      '\u00A2': 'ó', // 0xA2 -> ó
+      '\u00A3': 'ú', // 0xA3 -> ú
+      '\u00A4': 'ñ', // 0xA4 -> ñ
+      // Note: U+00A5 is '¥' which we already handle in _fixMojibakeYenToEnye; include here as safety:
+      '\u00A5': 'Ñ', // 0xA5 -> Ñ
+    };
+
+    var changed = false;
+    final sb = StringBuffer();
+    for (final int r in name.runes) {
+      final String ch = String.fromCharCode(r);
+      final String? mapped = latin1ToCp437Spanish[ch];
+      if (mapped != null) {
+        sb.write(mapped);
+        changed = true;
+      } else {
+        sb.write(ch);
+      }
+    }
+    return changed ? sb.toString() : name;
+  }
+
   /// Sanitizes file and directory names inside the archive path.
   ///
   /// Keeps Unicode characters (Ñ, accents, emojis) untouched. Only replaces
@@ -565,28 +606,9 @@ class ZipExtractionService {
       // Windows reserved device names — we keep original behavior (apply on last segment).
       if (Platform.isWindows && i == rawSegments.length - 1) {
         final List<String> reservedNames = <String>[
-          'CON',
-          'PRN',
-          'AUX',
-          'NUL',
-          'COM1',
-          'COM2',
-          'COM3',
-          'COM4',
-          'COM5',
-          'COM6',
-          'COM7',
-          'COM8',
-          'COM9',
-          'LPT1',
-          'LPT2',
-          'LPT3',
-          'LPT4',
-          'LPT5',
-          'LPT6',
-          'LPT7',
-          'LPT8',
-          'LPT9',
+          'CON', 'PRN', 'AUX', 'NUL',
+          'COM1', 'COM2', 'COM3', 'COM4', 'COM5', 'COM6', 'COM7', 'COM8', 'COM9',
+          'LPT1', 'LPT2', 'LPT3', 'LPT4', 'LPT5', 'LPT6', 'LPT7', 'LPT8', 'LPT9',
         ];
         final String baseName = p.basenameWithoutExtension(seg);
         final String ext = p.extension(seg);
@@ -608,7 +630,7 @@ class ZipExtractionService {
   /// Returns true if the name contains characters that usually indicate encoding issues.
   // ignore: prefer_expression_function_bodies
   bool _looksSuspicious(final String name) {
-    return name.contains('¥') || name.contains('�') || name.contains('~') || name.contains('Ã') || name.contains('Â');
+    return name.contains('¥') || name.contains('�') || name.contains('~') || name.contains('Ã') || name.contains('Â') || name.contains('\u00A0') || name.contains('\u00A4');
     // The tilde (~) often appears in DOS 8.3 short names (e.g., RESIDE~4).
   }
 
