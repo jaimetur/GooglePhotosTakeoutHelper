@@ -84,7 +84,7 @@ class MergeMediaEntitiesStep extends ProcessingStep with LoggerMixin {
       print('\n[Step 3/8] Merging identical media entities and removing duplicates (this may take a while)...');
       if (context.config.keepDuplicates) {
         print(
-          '[Step 3/8] Flag `--keep-duplicates` detected. Duplicates will be moved to `_Duplicates` subfolder within output folder',
+          "[Step 3/8] Flag '--keep-duplicates' detected. Duplicates will be moved to '_Duplicates' subfolder within output folder",
         );
       }
 
