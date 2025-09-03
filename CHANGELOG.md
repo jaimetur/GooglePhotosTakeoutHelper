@@ -1,6 +1,7 @@
 ## 5.0.2-beta
 
 ### ✨ **New Features**
+  - New flag `--save-log` to save log messages into disk file.
 
 ### 🚀 **Improvements**
   - New code re-design to include a new `MediaEntity` model with the following attributes:

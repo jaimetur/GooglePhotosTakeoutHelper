@@ -493,7 +493,7 @@ class MergeMediaEntitiesStep extends ProcessingStep with LoggerMixin {
           primaryFilesInCollection: totalPrimaryFiles,
           canonicalFilesInCollection: canonicalAll,
           nonCanonicalFilesInCollection: nonCanonicalAll,
-          print_instead_log: false,  // Change to true if you prefeer to print telemetry instead of leggin it.
+          printInsteadLog: false,  // Change to true if you prefeer to print telemetry instead of leggin it.
         );
       }
 
@@ -738,10 +738,10 @@ class MergeMediaEntitiesStep extends ProcessingStep with LoggerMixin {
     required final int primaryFilesInCollection,
     required final int canonicalFilesInCollection,
     required final int nonCanonicalFilesInCollection,
-    required final bool print_instead_log,
+    required final bool printInsteadLog,
   }) {
     String ms(final num v) => '${v.toStringAsFixed(0)} ms';
-    if (print_instead_log) {
+    if (printInsteadLog) {
       print('[Step 3/8] Telemetry summary:');
       print('  Files total                        : ${t.filesTotal}');
       print('  Size buckets                       : ${t.sizeBuckets}');

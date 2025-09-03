@@ -24,7 +24,7 @@ class ZipExtractionService {
   }) : _presenter = presenter ?? InteractivePresenterService();
 
   final InteractivePresenterService _presenter;
-  final LoggingService _logger = LoggingService();
+  final LoggingService _logger = LoggingService(saveLog: ServiceContainer.instance.globalConfig.saveLog);
 
   /// When true, the extractor logs suspicious entry names (e.g., ones containing '¥', 'Ñ', 'ñ', '~')
   /// with their code points before and after sanitization to diagnose mojibake issues.

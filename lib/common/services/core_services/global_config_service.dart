@@ -8,6 +8,9 @@ class GlobalConfigService {
   /// Constructor for dependency injection
   GlobalConfigService();
 
+  /// Enable/Disable Log saving into file.
+  bool saveLog = false;
+
   /// Whether verbose logging is enabled
   bool isVerbose = false;
 
@@ -64,6 +67,7 @@ class GlobalConfigService {
 
   /// Resets all configuration to defaults
   void reset() {
+    // saveLog = false;
     isVerbose = false;
     enforceMaxFileSize = false;
     exifToolInstalled = false;
@@ -182,6 +186,7 @@ class GlobalConfigService {
   /// NEW: Expose as a plain JSON-like map so other modules can read flags
   /// without tight coupling (used by Step 5 _resolveInt/_resolveUnsupportedPolicy).
   Map<String, dynamic> toJson() => <String, dynamic>{
+    'saveLog': saveLog,
     'isVerbose': isVerbose,
     'enforceMaxFileSize': enforceMaxFileSize,
     'exifToolInstalled': exifToolInstalled,

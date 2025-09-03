@@ -111,7 +111,7 @@ Future<void> main(final List<String> arguments) async {
     }
 
     // Update logger with correct verbosity and reinitialize services with it
-    _logger = LoggingService(isVerbose: config.verbose);
+    _logger = LoggingService(isVerbose: config.verbose, saveLog: ServiceContainer.instance.globalConfig.saveLog);
 
     // Reinitialize ServiceContainer with the properly configured logger
     await ServiceContainer.instance.initialize(loggingService: _logger);
@@ -119,7 +119,10 @@ Future<void> main(final List<String> arguments) async {
     // Configure dependencies with the parsed config
     await _configureDependencies(config);
 
-    // Load optional fileDates dictionary AFTER the second initialize
+    // Load optional flag --save-log AFTER the second ServiceContainer initialization
+    await _loadSaveLogIntoGlobalConfigFromArgs(parsedArguments);
+
+    // Load optional fileDates dictionary AFTER the second ServiceContainer initialization
     await _loadFileDatesIntoGlobalConfigFromArgs(parsedArguments);
 
     // Execute the processing pipeline
@@ -246,6 +249,7 @@ ArgParser _createArgumentParser() => ArgParser()
   ..addFlag('help', abbr: 'h', negatable: false)
   ..addOption('fix', help: 'Folder with any photos to fix dates (special mode)')
   ..addFlag('interactive', help: 'Use interactive mode')
+  ..addFlag('save-log', abbr: 's', help: 'Save log messages into disk file')
   ..addFlag('verbose', abbr: 'v', help: 'Shows extensive output')
   ..addOption('input', abbr: 'i', help: 'Input folder with extracted takeouts')
   ..addOption('output', abbr: 'o', help: 'Output folder for organized photos')
@@ -379,6 +383,8 @@ Future<ProcessingConfig> _buildConfigFromArgs(final ArgResults res) async {
     outputPath: paths.outputPath,
   );
   // Apply all configuration options
+  // if (res['save-log']) configBuilder.saveLog = true;
+  if (res['save-log']) ServiceContainer.instance.globalConfig.saveLog = true; // override globalConfig value
   if (res['verbose']) configBuilder.verboseOutput = true;
   if (res['skip-extras']) configBuilder.skipExtras = true;
   if (!res['guess-from-name']) configBuilder.guessFromName = false;
@@ -1072,6 +1078,24 @@ void _showResults(
   }
 
   exit(exitCode);
+}
+
+/// Helper to load the optional flag --save-log into GlobalConfig
+/// after the ServiceContainer has been re-initialized with the final logger.
+Future<void> _loadSaveLogIntoGlobalConfigFromArgs(
+  final List<String> parsedArguments,
+) async {
+  final parser = _createArgumentParser();
+  final res = parser.parse(parsedArguments);
+  try {
+    if (res['save-log'])  {
+      final logFilePath = ServiceContainer.instance.loggingService.logFilePath;
+      _logger.info('--save-log provided. Messages Log will be saved to: $logFilePath', forcePrint: true);
+      ServiceContainer.instance.globalConfig.saveLog = res['save-log'] ;
+    }
+  } catch (e) {
+    _logger.error('Failed to load --save-log flag into GlobalConfig: $e', forcePrint: true);
+  }
 }
 
 /// Helper to load the optional external dates dictionary into GlobalConfig

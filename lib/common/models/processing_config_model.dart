@@ -43,17 +43,14 @@ class ProcessingConfig {
     this.transformPixelMp = false,
     this.updateCreationTime = false,
     this.limitFileSize = false,
+    this.saveLog = false,
     this.verbose = false,
     this.isInteractiveMode = false,
     this.dividePartnerShared = false,
-    this.keepInput =
-        false, // keep the original input untouched by working on a temporary copy
-    this.keepDuplicates =
-        false, // keep duplicates files in `_Duplicates` subfolder within output folder
-    this.inputExtractedFromZip =
-        false, // If the input have been extracted from ZIP it will be set to true
-    final String?
-    userInputRoot, // NEW: original root folder selected/provided by the user
+    this.keepInput = false, // keep the original input untouched by working on a temporary copy
+    this.keepDuplicates = false, // keep duplicates files in `_Duplicates` subfolder within output folder
+    this.inputExtractedFromZip = false, // If the input have been extracted from ZIP it will be set to true
+    final String? userInputRoot, // Original root folder selected/provided by the user
   }) : userInputRoot = userInputRoot ?? inputPath;
 
   /// Creates a builder for configuring ProcessingConfig
@@ -73,6 +70,7 @@ class ProcessingConfig {
   final bool transformPixelMp;
   final bool updateCreationTime;
   final bool limitFileSize;
+  final bool saveLog;
   final bool verbose;
   final bool isInteractiveMode;
   final bool dividePartnerShared;
@@ -146,6 +144,7 @@ class ProcessingConfig {
     final bool? transformPixelMp,
     final bool? updateCreationTime,
     final bool? limitFileSize,
+    final bool? saveLog,
     final bool? verbose,
     final bool? isInteractiveMode,
     final bool? dividePartnerShared,
@@ -165,6 +164,7 @@ class ProcessingConfig {
     transformPixelMp: transformPixelMp ?? this.transformPixelMp,
     updateCreationTime: updateCreationTime ?? this.updateCreationTime,
     limitFileSize: limitFileSize ?? this.limitFileSize,
+    saveLog: saveLog ?? this.saveLog,
     verbose: verbose ?? this.verbose,
     isInteractiveMode: isInteractiveMode ?? this.isInteractiveMode,
     dividePartnerShared: dividePartnerShared ?? this.dividePartnerShared,
@@ -203,6 +203,7 @@ class ProcessingConfigBuilder {
   bool _transformPixelMp = false;
   bool _updateCreationTime = false;
   bool _limitFileSize = false;
+  // bool _saveLog = false;
   bool _verbose = false;
   bool _isInteractiveMode = false;
   bool _dividePartnerShared = false;
@@ -273,6 +274,11 @@ class ProcessingConfigBuilder {
     _limitFileSize = enable;
   }
 
+  // /// Enable save-log output
+  // set saveLog(final bool enable) {
+  //   _saveLog = enable;
+  // }
+
   /// Enable verbose output
   set verboseOutput(final bool enable) {
     _verbose = enable;
@@ -322,6 +328,7 @@ class ProcessingConfigBuilder {
       transformPixelMp: _transformPixelMp,
       updateCreationTime: _updateCreationTime,
       limitFileSize: _limitFileSize,
+      // saveLog : _saveLog,
       verbose: _verbose,
       isInteractiveMode: _isInteractiveMode,
       dividePartnerShared: _dividePartnerShared,
