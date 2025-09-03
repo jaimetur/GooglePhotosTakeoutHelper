@@ -741,7 +741,6 @@ class MergeMediaEntitiesStep extends ProcessingStep with LoggerMixin {
     required final bool print_instead_log,
   }) {
     String ms(final num v) => '${v.toStringAsFixed(0)} ms';
-    print(''); // spacing
     if (print_instead_log) {
       print('[Step 3/8] Telemetry summary:');
       print('  Files total                        : ${t.filesTotal}');
@@ -784,6 +783,7 @@ class MergeMediaEntitiesStep extends ProcessingStep with LoggerMixin {
       logInfo('    - Merge/replace                  : ${ms(t.msMergeReplace)}', forcePrint: true);
       logInfo('    - Remove/IO                      : ${ms(t.msRemoveIO)}', forcePrint: true);
     }
+    print(''); // spacing
   }
 }
 
