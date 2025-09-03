@@ -623,7 +623,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
     try {
       final cfg = ServiceContainer.instance.globalConfig;
       final dyn = cfg as dynamic;
-      final v = dyn.enableBatching;
+      final v = dyn.enableExifToolBatch;
       if (v is bool) return v;
     } catch (_) {}
     return true;

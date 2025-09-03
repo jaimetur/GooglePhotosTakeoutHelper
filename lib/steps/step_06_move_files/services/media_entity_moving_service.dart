@@ -377,36 +377,16 @@ class MediaEntityMovingService {
         failures;
 
     print('');
-    print('\n[Step 6/8] === Moving Summary ===');
-    print(
-      '\t\t\tPrimary files moved: $primaryMoves '
-      '(ALL_PHOTOS: $primaryMovesAllPhotos, Albums: $primaryMovesAlbums)',
-    );
-    print(
-      '\t\t\tNon-primary moves: $nonPrimaryMoves '
-      '(ALL_PHOTOS: $nonPrimaryMovesAllPhotos, Albums: $nonPrimaryMovesAlbums)',
-    );
-    print(
-      '\t\t\tDuplicated copies created: ${copiesAllPhotos + copiesAlbums} '
-      '(ALL_PHOTOS: $copiesAllPhotos, Albums: $copiesAlbums)',
-    );
-    print(
-      '\t\t\tSymlinks created: $symlinksCreated '
-      '(ALL_PHOTOS: $symlinksAllPhotos, Albums: $symlinksAlbums)',
-    );
-    print(
-      '\t\t\tJSON refs created: $jsonRefs '
-      '(ALL_PHOTOS: $jsonRefsAllPhotos, Albums: $jsonRefsAlbums)',
-    );
-    print(
-      '\t\t\tFailures: $failures '
-      '(ALL_PHOTOS: $failuresAllPhotos, Albums: $failuresAlbums)',
-    );
-    print(
-      '\t\t\tTotal operations: $totalOps'
-      '${computedOps != totalOps ? ' (computed: $computedOps)' : ''} '
-      '(ALL_PHOTOS: $totalOpsAllPhotos, Albums: $totalOpsAlbums)',
-    );
+    const int detailsCol = 40; // starting column for the parenthesis block
+    print('\n[Step 6/8] === Moving Files Summary ===');
+    print('${'\t\t\tPrimary files moved: $primaryMoves'.padRight(detailsCol)}(ALL_PHOTOS: $primaryMovesAllPhotos, Albums: $primaryMovesAlbums)');
+    print('${'\t\t\tNon-primary moves: $nonPrimaryMoves'.padRight(detailsCol)}(ALL_PHOTOS: $nonPrimaryMovesAllPhotos, Albums: $nonPrimaryMovesAlbums)');
+    print('${'\t\t\tDuplicated copies created: ${copiesAllPhotos + copiesAlbums}'.padRight(detailsCol)}(ALL_PHOTOS: $copiesAllPhotos, Albums: $copiesAlbums)');
+    print('${'\t\t\tSymlinks created: $symlinksCreated'.padRight(detailsCol)}(ALL_PHOTOS: $symlinksAllPhotos, Albums: $symlinksAlbums)');
+    print('${'\t\t\tJSON refs created: $jsonRefs'.padRight(detailsCol)}(ALL_PHOTOS: $jsonRefsAllPhotos, Albums: $jsonRefsAlbums)');
+    print('${'\t\t\ttFailures: $failures'.padRight(detailsCol)}(ALL_PHOTOS: $failuresAllPhotos, Albums: $failuresAlbums)');
+    final totalLeft = '\t\t\tTotal operations: $totalOps${computedOps != totalOps ? ' (computed: $computedOps)' : ''}';
+    print('${totalLeft.padRight(detailsCol)}(ALL_PHOTOS: $totalOpsAllPhotos, Albums: $totalOpsAlbums)');
     print('');
 
     if (failures > 0) {
