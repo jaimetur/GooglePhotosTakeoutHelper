@@ -78,11 +78,11 @@ class ExifDateExtractor with LoggerMixin {
     final lineExiftool =
         '[READ-EXIF] Exiftool: directTried=$_exiftoolDirectTried , directHit=$_exiftoolDirectHit, fallbackTried=$_exiftoolFallbackTried, fallbackHit=$_exiftoolFallbackHit, errors=$_exiftoolFail, time=${_fmtSec(_exiftoolDuration)} (exiftoolFallbackEnabled = $exiftoolFallbackEnabled)';
 
-    // Only show the dictionary stats line when a global fileDatesDictionary is present
+    // Only show the dictionary stats line when a global jsonDatesDictionary is present
     bool showDictLine = false;
     try {
       showDictLine =
-          ServiceContainer.instance.globalConfig.fileDatesDictionary != null;
+          ServiceContainer.instance.globalConfig.jsonDatesDictionary != null;
     } catch (_) {
       showDictLine = false;
     }
@@ -148,7 +148,7 @@ class ExifDateExtractor with LoggerMixin {
 
     // Prefer explicit dict, else use the one from global config if present.
     final Map<String, dynamic>? effectiveDict =
-        datesDict ?? globalConfig.fileDatesDictionary;
+        datesDict ?? globalConfig.jsonDatesDictionary;
 
     // 1) Optional dictionary lookup (Unix-style key). If valid, short-circuit.
     if (effectiveDict != null) {

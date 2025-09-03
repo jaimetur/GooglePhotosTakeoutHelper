@@ -122,7 +122,7 @@ Future<void> main(final List<String> arguments) async {
     // Load optional flag --save-log AFTER the second ServiceContainer initialization
     await _loadSaveLogIntoGlobalConfigFromArgs(parsedArguments);
 
-    // Load optional fileDates dictionary AFTER the second ServiceContainer initialization
+    // Load optional json-dates dictionary AFTER the second ServiceContainer initialization
     await _loadFileDatesIntoGlobalConfigFromArgs(parsedArguments);
 
     // Execute the processing pipeline
@@ -304,7 +304,7 @@ ArgParser _createArgumentParser() => ArgParser()
   )
   // NEW: allow a JSON with precomputed dates
   ..addOption(
-    'fileDates',
+    'json-dates',
     help: 'Path to a JSON file with a date dictionary (OldestDate per file)',
   )
   // NEW: keep the original input folder untouched by working on a sibling copy "<input>_tmp"
@@ -757,11 +757,11 @@ Future<void> _configureDependencies(final ProcessingConfig config) async {
   }
 
   // EXTRA: let the user know if we have a file dates dictionary loaded
-  final dict = ServiceContainer.instance.globalConfig.fileDatesDictionary;
+  final dict = ServiceContainer.instance.globalConfig.jsonDatesDictionary;
   if (dict != null) {
-    _logger.info('fileDates dictionary is loaded with ${dict.length} entries.');
+    _logger.info('JSON Dates Dictionary is loaded with ${dict.length} entries.');
   } else {
-    _logger.info('fileDates dictionary not loaded.');
+    _logger.info('JSON Dates Dictionary not loaded.');
   }
 
   sleep(const Duration(seconds: 3));
@@ -1109,24 +1109,24 @@ Future<void> _loadFileDatesIntoGlobalConfigFromArgs(
   try {
     final parser = _createArgumentParser();
     final res = parser.parse(parsedArguments);
-    final String? jsonPath = res['fileDates'] as String?;
+    final String? jsonPath = res['json-dates'] as String?;
     if (jsonPath == null) {
       _logger.info(
-        '--fileDates argument not given; skipping external dates dictionary load.',
+        '--json-dates argument not given; skipping external dates dictionary load.',
         forcePrint: true,
       );
       return;
     }
 
     _logger.info(
-      'Attempting to load fileDates JSON from: $jsonPath',
+      'Attempting to load JSON Dates Dictionary from: $jsonPath',
       forcePrint: true,
     );
 
     final file = File(jsonPath);
     if (!await file.exists()) {
       _logger.error(
-        'Failed to load fileDates JSON: file does not exist at "$jsonPath"',
+        'Failed to load JSON Dates Dictionary: file does not exist at "$jsonPath"',
         forcePrint: true,
       );
       return;
@@ -1154,12 +1154,12 @@ Future<void> _loadFileDatesIntoGlobalConfigFromArgs(
       }
     });
 
-    ServiceContainer.instance.globalConfig.fileDatesDictionary = normalized;
+    ServiceContainer.instance.globalConfig.jsonDatesDictionary = normalized;
     _logger.info(
       'Loaded ${normalized.length} entries from $jsonPath',
       forcePrint: true,
     );
   } catch (e) {
-    _logger.error('Failed to load fileDates JSON: $e', forcePrint: true);
+    _logger.error('Failed to load JSON Dates Dictionary: $e', forcePrint: true);
   }
 }

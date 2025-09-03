@@ -101,7 +101,7 @@
 ## 4.3.0
 
 ### ✨ **New Features**
-  - New flag `--fileDates` to provide a JSON dictionary with the date per file to void reading it from EXIF when any file does not associated sidecar. (PhotoMigrator creates this file and can now be used by GPTH Tool).
+  - New flag `--json-dates` to provide a JSON dictionary with the date per file to void reading it from EXIF when any file does not associated sidecar. (PhotoMigrator creates this file and can now be used by GPTH Tool).
   - Improved log/print messages in all Steps.
   - Added Move Files Summary to the log messages.
   - Now Album's folders are moved into `Albums` folder and No-Album's files are moved into `ALL_PHOTOS` folder using the selected date organization.
@@ -151,7 +151,7 @@
 ### 🐛 **Bug Fixes**
   - Handle per file exception in WriteExif Step. Now the flow continues if any file fails to write EXIF.
   - Fixed interactive mode when asking to limit the file size.
-  - Show dictMiss files in log to see those files that have not been found in dates dictionary when it was passed as argument using --fileDates
+  - Show dictMiss files in log to see those files that have not been found in dates dictionary when it was passed as argument using --json-dates
   - Fix missing JSON match when the length of the original JSON filename is higher than 51. Now try first with the full filename even if its length is longer than 51 chars, if not match, then try the different truncations variants.
   - Fix Progress bar on Step 7: Move files. Now counts the number of real operations instead of number of move instances.
   - Fixed some other silent exceptions.

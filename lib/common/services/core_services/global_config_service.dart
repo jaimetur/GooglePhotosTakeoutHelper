@@ -32,8 +32,8 @@ class GlobalConfigService {
   int maxExifImageBatchSize = 1000;
   int maxExifVideoBatchSize = 24;
 
-  /// DatesDictionary passed as argument (if ussed flag --fileDates)
-  Map<String, Map<String, dynamic>>? fileDatesDictionary;
+  /// DatesDictionary passed as argument (if ussed flag --json-dates)
+  Map<String, Map<String, dynamic>>? jsonDatesDictionary;
 
   // ───────────────────────────────────────────────────────────────────────────
   // NEW: Unsupported-format handling policy for Step 5 (Write EXIF)
@@ -74,7 +74,7 @@ class GlobalConfigService {
     fallbackToExifToolOnNativeMiss = false;
     skipPrecheckForNonJpegInWriter = false;
     enableExifToolBatch = true;
-    fileDatesDictionary = null;
+    jsonDatesDictionary = null;
 
     // NEW: reset unsupported-policy and batch caps
     forceProcessUnsupportedFormats = false;
@@ -155,11 +155,11 @@ class GlobalConfigService {
     }
 
     // Dates dictionary (allow pass-through if structure matches)
-    if (overrides.containsKey('fileDatesDictionary')) {
-      final v = overrides['fileDatesDictionary'];
+    if (overrides.containsKey('jsonDatesDictionary')) {
+      final v = overrides['jsonDatesDictionary'];
       if (v is Map<String, dynamic>) {
         // Best-effort cast; the writer only reads the expected shape.
-        fileDatesDictionary = v.map(
+        jsonDatesDictionary = v.map(
           (final k, final val) => MapEntry(
             k,
             (val is Map<String, dynamic>) ? val : <String, dynamic>{},
@@ -199,7 +199,7 @@ class GlobalConfigService {
     'silenceUnsupportedWarnings': silenceUnsupportedWarnings,
     'moveDuplicatesToDuplicatesFolder': moveDuplicatesToDuplicatesFolder,
     'enableTelemetryInMergeMediaEntitiesStep': enableTelemetryInMergeMediaEntitiesStep,
-    // NOTE: fileDatesDictionary can be very large; usually not needed here.
+    // NOTE: jsonDatesDictionary can be very large; usually not needed here.
   };
 
   // ───────────────────────────────────────────────────────────────────────────

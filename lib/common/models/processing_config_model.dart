@@ -108,7 +108,7 @@ class ProcessingConfig {
       (final File f) => ExifDateExtractor(exifTool).exifDateTimeExtractor(
         f,
         globalConfig: ServiceContainer.instance.globalConfig,
-        datesDict: ServiceContainer.instance.globalConfig.fileDatesDictionary,
+        datesDict: ServiceContainer.instance.globalConfig.jsonDatesDictionary,
       ),
     );
 
