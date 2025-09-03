@@ -249,7 +249,7 @@ ArgParser _createArgumentParser() => ArgParser()
   ..addFlag('help', abbr: 'h', negatable: false)
   ..addOption('fix', help: 'Folder with any photos to fix dates (special mode)')
   ..addFlag('interactive', help: 'Use interactive mode')
-  ..addFlag('save-log', abbr: 's', help: 'Save log messages into disk file')
+  ..addFlag('save-log', abbr: 's', help: 'Save log messages into a log file within Logs folder')
   ..addFlag('verbose', abbr: 'v', help: 'Shows extensive output')
   ..addOption('input', abbr: 'i', help: 'Input folder with extracted takeouts')
   ..addOption('output', abbr: 'o', help: 'Output folder for organized photos')
@@ -314,7 +314,7 @@ ArgParser _createArgumentParser() => ArgParser()
   )
   ..addFlag(
     'keep-duplicates',
-    help: 'Keeps all duplicates files found in `_Duplicates` subfolder within in output folder instead of remove them totally',
+    help: 'Keeps all duplicates files found in "_Duplicates" subfolder within in output folder instead of remove them totally',
   );
 
 /// **HELP TEXT DISPLAY**
