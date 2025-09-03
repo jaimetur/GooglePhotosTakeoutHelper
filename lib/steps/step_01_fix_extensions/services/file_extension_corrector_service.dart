@@ -205,7 +205,7 @@ class FileExtensionCorrectorService with LoggerMixin {
       // Step 3: Verify cleanup of original files
       await _verifyOriginalFilesRemoved(originalMediaPath, originalJsonPath);
 
-      logInfo(
+      logDebug(
         'Fixed extension: ${path.basename(originalMediaPath)} -> ${path.basename(newMediaPath)}',
       );
       return true;
