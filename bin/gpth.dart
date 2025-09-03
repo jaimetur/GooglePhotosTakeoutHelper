@@ -883,9 +883,9 @@ Future<ProcessingResult> _executeProcessing(
     _logger.info('Effective input inside clone: $resolvedInsideClone');
   } else if (config.keepInput && inputExtractedFromZipFlag) {
     // Explicit message explaining why we skip clone
-    _logger.info('Skipping clone inputSir because input comes from ZIP extraction (inputExtractedFromZip = $inputExtractedFromZipFlag).', forcePrint: true);
+    _logger.info('Skipping clone input folder because input comes from ZIP extraction (inputExtractedFromZip = $inputExtractedFromZipFlag).', forcePrint: true);
   } else {
-    _logger.info('Skipping clone inputSir (--keep-input = ${config.keepInput}, inputExtractedFromZip = $inputExtractedFromZipFlag).', forcePrint: true);
+    _logger.info('Skipping clone input folder (--keep-input = ${config.keepInput}, inputExtractedFromZip = $inputExtractedFromZipFlag).', forcePrint: true);
   }
 
   // IMPORTANT: from here on, use a runtimeConfig that reflects the effective input dir
