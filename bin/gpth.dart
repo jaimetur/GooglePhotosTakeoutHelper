@@ -865,12 +865,12 @@ Future<ProcessingResult> _executeProcessing(
 
   // Diagnostic Log to veryfy if we should clone InputDir
   final bool shouldClone = config.keepInput && !inputExtractedFromZipFlag;
-  _logger.info('keepInput = ${config.keepInput}, inputExtractedFromZip = $inputExtractedFromZipFlag => shouldClone = $shouldClone', forcePrint: true);
+  _logger.info('--keep-input = ${config.keepInput}, inputExtractedFromZip = $inputExtractedFromZipFlag => shouldClone = $shouldClone', forcePrint: true);
 
   Directory effectiveInputDir = inputDir;
 
   if (shouldClone) {
-    _logger.info('Creating input clone as working copy because keepInput = ${config.keepInput} and input does not come from ZIP extraction (inputExtractedFromZip = $inputExtractedFromZipFlag).', forcePrint: true);
+    _logger.info('Input folder will be cloned as working copy because --keep-input = ${config.keepInput} and input does not come from ZIP extraction (inputExtractedFromZip = $inputExtractedFromZipFlag).', forcePrint: true);
     final cloner = InputCloneService();
     // Clone the **original user root**, not the already resolved Google Photos subfolder
     final Directory clonedRoot = await cloner.cloneToSiblingTmp(Directory(effectiveUserRoot));
@@ -885,7 +885,7 @@ Future<ProcessingResult> _executeProcessing(
     // Explicit message explaining why we skip clone
     _logger.info('Skipping clone inputSir because input comes from ZIP extraction (inputExtractedFromZip = $inputExtractedFromZipFlag).', forcePrint: true);
   } else {
-    _logger.info('Skipping clone inputSir (keepInput = ${config.keepInput}, inputExtractedFromZip = $inputExtractedFromZipFlag).', forcePrint: true);
+    _logger.info('Skipping clone inputSir (--keep-input = ${config.keepInput}, inputExtractedFromZip = $inputExtractedFromZipFlag).', forcePrint: true);
   }
 
   // IMPORTANT: from here on, use a runtimeConfig that reflects the effective input dir
@@ -1090,8 +1090,11 @@ Future<void> _loadSaveLogIntoGlobalConfigFromArgs(
   try {
     if (res['save-log'])  {
       final logFilePath = ServiceContainer.instance.loggingService.logFilePath;
-      _logger.info('--save-log provided. Messages Log will be saved to: $logFilePath', forcePrint: true);
+      _logger.info('--save-log flag detected. Messages Log will be saved to: $logFilePath', forcePrint: true);
       ServiceContainer.instance.globalConfig.saveLog = res['save-log'] ;
+    }
+    else {
+      _logger.info('--save-log flag not detected; skipping save log messages into disk.', forcePrint: true);
     }
   } catch (e) {
     _logger.error('Failed to load --save-log flag into GlobalConfig: $e', forcePrint: true);
@@ -1109,7 +1112,7 @@ Future<void> _loadFileDatesIntoGlobalConfigFromArgs(
     final String? jsonPath = res['fileDates'] as String?;
     if (jsonPath == null) {
       _logger.info(
-        '--fileDates not provided; skipping external dictionary load.',
+        '--fileDates argument not given; skipping external dates dictionary load.',
         forcePrint: true,
       );
       return;
