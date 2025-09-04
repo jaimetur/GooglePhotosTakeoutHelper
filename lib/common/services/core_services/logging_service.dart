@@ -75,8 +75,10 @@ class LoggingService {
     final String level = 'info',
     final bool forcePrint = false,
   }) {
-    // Always persist to file if enabled (without ANSI sequences)
-    if (_fileSink != null) {
+    // Persist to file if enabled. For 'debug', only write when verbose is true.
+    final String lvl = level.toLowerCase();
+    final bool canWriteFile = _fileSink != null && (lvl != 'debug' || isVerbose);
+    if (canWriteFile) {
       final String plain = _formatPlainMessage(message, level);
       _writeToFile(plain);
     }
@@ -86,6 +88,16 @@ class LoggingService {
       final String output = _formatMessage(message, level);
       print(output);
     }
+  }
+
+  /// Prints an info message without ANSI colors, always to console and file.
+  ///
+  /// This behaves like a standard print but prefixes the line with [INFO] and
+  /// also persists it to the log file when enabled, regardless of verbosity.
+  void printPlain(final String message) {
+    final String line = _formatPlainMessage(message, 'info');
+    if (_fileSink != null) _writeToFile(line);
+    print(line);
   }
 
   /// Logs an info message
@@ -124,7 +136,7 @@ class LoggingService {
     return '\r$color[$levelUpper] $message$reset';
   }
 
-  /// Formats a message without ANSI (for file)
+  /// Formats a message without ANSI (for file or plain prints)
   String _formatPlainMessage(final String message, final String level) {
     final String levelUpper = level.toUpperCase();
     return '[$levelUpper] $message';
@@ -353,6 +365,12 @@ mixin LoggerMixin {
   /// Logs a debug message
   void logDebug(final String message, {final bool forcePrint = false}) {
     logger.debug(message, forcePrint: forcePrint);
+  }
+
+  /// Prints an info message without colors and persists it to the log file
+  /// (behaves as a standard print with an [INFO] prefix).
+  void logPrint(final String message) {
+    logger.printPlain(message);
   }
 
   /// Creates the default logger reading ServiceContainer.instance.globalConfig.saveLog
