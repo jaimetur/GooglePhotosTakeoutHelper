@@ -2,6 +2,7 @@
 
 ### ✨ **New Features**
   - New flag `--save-log` to save log messages into disk file.
+  - Step 8 (Update creation time) is now multi-platform. Also update creation date for physical files and symlinks on linux/macos.
 
 ### 🚀 **Improvements**
   - New code re-design to include a new `MediaEntity` model with the following attributes:

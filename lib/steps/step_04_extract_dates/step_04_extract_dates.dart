@@ -45,6 +45,7 @@ import 'package:gpth/gpth_lib_exports.dart';
 /// - **Content**: Year extracted from folder patterns like "Photos from YYYY"
 /// - **Format**: Folder names containing 4-digit years (2000-current year)
 /// - **Reliability**: Basic fallback when no other date sources exist
+/// - **Use Case**: Google Photos exports with year-based folder organization
 ///
 /// ## Processing Logic
 ///
