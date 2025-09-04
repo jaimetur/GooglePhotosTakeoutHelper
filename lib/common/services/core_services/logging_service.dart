@@ -387,11 +387,19 @@ mixin LoggerMixin {
     logger.printPlain(message);
   }
 
+  /// Allows the application to set a shared default logger instance
+  static set sharedDefaultLogger(final LoggingService logger) => _sharedDefaultLogger = logger;
+
   /// Creates the default logger reading ServiceContainer.instance.globalConfig.saveLog
   static LoggingService _createDefaultLoggerFromGlobalConfig() {
+    // Prefer an existing logger from ServiceContainer if available to keep colors/sinks consistent
+    try {
+      final existing = ServiceContainer.instance.loggingService;
+      return existing;
+    } catch (_) {}
+
     bool save = false;
     try {
-      // Defensive: in case ServiceContainer or globalConfig is not initialized yet
       final sc = ServiceContainer.instance;
       final cfg = sc.globalConfig;
       save = cfg.saveLog == true;

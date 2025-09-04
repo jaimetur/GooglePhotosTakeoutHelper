@@ -98,6 +98,8 @@ List<String> _applyAndStripTestMultipliers(final List<String> args) {
 Future<void> main(final List<String> arguments) async {
   // Initialize logger early with default settings
   _logger = LoggingService();
+  LoggerMixin.sharedDefaultLogger = _logger;; // NEW: make this the shared default
+
   // Apply & strip hidden test-only concurrency multiplier flags before parsing normal args.
   final parsedArguments = _applyAndStripTestMultipliers(arguments);
   try {
@@ -112,6 +114,7 @@ Future<void> main(final List<String> arguments) async {
 
     // Update logger with correct verbosity and reinitialize services with it
     _logger = LoggingService(isVerbose: config.verbose, saveLog: ServiceContainer.instance.globalConfig.saveLog);
+    LoggerMixin.sharedDefaultLogger = _logger;; // NEW: propagate final logger to everyone
 
     // Reinitialize ServiceContainer with the properly configured logger
     await ServiceContainer.instance.initialize(loggingService: _logger);
