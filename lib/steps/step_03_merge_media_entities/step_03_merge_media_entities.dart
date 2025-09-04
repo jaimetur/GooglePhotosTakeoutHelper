@@ -226,6 +226,11 @@ class MergeMediaEntitiesStep extends ProcessingStep with LoggerMixin {
           .concurrencyFor(ConcurrencyOperation.exif)
           .clamp(2, 16);
 
+      // Get and print maxConcurrency
+      print('[Step 3/8] Starting $maxWorkersQuick threads for Quick Buckets');
+      print('[Step 3/8] Starting $maxWorkersBuckets threads for Normal Buckets');
+      print('[Step 3/8] Starting $maxWorkersHash threads for Hashing');
+
       // Process buckets in slices
       // PERF: process largest buckets first to maximize early dedup impact (cache wins)
       final bucketKeys = sizeBuckets.keys.toList()
