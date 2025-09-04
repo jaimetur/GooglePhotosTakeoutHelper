@@ -137,13 +137,9 @@ class ExtractDatesStep extends ProcessingStep with LoggerMixin {
 
       final collection = context.mediaCollection;
 
-      // --- Parity with previous implementation: explicit “threads” (concurrency) log.
-      final maxConcurrency = ConcurrencyManager().concurrencyFor(
-        ConcurrencyOperation.exif,
-      );
-      print(
-        '[Step 4/8] Starting $maxConcurrency threads (exif date extraction concurrency)',
-      );
+      // Get and print maxConcurrency
+      final maxConcurrency = ConcurrencyManager().concurrencyFor(ConcurrencyOperation.exif);
+      print('[Step 4/8] Starting $maxConcurrency threads (exif concurrency)');
 
       // Build extractor callables bound to File (as in your config), but we will decide
       // per extractor whether to probe primary only (EXIF) or primary+secondaries (others).

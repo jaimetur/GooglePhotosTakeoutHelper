@@ -202,6 +202,10 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
         print('[Step 7/8] ExifTool enabled');
       }
 
+      // Get and print maxConcurrency
+      final int maxConcurrency = ConcurrencyManager().concurrencyFor(ConcurrencyOperation.exif);
+      print('[Step 7/8] Starting $maxConcurrency threads (exif concurrency)');
+
       // Batching config
       final bool enableExifToolBatch = _resolveBatchingPreference(exifTool);
       final progressBar = FillingBar(
@@ -210,7 +214,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
         width: 50,
       );
       final _UnsupportedPolicy unsupportedPolicy = _resolveUnsupportedPolicy();
-      final int maxConc = ConcurrencyManager().concurrencyFor(ConcurrencyOperation.exif);
+
       final ExifWriterService? exifWriter = (exifTool != null) ? ExifWriterService(exifTool) : null;
 
       // Batch queues (images/videos)
@@ -526,6 +530,8 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
                   try {
                     await preserveMTime(file, () async {
                       // NOTE: ExifWriterService should internally add `-P` (preserve file times).
+                      // Register primary/secondary hint so ExifWriterService can split correctly.
+                      ExifWriterService.setPrimaryHint(file, markAsPrimary);
                       await exifWriter!.writeTagsWithExifTool(file, tagsToWrite);
                     });
                   } catch (e) {
@@ -536,8 +542,12 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
                   }
                 } else {
                   if (isVideo) {
+                    // Register primary/secondary hint before enqueueing to batch.
+                    ExifWriterService.setPrimaryHint(file, markAsPrimary);
                     pendingVideosBatch.add(MapEntry(file, tagsToWrite));
                   } else {
+                    // Register primary/secondary hint before enqueueing to batch.
+                    ExifWriterService.setPrimaryHint(file, markAsPrimary);
                     pendingImagesBatch.add(MapEntry(file, tagsToWrite));
                   }
                 }
@@ -568,8 +578,8 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
       int dateWrittenTotal = 0;
 
       // Process entities with bounded concurrency
-      for (int i = 0; i < collection.length; i += maxConc) {
-        final slice = collection.asList().skip(i).take(maxConc).toList(growable: false);
+      for (int i = 0; i < collection.length; i += maxConcurrency) {
+        final slice = collection.asList().skip(i).take(maxConcurrency).toList(growable: false);
 
         final results = await Future.wait(
           slice.map((final entity) async {
@@ -655,9 +665,9 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
       final int touchedGpsBeforeReset = ExifWriterService.uniqueGpsFilesCount;
       final int touchedDateBeforeReset = ExifWriterService.uniqueDateFilesCount;
 
+
       // Dump internal writer stats (resets counters)
       ExifWriterService.dumpWriterStats(logger: this);
-      ExifCoordinateExtractor.dumpStats(reset: true, loggerMixin: this);
 
       sw.stop();
       return StepResult.success(

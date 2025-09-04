@@ -6,16 +6,16 @@ import 'package:gpth/gpth_lib_exports.dart';
 import 'package:mime/mime.dart';
 
 /// GPS extractor with instrumentation (time in seconds).
-class ExifCoordinateExtractor with LoggerMixin {
-  ExifCoordinateExtractor(this.exiftool);
+class ExifGpsExtractor with LoggerMixin {
+  ExifGpsExtractor(this.exiftool);
   final ExifToolService? exiftool;
 
   // Instrumentation
-  static int nativeHit = 0;
-  static int nativeMiss = 0;
+  static int hitNative = 0;
+  static int missNative = 0;
   static int fallbackTried = 0;
-  static int exifToolHit = 0;
-  static int exifToolMiss = 0;
+  static int hitExiftool = 0;
+  static int missExiftool = 0;
 
   static Duration nativeDur = Duration.zero;
   static Duration exiftoolDur = Duration.zero;
@@ -27,26 +27,24 @@ class ExifCoordinateExtractor with LoggerMixin {
     final bool reset = false,
     final LoggerMixin? loggerMixin,
   }) {
-    final line =
-        '[GPS-EXTRACT]: '
-        'nativeHit=$nativeHit, nativeMiss=$nativeMiss, fallbackTried=$fallbackTried, '
-        'exifToolHit=$exifToolHit, exifToolMiss=$exifToolMiss, '
-        'nativeTime=${_fmtSec(nativeDur)}, exiftoolTime=${_fmtSec(exiftoolDur)}';
+    final lineNative   = '[GPS-EXTRACT] Native  : hitNative=$hitNative, missNative=$missNative, nativeTime=${_fmtSec(nativeDur)}';
+    final lineExiftool = '[GPS-EXTRACT] Exiftool: hitExifTool=$hitExiftool, missExifTool=$missExiftool, exiftoolTime=${_fmtSec(exiftoolDur)} (fallbackTried=$fallbackTried)';
 
     if (loggerMixin != null) {
-      loggerMixin.logInfo(line, forcePrint: true);
+      loggerMixin.logInfo(lineNative, forcePrint: true);
+      loggerMixin.logInfo(lineExiftool, forcePrint: true);
       print('');
     } else {
-      print(line);
+      print(lineNative);
       print('');
     }
 
     if (reset) {
-      nativeHit = 0;
-      nativeMiss = 0;
+      hitNative = 0;
+      missNative = 0;
       fallbackTried = 0;
-      exifToolHit = 0;
-      exifToolMiss = 0;
+      hitExiftool = 0;
+      missExiftool = 0;
       nativeDur = Duration.zero;
       exiftoolDur = Duration.zero;
     }
@@ -88,10 +86,10 @@ class ExifCoordinateExtractor with LoggerMixin {
         final m = await _exifToolGPSExtractor(file);
         exiftoolDur += sw.elapsed;
         if (m != null) {
-          exifToolHit++;
+          hitExiftool++;
           return m;
         } else {
-          exifToolMiss++;
+          missExiftool++;
         }
       }
       return null;
@@ -99,24 +97,24 @@ class ExifCoordinateExtractor with LoggerMixin {
 
     if (supportedNativeExifMimeTypes.contains(mimeType)) {
       final sw = Stopwatch()..start();
-      final m = await _nativeExif_readerGPSExtractor(file);
+      final m = await _nativeExif_readerGpsExtractor(file);
       nativeDur += sw.elapsed;
 
       if (m != null) {
-        nativeHit++;
+        hitNative++;
         return m;
       } else {
-        nativeMiss++;
+        missNative++;
         if (globalConfig.exifToolInstalled) {
           fallbackTried++;
           final sw2 = Stopwatch()..start();
           final n = await _exifToolGPSExtractor(file);
           exiftoolDur += sw2.elapsed;
           if (n != null) {
-            exifToolHit++;
+            hitExiftool++;
             return n;
           } else {
-            exifToolMiss++;
+            missExiftool++;
           }
         }
       }
@@ -128,16 +126,16 @@ class ExifCoordinateExtractor with LoggerMixin {
       final m = await _exifToolGPSExtractor(file);
       exiftoolDur += sw.elapsed;
       if (m != null) {
-        exifToolHit++;
+        hitExiftool++;
         return m;
       } else {
-        exifToolMiss++;
+        missExiftool++;
       }
     }
     return null;
   }
 
-  Future<Map<String, dynamic>?> _nativeExif_readerGPSExtractor(
+  Future<Map<String, dynamic>?> _nativeExif_readerGpsExtractor(
     final File file,
   ) async {
     try {
