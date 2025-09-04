@@ -66,7 +66,7 @@ class LoggingService {
   };
 
   /// Fixed width for level text inside brackets to align like [WARNING]
-  static const int _LEVEL_TEXT_WIDTH = 7; // "WARNING" length
+  static const int _levelTextWidth = 7; // "WARNING" length
 
   /// Logs a message with the specified level
   ///
@@ -143,11 +143,16 @@ class LoggingService {
   }
 
   /// Returns an aligned bracketed label like [INFO   ], [ERROR  ], [WARNING]
+  /// Centered within the fixed width to keep visual harmony across levels.
   String _formatAlignedLabel(final String level) {
     final String levelUpper = level.toUpperCase();
-    final int pad = _LEVEL_TEXT_WIDTH - levelUpper.length;
-    final String padding = pad > 0 ? ' ' * pad : '';
-    return '[$levelUpper$padding]';
+    final int padTotal = _levelTextWidth - levelUpper.length;
+    if (padTotal <= 0) return '[$levelUpper]';
+    final int leftPad = padTotal ~/ 2;
+    final int rightPad = padTotal - leftPad;
+    final String lp = ' ' * leftPad;
+    final String rp = ' ' * rightPad;
+    return '[$lp$levelUpper$rp]';
   }
 
   /// Creates a child logger with the same configuration
@@ -229,13 +234,12 @@ class LoggingService {
       // Create file explicitly (Windows/Google Drive can fail with append-open on non-existing files)
       if (!f.existsSync()) f.createSync(recursive: true);
 
-      IOSink sink;
       String pathUsed;
 
-      // Primary attempt: normal path + write (not append)
+      // Primary attempt: normal path + write
       try {
         pathUsed = f.absolute.path;
-        sink = f.openWrite(mode: FileMode.write);
+        _globalSink = f.openWrite();
       } on FileSystemException {
         // Windows fallback: try extended-length path (\\?\)
         if (Platform.isWindows) {
@@ -243,14 +247,13 @@ class LoggingService {
           final File f2 = File(ext);
           if (!f2.existsSync()) f2.createSync(recursive: true);
           pathUsed = f2.path;
-          sink = f2.openWrite(mode: FileMode.write);
+          _globalSink = f2.openWrite();
         } else {
-          rethrow;
+            rethrow;
         }
       }
 
       // Assign globals so every new instance will reuse the same sink/path
-      _globalSink = sink;
       _globalLogFilePath = pathUsed;
       _fileSink = _globalSink;
       _logFilePath = _globalLogFilePath;
@@ -280,7 +283,7 @@ class LoggingService {
         final File alt = File(altPath);
         if (!alt.existsSync()) alt.createSync(recursive: true);
         _globalLogFilePath = alt.absolute.path;
-        _globalSink = alt.openWrite(mode: FileMode.write);
+        _globalSink = alt.openWrite();
         _fileSink = _globalSink;
         _logFilePath = _globalLogFilePath;
 
@@ -396,7 +399,7 @@ mixin LoggerMixin {
       save = false;
     }
     final bool colors = !Platform.isWindows || Platform.environment['TERM'] != null;
-    return LoggingService(isVerbose: false, enableColors: colors, saveLog: save);
+    return LoggingService(enableColors: colors, saveLog: save);
   }
 }
 
