@@ -56,9 +56,7 @@ class ExifToolService with LoggerMixin {
     } catch (_) {}
 
     final scriptPath = Platform.script.toFilePath();
-    final scriptDir = scriptPath.isNotEmpty
-        ? File(scriptPath).parent.path
-        : null;
+    final scriptDir = scriptPath.isNotEmpty ? File(scriptPath).parent.path : null;
     if (scriptDir != null && showDiscoveryMessage) {
       print('Script directory: $scriptDir');
     }
@@ -85,9 +83,7 @@ class ExifToolService with LoggerMixin {
             if (result.exitCode == 0) {
               if (showDiscoveryMessage) {
                 final version = result.stdout.toString().trim();
-                print(
-                  'ExifTool found: ${exiftoolFile.path} (version $version)',
-                );
+                print('ExifTool found: ${exiftoolFile.path} (version $version)');
               }
               return ExifToolService(exiftoolFile.path);
             }
@@ -179,16 +175,13 @@ class ExifToolService with LoggerMixin {
   }
 
   /// One-shot execution. Batch minimizes launches, but we still use one-shot here.
-  Future<String> executeCommand(final List<String> args) async =>
-      _executeOneShot(args);
+  Future<String> executeCommand(final List<String> args) async => _executeOneShot(args);
 
   Future<String> _executeOneShot(final List<String> args) async {
     try {
       final result = await Process.run(exiftoolPath, args);
       if (result.exitCode != 0) {
-        logger.error(
-          'ExifTool command failed with exit code ${result.exitCode}',
-        );
+        logger.error('ExifTool command failed with exit code ${result.exitCode}');
         logger.error('Command: $exiftoolPath ${args.join(' ')}');
         logger.error('Stderr: ${result.stderr}');
         throw Exception('ExifTool command failed: ${result.stderr}');
@@ -219,6 +212,22 @@ class ExifToolService with LoggerMixin {
     }
   }
 
+  // ───────────────────────────────────────────────────────────────────────────
+  // Common write flags for stability/consistency
+  // NOTE:
+  //  - -P preserves file times (mtime/atime) → prevents OS timestamp drift while writing tags.
+  //  - -charset filename=UTF8 ensures UTF-8 filename handling consistently across platforms.
+  //  - -overwrite_original keeps the "replace" semantics across filesystems (safer than _in_place_).
+  //  - -api QuickTimeUTC=1 normalizes QuickTime time handling to UTC (no measurable slowdown).
+  List<String> _commonWriteArgs() => <String>[
+      '-P',
+      '-charset',
+      'filename=UTF8',
+      '-overwrite_original',
+      '-api',
+      'QuickTimeUTC=1',
+    ];
+
   /// Write EXIF data to a single file (classic argv).
   Future<void> writeExifData(
     final File file,
@@ -226,7 +235,8 @@ class ExifToolService with LoggerMixin {
   ) async {
     if (exifData.isEmpty) return;
 
-    final args = <String>['-overwrite_original'];
+    final args = <String>[];
+    args.addAll(_commonWriteArgs());
     for (final entry in exifData.entries) {
       args.add('-${entry.key}=${entry.value}');
     }
@@ -236,9 +246,7 @@ class ExifToolService with LoggerMixin {
     if (output.contains('error') ||
         output.contains('Error') ||
         output.contains("weren't updated due to errors")) {
-      throw Exception(
-        'ExifTool failed to write metadata to ${file.path}: $output',
-      );
+      throw Exception('ExifTool failed to write metadata to ${file.path}: $output');
     }
   }
 
@@ -247,7 +255,8 @@ class ExifToolService with LoggerMixin {
     final List<MapEntry<File, Map<String, dynamic>>> batch,
   ) async {
     if (batch.isEmpty) return;
-    final args = <String>['-overwrite_original'];
+    final args = <String>[];
+    args.addAll(_commonWriteArgs());
 
     for (final fileAndTags in batch) {
       final file = fileAndTags.key;
@@ -274,9 +283,20 @@ class ExifToolService with LoggerMixin {
   ) async {
     if (batch.isEmpty) return;
 
-    // Build the argfile contents line-by-line, one tag per line, file path as the last arg.
+    // Build argfile with common args once via -common_args.
     final StringBuffer buf = StringBuffer();
-    buf.writeln('-overwrite_original');
+    buf.writeln('-common_args');
+    for (final a in _commonWriteArgs()) {
+      if (a.contains(' ')) {
+        final parts = a.split(' ');
+        for (final p in parts) {
+          if (p.isNotEmpty) buf.writeln(p);
+        }
+      } else {
+        buf.writeln(a);
+      }
+    }
+
     for (final fileAndTags in batch) {
       final file = fileAndTags.key;
       final tags = fileAndTags.value;
@@ -288,7 +308,6 @@ class ExifToolService with LoggerMixin {
       buf.writeln(file.path);
     }
 
-    // Persist to a temp file, pass with -@
     final tmp = await File(
       '${Directory.systemTemp.path}${Platform.pathSeparator}exif_args_${DateTime.now().microsecondsSinceEpoch}.txt',
     ).create();
@@ -320,14 +339,10 @@ class ExifToolService with LoggerMixin {
     _pendingCommands.clear();
     _commandOutputs.clear();
 
-    try {
-      await _outputSubscription?.cancel();
-    } catch (_) {}
+    try { await _outputSubscription?.cancel(); } catch (_) {}
     _outputSubscription = null;
 
-    try {
-      await _errorSubscription?.cancel();
-    } catch (_) {}
+    try { await _errorSubscription?.cancel(); } catch (_) {}
     _errorSubscription = null;
 
     if (_persistentProcess != null) {
@@ -346,9 +361,7 @@ class ExifToolService with LoggerMixin {
           },
         );
       } catch (_) {
-        try {
-          _persistentProcess!.kill();
-        } catch (_) {}
+        try { _persistentProcess!.kill(); } catch (_) {}
       } finally {
         _persistentProcess = null;
       }

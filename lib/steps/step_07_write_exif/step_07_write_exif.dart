@@ -27,9 +27,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
     try {
       final collection = context.mediaCollection;
 
-      print(
-        '\n[Step 7/8] Writing EXIF data on physical files in output (this may take a while)...',
-      );
+      print('\n[Step 7/8] Writing EXIF data on physical files in output (this may take a while)...');
       if (!context.config.writeExif) {
         sw.stop();
         return StepResult.success(
@@ -48,10 +46,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
       final exifTool = ServiceContainer.instance.exifTool; // may be null
       final bool nativeOnly = exifTool == null;
       if (nativeOnly) {
-        logWarning(
-          '[Step 7/8] ExifTool not available, native-only support.',
-          forcePrint: true,
-        );
+        logWarning('[Step 7/8] ExifTool not available, native-only support.', forcePrint: true);
       } else {
         print('[Step 7/8] ExifTool enabled');
       }
@@ -64,27 +59,55 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
         width: 50,
       );
       final _UnsupportedPolicy unsupportedPolicy = _resolveUnsupportedPolicy();
-      final int maxConc = ConcurrencyManager().concurrencyFor(
-        ConcurrencyOperation.exif,
-      );
-      final ExifWriterService? exifWriter = (exifTool != null)
-          ? ExifWriterService(exifTool)
-          : null;
+      final int maxConc = ConcurrencyManager().concurrencyFor(ConcurrencyOperation.exif);
+      final ExifWriterService? exifWriter = (exifTool != null) ? ExifWriterService(exifTool) : null;
 
       // Batch queues (images/videos)
       final bool isWindows = Platform.isWindows;
       final int baseBatchSize = isWindows ? 60 : 120;
-      final int maxImageBatch = _resolveInt(
-        'maxExifImageBatchSize',
-        defaultValue: 500,
-      );
-      final int maxVideoBatch = _resolveInt(
-        'maxExifVideoBatchSize',
-        defaultValue: 24,
-      );
+      final int maxImageBatch = _resolveInt('maxExifImageBatchSize', defaultValue: 500);
+      final int maxVideoBatch = _resolveInt('maxExifVideoBatchSize', defaultValue: 24);
 
       final pendingImagesBatch = <MapEntry<File, Map<String, dynamic>>>[];
       final pendingVideosBatch = <MapEntry<File, Map<String, dynamic>>>[];
+
+      // --- NEW: Helpers to preserve OS mtime around writes (tool-agnostic) ---
+      // This mirrors ExifTool's -P and also protects native-writer paths.
+      Future<T> preserveMTime<T>(final File f, final Future<T> Function() op) async {
+        DateTime? before;
+        try {
+          before = await f.lastModified();
+        } catch (_) {}
+        T out;
+        try {
+          out = await op();
+        } finally {
+          if (before != null) {
+            try {
+              await f.setLastModified(before);
+            } catch (_) {}
+          }
+        }
+        return out;
+      }
+
+      Map<File, DateTime> snapshotMtimes(final List<MapEntry<File, Map<String, dynamic>>> chunk) {
+        final m = <File, DateTime>{};
+        for (final e in chunk) {
+          try {
+            m[e.key] = e.key.lastModifiedSync();
+          } catch (_) {}
+        }
+        return m;
+      }
+
+      Future<void> restoreMtimes(final Map<File, DateTime> snap) async {
+        for (final kv in snap.entries) {
+          try {
+            await kv.key.setLastModified(kv.value);
+          } catch (_) {}
+        }
+      }
 
       // Safe batched write (splits on failure to isolate bad files)
       Future<void> writeBatchSafe(
@@ -94,14 +117,14 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
       }) async {
         if (queue.isEmpty || exifWriter == null) return;
 
-        Future<void> splitAndWrite(
-          final List<MapEntry<File, Map<String, dynamic>>> chunk,
-        ) async {
+        Future<void> splitAndWrite(final List<MapEntry<File, Map<String, dynamic>>> chunk) async {
           if (chunk.isEmpty) return;
           if (chunk.length == 1) {
             final entry = chunk.first;
+            final snap = snapshotMtimes(chunk); // snapshot for single too
             try {
-              await exifWriter.writeTagsWithExifTool(entry.key, entry.value);
+              // Keep the old behavior: 'useArgFileWhenLarge' obeys the incoming useArgFile decision
+              await exifWriter.writeBatchWithExifTool([entry], useArgFileWhenLarge: useArgFile);
             } catch (e) {
               if (!_shouldSilenceExiftoolError(e)) {
                 logWarning(
@@ -111,6 +134,8 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
                 );
               }
               await _tryDeleteTmp(entry.key);
+            } finally {
+              await restoreMtimes(snap); // preserve file mtime regardless of ExifTool behavior
             }
             return;
           }
@@ -119,11 +144,11 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
           final left = chunk.sublist(0, mid);
           final right = chunk.sublist(mid);
 
+          // Snapshot before writing the batch (because ExifTool may replace files)
+          final snap = snapshotMtimes(chunk);
+
           try {
-            await exifWriter.writeBatchWithExifTool(
-              chunk,
-              useArgFileWhenLarge: useArgFile,
-            );
+            await exifWriter.writeBatchWithExifTool(chunk, useArgFileWhenLarge: useArgFile);
           } catch (e) {
             await _tryDeleteTmpForChunk(chunk);
             if (!_shouldSilenceExiftoolError(e)) {
@@ -133,9 +158,15 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
                     : 'Batch flush failed (${chunk.length} files) - splitting: $e',
               );
             }
+            // Restore mtimes for the failed chunk before splitting (best-effort)
+            await restoreMtimes(snap);
             await splitAndWrite(left);
             await splitAndWrite(right);
+            return;
           }
+
+          // On success, restore mtimes for the whole chunk
+          await restoreMtimes(snap);
         }
 
         await splitAndWrite(queue);
@@ -156,38 +187,20 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
 
         // Enforce safe caps
         while (queue.length > (isVideoBatch ? maxVideoBatch : maxImageBatch)) {
-          final sub = queue.sublist(
-            0,
-            isVideoBatch ? maxVideoBatch : maxImageBatch,
-          );
-          await writeBatchSafe(
-            sub,
-            useArgFile: true,
-            isVideoBatch: isVideoBatch,
-          );
+          final sub = queue.sublist(0, isVideoBatch ? maxVideoBatch : maxImageBatch);
+          await writeBatchSafe(sub, useArgFile: true, isVideoBatch: isVideoBatch);
           queue.removeRange(0, sub.length);
         }
 
-        await writeBatchSafe(
-          queue,
-          useArgFile: useArgFile,
-          isVideoBatch: isVideoBatch,
-        );
+        // When batching is enabled, honor the useArgFile decision (do not force true)
+        await writeBatchSafe(queue, useArgFile: useArgFile, isVideoBatch: isVideoBatch);
         queue.clear();
       }
 
       Future<void> flushImageBatch({required final bool useArgFile}) =>
-          flushBatch(
-            pendingImagesBatch,
-            useArgFile: useArgFile,
-            isVideoBatch: false,
-          );
+          flushBatch(pendingImagesBatch, useArgFile: useArgFile, isVideoBatch: false);
       Future<void> flushVideoBatch({required final bool useArgFile}) =>
-          flushBatch(
-            pendingVideosBatch,
-            useArgFile: useArgFile,
-            isVideoBatch: true,
-          );
+          flushBatch(pendingVideosBatch, useArgFile: useArgFile, isVideoBatch: true);
 
       Future<void> maybeFlushThresholds() async {
         if (nativeOnly || !enableExifToolBatch) return;
@@ -253,11 +266,8 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
               if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) {
                 if (!nativeOnly && exifWriter != null) {
                   if (effectiveDate != null) {
-                    final ok = await exifWriter.writeCombinedNativeJpeg(
-                      file,
-                      effectiveDate,
-                      coords,
-                    );
+                    // IMPORTANT: preserve OS mtime around native JPEG combined write
+                    final ok = await preserveMTime(file, () async => exifWriter.writeCombinedNativeJpeg(file, effectiveDate, coords));
                     if (ok) {
                       gpsWrittenThis = true;
                       dtWrittenThis = true;
@@ -267,100 +277,45 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
                       tagsToWrite['DateTimeOriginal'] = '"$dt"';
                       tagsToWrite['DateTimeDigitized'] = '"$dt"';
                       tagsToWrite['DateTime'] = '"$dt"';
-                      tagsToWrite['GPSLatitude'] = coords
-                          .toDD()
-                          .latitude
-                          .toString();
-                      tagsToWrite['GPSLongitude'] = coords
-                          .toDD()
-                          .longitude
-                          .toString();
-                      tagsToWrite['GPSLatitudeRef'] = coords
-                          .latDirection
-                          .abbreviation
-                          .toString();
-                      tagsToWrite['GPSLongitudeRef'] = coords
-                          .longDirection
-                          .abbreviation
-                          .toString();
-                      gpsWrittenThis = true;
-                      dtWrittenThis = true;
+                      tagsToWrite['GPSLatitude'] = coords.toDD().latitude.toString();
+                      tagsToWrite['GPSLongitude'] = coords.toDD().longitude.toString();
+                      tagsToWrite['GPSLatitudeRef'] = coords.latDirection.abbreviation.toString();
+                      tagsToWrite['GPSLongitudeRef'] = coords.longDirection.abbreviation.toString();
+                      // NOTE: we do not mark gps/dt here; ExifTool batch will do it.
                     }
                   } else {
-                    final ok = await exifWriter.writeGpsNativeJpeg(
-                      file,
-                      coords,
-                    );
+                    final ok = await preserveMTime(file, () async => exifWriter.writeGpsNativeJpeg(file, coords));
                     if (ok) {
                       gpsWrittenThis = true;
                     } else {
-                      tagsToWrite['GPSLatitude'] = coords
-                          .toDD()
-                          .latitude
-                          .toString();
-                      tagsToWrite['GPSLongitude'] = coords
-                          .toDD()
-                          .longitude
-                          .toString();
-                      tagsToWrite['GPSLatitudeRef'] = coords
-                          .latDirection
-                          .abbreviation
-                          .toString();
-                      tagsToWrite['GPSLongitudeRef'] = coords
-                          .longDirection
-                          .abbreviation
-                          .toString();
-                      gpsWrittenThis = true;
+                      tagsToWrite['GPSLatitude'] = coords.toDD().latitude.toString();
+                      tagsToWrite['GPSLongitude'] = coords.toDD().longitude.toString();
+                      tagsToWrite['GPSLatitudeRef'] = coords.latDirection.abbreviation.toString();
+                      tagsToWrite['GPSLongitudeRef'] = coords.longDirection.abbreviation.toString();
+                      // Do NOT set gpsWrittenThis here.
                     }
                   }
                 } else {
                   // Native-only: enqueue GPS via ExifTool tags map (if ExifTool later available)
-                  tagsToWrite['GPSLatitude'] = coords
-                      .toDD()
-                      .latitude
-                      .toString();
-                  tagsToWrite['GPSLongitude'] = coords
-                      .toDD()
-                      .longitude
-                      .toString();
-                  tagsToWrite['GPSLatitudeRef'] = coords
-                      .latDirection
-                      .abbreviation
-                      .toString();
-                  tagsToWrite['GPSLongitudeRef'] = coords
-                      .longDirection
-                      .abbreviation
-                      .toString();
-                  gpsWrittenThis = true;
+                  tagsToWrite['GPSLatitude'] = coords.toDD().latitude.toString();
+                  tagsToWrite['GPSLongitude'] = coords.toDD().longitude.toString();
+                  tagsToWrite['GPSLatitudeRef'] = coords.latDirection.abbreviation.toString();
+                  tagsToWrite['GPSLongitudeRef'] = coords.longDirection.abbreviation.toString();
+                  // Do NOT set gpsWrittenThis here.
                 }
               } else {
                 // Non-JPEG: rely on ExifTool only
                 if (!nativeOnly) {
-                  tagsToWrite['GPSLatitude'] = coords
-                      .toDD()
-                      .latitude
-                      .toString();
-                  tagsToWrite['GPSLongitude'] = coords
-                      .toDD()
-                      .longitude
-                      .toString();
-                  tagsToWrite['GPSLatitudeRef'] = coords
-                      .latDirection
-                      .abbreviation
-                      .toString();
-                  tagsToWrite['GPSLongitudeRef'] = coords
-                      .longDirection
-                      .abbreviation
-                      .toString();
-                  gpsWrittenThis = true;
+                  tagsToWrite['GPSLatitude'] = coords.toDD().latitude.toString();
+                  tagsToWrite['GPSLongitude'] = coords.toDD().longitude.toString();
+                  tagsToWrite['GPSLatitudeRef'] = coords.latDirection.abbreviation.toString();
+                  tagsToWrite['GPSLongitudeRef'] = coords.longDirection.abbreviation.toString();
+                  // Do NOT set gpsWrittenThis here.
                 }
               }
             }
           } catch (e) {
-            logWarning(
-              'Failed to prepare GPS tags for ${file.path}: $e',
-              forcePrint: true,
-            );
+            logWarning('Failed to prepare GPS tags for ${file.path}: $e', forcePrint: true);
           }
 
           // Date/time from entity
@@ -368,10 +323,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
             if (effectiveDate != null) {
               if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) {
                 if (!dtWrittenThis && !nativeOnly && exifWriter != null) {
-                  final ok = await exifWriter.writeDateTimeNativeJpeg(
-                    file,
-                    effectiveDate,
-                  );
+                  final ok = await preserveMTime(file, () async => exifWriter.writeDateTimeNativeJpeg(file, effectiveDate));
                   if (ok) {
                     dtWrittenThis = true;
                   } else {
@@ -380,7 +332,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
                     tagsToWrite['DateTimeOriginal'] = '"$dt"';
                     tagsToWrite['DateTimeDigitized'] = '"$dt"';
                     tagsToWrite['DateTime'] = '"$dt"';
-                    dtWrittenThis = true;
+                    // Do NOT set dtWrittenThis here.
                   }
                 }
               } else {
@@ -390,15 +342,12 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
                   tagsToWrite['DateTimeOriginal'] = '"$dt"';
                   tagsToWrite['DateTimeDigitized'] = '"$dt"';
                   tagsToWrite['DateTime'] = '"$dt"';
-                  dtWrittenThis = true;
+                  // Do NOT set dtWrittenThis here.
                 }
               }
             }
           } catch (e) {
-            logWarning(
-              'Failed to prepare DateTime tags for ${file.path}: $e',
-              forcePrint: true,
-            );
+            logWarning('Failed to prepare DateTime tags for ${file.path}: $e', forcePrint: true);
           }
 
           // Write (per-file or batch)
@@ -411,30 +360,26 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
                 pathLower: lower,
               );
 
-              if (isUnsupported &&
-                  !unsupportedPolicy.forceProcessUnsupportedFormats) {
+              if (isUnsupported && !unsupportedPolicy.forceProcessUnsupportedFormats) {
                 if (!unsupportedPolicy.silenceUnsupportedWarnings) {
                   final detectedFmt = _describeUnsupported(
                     mimeHeader: mimeHeader,
                     mimeExt: mimeExt,
                     pathLower: lower,
                   );
-                  logWarning(
-                    'Skipping $detectedFmt file - ExifTool cannot write $detectedFmt: ${file.path}',
-                    forcePrint: true,
-                  );
+                  logWarning('Skipping $detectedFmt file - ExifTool cannot write $detectedFmt: ${file.path}', forcePrint: true);
                 }
               } else {
                 if (!enableExifToolBatch) {
+                  // Respect configuration: no batching → per-file write (preserving mtime)
                   try {
-                    await exifWriter!.writeTagsWithExifTool(file, tagsToWrite);
+                    await preserveMTime(file, () async {
+                      // NOTE: ExifWriterService should internally add `-P` (preserve file times).
+                      await exifWriter!.writeTagsWithExifTool(file, tagsToWrite);
+                    });
                   } catch (e) {
                     if (!_shouldSilenceExiftoolError(e)) {
-                      logWarning(
-                        isVideo
-                            ? 'Per-file video write failed: ${file.path} -> $e'
-                            : 'Per-file write failed: ${file.path} -> $e',
-                      );
+                      logWarning(isVideo ? 'Per-file video write failed: ${file.path} -> $e' : 'Per-file write failed: ${file.path} -> $e');
                     }
                     await _tryDeleteTmp(file);
                   }
@@ -449,24 +394,16 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
             }
           } catch (e) {
             if (!_shouldSilenceExiftoolError(e)) {
-              logWarning(
-                'Failed to enqueue EXIF tags for ${file.path}: $e',
-              );
+              logWarning('Failed to enqueue EXIF tags for ${file.path}: $e');
             }
           }
 
           // Unique-file instrumentation counts (primary vs secondary)
           if (gpsWrittenThis) {
-            ExifWriterService.markGpsTouchedFromStep5(
-              file,
-              isPrimary: markAsPrimary,
-            );
+            ExifWriterService.markGpsTouchedFromStep5(file, isPrimary: markAsPrimary);
           }
           if (dtWrittenThis) {
-            ExifWriterService.markDateTouchedFromStep5(
-              file,
-              isPrimary: markAsPrimary,
-            );
+            ExifWriterService.markDateTouchedFromStep5(file, isPrimary: markAsPrimary);
           }
         } catch (e) {
           logError('EXIF write failed for ${file.path}: $e', forcePrint: true);
@@ -481,11 +418,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
 
       // Process entities with bounded concurrency
       for (int i = 0; i < collection.length; i += maxConc) {
-        final slice = collection
-            .asList()
-            .skip(i)
-            .take(maxConc)
-            .toList(growable: false);
+        final slice = collection.asList().skip(i).take(maxConc).toList(growable: false);
 
         final results = await Future.wait(
           slice.map((final entity) async {
@@ -496,9 +429,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
             dynamic coordsFromPrimary;
             try {
               final primarySourceFile = File(entity.primaryFile.sourcePath);
-              coordsFromPrimary = await jsonCoordinatesExtractor(
-                primarySourceFile,
-              );
+              coordsFromPrimary = await jsonCoordinatesExtractor(primarySourceFile);
             } catch (_) {
               coordsFromPrimary = null;
             }
@@ -542,10 +473,9 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
 
       print('');
 
-      // Final batch flush (if batching was used)
+      // Final batch flush (if batching was used). Use the old heuristic to decide argfile.
       if (!nativeOnly && enableExifToolBatch) {
-        final bool flushImagesWithArg =
-            pendingImagesBatch.length > (Platform.isWindows ? 30 : 60);
+        final bool flushImagesWithArg = pendingImagesBatch.length > (Platform.isWindows ? 30 : 60);
         final bool flushVideosWithArg = pendingVideosBatch.length > 6;
         await flushImageBatch(useArgFile: flushImagesWithArg);
         await flushVideoBatch(useArgFile: flushVideosWithArg);
@@ -563,21 +493,14 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
       final dtSec = ExifWriterService.uniqueDateSecondaryCount;
 
       if (gpsTotal > 0) {
-        print(
-          '[Step 7/8] $gpsTotal files got GPS set in EXIF data (primary=$gpsPrim, secondary=$gpsSec)',
-        );
+        print('[Step 7/8] $gpsTotal files got GPS set in EXIF data (primary=$gpsPrim, secondary=$gpsSec)');
       }
       if (dtTotal > 0) {
-        print(
-          '[Step 7/8] $dtTotal files got DateTime set in EXIF data (primary=$dtPrim, secondary=$dtSec)',
-        );
+        print('[Step 7/8] $dtTotal files got DateTime set in EXIF data (primary=$dtPrim, secondary=$dtSec)');
       }
-      print(
-        '[Step 7/8] Processed ${collection.entities.length} entities; touched ${ExifWriterService.uniqueFilesTouchedCount} files',
-      );
+      print('[Step 7/8] Processed ${collection.entities.length} entities; touched ${ExifWriterService.uniqueFilesTouchedCount} files');
 
-      final int touchedFilesBeforeReset =
-          ExifWriterService.uniqueFilesTouchedCount;
+      final int touchedFilesBeforeReset = ExifWriterService.uniqueFilesTouchedCount;
       final int touchedGpsBeforeReset = ExifWriterService.uniqueGpsFilesCount;
       final int touchedDateBeforeReset = ExifWriterService.uniqueDateFilesCount;
 
@@ -613,8 +536,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
   }
 
   @override
-  bool shouldSkip(final ProcessingContext context) =>
-      context.mediaCollection.isEmpty;
+  bool shouldSkip(final ProcessingContext context) => context.mediaCollection.isEmpty;
 
   // ------------------------------- Utilities --------------------------------
 
@@ -626,6 +548,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
       final v = dyn.enableExifToolBatch;
       if (v is bool) return v;
     } catch (_) {}
+    // If not found enableExifToolBatch in config, enable batching by default.
     return true;
   }
 

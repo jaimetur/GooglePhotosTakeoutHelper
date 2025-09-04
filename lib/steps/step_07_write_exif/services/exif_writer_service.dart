@@ -1,5 +1,4 @@
-import 'dart:io';
-import 'dart:typed_data';
+import 'dart:io'; import 'dart:typed_data';
 
 import 'package:coordinate_converter/coordinate_converter.dart';
 import 'package:gpth/gpth_lib_exports.dart';
@@ -293,8 +292,7 @@ class ExifWriterService with LoggerMixin {
   Future<bool> writeTagsWithExifTool(
     final File file,
     final Map<String, dynamic> tags, {
-    final bool countAsCombined =
-        false, // kept for backward compat, but classification below is preferred
+    final bool countAsCombined = false, // kept for backward compat, but classification below is preferred
     final bool isDate = false, // kept for backward compat
     final bool isGps = false, // kept for backward compat
   }) async {
@@ -322,9 +320,7 @@ class ExifWriterService with LoggerMixin {
       return true;
     } catch (e) {
       _countExiftoolFail(asDate, asGps, asCombined);
-      logError(
-        'Failed to write tags ${tags.keys.toList()} to ${file.path}: $e',
-      );
+      logError('Failed to write tags ${tags.keys.toList()} to ${file.path}: $e');
       return false;
     }
   }
@@ -340,15 +336,15 @@ class ExifWriterService with LoggerMixin {
 
     // Before running the batch, classify every entry so we can record processed and routing consistently.
     final entriesMeta =
-        <
-          ({
+        <(
+          {
             File file,
             bool isDate,
             bool isGps,
             bool isCombined,
             bool isFallback,
-          })
-        >[];
+          }
+        )>[];
     int countDate = 0, countGps = 0, countCombined = 0;
     int direct = 0, fallback = 0;
 
@@ -364,10 +360,12 @@ class ExifWriterService with LoggerMixin {
       ));
       if (cls.isCombined) {
         countCombined++;
-      } else if (cls.isDate)
+      } else if (cls.isDate) {
         countDate++;
-      else if (cls.isGps)
+      }
+      else if (cls.isGps) {
         countGps++;
+      }
       if (isFallback) {
         fallback++;
       } else {
@@ -380,10 +378,7 @@ class ExifWriterService with LoggerMixin {
     exiftoolDirectFiles += direct;
     exiftoolFallbackFiles += fallback;
 
-    final totalTagged = (countDate + countGps + countCombined).clamp(
-      1,
-      1 << 30,
-    ); // avoid div/0
+    final totalTagged = (countDate + countGps + countCombined).clamp(1, 1 << 30); // avoid div/0
     final sw = Stopwatch()..start();
     try {
       if (useArgFileWhenLarge) {
@@ -406,9 +401,7 @@ class ExifWriterService with LoggerMixin {
       if (countGps > 0) {
         exiftoolGpsWritten += countGps;
         exiftoolGpsDur += elapsed * (countGps / totalTagged);
-        logDebug(
-          '[WRITE-EXIF] GPS written via exiftool (batch): $countGps files',
-        );
+        logDebug('[WRITE-EXIF] GPS written via exiftool (batch): $countGps files');
       }
 
       // All entries succeeded → count successes and mark unique files by type.

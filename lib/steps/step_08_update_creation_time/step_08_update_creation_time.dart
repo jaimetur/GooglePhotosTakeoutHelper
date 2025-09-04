@@ -101,10 +101,8 @@ class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
     print('');
 
     try {
-      if (!Platform.isWindows || !context.config.updateCreationTime) {
-        final reason = !Platform.isWindows
-            ? 'not supported on this platform (${Platform.operatingSystem})'
-            : 'disabled in configuration';
+      if (!context.config.updateCreationTime) {
+        const reason = 'disabled in configuration';
 
         logWarning(
           '[Step 8/8] Skipping creation time update ($reason).',
@@ -165,7 +163,7 @@ class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
       for (int i = 0; i < filesToTouch.length; i++) {
         final f = filesToTouch[i];
         try {
-          final ok = _setFileTimesToDateTakenSync(
+          final ok = _setFileTimesToDateTakenCrossPlatform(
             f.file.path,
             f.dateTaken,
             isShortcut: f.isShortcut,
@@ -187,13 +185,14 @@ class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
               failedPhysical++;
             }
           }
-        } catch (_) {
+        } catch (e) {
           failed++;
           if (f.isShortcut) {
             failedShortcuts++;
           } else {
             failedPhysical++;
           }
+          logWarning('Timestamp update failed for ${f.file.path}: $e', forcePrint: true);
         }
 
         progressBar.update(i + 1);
@@ -237,13 +236,10 @@ class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
 
   @override
   bool shouldSkip(final ProcessingContext context) {
-    final shouldSkipStep =
-        !Platform.isWindows || !context.config.updateCreationTime;
+    final shouldSkipStep = !context.config.updateCreationTime;
 
     if (shouldSkipStep) {
-      final reason = !Platform.isWindows
-          ? 'not supported on this platform (${Platform.operatingSystem})'
-          : 'disabled in configuration';
+      const reason = 'disabled in configuration';
       logWarning(
         '[Step 8/8] Skipping creation time update ($reason).',
         forcePrint: true,
@@ -253,10 +249,26 @@ class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
     return shouldSkipStep;
   }
 
+  /// Cross-platform timestamp update.
+  /// Windows: sets CreationTime and LastWriteTime = dateTaken (preserving LastAccessTime).
+  /// POSIX   : sets mtime (and atime) = dateTaken. If [isShortcut] is true and the path is a symlink,
+  ///           we update the symlink's own timestamps using utimensat(AT_SYMLINK_NOFOLLOW).
+  bool _setFileTimesToDateTakenCrossPlatform(
+    final String filePath,
+    final DateTime dateTaken, {
+    required final bool isShortcut,
+  }) {
+    if (Platform.isWindows) {
+      return _setFileTimesToDateTakenWindows(filePath, dateTaken, isShortcut: isShortcut);
+    } else {
+      return _setFileTimesToDateTakenPosix(filePath, dateTaken, isShortcut: isShortcut);
+    }
+  }
+
   /// Synchronous Win32 creation/write time update to a specific DateTime (entity.dateTaken).
   /// If [isShortcut] is true, the handle is opened with FILE_FLAG_OPEN_REPARSE_POINT
   /// so we touch the link itself (not its target). LastAccessTime is preserved as-is.
-  bool _setFileTimesToDateTakenSync(
+  bool _setFileTimesToDateTakenWindows(
     final String filePath,
     final DateTime dateTaken, {
     required final bool isShortcut,
@@ -264,6 +276,7 @@ class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
     try {
       return using((final Arena arena) {
         // Convert to extended-length path to avoid MAX_PATH issues on Windows.
+        // IMPORTANT: make path absolute first; \\?\ only makes sense for absolute paths.
         final String extended = _toExtendedLengthPath(filePath);
         final Pointer<Utf16> pathPtr = extended.toNativeUtf16(allocator: arena);
 
@@ -285,6 +298,9 @@ class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
         );
 
         if (fileHandle == INVALID_HANDLE_VALUE) {
+          // Log GetLastError for diagnostics (helped catch \\?\ misuse).
+          final int err = GetLastError();
+          logWarning('CreateFileW failed for "$extended" (error=$err)', forcePrint: true);
           return false;
         }
 
@@ -303,7 +319,87 @@ class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
           CloseHandle(fileHandle);
         }
       });
-    } catch (_) {
+    } catch (e) {
+      logWarning('Windows timestamp update failed for "$filePath": $e', forcePrint: true);
+      return false;
+    }
+  }
+
+  /// POSIX implementation using utimensat.
+  /// NOTE: On POSIX there is no creation time; we set both mtime and atime to `dateTaken`.
+  ///       If the path is a shortcut/symlink, we attempt to touch the link itself using
+  ///       AT_SYMLINK_NOFOLLOW. Fallbacks apply if utimensat is not available.
+  bool _setFileTimesToDateTakenPosix(
+    final String filePath,
+    final DateTime dateTaken, {
+    required final bool isShortcut,
+  }) {
+    try {
+      final DynamicLibrary? libc = _loadLibC();
+      if (libc == null) {
+        // Fallback: only mtime on the target (cannot touch the symlink itself here).
+        try {
+          File(filePath).setLastModifiedSync(dateTaken);
+          return !isShortcut; // we only updated the target; for shortcuts say false
+        } catch (_) {
+          return false;
+        }
+      }
+
+      // typedef int utimensat(int dirfd, const char *pathname, const struct timespec times[2], int flags);
+      _Utimensat? utimensat;
+      try {
+        utimensat = libc
+            .lookup<NativeFunction<_UtimensatNative>>('utimensat')
+            .asFunction<_Utimensat>();
+      } catch (_) {
+        utimensat = null;
+      }
+
+      if (utimensat == null) {
+        // Fallback if symbol not found.
+        try {
+          File(filePath).setLastModifiedSync(dateTaken);
+          return !isShortcut;
+        } catch (_) {
+          return false;
+        }
+      }
+
+      return using((final Arena arena) {
+        final Pointer<Utf8> p = filePath.toNativeUtf8(allocator: arena);
+
+        // Build timespec array [atime, mtime]
+        final Pointer<_Timespec> times = arena<_Timespec>(2);
+
+        // NOTE: We set BOTH atime and mtime to dateTaken for simplicity/cross-tool consistency.
+        final int sec = dateTaken.toUtc().millisecondsSinceEpoch ~/ 1000;
+        final int nsec = (dateTaken.toUtc().microsecondsSinceEpoch % 1000000) * 1000;
+
+        times[0]
+          ..tv_sec = sec
+          ..tv_nsec = nsec;
+        times[1]
+          ..tv_sec = sec
+          ..tv_nsec = nsec;
+
+        const int atFdcwd = -100;
+        const int atSymlinkNofollow = 0x100;
+
+        final int flags = isShortcut ? atSymlinkNofollow : 0;
+        final int r = utimensat!(atFdcwd, p, times, flags);
+        if (r == 0) return true;
+
+        // Fallback: if touching symlink itself is unsupported, try touching target when isShortcut=false or as last resort.
+        try {
+          File(filePath).setLastModifiedSync(dateTaken);
+          return !isShortcut; // if it was a symlink we likely only touched the target
+        } catch (_) {
+          return false;
+        }
+      });
+    } catch (e) {
+      logWarning('POSIX timestamp update failed for "$filePath": $e', forcePrint: true);
       return false;
     }
   }
@@ -311,11 +407,13 @@ class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
   // ------------------------------- Utilities --------------------------------
 
   /// Convert normal path to extended-length path (\\?\ prefix) for long-path safety on Windows.
+  /// IMPORTANT: This function now ensures the path is absolute before applying the prefix.
   String _toExtendedLengthPath(final String p) {
     if (!Platform.isWindows) return p;
-    if (p.startsWith('\\\\?\\')) return p;
-    if (p.startsWith('\\\\')) return '\\\\?\\UNC${p.substring(1)}';
-    return '\\\\?\\$p';
+    final String abs = File(p).absolute.path; // ensure absolute first
+    if (abs.startsWith('\\\\?\\')) return abs;
+    if (abs.startsWith('\\\\')) return '\\\\?\\UNC${abs.substring(1)}';
+    return '\\\\?\\$abs';
   }
 
   /// Write a DateTime (UTC) into a FILETIME pointer.
@@ -331,7 +429,43 @@ class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
       ..dwHighDateTime = (ftTicks >> 32) & 0xFFFFFFFF
       ..dwLowDateTime = ftTicks & 0xFFFFFFFF;
   }
+
+  DynamicLibrary? _loadLibC() {
+    try {
+      if (Platform.isLinux) return DynamicLibrary.open('libc.so.6');
+      if (Platform.isMacOS) return DynamicLibrary.process(); // libc is in the default namespace on macOS
+      if (Platform.isAndroid) return DynamicLibrary.open('libc.so');
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
 }
+
+// FFI types for POSIX utimensat
+
+// struct timespec { time_t tv_sec; long tv_nsec; }
+// NOTE: We use Int64 for both fields, which matches 64-bit Linux/macOS ABIs.
+final class _Timespec extends Struct {
+  @Int64()
+  external int tv_sec;
+
+  @Int64()
+  external int tv_nsec;
+}
+
+typedef _UtimensatNative = Int32 Function(
+  Int32 dirfd,
+  Pointer<Utf8> pathname,
+  Pointer<_Timespec> times,
+  Int32 flags,
+);
+typedef _Utimensat = int Function(
+  int dirfd,
+  Pointer<Utf8> pathname,
+  Pointer<_Timespec> times,
+  int flags,
+);
 
 class _ToTouch {
   _ToTouch(this.file, this.dateTaken, {required this.isShortcut});

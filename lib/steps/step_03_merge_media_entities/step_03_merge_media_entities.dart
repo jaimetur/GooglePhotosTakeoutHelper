@@ -126,6 +126,12 @@ class MergeMediaEntitiesStep extends ProcessingStep with LoggerMixin {
           .concurrencyFor(ConcurrencyOperation.exif)
           .clamp(4, 32);
 
+      // NEW (perf): parallelize hash grouping inside ext-buckets, capped to avoid CPU oversubscription.
+      // If your ConcurrencyOperation doesn't have a dedicated "hash", we reuse EXIF channel safely.
+      final int maxWorkersHash = ConcurrencyManager()
+          .concurrencyFor(ConcurrencyOperation.exif)
+          .clamp(2, 16);
+
       // Process buckets in slices
       // PERF: process largest buckets first to maximize early dedup impact (cache wins)
       final bucketKeys = sizeBuckets.keys.toList()
@@ -162,7 +168,23 @@ class MergeMediaEntitiesStep extends ProcessingStep with LoggerMixin {
         bs.msExtBucket += extSw.elapsedMilliseconds;
         bs.extBuckets += extBuckets.length;
 
+        // Helper (perf): adaptive parallelism for quick signatures
+        // English note:
+        // - Big/video files suffer with high seek concurrency. We reduce workers for those,
+        //   and use higher concurrency for small files to fully utilize I/O.
+        int quickWorkersFor(final int sz, final bool isVideo) {
+          if (isVideo || sz >= (64 << 20)) return 2;   // ≥ 64MiB or video → very low concurrency
+          if (sz >= (8 << 20)) return 4;               // 8–64 MiB
+          if (sz >= (1 << 20)) return 8;               // 1–8 MiB
+          return 24;                                   // < 1 MiB
+        }
+
+        final Set<String> videoExts = {
+          'mp4','mov','m4v','mkv','avi','hevc','heif','heic','webm'
+        };
+
         for (final entry in extBuckets.entries) {
+          final String extKey = entry.key;             // extension for this bucket
           final List<MediaEntity> extGroup = entry.value;
           if (extGroup.length <= 1) continue;
 
@@ -171,14 +193,20 @@ class MergeMediaEntitiesStep extends ProcessingStep with LoggerMixin {
           //    NOTE (perf): drastically reduces IO vs reading 64-128 KiB head.
           //    We also reuse the known 'sizeKey' to avoid per-file stat().
           //    Computed concurrently in small batches (no env vars needed).
+          //    MODIFIED: open file only once and use FNV-1a 32-bit + adaptive 2-point for video/large.
           // ────────────────────────────────────────────────────────────────
           final qsigSw = Stopwatch()..start();
           final Map<String, List<MediaEntity>> quickBuckets =
               <String, List<MediaEntity>>{};
 
+          final bool isVideoExt = videoExts.contains(extKey);
+          // Use adaptive concurrency per ext bucket (replaces the static maxWorkersQuick here)
+          final int localQuickWorkers =
+              quickWorkersFor(sizeKey, isVideoExt).clamp(1, maxWorkersQuick);
+
           // Process extGroup in concurrent slices to control IO pressure
-          for (int i = 0; i < extGroup.length; i += maxWorkersQuick) {
-            final slice = extGroup.skip(i).take(maxWorkersQuick).toList();
+          for (int i = 0; i < extGroup.length; i += localQuickWorkers) {
+            final slice = extGroup.skip(i).take(localQuickWorkers).toList();
             await Future.wait(slice.map((final e) async {
               String sig;
               try {
@@ -199,151 +227,158 @@ class MergeMediaEntitiesStep extends ProcessingStep with LoggerMixin {
           // ────────────────────────────────────────────────────────────────
           // 4) HASH GROUPING inside each quick-bucket
           //    Try to use fast path if service provides it; fallback otherwise.
+          //    MODIFIED (perf): parallelize processing of quick-buckets to utilize CPU cores.
           // ────────────────────────────────────────────────────────────────
-          for (final q in quickBuckets.values) {
-            if (q.length <= 1) continue;
+          final qbLists =
+              quickBuckets.values.where((final q) => q.length > 1).toList();
+          for (int i = 0; i < qbLists.length; i += maxWorkersHash) {
+            final slice = qbLists.skip(i).take(maxWorkersHash).toList();
 
-            final hashSw = Stopwatch()..start();
-            Map<String, List<MediaEntity>> hashGroups;
+            // Run multiple quick-buckets in parallel; each returns groups + elapsed ms
+            final batchResults = await Future.wait(slice.map((final q) async {
+              final hashSw = Stopwatch()..start();
+              Map<String, List<MediaEntity>> hashGroups;
+              try {
+                hashGroups =
+                    await (duplicateService as dynamic).groupIdenticalFast(q);
+              } catch (_) {
+                hashGroups = await duplicateService.groupIdentical(q);
+              }
+              hashSw.stop();
+              return _HashBatchResult(hashGroups, hashSw.elapsedMilliseconds);
+            }));
 
-            // Try to benefit from any fast-variant the service may expose.
-            // Using 'dynamic' keeps compatibility with older builds.
-            try {
-              hashGroups =
-                  await (duplicateService as dynamic).groupIdenticalFast(q);
-            } catch (_) {
-              hashGroups = await duplicateService.groupIdentical(q);
-            }
+            // Apply results + accumulate telemetry
+            for (final res in batchResults) {
+              bs.msHashGroups += res.ms;
+              bs.hashGroups += res.groups.length;
 
-            hashSw.stop();
-            bs.msHashGroups += hashSw.elapsedMilliseconds;
-            bs.hashGroups += hashGroups.length;
+              // Resolve each duplicate group
+              for (final entry in res.groups.entries) {
+                final group = entry.value;
+                if (group.length <= 1) continue;
 
-            // Resolve each duplicate group
-            for (final entry in hashGroups.entries) {
-              final group = entry.value;
-              if (group.length <= 1) continue;
+                // Sort by: accuracy → basename length → prefer Year → full path len → path lex
+                group.sort((final a, final b) {
+                  final aAcc = a.dateAccuracy?.value ?? 999;
+                  final bAcc = b.dateAccuracy?.value ?? 999;
+                  if (aAcc != bAcc) return aAcc.compareTo(bAcc);
 
-              // Sort by: accuracy → basename length → prefer Year → full path len → path lex
-              group.sort((final a, final b) {
-                final aAcc = a.dateAccuracy?.value ?? 999;
-                final bAcc = b.dateAccuracy?.value ?? 999;
-                if (aAcc != bAcc) return aAcc.compareTo(bAcc);
+                  final aBaseLen = path.basename(a.primaryFile.path).length;
+                  final bBaseLen = path.basename(b.primaryFile.path).length;
+                  if (aBaseLen != bBaseLen) return aBaseLen.compareTo(bBaseLen);
 
-                final aBaseLen = path.basename(a.primaryFile.path).length;
-                final bBaseLen = path.basename(b.primaryFile.path).length;
-                if (aBaseLen != bBaseLen) return aBaseLen.compareTo(bBaseLen);
+                  final aYear = a.albumsMap.isEmpty;
+                  final bYear = b.albumsMap.isEmpty;
+                  if (aYear != bYear) return aYear ? -1 : 1;
 
-                final aYear = a.albumsMap.isEmpty;
-                final bYear = b.albumsMap.isEmpty;
-                if (aYear != bYear) return aYear ? -1 : 1;
+                  final aPathLen = a.primaryFile.path.length;
+                  final bPathLen = b.primaryFile.path.length;
+                  if (aPathLen != bPathLen) return aPathLen.compareTo(bPathLen);
 
-                final aPathLen = a.primaryFile.path.length;
-                final bPathLen = b.primaryFile.path.length;
-                if (aPathLen != bPathLen) return aPathLen.compareTo(bPathLen);
+                  return a.primaryFile.path.compareTo(b.primaryFile.path);
+                });
 
-                return a.primaryFile.path.compareTo(b.primaryFile.path);
-              });
+                final MediaEntity kept0 = group.first;
+                final List<MediaEntity> toRemove = group.sublist(1);
 
-              final MediaEntity kept0 = group.first;
-              final List<MediaEntity> toRemove = group.sublist(1);
+                final mergeSw = Stopwatch()..start();
+                MediaEntity kept = kept0;
 
-              final mergeSw = Stopwatch()..start();
-              MediaEntity kept = kept0;
+                // PERF-aware verification:
+                // - Only verify for big groups or very large files (saves double hashing).
+                // - Reuse precomputed hash if 'entry.key' looks like a real hash (not "NNNbytes").
+                final bool verifyThisGroup =
+                    verify && (group.length >= 4 || sizeKey > (64 << 20));
+                final String groupKey = entry.key;
+                final bool keyIsHash = !groupKey.endsWith('bytes');
+                final String? expectedHash = keyIsHash ? groupKey : null;
 
-              // PERF-aware verification:
-              // - Only verify for big groups or very large files (saves double hashing).
-              // - Reuse precomputed hash if 'entry.key' looks like a real hash (not "NNNbytes").
-              final bool verifyThisGroup =
-                  verify && (group.length >= 4 || sizeKey > (64 << 20));
-              final String groupKey = entry.key;
-              final bool keyIsHash = !groupKey.endsWith('bytes');
-              final String? expectedHash = keyIsHash ? groupKey : null;
+                if (verifyThisGroup) {
+                  try {
+                    // If we already know the expected hash from the key, avoid recomputing
+                    final String keptHash = expectedHash ??
+                        await verifier.calculateFileHash(kept.primaryFile.asFile());
 
-              if (verifyThisGroup) {
-                try {
-                  // If we already know the expected hash from the key, avoid recomputing
-                  final String keptHash = expectedHash ??
-                      await verifier.calculateFileHash(kept.primaryFile.asFile());
-
-                  if (expectedHash != null) {
-                    // Sample only ONE duplicate to validate the group; if mismatch, fall back to per-file.
-                    if (toRemove.isNotEmpty) {
-                      final d = toRemove.first;
-                      final String sampleHash =
-                          await verifier.calculateFileHash(d.primaryFile.asFile());
-                      if (sampleHash != keptHash) {
-                        logWarning(
-                          'Verification sample mismatch for group $groupKey. Falling back to full verification.',
-                          forcePrint: true,
-                        );
-                        // Full verification fallback
-                        for (final x in toRemove) {
-                          final String xh = await verifier
-                              .calculateFileHash(x.primaryFile.asFile());
-                          if (xh != keptHash) {
+                    if (expectedHash != null) {
+                      // Sample only ONE duplicate to validate the group; if mismatch, fall back to per-file.
+                      if (toRemove.isNotEmpty) {
+                        final d = toRemove.first;
+                        final String sampleHash =
+                            await verifier.calculateFileHash(d.primaryFile.asFile());
+                        if (sampleHash != keptHash) {
+                          logWarning(
+                            'Verification sample mismatch for group $groupKey. Falling back to full verification.',
+                            forcePrint: true,
+                          );
+                          // Full verification fallback
+                          for (final x in toRemove) {
+                            final String xh = await verifier
+                                .calculateFileHash(x.primaryFile.asFile());
+                            if (xh != keptHash) {
+                              logWarning(
+                                'Verification mismatch. Will NOT remove ${x.primaryFile.path} (hash differs from kept).',
+                                forcePrint: true,
+                              );
+                              continue;
+                            }
+                            kept = kept.mergeWith(x);
+                            localToRemove.add(x);
+                            bs.entitiesMergedByContent++;
+                          }
+                        } else {
+                          // Sample OK → we can safely merge without hashing all
+                          for (final x in toRemove) {
+                            kept = kept.mergeWith(x);
+                            localToRemove.add(x);
+                            bs.entitiesMergedByContent++;
+                          }
+                        }
+                      }
+                    } else {
+                      // No precomputed hash, verify all candidates but reuse keptHash
+                      for (final d in toRemove) {
+                        try {
+                          final String dupHash =
+                              await verifier.calculateFileHash(d.primaryFile.asFile());
+                          if (dupHash != keptHash) {
                             logWarning(
-                              'Verification mismatch. Will NOT remove ${x.primaryFile.path} (hash differs from kept).',
+                              'Verification mismatch. Will NOT remove ${d.primaryFile.path} (hash differs from kept).',
                               forcePrint: true,
                             );
                             continue;
                           }
-                          kept = kept.mergeWith(x);
-                          localToRemove.add(x);
+                          kept = kept.mergeWith(d);
+                          localToRemove.add(d);
                           bs.entitiesMergedByContent++;
-                        }
-                      } else {
-                        // Sample OK → we can safely merge without hashing all
-                        for (final x in toRemove) {
-                          kept = kept.mergeWith(x);
-                          localToRemove.add(x);
-                          bs.entitiesMergedByContent++;
-                        }
-                      }
-                    }
-                  } else {
-                    // No precomputed hash, verify all candidates but reuse keptHash
-                    for (final d in toRemove) {
-                      try {
-                        final String dupHash =
-                            await verifier.calculateFileHash(d.primaryFile.asFile());
-                        if (dupHash != keptHash) {
+                        } catch (e) {
                           logWarning(
-                            'Verification mismatch. Will NOT remove ${d.primaryFile.path} (hash differs from kept).',
+                            'Verification failed for ${d.primaryFile.path}: $e. Skipping removal for safety.',
                             forcePrint: true,
                           );
-                          continue;
                         }
-                        kept = kept.mergeWith(d);
-                        localToRemove.add(d);
-                        bs.entitiesMergedByContent++;
-                      } catch (e) {
-                        logWarning(
-                          'Verification failed for ${d.primaryFile.path}: $e. Skipping removal for safety.',
-                          forcePrint: true,
-                        );
                       }
                     }
+                  } catch (e) {
+                    logWarning(
+                      'Could not hash kept file ${_safePath(kept.primaryFile.asFile())} for verification: $e. Skipping removals for this group.',
+                      forcePrint: true,
+                    );
                   }
-                } catch (e) {
-                  logWarning(
-                    'Could not hash kept file ${_safePath(kept.primaryFile.asFile())} for verification: $e. Skipping removals for this group.',
-                    forcePrint: true,
-                  );
+                } else {
+                  // Fast-path merge: trust grouping and skip double-hashing
+                  for (final d in toRemove) {
+                    kept = kept.mergeWith(d);
+                    localToRemove.add(d);
+                    bs.entitiesMergedByContent++;
+                  }
                 }
-              } else {
-                // Fast-path merge: trust grouping and skip double-hashing
-                for (final d in toRemove) {
-                  kept = kept.mergeWith(d);
-                  localToRemove.add(d);
-                  bs.entitiesMergedByContent++;
-                }
-              }
 
-              // Defer collection mutation: record replacement (kept0 → kept)
-              localRepl.add(_Replacement(kept0: kept0, kept: kept));
-              mergeSw.stop();
-              bs.msMergeReplace += mergeSw.elapsedMilliseconds;
+                // Defer collection mutation: record replacement (kept0 → kept)
+                localRepl.add(_Replacement(kept0: kept0, kept: kept));
+                mergeSw.stop();
+                bs.msMergeReplace += mergeSw.elapsedMilliseconds;
+              }
             }
           }
         }
@@ -675,60 +710,73 @@ class MergeMediaEntitiesStep extends ProcessingStep with LoggerMixin {
   // Helper: quick signature (tri-sample FNV-1a 64-bit of 3×4 KiB at head/middle/tail)
   // NOTE (perf): this replaces a large head-read (e.g. 64–128 KiB) with only 12 KiB total,
   // while being more discriminative for formats with heavy headers (JPEG/MP4/etc.).
+  //
+  // MODIFIED IMPLEMENTATION (English explanation):
+  // - Open the file ONCE and reuse the same RandomAccessFile for head/mid/tail → dramatically fewer syscalls.
+  // - Use FNV-1a 32-bit to reduce CPU cost (no 64-bit multiplications) while keeping good discrimination.
+  // - For very large files and typical video containers, use a 2-point strategy (head+tail) to reduce random seeks.
   Future<String> _quickSignature(
     final File file,
     final int size,
     final String ext,
   ) async {
-    const int chunk = 4096; // 4 KiB per sample
+    const int chunk = 4096; // 4 KiB per sample (head/mid/tail)
     final int sz = size > 0 ? size : (await file.length());
 
-    int headOff = 0;
-    int midOff = 0;
-    int tailOff = 0;
+    // Heuristic: videos or very large files → fewer seeks (2-point)
+    final Set<String> videoExts = {
+      'mp4','mov','m4v','mkv','avi','hevc','heif','heic','webm'
+    };
+    final bool isVideo = videoExts.contains(ext);
+    final bool twoPointOnly = isVideo || sz >= (64 << 20); // ≥ 64MiB
 
-    if (sz > 0) {
-      headOff = 0;
-      midOff = sz > chunk ? (sz ~/ 2) : 0;
-      tailOff = sz > chunk ? (sz - chunk) : 0;
-    }
+    const int headOff = 0;
+    final int midOff  = (!twoPointOnly && sz > chunk) ? (sz ~/ 2) : 0;
+    final int tailOff = (sz > chunk) ? (sz - chunk) : 0;
 
-    Future<int> hashAt(final int offset) async {
-      RandomAccessFile? raf;
-      try {
-        raf = await file.open();
-        if (offset > 0) {
-          await raf.setPosition(offset);
-        }
-        final bytes = await raf.read(chunk);
-        // FNV-1a 64-bit
-        int h = 0xcbf29ce484222325; // offset basis
-        const int p = 0x100000001b3; // prime
-        for (final b in bytes) {
-          h ^= b & 0xFF;
-          h = (h * p) & 0xFFFFFFFFFFFFFFFF; // wrap to 64-bit
-        }
-        return h;
-      } catch (_) {
-        return 0;
-      } finally {
-        try {
-          await raf?.close();
-        } catch (_) {}
+    // FNV-1a 32-bit
+    int fnv32(final List<int> bytes) {
+      int h = 0x811C9DC5;        // offset basis
+      const int p = 0x01000193;  // prime
+      for (final b in bytes) {
+        h ^= b & 0xFF;
+        h = (h * p) & 0xFFFFFFFF;
       }
+      return h;
     }
 
-    int h1 = 0, h2 = 0, h3 = 0;
+    RandomAccessFile? raf;
     try {
-      h1 = await hashAt(headOff);
-      h2 = await hashAt(midOff);
-      h3 = await hashAt(tailOff);
-    } catch (_) {
-      // leave zeros if IO fails; still forms a deterministic key
-    }
+      raf = await file.open();
 
-    // Combine size + ext + three partial hashes in the key
-    return '$size|$ext|$h1|$h2|$h3';
+      // Head
+      await raf.setPosition(headOff);
+      final head = await raf.read(chunk);
+      final int h1 = fnv32(head);
+
+      // Mid (optional)
+      int h2 = 0;
+      if (midOff != 0) {
+        await raf.setPosition(midOff);
+        final mid = await raf.read(chunk);
+        h2 = fnv32(mid);
+      }
+
+      // Tail
+      await raf.setPosition(tailOff);
+      final tail = await raf.read(chunk);
+      final int h3 = fnv32(tail);
+
+      // Combine size + ext + three partial hashes in the key
+      return '$size|$ext|$h1|$h2|$h3';
+    } catch (_) {
+      // Keep a deterministic key on I/O errors (preserves bucketing behavior)
+      return '$size|$ext|0|0|0';
+    } finally {
+      try {
+        await raf?.close();
+      } catch (_) {}
+    }
   }
 
   void _printTelemetry(
@@ -842,4 +890,13 @@ class _Replacement {
   _Replacement({required this.kept0, required this.kept});
   final MediaEntity kept0;
   final MediaEntity kept;
+}
+
+// NEW: small helper to carry hash grouping results in parallel batches
+// English note: returning both the groups and elapsed ms keeps per-batch
+// telemetry accurate after parallelization.
+class _HashBatchResult {
+  _HashBatchResult(this.groups, this.ms);
+  final Map<String, List<MediaEntity>> groups;
+  final int ms;
 }

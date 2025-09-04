@@ -1029,14 +1029,14 @@ void _showResults(
       print('\t${result.duplicatesRemoved} duplicates were found and removed');
     }
   }
-  if (result.coordinatesWrittenToExif > 0) {
-    print('\t${result.coordinatesWrittenToExif} files got their coordinates set in EXIF data (from json)');
-  }
   if (result.dateTimesWrittenToExif > 0) {
-    print('\t${result.dateTimesWrittenToExif} files got their DateTime set in EXIF data');
+    print('\t${result.dateTimesWrittenToExif}/${result.mediaProcessed} files got their DateTime set in EXIF data');
+  }
+  if (result.coordinatesWrittenToExif > 0) {
+    print('\t${result.coordinatesWrittenToExif}/${result.mediaProcessed} files got their coordinates set in EXIF data (from json)');
   }
   if (result.extensionsFixed > 0) {
-    print('\t${result.extensionsFixed} files got their extensions fixed');
+    print('\t${result.extensionsFixed}/${result.mediaProcessed} files got their extensions fixed');
   }
   if (result.extrasSkipped > 0) {
     print('\t${result.extrasSkipped} extras were skipped');
