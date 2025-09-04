@@ -65,6 +65,9 @@ class LoggingService {
     'debug': '\x1B[36m', // Cyan
   };
 
+  /// Fixed width for level text inside brackets to align like [WARNING]
+  static const int _LEVEL_TEXT_WIDTH = 7; // "WARNING" length
+
   /// Logs a message with the specified level
   ///
   /// [message] The message to log
@@ -92,8 +95,8 @@ class LoggingService {
 
   /// Prints an info message without ANSI colors, always to console and file.
   ///
-  /// This behaves like a standard print but prefixes the line with [INFO] and
-  /// also persists it to the log file when enabled, regardless of verbosity.
+  /// This behaves like a standard print but prefixes the line with an aligned [INFO]
+  /// and also persists it to the log file when enabled, regardless of verbosity.
   void printPlain(final String message) {
     final String line = _formatPlainMessage(message, 'info');
     if (_fileSink != null) _writeToFile(line);
@@ -124,22 +127,27 @@ class LoggingService {
 
   /// Formats a message with level and color coding (for console)
   String _formatMessage(final String message, final String level) {
-    final String levelUpper = level.toUpperCase();
-
+    final String label = _formatAlignedLabel(level);
     if (!enableColors) {
-      return '[$levelUpper] $message';
+      return '$label $message';
     }
-
     final String color = _levelColors[level.toLowerCase()] ?? '';
     const String reset = '\x1B[0m';
-
-    return '\r$color[$levelUpper] $message$reset';
+    return '\r$color$label $message$reset';
   }
 
   /// Formats a message without ANSI (for file or plain prints)
   String _formatPlainMessage(final String message, final String level) {
+    final String label = _formatAlignedLabel(level);
+    return '$label $message';
+  }
+
+  /// Returns an aligned bracketed label like [INFO   ], [ERROR  ], [WARNING]
+  String _formatAlignedLabel(final String level) {
     final String levelUpper = level.toUpperCase();
-    return '[$levelUpper] $message';
+    final int pad = _LEVEL_TEXT_WIDTH - levelUpper.length;
+    final String padding = pad > 0 ? ' ' * pad : '';
+    return '[$levelUpper$padding]';
   }
 
   /// Creates a child logger with the same configuration
@@ -171,7 +179,10 @@ class LoggingService {
   /// Prints error message to stderr with newline
   void errorToStderr(final Object? object) {
     stderr.write('$object\n');
-    if (_fileSink != null) _writeToFile('[STDERR] $object');
+    if (_fileSink != null) {
+      final String line = '${_formatAlignedLabel('stderr')} $object';
+      _writeToFile(line);
+    }
   }
 
   /// Exits the program with optional code, showing interactive message if needed
@@ -246,10 +257,10 @@ class LoggingService {
 
       // Session header only once per process
       if (!_sessionHeaderWritten) {
-        _globalSink!.writeln('[INFO] ===== GPTH Logging started ${_createdAt.toIso8601String()} =====');
-        _globalSink!.writeln('[INFO] Log file: $_globalLogFilePath');
-        _globalSink!.writeln('[INFO] Platform: ${Platform.operatingSystem} ${Platform.version.split(' ').first}');
-        _globalSink!.writeln('[INFO] GPTH Version: $version');
+        _globalSink!.writeln('${_formatAlignedLabel('info')} ===== GPTH Logging started ${_createdAt.toIso8601String()} =====');
+        _globalSink!.writeln('${_formatAlignedLabel('info')} Log file: $_globalLogFilePath');
+        _globalSink!.writeln('${_formatAlignedLabel('info')} Platform: ${Platform.operatingSystem} ${Platform.version.split(' ').first}');
+        _globalSink!.writeln('${_formatAlignedLabel('info')} GPTH Version: $version');
         _sessionHeaderWritten = true;
       }
     } catch (e) {
@@ -274,9 +285,9 @@ class LoggingService {
         _logFilePath = _globalLogFilePath;
 
         if (!_sessionHeaderWritten) {
-          _globalSink!.writeln('[INFO] ===== GPTH Logging started ${_createdAt.toIso8601String()} =====');
-          _globalSink!.writeln('[INFO] Log file: $_globalLogFilePath');
-          _globalSink!.writeln('[INFO] Platform: ${Platform.operatingSystem} ${Platform.version.split(' ').first}');
+          _globalSink!.writeln('${_formatAlignedLabel('info')} ===== GPTH Logging started ${_createdAt.toIso8601String()} =====');
+          _globalSink!.writeln('${_formatAlignedLabel('info')} Log file: $_globalLogFilePath');
+          _globalSink!.writeln('${_formatAlignedLabel('info')} Platform: ${Platform.operatingSystem} ${Platform.version.split(' ').first}');
           _sessionHeaderWritten = true;
         }
       } catch (_) {
@@ -368,7 +379,7 @@ mixin LoggerMixin {
   }
 
   /// Prints an info message without colors and persists it to the log file
-  /// (behaves as a standard print with an [INFO] prefix).
+  /// (behaves as a standard print with an aligned [INFO] prefix).
   void logPrint(final String message) {
     logger.printPlain(message);
   }
