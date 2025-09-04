@@ -93,7 +93,7 @@ import 'package:win32/win32.dart';
 /// - **Security Descriptors**: Preserves file security information
 /// - **Audit Trails**: May generate file system audit events
 class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
-  UpdateCreationTimeStep() : super('Update Creation Time');
+  const UpdateCreationTimeStep() : super('Update Creation Time');
 
   @override
   Future<StepResult> execute(final ProcessingContext context) async {

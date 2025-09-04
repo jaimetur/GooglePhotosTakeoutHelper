@@ -126,7 +126,7 @@ import 'package:gpth/gpth_lib_exports.dart';
 /// - **Output**: MediaCollection with date metadata and extraction statistics
 /// - **Side Effects**: Updates each Media object with date and accuracy information
 class ExtractDatesStep extends ProcessingStep with LoggerMixin {
-  ExtractDatesStep() : super('Extract Dates');
+  const ExtractDatesStep() : super('Extract Dates');
 
   @override
   Future<StepResult> execute(final ProcessingContext context) async {

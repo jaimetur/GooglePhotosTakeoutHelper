@@ -16,7 +16,7 @@ import 'package:gpth/gpth_lib_exports.dart';
 /// Each step checks configuration flags to determine if it should run.
 /// This eliminates the need for complex builder patterns while maintaining
 /// full flexibility through configuration.
-class ProcessingPipeline {
+class ProcessingPipeline with LoggerMixin{
   /// Create a processing pipeline
   const ProcessingPipeline({this.interactiveService});
 
@@ -48,15 +48,15 @@ class ProcessingPipeline {
     ConcurrencyManager.logger = LoggingService.fromConfig(context.config);
 
     // Define the 8 processing steps in the new fixed order
-    final steps = [
+    final List<ProcessingStep> steps = [
       const FixExtensionsStep(), // Step 1
       const DiscoverMediaStep(), // Step 2
-      MergeMediaEntitiesStep(), // Step 3
-      ExtractDatesStep(), // Step 4
-      FindAlbumsStep(), // Step 5
+      const MergeMediaEntitiesStep(), // Step 3
+      const ExtractDatesStep(), // Step 4
+      const FindAlbumsStep(), // Step 5
       const MoveFilesStep(), // Step 6
-      WriteExifStep(), // Step 7  (after moving)
-      UpdateCreationTimeStep(), // Step 8
+      const WriteExifStep(), // Step 7  (after moving)
+      const UpdateCreationTimeStep(), // Step 8
     ];
 
     final stepResults = <StepResult>[];
@@ -72,12 +72,12 @@ class ProcessingPipeline {
     final extractionMethodStats = <DateTimeExtractionMethod, int>{};
 
     if (config.verbose) {
-      print('\n=== Starting Google Photos Takeout Helper Processing ===');
-      print('Input: ${config.inputPath}');
-      print('Output: ${outputDirectory.path}');
-      print(
+      logDebug('\n=== Starting Google Photos Takeout Helper Processing ===', forcePrint: true);
+      logDebug('Input: ${config.inputPath}', forcePrint: true);
+      logDebug('Output: ${outputDirectory.path}', forcePrint: true);
+      logDebug(
         'Configuration: ${config.albumBehavior.name} album behavior, '
-        '${config.dateDivision.name} date division',
+        '${config.dateDivision.name} date division', forcePrint: true
       );
     }
 
@@ -86,12 +86,12 @@ class ProcessingPipeline {
       final step = steps[i];
       final stepNumber = i + 1;
 
-      print('\n--- Step $stepNumber/8: ${step.name} ---');
+      logPrint('--- Step $stepNumber/8: ${step.name} ---');
 
       // Check if step should be skipped
       if (step.shouldSkip(context)) {
         if (config.verbose) {
-          print('Skipping ${step.name} (conditions not met)');
+          logDebug('Skipping ${step.name} (conditions not met)', forcePrint: true);
         }
 
         stepResults.add(
@@ -128,22 +128,22 @@ class ProcessingPipeline {
         );
 
         if (result.isSuccess) {
-          print('✅ ${step.name} completed in ${const FormattingService().formatDuration(result.duration)}');
-          if (result.message != null) print('   ${result.message}');
+          logPrint('✅ ${step.name} completed in ${const FormattingService().formatDuration(result.duration)}');
+          if (result.message != null) logPrint('   ${result.message}');
         } else {
-          print('❌ ${step.name} failed: ${result.message}');
-          if (result.error != null) print('   Error: ${result.error}');
+          logPrint('❌ ${step.name} failed: ${result.message}');
+          if (result.error != null) logPrint('   Error: ${result.error}');
         }
 
         // Stop processing if a critical step fails
         if (!result.isSuccess && _isCriticalStep(step)) {
-          if (config.verbose) print('\n⚠️  Critical step failed, stopping pipeline execution');
+          if (config.verbose) logDebug('\n⚠️  Critical step failed, stopping pipeline execution', forcePrint: true);
           break;
         }
 
         // Stop after extension fixing in solo mode
         if (step is FixExtensionsStep && !config.shouldContinueAfterExtensionFix) {
-          if (config.verbose) print('\n⚠️  Extension fixing solo mode complete, stopping pipeline execution');
+          if (config.verbose) logDebug('\n⚠️  Extension fixing solo mode complete, stopping pipeline execution', forcePrint: true);
           break;
         }
       } catch (e) {
@@ -157,7 +157,7 @@ class ProcessingPipeline {
 
         stepResults.add(failureResult);
 
-        if (config.verbose) print('❌ ${step.name} failed with unexpected error: $e');
+        if (config.verbose) logDebug('❌ ${step.name} failed with unexpected error: $e', forcePrint: true);
 
         // Stop on critical step failure
         if (_isCriticalStep(step)) break;

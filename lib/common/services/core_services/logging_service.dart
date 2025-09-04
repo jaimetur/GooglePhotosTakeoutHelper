@@ -343,73 +343,73 @@ class LoggingService {
 
 /// Extension to add logging capabilities to any class
 mixin LoggerMixin {
-  LoggingService? _logger;
+  // Per-instance logger storage without adding instance fields.
+  // Using Expando keeps objects const-constructible while still allowing
+  // instance-specific loggers to be attached later.
+  static final Expando<LoggingService> _perInstanceLogger =
+      Expando<LoggingService>('LoggerMixin.logger');
 
-  /// Shared default logger so that all classes using this mixin write to the same session/file
+  // Process-wide default logger used when an instance logger is not set.
   static LoggingService? _sharedDefaultLogger;
 
-  /// Gets or creates a logger instance with default configuration
-  // ignore: prefer_expression_function_bodies
-  LoggingService get logger {
-    // Always use a default logger to avoid circular dependencies
-    // Services that need specific logging configuration should inject it explicitly
-    if (_logger != null) return _logger!;
-    // Create (or reuse) a shared default logger that respects global saveLog setting
-    return _logger ??= _sharedDefaultLogger ??= _createDefaultLoggerFromGlobalConfig();
+  /// Returns the logger for this instance if one was set via the setter.
+  /// Otherwise returns the shared default logger, creating it lazily from
+  /// global config the first time it is needed.
+  LoggingService get logger =>
+      _perInstanceLogger[this] ??
+      (_sharedDefaultLogger ??= _createDefaultLoggerFromGlobalConfig());
+
+  /// Assigns a logger to this specific instance (stored in the Expando).
+  set logger(final LoggingService newLogger) {
+    _perInstanceLogger[this] = newLogger;
   }
 
-  /// Sets a custom logger
-  set logger(final LoggingService newLogger) => _logger = newLogger;
+  /// Allows the application to set/replace the shared default logger used by
+  /// instances that don't have a per-instance logger assigned.
+  static set sharedDefaultLogger(final LoggingService logger) =>
+      _sharedDefaultLogger = logger;
 
-  /// Logs an info message
-  void logInfo(final String message, {final bool forcePrint = false}) {
-    logger.info(message, forcePrint: forcePrint);
-  }
+  // Convenience wrappers delegating to the resolved logger
+  void logInfo(final String message, {final bool forcePrint = false}) =>
+      logger.info(message, forcePrint: forcePrint);
 
-  /// Logs a warning message
-  void logWarning(final String message, {final bool forcePrint = false}) {
-    logger.warning(message, forcePrint: forcePrint);
-  }
+  void logWarning(final String message, {final bool forcePrint = false}) =>
+      logger.warning(message, forcePrint: forcePrint);
 
-  /// Logs an error message
-  void logError(final String message, {final bool forcePrint = false}) {
-    logger.error(message, forcePrint: forcePrint);
-  }
+  void logError(final String message, {final bool forcePrint = false}) =>
+      logger.error(message, forcePrint: forcePrint);
 
-  /// Logs a debug message
-  void logDebug(final String message, {final bool forcePrint = false}) {
-    logger.debug(message, forcePrint: forcePrint);
-  }
+  void logDebug(final String message, {final bool forcePrint = false}) =>
+      logger.debug(message, forcePrint: forcePrint);
 
-  /// Prints an info message without colors and persists it to the log file
-  /// (behaves as a standard print with an aligned [INFO] prefix).
-  void logPrint(final String message) {
-    logger.printPlain(message);
-  }
+  /// Prints a plain, aligned INFO line (no ANSI colors) and persists to file if enabled.
+  void logPrint(final String message) => logger.printPlain(message);
 
-  /// Allows the application to set a shared default logger instance
-  static set sharedDefaultLogger(final LoggingService logger) => _sharedDefaultLogger = logger;
-
-  /// Creates the default logger reading ServiceContainer.instance.globalConfig.saveLog
+  /// Builds a sensible default logger if none was injected yet.
+  /// Prefers an already-initialized logger from the ServiceContainer to keep
+  /// coloring and file sinks consistent across the process; otherwise falls back
+  /// to a fresh LoggingService using platform/global defaults.
   static LoggingService _createDefaultLoggerFromGlobalConfig() {
-    // Prefer an existing logger from ServiceContainer if available to keep colors/sinks consistent
+    // Prefer the app-wide logger if the container is ready
     try {
-      final existing = ServiceContainer.instance.loggingService;
-      return existing;
-    } catch (_) {}
-
-    bool save = false;
-    try {
-      final sc = ServiceContainer.instance;
-      final cfg = sc.globalConfig;
-      save = cfg.saveLog == true;
+      return ServiceContainer.instance.loggingService;
     } catch (_) {
-      save = false;
+      // ServiceContainer not ready yet — fall through to local defaults
     }
-    final bool colors = !Platform.isWindows || Platform.environment['TERM'] != null;
+
+    bool save;
+    try {
+      save = ServiceContainer.instance.globalConfig.saveLog == true;
+    } catch (_) {
+      save = false; // Safe default when global config is not available
+    }
+
+    final bool colors =
+        !Platform.isWindows || Platform.environment['TERM'] != null;
     return LoggingService(enableColors: colors, saveLog: save);
   }
 }
+
 
 /// Exception thrown by quit when test override is active
 class _LoggingTestExitException implements Exception {

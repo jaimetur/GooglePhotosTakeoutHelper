@@ -169,7 +169,7 @@ import 'package:mime/mime.dart';
 /// - **Validation Results**: How many files passed data validation checks
 
 class WriteExifStep extends ProcessingStep with LoggerMixin {
-  WriteExifStep() : super('Write EXIF Data');
+  const WriteExifStep() : super('Write EXIF Data');
 
   @override
   Future<StepResult> execute(final ProcessingContext context) async {

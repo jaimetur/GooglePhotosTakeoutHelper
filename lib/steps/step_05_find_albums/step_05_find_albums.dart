@@ -132,7 +132,7 @@ import 'package:gpth/gpth_lib_exports.dart';
 /// It keeps return data keys compatible with callers (mergedCount/groupsMerged/albumsMerged).
 /// ───────────────────────────────────────────────────────────────────────────
 class FindAlbumsStep extends ProcessingStep with LoggerMixin {
-  FindAlbumsStep() : super('Find Albums');
+  const FindAlbumsStep() : super('Find Albums');
 
   @override
   Future<StepResult> execute(final ProcessingContext context) async {

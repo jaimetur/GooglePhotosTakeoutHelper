@@ -689,12 +689,12 @@ class ConsolidatedInteractiveService with LoggerMixin {
   Future<bool> askKeepInput() async {
     // Keeping style consistent with other prompts: we print here directly,
     // then reuse presenter helpers for selection/validation feedback.
-    print(
+    logPrint(
       'Do you want to keep your original --input folder untouched by working on a temporary sibling copy (suffix _tmp)?',
     );
-    print('[1] (Default) - No, work directly on the original input');
-    print('[2] - Yes, create and use "<input>_tmp" as the working directory');
-    print('(Type 1 or 2, or press enter for default):');
+    logPrint('[1] (Default) - No, work directly on the original input');
+    logPrint('[2] - Yes, create and use "<input>_tmp" as the working directory');
+    logPrint('(Type 1 or 2, or press enter for default):');
 
     while (true) {
       final input = await readUserInput();
@@ -732,14 +732,14 @@ class ConsolidatedInteractiveService with LoggerMixin {
   /// - true  -> Duplicates will be move to "_Duplicates" directory within output directory.
   /// - false -> Duplicates will be removed totally
   Future<bool> askKeepDuplicates() async {
-    print(
+    logPrint(
       'Do you want to keep duplicates files in `_Duplicates` subfolder within output folder?',
     );
-    print('[1] (Default) - No, you can remove all duplicates found');
-    print(
+    logPrint('[1] (Default) - No, you can remove all duplicates found');
+    logPrint(
       '[2] - Yes, create a `_Duplicates` subfolder within output folder (slower)',
     );
-    print('(Type 1 or 2, or press enter for default):');
+    logPrint('(Type 1 or 2, or press enter for default):');
 
     while (true) {
       final input = await readUserInput();

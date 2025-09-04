@@ -40,7 +40,7 @@ import 'package:gpth/gpth_lib_exports.dart';
 /// - Logs warnings for files that cannot be processed
 /// - Continues processing other files when individual failures occur
 /// - Provides detailed error messages for troubleshooting
-class FixExtensionsStep extends ProcessingStep {
+class FixExtensionsStep extends ProcessingStep with LoggerMixin {
   const FixExtensionsStep() : super('Fix Extensions');
 
   @override
@@ -57,7 +57,7 @@ class FixExtensionsStep extends ProcessingStep {
           message: 'Extension fixing skipped per configuration',
         );
       }
-      print('\n[Step 1/8] Fixing file extensions (this may take a while)...');
+      logPrint('[Step 1/8] Fixing file extensions (this may take a while)...');
       final extensionFixingService = FileExtensionCorrectorService()
         ..logger = LoggingService.fromConfig(context.config);
       final fixedCount = await extensionFixingService.fixIncorrectExtensions(
