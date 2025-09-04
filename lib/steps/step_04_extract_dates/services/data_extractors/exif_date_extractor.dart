@@ -69,26 +69,22 @@ class ExifDateExtractor with LoggerMixin {
     final LoggerMixin? loggerMixin,
     final bool exiftoolFallbackEnabled = false,
   }) {
-    final lineCalls =
-        '[READ-EXIF] Calls=$_total | videos=$_videoDirect | nativeSupported=$_nativeSupported | unsupported=$_nativeUnsupported';
-    final lineDict =
-        '[READ-EXIF] ExternalDict: tried=$_dictTried, hit=$_dictHit, miss=$_dictMiss, time=${_fmtSec(_dictDuration)}';
-    final lineNative =
-        '[READ-EXIF] Native: tried=$_nativeTried, hit=$_nativeHit, miss=$_nativeMiss, headReads=$_nativeHeadReads, fullReads=$_nativeFullReads, time=${_fmtSec(_nativeDuration)}';
-    final lineExiftool =
-        '[READ-EXIF] Exiftool: directTried=$_exiftoolDirectTried , directHit=$_exiftoolDirectHit, fallbackTried=$_exiftoolFallbackTried, fallbackHit=$_exiftoolFallbackHit, errors=$_exiftoolFail, time=${_fmtSec(_exiftoolDuration)} (exiftoolFallbackEnabled = $exiftoolFallbackEnabled)';
+    final lineCalls     = '\t[READ-EXIF] Calls=$_total | videos=$_videoDirect | nativeSupported=$_nativeSupported | unsupported=$_nativeUnsupported';
+    final lineDict      = '\t[READ-EXIF] ExternalDict: tried=$_dictTried, hit=$_dictHit, miss=$_dictMiss, time=${_fmtSec(_dictDuration)}';
+    final lineNative    = '\t[READ-EXIF] Native: tried=$_nativeTried, hit=$_nativeHit, miss=$_nativeMiss, headReads=$_nativeHeadReads, fullReads=$_nativeFullReads, time=${_fmtSec(_nativeDuration)}';
+    final lineExiftool  = '\t[READ-EXIF] Exiftool: directTried=$_exiftoolDirectTried , directHit=$_exiftoolDirectHit, fallbackTried=$_exiftoolFallbackTried, fallbackHit=$_exiftoolFallbackHit, errors=$_exiftoolFail, time=${_fmtSec(_exiftoolDuration)} (exiftoolFallbackEnabled = $exiftoolFallbackEnabled)';
 
     // Only show the dictionary stats line when a global jsonDatesDictionary is present
     bool showDictLine = false;
     try {
-      showDictLine =
-          ServiceContainer.instance.globalConfig.jsonDatesDictionary != null;
+      showDictLine = ServiceContainer.instance.globalConfig.jsonDatesDictionary != null;
     } catch (_) {
       showDictLine = false;
     }
 
     if (loggerMixin != null) {
       print('');
+      loggerMixin.logInfo('[Step 4/8] Telemetry Summary:', forcePrint: true);
       loggerMixin.logInfo(lineCalls, forcePrint: true);
       if (showDictLine) {
         loggerMixin.logInfo(lineDict, forcePrint: true);
@@ -98,6 +94,7 @@ class ExifDateExtractor with LoggerMixin {
       print('');
     } else {
       print('');
+      print('[Step 4/8] Telemetry Summary');
       print(lineCalls);
       if (showDictLine) {
         print(lineDict);

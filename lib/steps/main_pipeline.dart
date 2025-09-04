@@ -128,35 +128,22 @@ class ProcessingPipeline {
         );
 
         if (result.isSuccess) {
-          print(
-            '✅ ${step.name} completed in ${const FormattingService().formatDuration(result.duration)}',
-          );
-          if (result.message != null) {
-            print('   ${result.message}');
-          }
+          print('✅ ${step.name} completed in ${const FormattingService().formatDuration(result.duration)}');
+          if (result.message != null) print('   ${result.message}');
         } else {
           print('❌ ${step.name} failed: ${result.message}');
-          if (result.error != null) {
-            print('   Error: ${result.error}');
-          }
+          if (result.error != null) print('   Error: ${result.error}');
         }
 
         // Stop processing if a critical step fails
         if (!result.isSuccess && _isCriticalStep(step)) {
-          if (config.verbose) {
-            print('\n⚠️  Critical step failed, stopping pipeline execution');
-          }
+          if (config.verbose) print('\n⚠️  Critical step failed, stopping pipeline execution');
           break;
         }
 
         // Stop after extension fixing in solo mode
-        if (step is FixExtensionsStep &&
-            !config.shouldContinueAfterExtensionFix) {
-          if (config.verbose) {
-            print(
-              '\n⚠️  Extension fixing solo mode complete, stopping pipeline execution',
-            );
-          }
+        if (step is FixExtensionsStep && !config.shouldContinueAfterExtensionFix) {
+          if (config.verbose) print('\n⚠️  Extension fixing solo mode complete, stopping pipeline execution');
           break;
         }
       } catch (e) {
@@ -170,29 +157,19 @@ class ProcessingPipeline {
 
         stepResults.add(failureResult);
 
-        if (config.verbose) {
-          print('❌ ${step.name} failed with unexpected error: $e');
-        }
+        if (config.verbose) print('❌ ${step.name} failed with unexpected error: $e');
 
         // Stop on critical step failure
-        if (_isCriticalStep(step)) {
-          break;
-        }
+        if (_isCriticalStep(step)) break;
       }
     }
 
     overallStopwatch.stop();
 
     // Calculate final statistics
-    final successfulSteps = stepResults
-        .where((final StepResult r) => r.isSuccess)
-        .length;
-    final failedSteps = stepResults
-        .where((final StepResult r) => !r.isSuccess)
-        .length;
-    final skippedSteps = stepResults
-        .where((final StepResult r) => r.data['skipped'] == true)
-        .length;
+    final successfulSteps = stepResults.where((final StepResult r) => r.isSuccess).length;
+    final failedSteps = stepResults.where((final StepResult r) => !r.isSuccess).length;
+    final skippedSteps = stepResults.where((final StepResult r) => r.data['skipped'] == true).length;
     final totalProcessingTime = overallStopwatch.elapsed;
 
     if (config.verbose && interactiveService != null) {
@@ -271,18 +248,31 @@ class ProcessingPipeline {
     } else if (step is UpdateCreationTimeStep) {
       creationTimesUpdated(data['creationTimesUpdated'] as int? ?? 0);
     } else if (step is ExtractDatesStep) {
+      // Robustly merge stats coming from Step 4:
+      // - Keys may be DateTimeExtractionMethod (enum) or String ("json", or "DateTimeExtractionMethod.json").
+      // - Always accumulate counts instead of overwriting.
       final stepStats = data['extractionStats'] as Map<dynamic, dynamic>? ?? {};
       for (final entry in stepStats.entries) {
-        // Convert string keys to DateTimeExtractionMethod enum values
-        final methodName = entry.key.toString();
-        final count = entry.value as int? ?? 0;
+        final dynamic rawKey = entry.key;
+        final int count = entry.value as int? ?? 0;
 
-        for (final method in DateTimeExtractionMethod.values) {
-          if (method.toString().split('.').last == methodName ||
-              method.name == methodName) {
-            extractionMethodStats[method] = count;
-            break;
+        if (rawKey is DateTimeExtractionMethod) {
+          final m = rawKey;
+          extractionMethodStats[m] = (extractionMethodStats[m] ?? 0) + count;
+        } else {
+          final methodNameRaw = rawKey.toString();
+          final normalized = methodNameRaw.contains('.')
+              ? methodNameRaw.split('.').last
+              : methodNameRaw;
+          DateTimeExtractionMethod? mapped;
+          for (final m in DateTimeExtractionMethod.values) {
+            if (m.name == normalized) {
+              mapped = m;
+              break;
+            }
           }
+          mapped ??= DateTimeExtractionMethod.none;
+          extractionMethodStats[mapped] = (extractionMethodStats[mapped] ?? 0) + count;
         }
       }
     }

@@ -94,12 +94,19 @@ class ProcessingResult {
       buffer.writeln('\tFile operations (move/copy/symlink/json): $totalMoveOperations');
     }
 
-    // DateTime extraction method statistics
-    if (extractionMethodStats.isNotEmpty) {
-      buffer.writeln('\tDateTime extraction method statistics:');
-      for (final entry in extractionMethodStats.entries) {
-        buffer.writeln('\t\t${entry.key.name}: ${entry.value} files');
-      }
+    // DateTime extraction method statistics (always show all buckets, including zeros)
+    buffer.writeln('\tDateTime extraction method statistics:');
+    const ordered = [
+      DateTimeExtractionMethod.json,
+      DateTimeExtractionMethod.exif,
+      DateTimeExtractionMethod.guess,
+      DateTimeExtractionMethod.jsonTryHard,
+      DateTimeExtractionMethod.folderYear,
+      DateTimeExtractionMethod.none,
+    ];
+    for (final m in ordered) {
+      final count = extractionMethodStats[m] ?? 0;
+      buffer.writeln('\t\t${m.name}: $count files');
     }
 
     // Calculate Total Processing Time

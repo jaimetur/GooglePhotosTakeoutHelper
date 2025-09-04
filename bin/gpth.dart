@@ -1042,12 +1042,19 @@ void _showResults(
     print('\t${result.extrasSkipped} extras were skipped');
   }
 
-  // Show extraction method statistics
-  if (result.extractionMethodStats.isNotEmpty) {
-    print('\tDateTime extraction method statistics:');
-    for (final entry in result.extractionMethodStats.entries) {
-      print('\t\t${entry.key.name}: ${entry.value} files');
-    }
+  // Show extraction method statistics (always show all buckets, including zeros)
+  print('\tDateTime extraction method statistics:');
+  const ordered = [
+    DateTimeExtractionMethod.json,
+    DateTimeExtractionMethod.exif,
+    DateTimeExtractionMethod.guess,
+    DateTimeExtractionMethod.jsonTryHard,
+    DateTimeExtractionMethod.folderYear,
+    DateTimeExtractionMethod.none,
+  ];
+  for (final m in ordered) {
+    final count = result.extractionMethodStats[m] ?? 0;
+    print('\t\t${m.name}: $count files');
   }
 
   // Calculate Total Processing Time
