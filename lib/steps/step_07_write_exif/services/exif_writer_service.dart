@@ -1,4 +1,5 @@
-import 'dart:io'; import 'dart:typed_data';
+import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:coordinate_converter/coordinate_converter.dart';
 import 'package:gpth/gpth_lib_exports.dart';
@@ -111,6 +112,10 @@ class ExifWriterService with LoggerMixin {
   static int exiftoolFallbackFiles =
       0; // routed to exiftool after a native JPEG attempt failed
 
+  // Explicit counters to be bumped at enqueue-time after native failure (called from Step 7).
+  static int exiftoolFallbackDateTried = 0;
+  static int exiftoolFallbackCombinedTried = 0;
+
   // ExifTool success by category
   static int exiftoolDateWritten = 0;
   static int exiftoolGpsWritten = 0;
@@ -148,7 +153,7 @@ class ExifWriterService with LoggerMixin {
 
     final lines = <String>[
       '[WRITE-EXIF] Native  : totalFiles=$nativeProcessed, dateWritten=$nativeDateWritten, gpsWritten=$nativeGpsWritten, combinedWritten=$nativeCombinedWritten, dateFails=$nativeDateFails, gpsFails=$nativeGpsFails, combinedFails=$nativeCombinedFails, dateTime=${_fmtSec(nativeDateTimeDur)}, gpsTime=${_fmtSec(nativeGpsDur)}, combinedTime=${_fmtSec(nativeCombinedDur)}',
-      '[WRITE-EXIF] Exiftool: totalFiles=$exiftoolProcessedFiles (success=$exiftoolSuccessFiles, fail=$exiftoolFailFiles, direct=$exiftoolDirectFiles, fallback=$exiftoolFallbackFiles), dateWritten=$exiftoolDateWritten, gpsWritten=$exiftoolGpsWritten, combinedWritten=$exiftoolCombinedWritten, dateFails=$exiftoolDateFails, gpsFails=$exiftoolGpsFails, combinedFails=$exiftoolCombinedFails, dateTime=${_fmtSec(exiftoolDateTimeDur)}, gpsTime=${_fmtSec(exiftoolGpsDur)}, combinedTime=${_fmtSec(exiftoolCombinedDur)}, exiftoolCalls=$exiftoolCalls',
+      '[WRITE-EXIF] Exiftool: totalFiles=$exiftoolProcessedFiles (success=$exiftoolSuccessFiles, fail=$exiftoolFailFiles, direct=$exiftoolDirectFiles, fallbackTried=$exiftoolFallbackFiles, fallbackTriedCombined=$exiftoolFallbackCombinedTried), dateWritten=$exiftoolDateWritten, gpsWritten=$exiftoolGpsWritten, combinedWritten=$exiftoolCombinedWritten, dateFails=$exiftoolDateFails, gpsFails=$exiftoolGpsFails, combinedFails=$exiftoolCombinedFails, dateTime=${_fmtSec(exiftoolDateTimeDur)}, gpsTime=${_fmtSec(exiftoolGpsDur)}, combinedTime=${_fmtSec(exiftoolCombinedDur)}, exiftoolCalls=$exiftoolCalls',
     ];
     print('');
     for (final l in lines) {
@@ -177,6 +182,10 @@ class ExifWriterService with LoggerMixin {
 
       exiftoolDirectFiles = 0;
       exiftoolFallbackFiles = 0;
+
+      // reset explicit "fallback tried" counters
+      exiftoolFallbackDateTried = 0;
+      exiftoolFallbackCombinedTried = 0;
 
       exiftoolDateWritten = 0;
       exiftoolGpsWritten = 0;
@@ -284,6 +293,15 @@ class ExifWriterService with LoggerMixin {
       if (isDate) exiftoolDateFails++;
       if (isGps) exiftoolGpsFails++;
     }
+  }
+
+  // Public markers to be called when enqueueing ExifTool after a native failure.
+  static void markFallbackDateTried(File file) {
+    exiftoolFallbackDateTried++;
+  }
+
+  static void markFallbackCombinedTried(File file) {
+    exiftoolFallbackCombinedTried++;
   }
 
   // ─────────────────────────── Public helpers ────────────────────────────────

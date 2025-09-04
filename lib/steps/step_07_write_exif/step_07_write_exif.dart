@@ -432,7 +432,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
                       tagsToWrite['GPSLongitude'] = coords.toDD().longitude.toString();
                       tagsToWrite['GPSLatitudeRef'] = coords.latDirection.abbreviation.toString();
                       tagsToWrite['GPSLongitudeRef'] = coords.longDirection.abbreviation.toString();
-                      // NOTE: we do not mark gps/dt here; ExifTool batch will do it.
+                      ExifWriterService.markFallbackCombinedTried(file);
                     }
                   } else {
                     final ok = await preserveMTime(file, () async => exifWriter.writeGpsNativeJpeg(file, coords));
@@ -483,7 +483,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
                     tagsToWrite['DateTimeOriginal'] = '"$dt"';
                     tagsToWrite['DateTimeDigitized'] = '"$dt"';
                     tagsToWrite['DateTime'] = '"$dt"';
-                    // Do NOT set dtWrittenThis here.
+                    ExifWriterService.markFallbackDateTried(file);
                   }
                 }
               } else {
