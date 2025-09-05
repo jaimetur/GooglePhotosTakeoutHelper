@@ -2,7 +2,7 @@
 
 ### 🚀 **Improvements**
   - Replace all `print()` functions by `logPrint()` method from LoggerMixin class. In this way all messages are registered both on screen and also on the logger (and saved to disk if flag `--save-log` is enabled).
-
+  - All console messages have now a Step prefix to identify from which step or service they come from.
 
 ## 5.0.2
 

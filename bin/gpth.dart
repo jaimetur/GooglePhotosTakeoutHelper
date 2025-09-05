@@ -13,7 +13,7 @@ class _TopLevelLogger with LoggerMixin {
   const _TopLevelLogger();
 }
 const _TopLevelLogger _kTopLogger = _TopLevelLogger();
-void logPrint(final String message, {final bool forcePrint = false}) => _kTopLogger.logPrint(message, forcePrint: forcePrint);
+void logPrint(final String message, {final bool forcePrint = true}) => _kTopLogger.logPrint(message, forcePrint: forcePrint);
 void logDebug(final String message, {final bool forcePrint = false}) => _kTopLogger.logDebug(message, forcePrint: forcePrint);
 void logInfo(final String message, {final bool forcePrint = false}) => _kTopLogger.logInfo(message, forcePrint: forcePrint);
 void logWarning(final String message, {final bool forcePrint = false}) => _kTopLogger.logWarning(message, forcePrint: forcePrint);

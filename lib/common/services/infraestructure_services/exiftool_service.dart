@@ -5,13 +5,19 @@ import 'dart:io';
 import 'package:gpth/gpth_lib_exports.dart';
 import 'package:path/path.dart' as path;
 
-/// Shim to call logPrint on statics/top-level contexts.
+// ─────────────────────────────────────────────────────────────────────────────
+// Shim to use LoggerMixin.logPrint from top-level code in this file
+// (lets us replace print(...) with logPrint(...))
 class _TopLevelLogger with LoggerMixin {
   const _TopLevelLogger();
 }
 const _TopLevelLogger _kTopLogger = _TopLevelLogger();
-void logPrint(final String msg, {final bool forcePrint = false}) =>
-    _kTopLogger.logPrint(msg);
+void logPrint(final String message, {final bool forcePrint = true}) => _kTopLogger.logPrint(message, forcePrint: forcePrint);
+void logDebug(final String message, {final bool forcePrint = false}) => _kTopLogger.logDebug(message, forcePrint: forcePrint);
+void logInfo(final String message, {final bool forcePrint = false}) => _kTopLogger.logInfo(message, forcePrint: forcePrint);
+void logWarning(final String message, {final bool forcePrint = false}) => _kTopLogger.logWarning(message, forcePrint: forcePrint);
+void logError(final String message, {final bool forcePrint = false}) => _kTopLogger.logError(message, forcePrint: forcePrint);
+// ─────────────────────────────────────────────────────────────────────────────
 
 /// Infrastructure service for ExifTool external process management.
 /// Keeps 4.2.2 performance behavior while restoring robust path discovery
