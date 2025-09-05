@@ -45,9 +45,9 @@ class InputCloneService with LoggerMixin {
     }
     final Directory dst = Directory(candidate);
 
-    logInfo('Creating working copy of input at: ${dst.path}', forcePrint: true);
+    logPrint('Creating working copy of input at: ${dst.path}', forcePrint: true);
     await _copyDirectory(resolvedSrc, dst);
-    logInfo('Working copy ready at: ${dst.path}', forcePrint: true);
+    logPrint('Working copy ready at: ${dst.path}', forcePrint: true);
     return dst;
   }
 

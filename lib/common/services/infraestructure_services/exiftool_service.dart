@@ -5,6 +5,14 @@ import 'dart:io';
 import 'package:gpth/gpth_lib_exports.dart';
 import 'package:path/path.dart' as path;
 
+/// Shim to call logPrint on statics/top-level contexts.
+class _TopLevelLogger with LoggerMixin {
+  const _TopLevelLogger();
+}
+const _TopLevelLogger _kTopLogger = _TopLevelLogger();
+void logPrint(final String msg, {final bool forcePrint = false}) =>
+    _kTopLogger.logPrint(msg);
+
 /// Infrastructure service for ExifTool external process management.
 /// Keeps 4.2.2 performance behavior while restoring robust path discovery
 /// (binary/script dir, parent dirs, PATH, common install paths) and
@@ -39,7 +47,7 @@ class ExifToolService with LoggerMixin {
         if (result.exitCode == 0) {
           if (showDiscoveryMessage) {
             final version = result.stdout.toString().trim();
-            print('ExifTool found in PATH: $name (version $version)');
+            logPrint('ExifTool found in PATH: $name (version $version)');
           }
           return ExifToolService(name);
         }
@@ -51,14 +59,14 @@ class ExifToolService with LoggerMixin {
     try {
       binDir = File(Platform.resolvedExecutable).parent.path;
       if (showDiscoveryMessage) {
-        print('Binary directory: $binDir');
+        logPrint('Binary directory: $binDir');
       }
     } catch (_) {}
 
     final scriptPath = Platform.script.toFilePath();
     final scriptDir = scriptPath.isNotEmpty ? File(scriptPath).parent.path : null;
     if (scriptDir != null && showDiscoveryMessage) {
-      print('Script directory: $scriptDir');
+      logPrint('Script directory: $scriptDir');
     }
 
     final List<String?> candidateDirs = [
@@ -83,7 +91,7 @@ class ExifToolService with LoggerMixin {
             if (result.exitCode == 0) {
               if (showDiscoveryMessage) {
                 final version = result.stdout.toString().trim();
-                print('ExifTool found: ${exiftoolFile.path} (version $version)');
+                logPrint('[ExifToolService] ExifTool found: ${exiftoolFile.path} (version $version)');
               }
               return ExifToolService(exiftoolFile.path);
             }
@@ -105,16 +113,16 @@ class ExifToolService with LoggerMixin {
             '/opt/homebrew/bin/exiftool',
           ];
 
-    for (final path in commonPaths) {
-      if (await File(path).exists()) {
+    for (final p in commonPaths) {
+      if (await File(p).exists()) {
         try {
-          final result = await Process.run(path, ['-ver']);
+          final result = await Process.run(p, ['-ver']);
           if (result.exitCode == 0) {
             if (showDiscoveryMessage) {
               final version = result.stdout.toString().trim();
-              print('ExifTool found: $path (version $version)');
+              logPrint('[ExifToolService] ExifTool found: $p (version $version)');
             }
-            return ExifToolService(path);
+            return ExifToolService(p);
           }
         } catch (_) {}
       }
@@ -145,7 +153,7 @@ class ExifToolService with LoggerMixin {
           .transform(const LineSplitter())
           .listen(_handleError);
     } catch (e) {
-      print('Failed to start ExifTool persistent process: $e');
+      logWarning('[ExifToolService] Failed to start ExifTool persistent process: $e');
       _persistentProcess = null;
     } finally {
       _isStarting = false;
@@ -171,7 +179,7 @@ class ExifToolService with LoggerMixin {
   }
 
   void _handleError(final String line) {
-    print('ExifTool error: $line');
+    logPrint('[ExifToolService] ExifTool error: $line');
   }
 
   /// One-shot execution. Batch minimizes launches, but we still use one-shot here.
@@ -181,14 +189,13 @@ class ExifToolService with LoggerMixin {
     try {
       final result = await Process.run(exiftoolPath, args);
       if (result.exitCode != 0) {
-        logger.error('ExifTool command failed with exit code ${result.exitCode}');
-        logger.error('Command: $exiftoolPath ${args.join(' ')}');
-        logger.error('Stderr: ${result.stderr}');
+        logWarning('[ExifToolService] ExifTool command failed with exit code ${result.exitCode}. | Command: $exiftoolPath ${args.join(' ')}. | Stderr: ${result.stderr}');
         throw Exception('ExifTool command failed: ${result.stderr}');
       }
+      // logPrint('[ExifToolService] ${result.stdout.toString()}');
       return result.stdout.toString();
     } catch (e) {
-      logger.error('ExifTool one-shot execution failed: $e');
+      logWarning('[ExifToolService] ExifTool one-shot execution failed: $e');
       rethrow;
     }
   }
@@ -206,8 +213,8 @@ class ExifToolService with LoggerMixin {
       }
       return {};
     } catch (e) {
-      print('Failed to parse ExifTool JSON output: $e');
-      print('Raw output: "$output"');
+      logWarning('[ExifToolService] Failed to parse ExifTool JSON output: $e');
+      logWarning('[ExifToolService] Raw output: "$output"');
       return {};
     }
   }
@@ -220,13 +227,13 @@ class ExifToolService with LoggerMixin {
   //  - -overwrite_original keeps the "replace" semantics across filesystems (safer than _in_place_).
   //  - -api QuickTimeUTC=1 normalizes QuickTime time handling to UTC (no measurable slowdown).
   List<String> _commonWriteArgs() => <String>[
-      '-P',
-      '-charset',
-      'filename=UTF8',
-      '-overwrite_original',
-      '-api',
-      'QuickTimeUTC=1',
-    ];
+        '-P',
+        '-charset',
+        'filename=UTF8',
+        '-overwrite_original',
+        '-api',
+        'QuickTimeUTC=1',
+      ];
 
   /// Write EXIF data to a single file (classic argv).
   Future<void> writeExifData(

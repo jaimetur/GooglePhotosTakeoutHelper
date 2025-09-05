@@ -98,16 +98,12 @@ class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
   @override
   Future<StepResult> execute(final ProcessingContext context) async {
     final stopwatch = Stopwatch()..start();
-    print('');
 
     try {
       if (!context.config.updateCreationTime) {
         const reason = 'disabled in configuration';
 
-        logWarning(
-          '[Step 8/8] Skipping creation time update ($reason).',
-          forcePrint: true,
-        );
+        logWarning('[Step 8/8] Skipping creation time update ($reason).', forcePrint: true);
         stopwatch.stop();
         return StepResult.success(
           stepName: name,
@@ -117,7 +113,7 @@ class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
         );
       }
 
-      print('[Step 8/8] Updating creation times (this may take a while)...');
+      logPrint('[Step 8/8] Updating creation times (this may take a while)...');
 
       // Build the list of output items from the collection
       // (primary + secondaries with targetPath != null; include shortcuts too).
@@ -135,7 +131,7 @@ class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
       }
 
       if (filesToTouch.isEmpty) {
-        print('[Step 8/8] No files found to update creation times.');
+        logPrint('[Step 8/8] No files found to update creation times.');
         stopwatch.stop();
         return StepResult.success(
           stepName: name,
@@ -147,7 +143,7 @@ class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
 
       // Initialize progress bar - always visible
       final progressBar = FillingBar(
-        desc: '[Step 8/8] Updating creation times',
+        desc: '[ INFO  ] [Step 8/8] Updating creation times',
         total: filesToTouch.length,
         width: 50,
       );
@@ -192,17 +188,13 @@ class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
           } else {
             failedPhysical++;
           }
-          logWarning('Timestamp update failed for ${f.file.path}: $e', forcePrint: true);
+          logWarning('[Step 8/8] Timestamp update failed for ${f.file.path}: $e', forcePrint: true);
         }
-
         progressBar.update(i + 1);
-        if (i + 1 == filesToTouch.length) {
-          print(''); // newline after progress bar
-        }
       }
 
       // Explicit summary line (with per-type breakdown)
-      print(
+      logPrint(
         '[Step 8/8] Update Creation Time Summary → '
         'updated: $updated (physical=$updatedPhysical, shortcuts=$updatedShortcuts), '
         'failed: $failed (physical=$failedPhysical, shortcuts=$failedShortcuts)',
@@ -240,10 +232,7 @@ class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
 
     if (shouldSkipStep) {
       const reason = 'disabled in configuration';
-      logWarning(
-        '[Step 8/8] Skipping creation time update ($reason).',
-        forcePrint: true,
-      );
+      logWarning('[Step 8/8] Skipping creation time update ($reason).', forcePrint: true);
     }
 
     return shouldSkipStep;
@@ -300,7 +289,7 @@ class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
         if (fileHandle == INVALID_HANDLE_VALUE) {
           // Log GetLastError for diagnostics (helped catch \\?\ misuse).
           final int err = GetLastError();
-          logWarning('CreateFileW failed for "$extended" (error=$err)', forcePrint: true);
+          logWarning('[Step 8/8] CreateFileW failed for "$extended" (error=$err)', forcePrint: true);
           return false;
         }
 
@@ -320,7 +309,7 @@ class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
         }
       });
     } catch (e) {
-      logWarning('Windows timestamp update failed for "$filePath": $e', forcePrint: true);
+      logWarning('[Step 8/8] Windows timestamp update failed for "$filePath": $e', forcePrint: true);
       return false;
     }
   }
@@ -399,7 +388,7 @@ class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
         }
       });
     } catch (e) {
-      logWarning('POSIX timestamp update failed for "$filePath": $e', forcePrint: true);
+      logWarning('[Step 8/8] POSIX timestamp update failed for "$filePath": $e', forcePrint: true);
       return false;
     }
   }

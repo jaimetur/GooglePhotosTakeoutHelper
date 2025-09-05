@@ -1,4 +1,10 @@
-## 5.0.2-beta
+## 5.0.3-beta
+
+### 🚀 **Improvements**
+  - Replace all `print()` functions by `logPrint()` method from LoggerMixin class. In this way all messages are registered both on screen and also on the logger (and saved to disk if flag `--save-log` is enabled).
+
+
+## 5.0.2
 
 ### ✨ **New Features**
   - New flag `--save-log` to save log messages into disk file.

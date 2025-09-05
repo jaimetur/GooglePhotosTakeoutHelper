@@ -86,7 +86,8 @@ class ProcessingPipeline with LoggerMixin{
       final step = steps[i];
       final stepNumber = i + 1;
 
-      logPrint('--- Step $stepNumber/8: ${step.name} ---');
+      logPrint('');
+      logPrint('▶️ --- Step $stepNumber/8: ${step.name} ---');
 
       // Check if step should be skipped
       if (step.shouldSkip(context)) {

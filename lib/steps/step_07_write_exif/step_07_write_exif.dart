@@ -178,7 +178,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
     try {
       final collection = context.mediaCollection;
 
-      print('\n[Step 7/8] Writing EXIF data on physical files in output (this may take a while)...');
+      logPrint('[Step 7/8] Writing EXIF data on physical files in output (this may take a while)...');
       if (!context.config.writeExif) {
         sw.stop();
         return StepResult.success(
@@ -199,17 +199,17 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
       if (nativeOnly) {
         logWarning('[Step 7/8] ExifTool not available, native-only support.', forcePrint: true);
       } else {
-        print('[Step 7/8] ExifTool enabled');
+        logPrint('[Step 7/8] ExifTool enabled');
       }
 
       // Get and print maxConcurrency
       final int maxConcurrency = ConcurrencyManager().concurrencyFor(ConcurrencyOperation.exif);
-      print('[Step 7/8] Starting $maxConcurrency threads (exif concurrency)');
+      logPrint('[Step 7/8] Starting $maxConcurrency threads (exif concurrency)');
 
       // Batching config
       final bool enableExifToolBatch = _resolveBatchingPreference(exifTool);
       final progressBar = FillingBar(
-        desc: '[Step 7/8] Writing EXIF data',
+        desc: '[ INFO  ] [Step 7/8] Writing EXIF data',
         total: collection.length,
         width: 50,
       );
@@ -284,8 +284,8 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
               if (!_shouldSilenceExiftoolError(e)) {
                 logWarning(
                   isVideoBatch
-                      ? 'Per-file video write failed: ${entry.key.path} -> $e'
-                      : 'Per-file write failed: ${entry.key.path} -> $e',
+                      ? '[Step 7/8] Per-file video write failed: ${entry.key.path} -> $e'
+                      : '[Step 7/8] Per-file write failed: ${entry.key.path} -> $e',
                 );
               }
               await _tryDeleteTmp(entry.key);
@@ -309,8 +309,8 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
             if (!_shouldSilenceExiftoolError(e)) {
               logWarning(
                 isVideoBatch
-                    ? 'Video batch flush failed (${chunk.length} files) - splitting: $e'
-                    : 'Batch flush failed (${chunk.length} files) - splitting: $e',
+                    ? '[Step 7/8] Video batch flush failed (${chunk.length} files) - splitting: $e'
+                    : '[Step 7/8] Batch flush failed (${chunk.length} files) - splitting: $e',
               );
             }
             // Restore mtimes for the failed chunk before splitting (best-effort)
@@ -470,7 +470,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
               }
             }
           } catch (e) {
-            logWarning('Failed to prepare GPS tags for ${file.path}: $e', forcePrint: true);
+            logWarning('[Step 7/8] Failed to prepare GPS tags for ${file.path}: $e', forcePrint: true);
           }
 
           // Date/time from entity
@@ -502,7 +502,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
               }
             }
           } catch (e) {
-            logWarning('Failed to prepare DateTime tags for ${file.path}: $e', forcePrint: true);
+            logWarning('[Step 7/8] Failed to prepare DateTime tags for ${file.path}: $e', forcePrint: true);
           }
 
           // Write (per-file or batch)
@@ -522,7 +522,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
                     mimeExt: mimeExt,
                     pathLower: lower,
                   );
-                  logWarning('Skipping $detectedFmt file - ExifTool cannot write $detectedFmt: ${file.path}', forcePrint: true);
+                  logWarning('[Step 7/8] Skipping $detectedFmt file - ExifTool cannot write $detectedFmt: ${file.path}', forcePrint: true);
                 }
               } else {
                 if (!enableExifToolBatch) {
@@ -536,7 +536,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
                     });
                   } catch (e) {
                     if (!_shouldSilenceExiftoolError(e)) {
-                      logWarning(isVideo ? 'Per-file video write failed: ${file.path} -> $e' : 'Per-file write failed: ${file.path} -> $e');
+                      logWarning(isVideo ? '[Step 7/8] Per-file video write failed: ${file.path} -> $e' : '[Step 7/8] Per-file write failed: ${file.path} -> $e');
                     }
                     await _tryDeleteTmp(file);
                   }
@@ -555,7 +555,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
             }
           } catch (e) {
             if (!_shouldSilenceExiftoolError(e)) {
-              logWarning('Failed to enqueue EXIF tags for ${file.path}: $e');
+              logWarning('[Step 7/8] Failed to enqueue EXIF tags for ${file.path}: $e');
             }
           }
 
@@ -567,7 +567,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
             ExifWriterService.markDateTouchedFromStep5(file, isPrimary: markAsPrimary);
           }
         } catch (e) {
-          logError('EXIF write failed for ${file.path}: $e', forcePrint: true);
+          logError('[Step 7/8] EXIF write failed for ${file.path}: $e', forcePrint: true);
         }
 
         return {'gps': gpsWrittenThis, 'date': dtWrittenThis};
@@ -632,8 +632,6 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
         if (!nativeOnly && enableExifToolBatch) await maybeFlushThresholds();
       }
 
-      print('');
-
       // Final batch flush (if batching was used). Use the old heuristic to decide argfile.
       if (!nativeOnly && enableExifToolBatch) {
         final bool flushImagesWithArg = pendingImagesBatch.length > (Platform.isWindows ? 30 : 60);
@@ -654,12 +652,12 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
       final dtSec = ExifWriterService.uniqueDateSecondaryCount;
 
       if (gpsTotal > 0) {
-        print('[Step 7/8] $gpsTotal files got GPS set in EXIF data (primary=$gpsPrim, secondary=$gpsSec)');
+        logPrint('[Step 7/8] $gpsTotal files got GPS set in EXIF data (primary=$gpsPrim, secondary=$gpsSec)');
       }
       if (dtTotal > 0) {
-        print('[Step 7/8] $dtTotal files got DateTime set in EXIF data (primary=$dtPrim, secondary=$dtSec)');
+        logPrint('[Step 7/8] $dtTotal files got DateTime set in EXIF data (primary=$dtPrim, secondary=$dtSec)');
       }
-      print('[Step 7/8] Processed ${collection.entities.length} entities; touched ${ExifWriterService.uniqueFilesTouchedCount} files');
+      logPrint('[Step 7/8] Processed ${collection.entities.length} entities; touched ${ExifWriterService.uniqueFilesTouchedCount} files');
 
       final int touchedFilesBeforeReset = ExifWriterService.uniqueFilesTouchedCount;
       final int touchedGpsBeforeReset = ExifWriterService.uniqueGpsFilesCount;
@@ -685,7 +683,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
     } catch (e) {
       sw.stop();
       if (!_shouldSilenceExiftoolError(e)) {
-        logError('Failed to write EXIF data: $e', forcePrint: true);
+        logError('[Step 7/8] Failed to write EXIF data: $e', forcePrint: true);
       }
       return StepResult.failure(
         stepName: name,

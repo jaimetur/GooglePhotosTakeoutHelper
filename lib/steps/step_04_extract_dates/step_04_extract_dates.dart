@@ -133,13 +133,13 @@ class ExtractDatesStep extends ProcessingStep with LoggerMixin {
     final sw = Stopwatch()..start();
 
     try {
-      print('\n[Step 4/8] Extracting metadata (this may take a while)...');
+      logPrint('[Step 4/8] Extracting metadata (this may take a while)...');
 
       final collection = context.mediaCollection;
 
       // Get and print maxConcurrency
       final maxConcurrency = ConcurrencyManager().concurrencyFor(ConcurrencyOperation.exif);
-      print('[Step 4/8] Starting $maxConcurrency threads (exif concurrency)');
+      logPrint('[Step 4/8] Starting $maxConcurrency threads (exif concurrency)');
 
       // Build extractor callables bound to File (as in your config), but we will decide
       // per extractor whether to probe primary only (EXIF) or primary+secondaries (others).
@@ -175,7 +175,7 @@ class ExtractDatesStep extends ProcessingStep with LoggerMixin {
       final extractionStats = <DateTimeExtractionMethod, int>{};
       var completed = 0;
       final progressBar = FillingBar(
-        desc: '[Step 4/8] Processing media files',
+        desc: '[ INFO  ] [Step 4/8] Processing media files',
         total: collection.length,
         width: 50,
       );
@@ -263,9 +263,7 @@ class ExtractDatesStep extends ProcessingStep with LoggerMixin {
           );
 
           if (foundDate != null) {
-            logDebug(
-              'Date extracted for ${media.primaryFile.path}: $foundDate (method: ${methodUsed.name}, accuracy: ${acc.value})',
-            );
+            logDebug('[Step 4/8] Date extracted for ${media.primaryFile.path}: $foundDate (method: ${methodUsed.name}, accuracy: ${acc.value})');
           }
 
           return {
@@ -294,9 +292,8 @@ class ExtractDatesStep extends ProcessingStep with LoggerMixin {
       }
 
       // Print stats
-      print('');
-      print('[Step 4/8] Date extraction completed:');
-      print('\n[Step 4/8] === Date Extraction Summary ===');
+      logPrint('[Step 4/8] Date extraction completed:');
+      logPrint('[Step 4/8] === Date Extraction Summary ===');
       final byName = <String, int>{
         for (final e in extractionStats.entries) e.key.name: e.value,
       };
@@ -309,7 +306,7 @@ class ExtractDatesStep extends ProcessingStep with LoggerMixin {
         'none',
       ];
       for (final k in order) {
-        print('\t\t\t$k: ${byName[k] ?? 0} files');
+        logPrint('[Step 4/8]     $k: ${byName[k] ?? 0} files');
       }
 
       // READ-EXIF stats summary (seconds)

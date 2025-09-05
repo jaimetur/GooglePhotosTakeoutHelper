@@ -39,7 +39,7 @@ class FileExtensionCorrectorService with LoggerMixin {
           fixedCount++;
         }
       } catch (e) {
-        logError('Failed to process file ${file.path}: $e');
+        logError('[Step 1/8] Failed to process file ${file.path}: $e');
       }
     }
 
@@ -79,9 +79,7 @@ class FileExtensionCorrectorService with LoggerMixin {
     } // Log special cases
     if (extensionMimeType == 'video/mp4' &&
         actualMimeType == 'video/x-msvideo') {
-      logDebug(
-        'Detected AVI file incorrectly named as .mp4: ${path.basename(file.path)}',
-      );
+      logDebug('[Step 1/8] Detected AVI file incorrectly named as .mp4: ${path.basename(file.path)}');
     }
 
     return _renameFileWithCorrectExtension(file, actualMimeType);
@@ -95,10 +93,7 @@ class FileExtensionCorrectorService with LoggerMixin {
     final String? newExtension = _getPreferredExtension(mimeType);
 
     if (newExtension == null) {
-      logWarning(
-        'Could not determine correct extension for MIME type $mimeType '
-        'for file ${path.basename(file.path)}',
-      );
+      logWarning('[Step 1/8] Could not determine correct extension for MIME type $mimeType for file ${path.basename(file.path)}');
       return false;
     }
 
@@ -107,9 +102,7 @@ class FileExtensionCorrectorService with LoggerMixin {
 
     // Check if target file already exists
     if (await newFile.exists()) {
-      logWarning(
-        'Skipped fixing extension because target file already exists: $newFilePath',
-      );
+      logWarning('[Step 1/8] Skipped fixing extension because target file already exists: $newFilePath');
       return false;
     } // Skip extra files (edited versions)
     if (_extrasService.isExtra(file.path)) {
@@ -138,11 +131,9 @@ class FileExtensionCorrectorService with LoggerMixin {
         tryhard: true,
       );
       if (jsonFile == null) {
-        logWarning('Unable to find matching JSON for file: ${file.path}');
+        logWarning('[Step 1/8] Unable to find matching JSON for file: ${file.path}');
       } else {
-        logDebug(
-          'Found JSON file with tryHard methods: ${path.basename(jsonFile.path)}',
-        );
+        logDebug('[Step 1/8] Found JSON file with tryHard methods: ${path.basename(jsonFile.path)}');
       }
     }
 
@@ -168,9 +159,7 @@ class FileExtensionCorrectorService with LoggerMixin {
 
     // Check if JSON target already exists
     if (newJsonPath != null && await File(newJsonPath).exists()) {
-      logWarning(
-        'Skipped fixing extension because target JSON file already exists: $newJsonPath',
-      );
+      logWarning('[Step 1/8] Skipped fixing extension because target JSON file already exists: $newJsonPath');
       return false;
     }
 
@@ -205,13 +194,11 @@ class FileExtensionCorrectorService with LoggerMixin {
       // Step 3: Verify cleanup of original files
       await _verifyOriginalFilesRemoved(originalMediaPath, originalJsonPath);
 
-      logDebug(
-        'Fixed extension: ${path.basename(originalMediaPath)} -> ${path.basename(newMediaPath)}',
-      );
+      logDebug('[Step 1/8] Fixed extension: ${path.basename(originalMediaPath)} -> ${path.basename(newMediaPath)}');
       return true;
     } catch (e) {
       // Rollback: Attempt to restore original state
-      logError('Extension fixing failed, attempting rollback: $e');
+      logError('[Step 1/8] Extension fixing failed, attempting rollback: $e');
       await _rollbackAtomicRename(
         originalMediaPath,
         originalJsonPath,
@@ -234,7 +221,7 @@ class FileExtensionCorrectorService with LoggerMixin {
       if (renamedJsonFile != null && originalJsonPath != null) {
         if (await renamedJsonFile.exists()) {
           await renamedJsonFile.rename(originalJsonPath);
-          logInfo('Rolled back JSON file rename: $originalJsonPath');
+          logInfo('[Step 1/8] Rolled back JSON file rename: $originalJsonPath');
         }
       }
 
@@ -242,14 +229,11 @@ class FileExtensionCorrectorService with LoggerMixin {
       if (renamedMediaFile != null) {
         if (await renamedMediaFile.exists()) {
           await renamedMediaFile.rename(originalMediaPath);
-          logInfo('Rolled back media file rename: $originalMediaPath');
+          logInfo('[Step 1/8] Rolled back media file rename: $originalMediaPath');
         }
       }
     } catch (rollbackError) {
-      logError(
-        'Failed to rollback atomic rename operation. Manual cleanup may be required. '
-        'Original media: $originalMediaPath, Original JSON: $originalJsonPath. Error: $rollbackError',
-      );
+      logError('[Step 1/8] Failed to rollback atomic rename operation. Manual cleanup may be required. Original media: $originalMediaPath, Original JSON: $originalJsonPath. Error: $rollbackError');
     }
   }
 
@@ -260,29 +244,23 @@ class FileExtensionCorrectorService with LoggerMixin {
   ) async {
     // Check if original media file still exists
     if (await File(originalMediaPath).exists()) {
-      logWarning(
-        'Original media file still exists after rename. Attempting manual cleanup: $originalMediaPath',
-      );
+      logWarning('[Step 1/8] Original media file still exists after rename. Attempting manual cleanup: $originalMediaPath');
       try {
         await File(originalMediaPath).delete();
-        logInfo('Manually cleaned up original media file: $originalMediaPath');
+        logInfo('[Step 1/8] Manually cleaned up original media file: $originalMediaPath');
       } catch (deleteError) {
-        throw Exception('Failed to delete original media file: $deleteError');
+        throw Exception('[Step 1/8] Failed to delete original media file: $deleteError');
       }
     }
 
     // Check if original JSON file still exists
     if (originalJsonPath != null && await File(originalJsonPath).exists()) {
-      logWarning(
-        'Original JSON file still exists after rename. Attempting manual cleanup: $originalJsonPath',
-      );
+      logWarning('[Step 1/8] Original JSON file still exists after rename. Attempting manual cleanup: $originalJsonPath');
       try {
         await File(originalJsonPath).delete();
-        logInfo(
-          'Successfully cleaned up original JSON file: $originalJsonPath',
-        );
+        logInfo('[Step 1/8] Successfully cleaned up original JSON file: $originalJsonPath');
       } catch (deleteError) {
-        logWarning('Failed to delete original JSON file: $deleteError');
+        logWarning('[Step 1/8] Failed to delete original JSON file: $deleteError');
         // Don't throw here as this is less critical than media file consistency
       }
     }

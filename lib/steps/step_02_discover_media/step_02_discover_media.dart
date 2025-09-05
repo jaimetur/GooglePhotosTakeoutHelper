@@ -125,7 +125,7 @@ class DiscoverMediaStep extends ProcessingStep with LoggerMixin {
         extrasSkipped = result.removedCount;
 
         if (context.config.verbose) {
-          logDebug('Skipped $extrasSkipped extra files due to skipExtras configuration', forcePrint: true);
+          logDebug('[Step 2/8] Skipped $extrasSkipped extra files due to skipExtras configuration', forcePrint: true);
         }
       }
 
@@ -191,7 +191,7 @@ class DiscoverMediaStep extends ProcessingStep with LoggerMixin {
     // Process year directories
     for (final yearDir in yearDirectories) {
       if (context.config.verbose) {
-        logDebug('Scanning year folder: ${path.basename(yearDir.path)}', forcePrint: true);
+        logDebug('[Step 2/8] Scanning year folder: ${path.basename(yearDir.path)}', forcePrint: true);
       }
       await for (final mediaFile in _getMediaFiles(yearDir, context)) {
         final isPartnerShared = await jsonPartnerSharingExtractor(
@@ -212,7 +212,7 @@ class DiscoverMediaStep extends ProcessingStep with LoggerMixin {
     for (final albumDir in albumDirectories) {
       final albumName = path.basename(albumDir.path);
       if (context.config.verbose) {
-        logDebug('Scanning album folder: $albumName', forcePrint: true);
+        logDebug('[Step 2/8] Scanning album folder: $albumName', forcePrint: true);
       }
       await for (final mediaFile in _getMediaFiles(albumDir, context)) {
         final isPartnerShared = await jsonPartnerSharingExtractor(

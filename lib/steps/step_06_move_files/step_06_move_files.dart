@@ -11,32 +11,27 @@ import 'package:gpth/gpth_lib_exports.dart';
 /// - After each move/copy/symlink, strategies MUST update the involved FileEntity:
 ///   fe.targetPath = <final path in output>;
 ///   fe.isShortcut = true when a shortcut is created (false otherwise).
-class MoveFilesStep extends ProcessingStep {
+class MoveFilesStep extends ProcessingStep with LoggerMixin {
   const MoveFilesStep() : super('Move Files');
 
   @override
   Future<StepResult> execute(final ProcessingContext context) async {
-    print('');
     final stopwatch = Stopwatch()..start();
 
     try {
-      print(
-        '[Step 6/8] Moving files to Output folder (this may take a while)...',
-      );
+      logPrint('[Step 6/8] Moving files to Output folder (this may take a while)...');
 
       // Optional pre-pass: transform Pixel .MP/.MV → .mp4 ONLY on primary files (in-place, still in input).
       int transformedCount = 0;
       if (context.config.transformPixelMp) {
         transformedCount = await _transformPixelPrimaries(context);
         if (context.config.verbose) {
-          print(
-            'Transformed $transformedCount Pixel .MP/.MV primary files to .mp4',
-          );
+          logDebug('[Step 6/8] Transformed $transformedCount Pixel .MP/.MV primary files to .mp4', forcePrint: true);
         }
       }
 
       final progressBar = FillingBar(
-        desc: '[Step 6/8] Moving entities',
+        desc: '[ INFO  ] [Step 6/8] Moving entities',
         total: context.mediaCollection.length,
         width: 50,
       );
@@ -147,7 +142,7 @@ class MoveFilesStep extends ProcessingStep {
           primary.sourcePath = renamed.path;
           transformed++;
         } catch (e) {
-          print('Warning: Failed to transform ${primary.path}: $e');
+          logPrint('[Step 6/8] Warning: Failed to transform ${primary.path}: $e');
         }
       }
     }

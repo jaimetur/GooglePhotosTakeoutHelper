@@ -97,10 +97,12 @@ class LoggingService {
   ///
   /// This behaves like a standard print but prefixes the line with an aligned [INFO]
   /// and also persists it to the log file when enabled, regardless of verbosity.
-  void printPlain(final String message) {
+  void printPlain(final String message, {final bool forcePrint = true}) {
     final String line = _formatPlainMessage(message, 'info');
     if (_fileSink != null) _writeToFile(line);
-    print(line);
+    if (forcePrint) {
+      print(line);
+    }
   }
 
   /// Logs an info message
@@ -383,7 +385,7 @@ mixin LoggerMixin {
       logger.debug(message, forcePrint: forcePrint);
 
   /// Prints a plain, aligned INFO line (no ANSI colors) and persists to file if enabled.
-  void logPrint(final String message) => logger.printPlain(message);
+  void logPrint(final String message, {final bool forcePrint = true}) => logger.printPlain(message, forcePrint: forcePrint);
 
   /// Builds a sensible default logger if none was injected yet.
   /// Prefers an already-initialized logger from the ServiceContainer to keep

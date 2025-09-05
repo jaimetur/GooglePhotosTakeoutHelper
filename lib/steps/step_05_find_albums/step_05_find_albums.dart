@@ -139,7 +139,7 @@ class FindAlbumsStep extends ProcessingStep with LoggerMixin {
     final sw = Stopwatch()..start();
 
     try {
-      print('\n[Step 5/8] Finding albums (this may take a while)...');
+      logPrint('[Step 5/8] Finding albums (this may take a while)...');
 
       final collection = context.mediaCollection;
       final initial = collection.length;
@@ -244,8 +244,8 @@ class FindAlbumsStep extends ProcessingStep with LoggerMixin {
       final int finalCount = collection.length;
       const int mergedCount = 0; // no entity-level merges in the new model
 
-      print('[Step 5/8] Media with album associations: $mediaWithAlbums');
-      print('[Step 5/8] Distinct album folders detected: $totalAlbums');
+      logPrint('[Step 5/8] Media with album associations: $mediaWithAlbums');
+      logPrint('[Step 5/8] Distinct album folders detected: $totalAlbums');
 
       sw.stop();
       return StepResult.success(

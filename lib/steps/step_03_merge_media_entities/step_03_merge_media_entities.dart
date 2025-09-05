@@ -404,19 +404,13 @@ class MergeMediaEntitiesStep extends ProcessingStep with LoggerMixin {
                         final String sampleHash =
                             await verifier.calculateFileHash(d.primaryFile.asFile());
                         if (sampleHash != keptHash) {
-                          logWarning(
-                            'Verification sample mismatch for group $groupKey. Falling back to full verification.',
-                            forcePrint: true,
-                          );
+                          logWarning('[Step 3/8] Verification sample mismatch for group $groupKey. Falling back to full verification.', forcePrint: true);
                           // Full verification fallback
                           for (final x in toRemove) {
                             final String xh = await verifier
                                 .calculateFileHash(x.primaryFile.asFile());
                             if (xh != keptHash) {
-                              logWarning(
-                                'Verification mismatch. Will NOT remove ${x.primaryFile.path} (hash differs from kept).',
-                                forcePrint: true,
-                              );
+                              logWarning('[Step 3/8] Verification mismatch. Will NOT remove ${x.primaryFile.path} (hash differs from kept).', forcePrint: true);
                               continue;
                             }
                             kept = kept.mergeWith(x);
@@ -439,28 +433,19 @@ class MergeMediaEntitiesStep extends ProcessingStep with LoggerMixin {
                           final String dupHash =
                               await verifier.calculateFileHash(d.primaryFile.asFile());
                           if (dupHash != keptHash) {
-                            logWarning(
-                              'Verification mismatch. Will NOT remove ${d.primaryFile.path} (hash differs from kept).',
-                              forcePrint: true,
-                            );
+                            logWarning('[Step 3/8] Verification mismatch. Will NOT remove ${d.primaryFile.path} (hash differs from kept).', forcePrint: true);
                             continue;
                           }
                           kept = kept.mergeWith(d);
                           localToRemove.add(d);
                           bs.entitiesMergedByContent++;
                         } catch (e) {
-                          logWarning(
-                            'Verification failed for ${d.primaryFile.path}: $e. Skipping removal for safety.',
-                            forcePrint: true,
-                          );
+                          logWarning('[Step 3/8] Verification failed for ${d.primaryFile.path}: $e. Skipping removal for safety.', forcePrint: true);
                         }
                       }
                     }
                   } catch (e) {
-                    logWarning(
-                      'Could not hash kept file ${_safePath(kept.primaryFile.asFile())} for verification: $e. Skipping removals for this group.',
-                      forcePrint: true,
-                    );
+                    logWarning('[Step 3/8] Could not hash kept file ${_safePath(kept.primaryFile.asFile())} for verification: $e. Skipping removals for this group.', forcePrint: true);
                   }
                 } else {
                   // Fast-path merge: trust grouping and skip double-hashing
@@ -497,9 +482,7 @@ class MergeMediaEntitiesStep extends ProcessingStep with LoggerMixin {
 
         processedGroups += slice.length;
         if ((processedGroups % 50) == 0) {
-          logDebug(
-            '[Step 3/8] Progress: processed $processedGroups/$totalGroups size groups...',
-          );
+          logDebug('[Step 3/8] Progress: processed $processedGroups/$totalGroups size groups...');
         }
       }
 
@@ -528,7 +511,7 @@ class MergeMediaEntitiesStep extends ProcessingStep with LoggerMixin {
             mediaCollection.remove(e);
           } catch (err) {
             logWarning(
-              'Failed to remove entity ${_safeEntity(e)}: $err',
+              '[Step 3/8] Failed to remove entity ${_safeEntity(e)}: $err',
               forcePrint: true,
             );
           }
@@ -612,7 +595,6 @@ class MergeMediaEntitiesStep extends ProcessingStep with LoggerMixin {
       logPrint('[Step 3/8] Non-Canonical files (within Album folder): $nonCanonicalAll');
       logPrint('[Step 3/8] Duplicate files removed/moved: $duplicateFilesRemoved');
       logPrint('[Step 3/8] Merge Media Entities finished, total entities merged: $mergedEntities');
-      logPrint('');
 
       totalSw.stop();
       telem.msTotal = totalSw.elapsedMilliseconds;
@@ -626,9 +608,20 @@ class MergeMediaEntitiesStep extends ProcessingStep with LoggerMixin {
           primaryFilesInCollection: totalPrimaryFiles,
           canonicalFilesInCollection: canonicalAll,
           nonCanonicalFilesInCollection: nonCanonicalAll,
-          printInsteadLog: false,  // Change to true if you prefeer to print telemetry instead of leggin it.
+          printTelemetry: true,  // Change to false if you prefeer to skip print telemetry on screen.
         );
       }
+
+      // Print stats
+      logPrint('[Step 3/8] === Merge Media Entity Summary ===');
+      logPrint('[Step 3/8]     Initial Entities: ${mediaCollection.length + mergedEntities}');
+      logPrint('[Step 3/8]     Merged Entities: $mergedEntities');
+      logPrint('[Step 3/8]     Primary files: $totalPrimaryFiles');
+      logPrint('[Step 3/8]     Secondary files: $totalSecondaryFiles');
+      logPrint('[Step 3/8]     Duplicate files removed/moved: $duplicateFilesRemoved');
+      logPrint('[Step 3/8]     Media Entities remain in collection: ${mediaCollection.length}');
+      // logPrint('');
+
 
       return StepResult.success(
         stepName: name,
@@ -655,15 +648,15 @@ class MergeMediaEntitiesStep extends ProcessingStep with LoggerMixin {
           'secondaryCanonical': secondaryCanonical,
           'secondaryFromAlbums': secondaryFromAlbums,
         },
-        message:
-            'Step 3 completed.'
-            '\n   === Merge Entity Summary ==='
-            '\n\t\tInitial Entities: ${mediaCollection.length + mergedEntities}'
-            '\n\t\tMerged Entities: $mergedEntities'
-            '\n\t\tPrimary files: $totalPrimaryFiles'
-            '\n\t\tSecondary files: $totalSecondaryFiles'
-            '\n\t\tDuplicate files removed/moved: $duplicateFilesRemoved'
-            '\n\t\tMedia Entities remain in collection: ${mediaCollection.length}',
+        message: 'Media Entities remain in collection: ${mediaCollection.length}',
+        // message:
+        //     '=== Merge Entity Summary ==='
+        //     '\n\t\t\tInitial Entities: ${mediaCollection.length + mergedEntities}'
+        //     '\n\t\t\tMerged Entities: $mergedEntities'
+        //     '\n\t\t\tPrimary files: $totalPrimaryFiles'
+        //     '\n\t\t\tSecondary files: $totalSecondaryFiles'
+        //     '\n\t\t\tDuplicate files removed/moved: $duplicateFilesRemoved'
+        //     '\n\t\t\tMedia Entities remain in collection: ${mediaCollection.length}',
       );
     } catch (e) {
       totalSw.stop();
@@ -788,7 +781,7 @@ class MergeMediaEntitiesStep extends ProcessingStep with LoggerMixin {
         onRemoved?.call();
       } catch (ioe) {
         logWarning(
-          'Failed to remove/move duplicate ${f.path}: $ioe',
+          '[Step 3/8] Failed to remove/move duplicate ${f.path}: $ioe',
           forcePrint: true,
         );
       }
@@ -884,52 +877,28 @@ class MergeMediaEntitiesStep extends ProcessingStep with LoggerMixin {
     required final int primaryFilesInCollection,
     required final int canonicalFilesInCollection,
     required final int nonCanonicalFilesInCollection,
-    required final bool printInsteadLog,
+    required final bool printTelemetry,
   }) {
     String ms(final num v) => '${v.toStringAsFixed(0)} ms';
-    if (printInsteadLog) {
-      // Even when "printing", use the unified logger
-      logPrint('[Step 3/8] Telemetry summary:');
-      logPrint('  Files total                        : ${t.filesTotal}');
-      logPrint('  Size buckets                       : ${t.sizeBuckets}');
-      logPrint('  Ext buckets                        : ${t.extBuckets}');
-      logPrint('  Quick buckets                      : ${t.quickBuckets}');
-      logPrint('  Hash groups                        : ${t.hashGroups}');
-      logPrint('  Merged media entities (by content) : ${t.entitiesMergedByContent}');
-      logPrint('  Primary files in collection        : $primaryFilesInCollection');
-      logPrint('  Secondary files in collection      : $secondaryFilesInCollection');
-      logPrint('  Canonical files (ALL_PHOTOS/Year)  : $canonicalFilesInCollection');
-      logPrint('  Non-Canonical files (Albums)       : $nonCanonicalFilesInCollection');
-      logPrint('  Duplicate files removed (I/O)      : $duplicateFilesRemovedIO');
-      logPrint('  Time total                         : ${ms(t.msTotal)}');
-      logPrint('    - Size scan                      : ${ms(t.msSizeScan)}');
-      logPrint('    - Ext bucketing                  : ${ms(t.msExtBucket)}');
-      logPrint('    - Quick signature                : ${ms(t.msQuickSig)}');
-      logPrint('    - Hash grouping                  : ${ms(t.msHashGroups)}');
-      logPrint('    - Merge/replace                  : ${ms(t.msMergeReplace)}');
-      logPrint('    - Remove/IO                      : ${ms(t.msRemoveIO)}');
-    } else {
-      logInfo('[Step 3/8] Telemetry summary:', forcePrint: true);
-      logInfo('  Files total                        : ${t.filesTotal}', forcePrint: true);
-      logInfo('  Size buckets                       : ${t.sizeBuckets}', forcePrint: true);
-      logInfo('  Ext buckets                        : ${t.extBuckets}', forcePrint: true);
-      logInfo('  Quick buckets                      : ${t.quickBuckets}', forcePrint: true);
-      logInfo('  Hash groups                        : ${t.hashGroups}', forcePrint: true);
-      logInfo('  Merged media entities (by content) : ${t.entitiesMergedByContent}', forcePrint: true);
-      logInfo('  Primary files in collection        : $primaryFilesInCollection', forcePrint: true);
-      logInfo('  Secondary files in collection      : $secondaryFilesInCollection', forcePrint: true);
-      logInfo('  Canonical files (ALL_PHOTOS/Year)  : $canonicalFilesInCollection', forcePrint: true);
-      logInfo('  Non-Canonical files (Albums)       : $nonCanonicalFilesInCollection', forcePrint: true);
-      logInfo('  Duplicate files removed (I/O)      : $duplicateFilesRemovedIO', forcePrint: true);
-      logInfo('  Time total                         : ${ms(t.msTotal)}', forcePrint: true);
-      logInfo('    - Size scan                      : ${ms(t.msSizeScan)}', forcePrint: true);
-      logInfo('    - Ext bucketing                  : ${ms(t.msExtBucket)}', forcePrint: true);
-      logInfo('    - Quick signature                : ${ms(t.msQuickSig)}', forcePrint: true);
-      logInfo('    - Hash grouping                  : ${ms(t.msHashGroups)}', forcePrint: true);
-      logInfo('    - Merge/replace                  : ${ms(t.msMergeReplace)}', forcePrint: true);
-      logInfo('    - Remove/IO                      : ${ms(t.msRemoveIO)}', forcePrint: true);
-    }
-    logPrint(''); // spacing
+    logInfo('[Step 3/8] Telemetry summary:', forcePrint: printTelemetry);
+    logInfo('[Step 3/8]   Files total                        : ${t.filesTotal}', forcePrint: printTelemetry);
+    logInfo('[Step 3/8]   Size buckets                       : ${t.sizeBuckets}', forcePrint: printTelemetry);
+    logInfo('[Step 3/8]   Ext buckets                        : ${t.extBuckets}', forcePrint: printTelemetry);
+    logInfo('[Step 3/8]   Quick buckets                      : ${t.quickBuckets}', forcePrint: printTelemetry);
+    logInfo('[Step 3/8]   Hash groups                        : ${t.hashGroups}', forcePrint: printTelemetry);
+    logInfo('[Step 3/8]   Merged media entities (by content) : ${t.entitiesMergedByContent}', forcePrint: printTelemetry);
+    logInfo('[Step 3/8]   Primary files in collection        : $primaryFilesInCollection', forcePrint: printTelemetry);
+    logInfo('[Step 3/8]   Secondary files in collection      : $secondaryFilesInCollection', forcePrint: printTelemetry);
+    logInfo('[Step 3/8]   Canonical files (ALL_PHOTOS/Year)  : $canonicalFilesInCollection', forcePrint: printTelemetry);
+    logInfo('[Step 3/8]   Non-Canonical files (Albums)       : $nonCanonicalFilesInCollection', forcePrint: printTelemetry);
+    logInfo('[Step 3/8]   Duplicate files removed (I/O)      : $duplicateFilesRemovedIO', forcePrint: printTelemetry);
+    logInfo('[Step 3/8]   Time total                         : ${ms(t.msTotal)}', forcePrint: printTelemetry);
+    logInfo('[Step 3/8]     - Size scan                      : ${ms(t.msSizeScan)}', forcePrint: printTelemetry);
+    logInfo('[Step 3/8]     - Ext bucketing                  : ${ms(t.msExtBucket)}', forcePrint: printTelemetry);
+    logInfo('[Step 3/8]     - Quick signature                : ${ms(t.msQuickSig)}', forcePrint: printTelemetry);
+    logInfo('[Step 3/8]     - Hash grouping                  : ${ms(t.msHashGroups)}', forcePrint: printTelemetry);
+    logInfo('[Step 3/8]     - Merge/replace                  : ${ms(t.msMergeReplace)}', forcePrint: printTelemetry);
+    logInfo('[Step 3/8]     - Remove/IO                      : ${ms(t.msRemoveIO)}', forcePrint: printTelemetry);
   }
 }
 

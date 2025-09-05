@@ -7,7 +7,7 @@ import 'package:gpth/gpth_lib_exports.dart';
 ///
 /// This service coordinates all the moving logic components and provides
 /// a clean interface for moving media files according to configuration.
-/// Uses MediaEntity exclusively for better performance and immutability.
+///— Uses MediaEntity exclusively for better performance and immutability.
 ///
 /// ⚠️ Model note:
 /// MediaEntity now exposes:
@@ -16,7 +16,7 @@ import 'package:gpth/gpth_lib_exports.dart';
 ///   - album associations via `albumsMap` / `albumNames`.
 /// There is NO `files` map anymore. This service therefore expects only one
 /// physical "move" per entity (the primary).
-class MediaEntityMovingService {
+class MediaEntityMovingService with LoggerMixin {
   MediaEntityMovingService()
     : _strategyFactory = MediaEntityMovingStrategyFactory(
         FileOperationService(),
@@ -130,7 +130,7 @@ class MediaEntityMovingService {
       }
     } catch (e) {
       if (context.verbose) {
-        print('[Error] Strategy finalization failed: $e');
+        logError('[Step 6/8] [Error] Strategy finalization failed: $e');
       }
     }
 
@@ -234,7 +234,7 @@ class MediaEntityMovingService {
       allResults.addAll(finalizationResults);
     } catch (e) {
       if (context.verbose) {
-        print('[Error] Strategy finalization failed: $e');
+        logError('[Step 6/8] [Error] Strategy finalization failed: $e');
       }
     }
 
@@ -250,18 +250,14 @@ class MediaEntityMovingService {
   void _logResult(final MediaEntityMovingResult result) {
     final operation = result.operation;
     final status = result.success ? 'SUCCESS' : 'FAILED';
-    print(
-      '[${operation.operationType.name.toUpperCase()}] $status: ${operation.sourceFile.path}',
-    );
+    logPrint('[Step 6/8] [${operation.operationType.name.toUpperCase()}] $status: ${operation.sourceFile.path}');
     if (result.resultFile != null) {
-      print('  → ${result.resultFile!.path}');
+      logPrint('[Step 6/8]   → ${result.resultFile!.path}');
     }
   }
 
   void _logError(final MediaEntityMovingResult result) {
-    print(
-      '[Error] Failed to process ${result.operation.sourceFile.path}: ${result.errorMessage}',
-    );
+    logPrint('[Step 6/8] [Error] Failed to process ${result.operation.sourceFile.path}: ${result.errorMessage}');
   }
 
   // Print Summary
@@ -376,28 +372,24 @@ class MediaEntityMovingService {
         jsonRefs +
         failures;
 
-    print('');
-    const int detailsCol = 40; // starting column for the parenthesis block
-    print('\n[Step 6/8] === Moving Files Summary ===');
-    print('${'\t\t\tPrimary files moved: $primaryMoves'.padRight(detailsCol)}(ALL_PHOTOS: $primaryMovesAllPhotos, Albums: $primaryMovesAlbums)');
-    print('${'\t\t\tNon-primary moves: $nonPrimaryMoves'.padRight(detailsCol)}(ALL_PHOTOS: $nonPrimaryMovesAllPhotos, Albums: $nonPrimaryMovesAlbums)');
-    print('${'\t\t\tDuplicated copies created: ${copiesAllPhotos + copiesAlbums}'.padRight(detailsCol)}(ALL_PHOTOS: $copiesAllPhotos, Albums: $copiesAlbums)');
-    print('${'\t\t\tSymlinks created: $symlinksCreated'.padRight(detailsCol)}(ALL_PHOTOS: $symlinksAllPhotos, Albums: $symlinksAlbums)');
-    print('${'\t\t\tJSON refs created: $jsonRefs'.padRight(detailsCol)}(ALL_PHOTOS: $jsonRefsAllPhotos, Albums: $jsonRefsAlbums)');
-    print('${'\t\t\ttFailures: $failures'.padRight(detailsCol)}(ALL_PHOTOS: $failuresAllPhotos, Albums: $failuresAlbums)');
-    final totalLeft = '\t\t\tTotal operations: $totalOps${computedOps != totalOps ? ' (computed: $computedOps)' : ''}';
-    print('${totalLeft.padRight(detailsCol)}(ALL_PHOTOS: $totalOpsAllPhotos, Albums: $totalOpsAlbums)');
-    print('');
+    const int detailsCol = 50; // starting column for the parenthesis block
+    logPrint('[Step 6/8] === Moving Files Summary ===');
+    logPrint('${'[Step 6/8] \tPrimary files moved: $primaryMoves'.padRight(detailsCol)}(ALL_PHOTOS: $primaryMovesAllPhotos, Albums: $primaryMovesAlbums)');
+    logPrint('${'[Step 6/8] \tNon-primary moves: $nonPrimaryMoves'.padRight(detailsCol)}(ALL_PHOTOS: $nonPrimaryMovesAllPhotos, Albums: $nonPrimaryMovesAlbums)');
+    logPrint('${'[Step 6/8] \tDuplicated copies created: ${copiesAllPhotos + copiesAlbums}'.padRight(detailsCol)}(ALL_PHOTOS: $copiesAllPhotos, Albums: $copiesAlbums)');
+    logPrint('${'[Step 6/8] \tSymlinks created: $symlinksCreated'.padRight(detailsCol)}(ALL_PHOTOS: $symlinksAllPhotos, Albums: $symlinksAlbums)');
+    logPrint('${'[Step 6/8] \tJSON refs created: $jsonRefs'.padRight(detailsCol)}(ALL_PHOTOS: $jsonRefsAllPhotos, Albums: $jsonRefsAlbums)');
+    logPrint('${'[Step 6/8] \ttFailures: $failures'.padRight(detailsCol)}(ALL_PHOTOS: $failuresAllPhotos, Albums: $failuresAlbums)');
+    final totalLeft = '[Step 6/8] \tTotal operations: $totalOps${computedOps != totalOps ? ' (computed: $computedOps)' : ''}';
+    logPrint('${totalLeft.padRight(detailsCol)}(ALL_PHOTOS: $totalOpsAllPhotos, Albums: $totalOpsAlbums)');
 
     if (failures > 0) {
-      print('\nErrors encountered:');
+      logError('[Step 6/8] Errors encountered:');
       results.where((final r) => !r.success).take(5).forEach((final result) {
-        print(
-          '  • ${result.operation.sourceFile.path}: ${result.errorMessage}',
-        );
+        logError('[Step 6/8]   • ${result.operation.sourceFile.path}: ${result.errorMessage}');
       });
       final extra = failures - 5;
-      if (extra > 0) print('  ... and $extra more errors');
+      if (extra > 0) logError('[Step 6/8]   ... and $extra more errors');
     }
   }
 
@@ -433,6 +425,9 @@ class _Semaphore {
     }
   }
 }
+
+// (resto del archivo sin cambios)
+
 
 /// Base class for MediaEntity moving strategies (unchanged public API)
 abstract class MediaEntityMovingStrategy {

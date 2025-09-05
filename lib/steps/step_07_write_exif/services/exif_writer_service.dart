@@ -167,19 +167,23 @@ class ExifWriterService with LoggerMixin {
 
     final lines = <String>[
       '[Step 7/8] Telemetry Summary:',
-      '\t[WRITE-EXIF] Native  : totalFiles=$nativeProcessed, writtenDate=$nativeWrittenDate, writtenGPS=$nativeWrittenGps, writtenCombined=$nativeWrittenCombined, failsDate=$nativeFailsDate, failsGPS=$nativeFailsGps, failsCombined=$nativeFailsCombined, timeDate=${_fmtSec(nativeDurDate)}, timeGPS=${_fmtSec(nativeDurGps)}, timeCombined=${_fmtSec(nativeDurCombined)}',
-      '\t[WRITE-EXIF] Exiftool: totalFiles=$exiftoolProcessedFiles, writtenDate=$exiftoolDateWritten, writtenGPS=$exiftoolWrittenGps, writtenCombined=$exiftoolWrittenCombined, failsDate=$exiftoolFailsDate, failsGPS=$exiftoolFailsGps, failsCombined=$exiftoolFailsCombined, timeDate=${_fmtSec(exiftoolDurDate)}, timeGPS=${_fmtSec(exiftoolDurGps)}, timeCombined=${_fmtSec(exiftooDurlCombined)}',
-      '\t                       (directTried=$exiftoolDirectFilesTried, fallbackDatesTried=$exiftoolFallbackFilesTried, fallbackCombinedTried=$exiftoolFallbackCombinedTried, exiftoolCalls=$exiftoolCalls), (success=$exiftoolSuccessFiles, fail=$exiftoolFailFiles)',
-      '\t[WRITE-EXIF-GPS] Native  : writtenNative=$_gpsWrittenNative, missNative=$_gpsMissNative, nativeTime=${_fmtSec(nativeDurGps + nativeDurCombined)}',
-      '\t[WRITE-EXIF-GPS] Exiftool: writtenExifTool=$_gpsWrittenExiftool, missExifTool=$_gpsMissExiftool, exiftoolTime=${_fmtSec(exiftoolDurGps + exiftooDurlCombined)} (fallbackTried=${exiftoolFallbackDateTried + exiftoolFallbackCombinedTried})',
+      '[Step 7/8] \t[WRITE-EXIF] Native  : totalFiles=$nativeProcessed, writtenDate=$nativeWrittenDate, writtenGPS=$nativeWrittenGps, writtenCombined=$nativeWrittenCombined, failsDate=$nativeFailsDate, failsGPS=$nativeFailsGps, failsCombined=$nativeFailsCombined, timeDate=${_fmtSec(nativeDurDate)}, timeGPS=${_fmtSec(nativeDurGps)}, timeCombined=${_fmtSec(nativeDurCombined)}',
+      '[Step 7/8] \t[WRITE-EXIF] Exiftool: totalFiles=$exiftoolProcessedFiles, writtenDate=$exiftoolDateWritten, writtenGPS=$exiftoolWrittenGps, writtenCombined=$exiftoolWrittenCombined, failsDate=$exiftoolFailsDate, failsGPS=$exiftoolFailsGps, failsCombined=$exiftoolFailsCombined, timeDate=${_fmtSec(exiftoolDurDate)}, timeGPS=${_fmtSec(exiftoolDurGps)}, timeCombined=${_fmtSec(exiftooDurlCombined)}',
+      '[Step 7/8] \t                       (directTried=$exiftoolDirectFilesTried, fallbackDatesTried=$exiftoolFallbackFilesTried, fallbackCombinedTried=$exiftoolFallbackCombinedTried, exiftoolCalls=$exiftoolCalls), (success=$exiftoolSuccessFiles, fail=$exiftoolFailFiles)',
+      '[Step 7/8] \t[WRITE-EXIF-GPS] Native  : writtenNative=$_gpsWrittenNative, missNative=$_gpsMissNative, nativeTime=${_fmtSec(nativeDurGps + nativeDurCombined)}',
+      '[Step 7/8] \t[WRITE-EXIF-GPS] Exiftool: writtenExifTool=$_gpsWrittenExiftool, missExifTool=$_gpsMissExiftool, exiftoolTime=${_fmtSec(exiftoolDurGps + exiftooDurlCombined)} (fallbackTried=${exiftoolFallbackDateTried + exiftoolFallbackCombinedTried})',
     ];
-    print('');
+    if (logger != null) {
+    } else {
+      // ignore: avoid_print
+      LoggingService().printPlain('');
+    }
     for (final l in lines) {
       if (logger != null) {
         logger.logInfo(l, forcePrint: true);
       } else {
         // ignore: avoid_print
-        print(l);
+        LoggingService().printPlain(l);
       }
     }
     if (reset) {
@@ -389,7 +393,7 @@ class ExifWriterService with LoggerMixin {
       return true;
     } catch (e) {
       _countExiftoolFail(asDate, asGps, asCombined);
-      logError('Failed to write tags ${tags.keys.toList()} to ${file.path}: $e');
+      logError('[Step 7/8] Failed to write tags ${tags.keys.toList()} to ${file.path}: $e');
       return false;
     }
   }
@@ -471,7 +475,7 @@ class ExifWriterService with LoggerMixin {
       if (countGps > 0) {
         exiftoolWrittenGps += countGps;
         exiftoolDurGps += elapsed * (countGps / totalTagged);
-        logDebug('[WRITE-EXIF] GPS written via exiftool (batch): $countGps files');
+        logDebug('[Step 7/8] [WRITE-EXIF] GPS written via exiftool (batch): $countGps files');
       }
 
       // All entries succeeded → count successes and mark unique files by type.
@@ -505,7 +509,7 @@ class ExifWriterService with LoggerMixin {
       }
     } catch (e) {
       // Batch failed as a whole; Step 5 will split and retry per-file.
-      logError('Batch exiftool write failed: $e');
+      logWarning('[Step 7/8] Batch exiftool write failed: $e');
       rethrow;
     }
   }
@@ -546,7 +550,7 @@ class ExifWriterService with LoggerMixin {
       return true;
     } catch (e) {
       nativeFailsDate++;
-      logError('Native JPEG DateTime write failed for ${file.path}: $e');
+      logWarning('[Step 7/8] Native JPEG DateTime write failed for ${file.path}: $e');
       return false;
     }
   }
@@ -582,14 +586,14 @@ class ExifWriterService with LoggerMixin {
       nativeWrittenGps++;
       nativeDurGps += sw.elapsed;
       _markTouched(file, date: false, gps: true);
-      logInfo('[WRITE-EXIF] GPS written natively (JPEG): ${file.path}');
+      logDebug('[Step 7/8] [WRITE-EXIF] GPS written natively (JPEG): ${file.path}');
       // Mirror GPS write stats for WRITE-EXIF-GPS
       _gpsWrittenNative++;
       return true;
     } catch (e) {
       nativeFailsGps++;
       _gpsMissNative++;
-      logError('Native JPEG GPS write failed for ${file.path}: $e');
+      logWarning('[Step 7/8] Native JPEG GPS write failed for ${file.path}: $e');
       return false;
     }
   }
@@ -633,14 +637,14 @@ class ExifWriterService with LoggerMixin {
       nativeWrittenCombined++;
       nativeDurCombined += sw.elapsed;
       _markTouched(file, date: true, gps: true);
-      logInfo('[WRITE-EXIF] Date+GPS written natively (JPEG): ${file.path}');
+      logDebug('[Step 7/8] [WRITE-EXIF] Date+GPS written natively (JPEG): ${file.path}');
       // Mirror GPS write stats for WRITE-EXIF-GPS
       _gpsWrittenNative++;
       return true;
     } catch (e) {
       nativeFailsCombined++;
       _gpsMissNative++; // combined includes GPS attempt
-      logError('Native JPEG combined write failed for ${file.path}: $e');
+      logWarning('[Step 7/8] Native JPEG combined write failed for ${file.path}: $e');
       return false;
     }
   }

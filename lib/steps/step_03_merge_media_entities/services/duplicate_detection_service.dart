@@ -45,9 +45,7 @@ class DuplicateDetectionService with LoggerMixin {
       _recentPerformanceMetrics.removeAt(0);
     }
 
-    logDebug(
-      'Performance: ${filesPerSecond.toStringAsFixed(1)} files/sec, adaptive concurrency: $adaptiveConcurrency',
-    );
+    // logDebug('[Step 3/8] Performance: ${filesPerSecond.toStringAsFixed(1)} files/sec, adaptive concurrency: $adaptiveConcurrency');
   }
 
   /// Groups media entities by file size and hash for duplicate detection with caching
@@ -74,12 +72,9 @@ class DuplicateDetectionService with LoggerMixin {
 
     // Step 1: Calculate all sizes in parallel with optimal batching
     final sizeResults = <({MediaEntity media, int size})>[];
-    final batchSize = (adaptiveConcurrency * 1.5)
-        .round(); // Use adaptive concurrency
+    final batchSize = (adaptiveConcurrency * 1.5).round(); // Use adaptive concurrency
 
-    logDebug(
-      'Starting $batchSize threads (duplicate size batching concurrency)',
-    );
+    logDebug('[Step 3/8] Starting $batchSize threads (duplicate size batching concurrency)');
 
     for (int i = 0; i < mediaList.length; i += batchSize) {
       final batch = mediaList.skip(i).take(batchSize);
@@ -106,7 +101,7 @@ class DuplicateDetectionService with LoggerMixin {
       if (mediaList.length > 1000) {
         final processed = math.min(i + batchSize, mediaList.length);
         final progress = (processed / mediaList.length * 100).clamp(0, 100);
-        logDebug('Size calculation progress: ${progress.toStringAsFixed(1)}%');
+        logDebug('[Step 3/8] Size calculation progress: ${progress.toStringAsFixed(1)}%');
       }
     }
 
@@ -118,9 +113,7 @@ class DuplicateDetectionService with LoggerMixin {
           .add(entry.media);
     }
 
-    logDebug(
-      'Grouped ${mediaList.length} files into ${sizeGroups.length} size groups',
-    );
+    logDebug('[Step 3/8] Grouped ${mediaList.length} files into ${sizeGroups.length} size groups');
 
     // Step 2: Calculate hashes in parallel for groups with multiple files
     int hashCalculationsNeeded = 0;
@@ -141,9 +134,7 @@ class DuplicateDetectionService with LoggerMixin {
         // Use adaptive batch size for hash calculation
         final hashBatchSize = adaptiveConcurrency;
 
-        logDebug(
-          'Starting $hashBatchSize threads (duplicate hash batching concurrency)',
-        );
+        logDebug('[Step 3/8] Starting $hashBatchSize threads (duplicate hash batching concurrency)');
 
         for (int i = 0; i < mediaWithSameSize.length; i += hashBatchSize) {
           final batch = mediaWithSameSize.skip(i).take(hashBatchSize);
@@ -176,9 +167,7 @@ class DuplicateDetectionService with LoggerMixin {
               0,
               100,
             );
-            logDebug(
-              'Hash calculation progress for ${sameSize.key}bytes group: ${progress.toStringAsFixed(1)}%',
-            );
+            // logDebug('[Step 3/8] Hash calculation progress for ${sameSize.key}bytes group: ${progress.toStringAsFixed(1)}%');
           }
         }
 
@@ -199,12 +188,10 @@ class DuplicateDetectionService with LoggerMixin {
 
     // Log performance statistics
     final cacheStats = _hashService.getCacheStats();
-    logInfo(
-      'Duplicate detection completed in ${stopwatch.elapsed.inMilliseconds}ms',
-    );
-    logInfo('Files with unique sizes: $uniqueSizeFiles');
-    logInfo('Files requiring hash calculation: $hashCalculationsNeeded');
-    logInfo('Cache statistics: $cacheStats');
+    logDebug('[Step 3/8] Duplicate detection completed in ${stopwatch.elapsed.inMilliseconds}ms');
+    logDebug('[Step 3/8] Files with unique sizes: $uniqueSizeFiles');
+    logDebug('[Step 3/8] Files requiring hash calculation: $hashCalculationsNeeded');
+    logDebug('[Step 3/8] Cache statistics: $cacheStats');
 
     // Count and log duplicate groups found
     final duplicateGroups = output.values.where(
@@ -269,11 +256,9 @@ class DuplicateDetectionService with LoggerMixin {
 
         if (duplicatesToRemove.isNotEmpty) {
           final keptFile = best.primaryFile.sourcePath;
-          logDebug('Found ${group.length} identical files, keeping: $keptFile');
+          logDebug('[Step 3/8] Found ${group.length} identical files, keeping: $keptFile');
           for (final duplicate in duplicatesToRemove) {
-            logDebug(
-              '  Removing duplicate: ${duplicate.primaryFile.sourcePath}',
-            );
+            logDebug('[Step 3/8]   Removing duplicate: ${duplicate.primaryFile.sourcePath}');
           }
         }
       }
@@ -282,13 +267,11 @@ class DuplicateDetectionService with LoggerMixin {
       progressCallback?.call(processed, grouped.length);
     }
 
-    logInfo(
-      'Duplicate removal completed: removed $duplicatesRemoved files, kept ${result.length}',
-    );
+    logInfo('Duplicate removal completed: removed $duplicatesRemoved files, kept ${result.length}');
 
     // Log cache performance
     final cacheStats = _hashService.getCacheStats();
-    logInfo('Final cache statistics: $cacheStats');
+    logDebug('[Step 3/8] Final cache statistics: $cacheStats');
 
     return result;
   }
@@ -433,9 +416,7 @@ class DuplicateDetectionService with LoggerMixin {
     final Map<String, List<MediaEntity>> output = <String, List<MediaEntity>>{};
     final stopwatch = Stopwatch()..start();
 
-    logDebug(
-      'Starting FAST duplicate detection for ${mediaList.length} files...',
-    );
+    // logDebug('[Step 3/8] Starting FAST duplicate detection for ${mediaList.length} files...');
 
     // Phase 1: group by size (reuse existing logic but inline to avoid extra maps)
     final sizeResults = <({MediaEntity media, int size})>[];
@@ -475,7 +456,7 @@ class DuplicateDetectionService with LoggerMixin {
           .add(entry.media);
     }
 
-    logDebug('FAST mode: ${sizeGroups.length} size groups');
+    // logDebug('[Step 3/8] FAST mode: ${sizeGroups.length} size groups');
 
     // Phase 2: inside each size group, tri-sample fingerprint, then full hash
     int fullHashes = 0;
@@ -545,14 +526,10 @@ class DuplicateDetectionService with LoggerMixin {
     _recordPerformance(mediaList.length, stopwatch.elapsed);
 
     final cacheStats = _hashService.getCacheStats();
-    logDebug(
-      'FAST duplicate detection completed in ${stopwatch.elapsed.inMilliseconds}ms',
-    );
-    logDebug(
-      'FAST mode: files hashed fully: $fullHashes (remainder filtered by fingerprint)',
-    );
-    logDebug('FAST mode: files with unique sizes: $uniqueBySize');
-    logDebug('Cache statistics: $cacheStats');
+    // logDebug('[Step 3/8] FAST duplicate detection completed in ${stopwatch.elapsed.inMilliseconds}ms');
+    // logDebug('[Step 3/8] FAST mode: files hashed fully: $fullHashes (remainder filtered by fingerprint)');
+    // logDebug('[Step 3/8] FAST mode: files with unique sizes: $uniqueBySize');
+    // logDebug('[Step 3/8] Cache statistics: $cacheStats');
 
     final duplicateGroups = output.values.where((final g) => g.length > 1);
     final totalDuplicates = duplicateGroups.fold<int>(
@@ -560,9 +537,7 @@ class DuplicateDetectionService with LoggerMixin {
       (final s, final g) => s + g.length - 1,
     );
     if (duplicateGroups.isNotEmpty) {
-      logDebug(
-        'FAST mode found ${duplicateGroups.length} duplicate groups with $totalDuplicates duplicate files',
-      );
+      // logDebug('[Step 3/8] FAST mode found ${duplicateGroups.length} duplicate groups with $totalDuplicates duplicate files');
     }
 
     return output;

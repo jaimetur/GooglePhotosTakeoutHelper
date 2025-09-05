@@ -24,7 +24,7 @@ enum _NoOffsetPolicy {
 /// Fast + instrumented EXIF Date extractor (4.2.2 behavior preserved),
 /// with robust, timezone-aware ExifTool parsing and optional dictionary lookup.
 class ExifDateExtractor with LoggerMixin {
-  ExifDateExtractor(this.exiftool);
+  const ExifDateExtractor(this.exiftool);
   final ExifToolService? exiftool;
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -69,10 +69,10 @@ class ExifDateExtractor with LoggerMixin {
     final LoggerMixin? loggerMixin,
     final bool exiftoolFallbackEnabled = false,
   }) {
-    final lineCalls     = '\t[READ-EXIF] Calls=$_total | videos=$_videoDirect | nativeSupported=$_nativeSupported | unsupported=$_nativeUnsupported';
-    final lineDict      = '\t[READ-EXIF] ExternalDict: tried=$_dictTried, hit=$_dictHit, miss=$_dictMiss, time=${_fmtSec(_dictDuration)}';
-    final lineNative    = '\t[READ-EXIF] Native: tried=$_nativeTried, hit=$_nativeHit, miss=$_nativeMiss, headReads=$_nativeHeadReads, fullReads=$_nativeFullReads, time=${_fmtSec(_nativeDuration)}';
-    final lineExiftool  = '\t[READ-EXIF] Exiftool: directTried=$_exiftoolDirectTried , directHit=$_exiftoolDirectHit, fallbackTried=$_exiftoolFallbackTried, fallbackHit=$_exiftoolFallbackHit, errors=$_exiftoolFail, time=${_fmtSec(_exiftoolDuration)} (exiftoolFallbackEnabled = $exiftoolFallbackEnabled)';
+    final lineCalls     = '[Step 4/8] \t[READ-EXIF] Calls=$_total | videos=$_videoDirect | nativeSupported=$_nativeSupported | unsupported=$_nativeUnsupported';
+    final lineDict      = '[Step 4/8] \t[READ-EXIF] ExternalDict: tried=$_dictTried, hit=$_dictHit, miss=$_dictMiss, time=${_fmtSec(_dictDuration)}';
+    final lineNative    = '[Step 4/8] \t[READ-EXIF] Native: tried=$_nativeTried, hit=$_nativeHit, miss=$_nativeMiss, headReads=$_nativeHeadReads, fullReads=$_nativeFullReads, time=${_fmtSec(_nativeDuration)}';
+    final lineExiftool  = '[Step 4/8] \t[READ-EXIF] Exiftool: directTried=$_exiftoolDirectTried , directHit=$_exiftoolDirectHit, fallbackTried=$_exiftoolFallbackTried, fallbackHit=$_exiftoolFallbackHit, errors=$_exiftoolFail, time=${_fmtSec(_exiftoolDuration)} (exiftoolFallbackEnabled = $exiftoolFallbackEnabled)';
 
     // Only show the dictionary stats line when a global jsonDatesDictionary is present
     bool showDictLine = false;
@@ -83,7 +83,6 @@ class ExifDateExtractor with LoggerMixin {
     }
 
     if (loggerMixin != null) {
-      print('');
       loggerMixin.logInfo('[Step 4/8] Telemetry Summary:', forcePrint: true);
       loggerMixin.logInfo(lineCalls, forcePrint: true);
       if (showDictLine) {
@@ -91,17 +90,14 @@ class ExifDateExtractor with LoggerMixin {
       }
       loggerMixin.logInfo(lineNative, forcePrint: true);
       loggerMixin.logInfo(lineExiftool, forcePrint: true);
-      print('');
     } else {
-      print('');
-      print('[Step 4/8] Telemetry Summary');
-      print(lineCalls);
+      LoggingService().printPlain('[Step 4/8] Telemetry Summary:');
+      LoggingService().printPlain(lineCalls);
       if (showDictLine) {
-        print(lineDict);
+        LoggingService().printPlain(lineDict);
       }
-      print(lineNative);
-      print(lineExiftool);
-      print('');
+      LoggingService().printPlain(lineNative);
+      LoggingService().printPlain(lineExiftool);
     }
 
     if (reset) {
@@ -160,16 +156,14 @@ class ExifDateExtractor with LoggerMixin {
       } else {
         _dictMiss++;
         // Also print the path of the file that was not found in the dictionary
-        logInfo('Dates dictionary miss for file: ${file.path}');
+        logWarning('[Step 4/8] Dates dictionary miss for file: ${file.path}');
       }
     }
 
     // 2) Guard against large files only if dictionary did not resolve the date.
     if (await file.length() > defaultMaxFileSize &&
         globalConfig.enforceMaxFileSize) {
-      logError(
-        'The file is larger than the maximum supported file size of ${defaultMaxFileSize.toString()} bytes. File: ${file.path}',
-      );
+      logError('[Step 4/8] The file is larger than the maximum supported file size of ${defaultMaxFileSize.toString()} bytes. File: ${file.path}');
       return null;
     }
 
@@ -197,9 +191,7 @@ class ExifDateExtractor with LoggerMixin {
           _exiftoolFail++;
         }
       }
-      logWarning(
-        'Reading exif from ${file.path} with mimeType $mimeType skipped. Only supported with ExifTool.',
-      );
+      logWarning('[Step 4/8] Reading exif from ${file.path} with mimeType $mimeType skipped. Only supported with ExifTool.');
       return null;
     }
 
@@ -208,7 +200,7 @@ class ExifDateExtractor with LoggerMixin {
       _nativeTried++;
 
       final sw = Stopwatch()..start();
-      result = await _nativeExif_readerExtractor(file, mimeType: mimeType);
+      result = await _nativeExifExtractor(file, mimeType: mimeType);
       _nativeDuration += sw.elapsed;
 
       if (result != null) {
@@ -222,9 +214,7 @@ class ExifDateExtractor with LoggerMixin {
           globalConfig.fallbackToExifToolOnNativeMiss == true &&
           exiftool != null) {
         _exiftoolFallbackTried++;
-        logWarning(
-          'Native exif_reader failed to extract DateTime from ${file.path} ($mimeType). Falling back to ExifTool.',
-        );
+        logWarning('[Step 4/8] Native exif_reader failed to extract DateTime from ${file.path} ($mimeType). Falling back to ExifTool.');
         final sw2 = Stopwatch()..start();
         result = await _exifToolExtractor(file);
         _exiftoolDuration += sw2.elapsed;
@@ -254,17 +244,11 @@ class ExifDateExtractor with LoggerMixin {
     }
 
     if (mimeType == 'image/jpeg') {
-      logWarning(
-        '${file.path} has a mimeType of $mimeType. However, could not read it with exif_reader. The file may be corrupt.',
-      );
+      logWarning('[Step 4/8] ${file.path} has a mimeType of $mimeType. However, could not read it with exif_reader. The file may be corrupt.');
     } else if (globalConfig.exifToolInstalled == true) {
-      logError(
-        "$mimeType is an unusual mime type we can't handle natively. Please create an issue if you get this often.",
-      );
+      logError('[Step 4/8] $mimeType is an unusual mime type we cannot handle natively. Please create an issue if you get this often.');
     } else {
-      logWarning(
-        'Reading exif from ${file.path} with mimeType $mimeType skipped. Reading from this kind of file is likely only supported with exiftool.',
-      );
+      logWarning('[Step 4/8] Reading exif from ${file.path} with mimeType $mimeType skipped. Reading from this kind of file is likely only supported with exiftool.');
     }
     return null;
   }
@@ -316,9 +300,7 @@ class ExifDateExtractor with LoggerMixin {
       // Not found
       return null;
     } catch (e) {
-      logWarning(
-        'Failed to read from dates dictionary for "${file.path}": $e. Continuing with normal extraction.',
-      );
+      logWarning('[Step 4/8] Failed to read from dates dictionary for "${file.path}": $e. Continuing with normal extraction.');
       return null;
     }
   }
@@ -413,21 +395,19 @@ class ExifDateExtractor with LoggerMixin {
       }
 
       if (bestUtc == null) {
-        logWarning(
-          'ExifTool did not return an acceptable DateTime for ${file.path}.',
-        );
+        logWarning('[Step 4/8] ExifTool did not return an acceptable DateTime for ${file.path}.');
         return null;
       }
 
       return bestUtc; // return UTC-aware value
     } catch (e) {
-      logError('exiftool read failed: $e');
+      logWarning('[Step 4/8] Exiftool read failed: $e');
       return null;
     }
   }
 
   /// Extract DateTime using native exif_reader with smart reads (head-only vs full).
-  Future<DateTime?> _nativeExif_readerExtractor(
+  Future<DateTime?> _nativeExifExtractor(
     final File file, {
     required final String? mimeType,
   }) async {
