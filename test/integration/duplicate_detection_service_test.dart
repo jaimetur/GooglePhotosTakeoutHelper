@@ -360,7 +360,7 @@ class MockMediaHashService implements MediaHashService {
   void logDebug(final String message, {final bool forcePrint = false}) {}
 
   @override
-  void logPrint(final String message) {}
+  void logPrint(final String message, {final bool forcePrint = true}) {}
 
   void mockFileSize(final File file, final int size) {
     _fileSizes[file] = size;

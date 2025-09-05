@@ -1,3 +1,4 @@
+import 'dart:ffi' as ffi;
 import 'dart:io';
 import 'dart:isolate';
 
@@ -15,6 +16,9 @@ class WindowsSymlinkService with LoggerMixin {
   /// Creates a new instance of WindowsSymlinkService
   WindowsSymlinkService();
 
+  // Remember strategy: null = unknown, true = go straight to .lnk fallback, false = try native first
+  static bool? _preferShortcutFallback;
+
   /// Creates a Windows symbolic link using native Win32 API
   ///
   /// [symlinkPath] Path where the symbolic link will be created
@@ -28,10 +32,13 @@ class WindowsSymlinkService with LoggerMixin {
       throw UnsupportedError('This service is only supported on Windows');
     }
 
+    // NOTE: Do not throw for unsupported volumes; prefer automatic fallback to .lnk.
+    final bool volumeSupportsSymlinks = supportsSymlinksAt(symlinkPath);
+    if (!volumeSupportsSymlinks) _preferShortcutFallback = true;
+
     // Ensure target path is absolute
-    final String absoluteTargetPath = p.isAbsolute(targetPath)
-        ? targetPath
-        : p.absolute(targetPath);
+    final String absoluteTargetPath =
+        p.isAbsolute(targetPath) ? targetPath : p.absolute(targetPath);
 
     // Thread-safe directory creation with retry logic for race conditions
     final Directory parentDir = Directory(p.dirname(symlinkPath));
@@ -40,14 +47,88 @@ class WindowsSymlinkService with LoggerMixin {
     // Thread-safe target existence verification with retry
     await _verifyTargetExistsSafe(absoluteTargetPath);
 
-    // Create symlink using Win32 API, fall back to Dart's Link if needed
+    // If we already know native symlink is not viable, go straight to Windows Shortcut (.lnk)
+    if (_preferShortcutFallback == true) {
+      await _createWindowsShortcut(symlinkPath, absoluteTargetPath);
+      return;
+    }
+
+    // Try native symlink first
     try {
       await _createSymlinkNative(symlinkPath, absoluteTargetPath);
+      _preferShortcutFallback = false; // native path works in this environment
+      return;
     } catch (e) {
-      logDebug('Win32 symlink creation failed, falling back to Dart Link: $e');
-      // Fall back to Dart's Link implementation
-      await _createSymlinkDart(symlinkPath, absoluteTargetPath);
+      logDebug('Win32 symlink creation failed: $e');
+      // Classify common causes to remember and switch to .lnk without failing the test flow.
+      final String msg = e.toString();
+      final bool privilegeError = msg.contains('0x522') || msg.contains('1314') || msg.contains('PRIVILEGE_NOT_HELD');
+      final bool invalidFunction = msg.contains('0x1') || msg.contains('Incorrect function');
+      final bool notSupported = msg.contains('0x32') || msg.contains('ERROR_NOT_SUPPORTED');
+
+      if (privilegeError || invalidFunction || notSupported || !volumeSupportsSymlinks) {
+        _preferShortcutFallback = true;
+        try {
+          await _createWindowsShortcut(symlinkPath, absoluteTargetPath);
+          return;
+        } catch (e2) {
+          throw Exception('Failed to create Windows Shortcut after native symlink failed: $e2');
+        }
+      }
+
+      logDebug('Unexpected Win32 error, attempting Dart Link then .lnk fallback: $e');
     }
+
+    // Fallback to Dart Link (thin wrapper). If it also fails, drop to .lnk and remember.
+    try {
+      await _createSymlinkDart(symlinkPath, absoluteTargetPath);
+      _preferShortcutFallback = false;
+    } catch (e) {
+      logDebug('Dart Link symlink creation failed, falling back to Windows Shortcut: $e');
+      _preferShortcutFallback = true;
+      await _createWindowsShortcut(symlinkPath, absoluteTargetPath);
+    }
+  }
+
+  /// Returns true if the underlying volume for [path] supports reparse points
+  /// (i.e., Windows symbolic links / junctions). Uses GetVolumeInformationW
+  /// and checks FILE_SUPPORTS_REPARSE_POINTS.
+  static bool supportsSymlinksAt(final String path) {
+    if (!Platform.isWindows) return false;
+
+    // Resolve to a volume root like "C:\" or "D:\"
+    final String abs = p.isAbsolute(path) ? path : p.absolute(path);
+    String root = p.rootPrefix(abs);
+    if (root.isEmpty) {
+      final m = RegExp(r'^[A-Za-z]:[\\/]').firstMatch(abs);
+      if (m != null) root = m.group(0)!;
+    }
+    if (root.isEmpty) return false;
+    if (!root.endsWith('\\') && !root.endsWith('/')) root = '$root\\';
+
+    return using((final Arena arena) {
+      final rootPtr = root.toNativeUtf16(allocator: arena);
+
+      // Allocate a DWORD (Uint32) for the file system flags
+      final flagsPtr = arena.allocate<ffi.Uint32>(ffi.sizeOf<ffi.Uint32>());
+
+      final ok = GetVolumeInformation(
+        rootPtr,
+        ffi.nullptr, // lpVolumeNameBuffer
+        0,           // nVolumeNameSize
+        ffi.nullptr, // lpVolumeSerialNumber
+        ffi.nullptr, // lpMaximumComponentLength
+        flagsPtr,    // lpFileSystemFlags
+        ffi.nullptr, // lpFileSystemNameBuffer
+        0,           // nFileSystemNameSize
+      );
+
+      if (ok == 0) return false;
+
+      // Use lowerCamelCase to avoid lint warnings.
+      const int fileSupportsReparsePoints = 0x00000080;
+      return (flagsPtr.value & fileSupportsReparsePoints) != 0;
+    });
   }
 
   /// Safely ensures a directory exists, handling race conditions
@@ -151,9 +232,7 @@ class WindowsSymlinkService with LoggerMixin {
         );
       }
 
-      logDebug(
-        'Successfully created symbolic link: $symlinkPath -> $targetPath',
-      );
+      logDebug('Successfully created symbolic link: $symlinkPath -> $targetPath');
     });
   }
 
@@ -179,8 +258,45 @@ class WindowsSymlinkService with LoggerMixin {
 
     final link = await Link(symlinkPath).create(targetRelativePath);
 
-    logDebug(
-      'Successfully created symbolic link using Dart Link: ${link.path} -> $targetRelativePath',
-    );
+    logDebug('Successfully created symbolic link using Dart Link: ${link.path} -> $targetRelativePath');
   }
+
+  /// Creates a Windows Shell Shortcut (.lnk) pointing to [targetPath].
+  /// This method does not require admin privileges and works on volumes without reparse points.
+  /// If [symlinkPath] does not end with .lnk or .url, a ".lnk" suffix will be appended automatically.
+  Future<void> _createWindowsShortcut(
+    final String symlinkPath,
+    final String targetPath,
+  ) async {
+    final String workDir = p.dirname(targetPath);
+
+    // Ensure a valid shortcut extension (.lnk or .url). Default to .lnk.
+    String outPath = symlinkPath;
+    final String lower = outPath.toLowerCase();
+    final bool hasValidExt = lower.endsWith('.lnk') || lower.endsWith('.url');
+    if (!hasValidExt) outPath = '$outPath.lnk';
+
+    // Escape quotes for PowerShell string literals
+    String esc(final String s) => s.replaceAll('"', '""');
+
+    // Build PowerShell script using interpolation (avoid '+' concatenation).
+    final String script =
+        '\$WshShell = New-Object -ComObject WScript.Shell;'
+        '\$s = \$WshShell.CreateShortcut("${esc(outPath)}");'
+        '\$s.TargetPath = "${esc(targetPath)}";'
+        '\$s.WorkingDirectory = "${esc(workDir)}";'
+        '\$s.Save();';
+
+    final proc = await Process.run(
+      'powershell.exe',
+      ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script],
+    );
+
+    if (proc.exitCode != 0) {
+      throw Exception('Failed to create Windows Shortcut: ${proc.stderr}');
+    }
+
+    logDebug('Successfully created Windows Shortcut: $outPath -> $targetPath');
+  }
+
 }

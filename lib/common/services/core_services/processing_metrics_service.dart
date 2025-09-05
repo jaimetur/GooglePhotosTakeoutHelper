@@ -8,36 +8,46 @@ class ProcessingMetricsService {
   /// Calculates total number of output artifacts based on album behavior.
   ///
   /// New immutable model semantics:
-  /// - "shortcut" / "duplicate-copy" / "reverse-shortcut":
+  /// - "shortcut"  / "reverse-shortcut":
   ///   1 output for the primary + one artifact per album membership.
-  /// - "json": one record per entity.
-  /// - "nothing": only entities that originally lived in year-based folders.
+  /// - "json": one record per primary entity.
+  /// - "nothing": only primary entities (those thatoriginally lived in year-based folders).
+  /// - "duplicate-copy":
+  ///   1 record for each primary and one record per each secondary
+  ///
+  /// UPDATE (counting rule used by this function):
+  /// - We count generated items as follows:
+  ///   * "shortcut" / "reverse-shortcut": 1 physical file (primary) + one SHORTCUT per secondary (shortcuts are counted).
+  ///   * "json" / "nothing": 1 physical file per primary.
+  ///   * "duplicate-copy": 1 physical file per primary + 1 physical file per secondary.
   int calculateOutputFileCount(
     final MediaEntityCollection collection,
     final String albumOption,
   ) {
     switch (albumOption) {
       case 'shortcut':
-      case 'duplicate-copy':
       case 'reverse-shortcut':
         {
           int total = 0;
           for (final MediaEntity e in collection.media) {
-            total += 1 + e.albumNames.length;
+            total += 1 + e.secondaryCount; // 1 physical primary + N shortcuts (counted)
           }
           return total;
         }
-      case 'json':
-        return collection.media.length;
 
-      case 'nothing':
+      case 'duplicate-copy':
         {
           int total = 0;
           for (final MediaEntity e in collection.media) {
-            if (_entityHasYearBasedFiles(e)) total++;
+            total += 1 + e.secondaryCount; // 1 physical primary + N physical copies
           }
           return total;
         }
+
+      case 'json':
+      case 'nothing':
+        // 1 physical file per primary entity
+        return collection.media.length;
 
       default:
         throw ArgumentError.value(
@@ -47,6 +57,8 @@ class ProcessingMetricsService {
         );
     }
   }
+
+
 
   /// Calculates basic statistics for the current collection.
   ///
@@ -97,27 +109,4 @@ class ProcessingMetricsService {
     return stats;
   }
 
-  // --------------------------------------------------------------------------
-  // Helpers (kept local so this file does not depend on MediaEntity extensions)
-  // --------------------------------------------------------------------------
-
-  /// Heuristic: returns true if any of the entity's paths look like a Google
-  /// Takeout year-based folder (e.g., ".../Photos from 2019/...").
-  bool _entityHasYearBasedFiles(final MediaEntity e) {
-    if (_pathLooksYearBased(e.primaryFile.path)) return true;
-    for (final f in e.secondaryFiles) {
-      if (_pathLooksYearBased(f.path)) return true;
-    }
-    return false;
-  }
-
-  bool _pathLooksYearBased(final String p) {
-    final s = p.replaceAll('\\', '/').toLowerCase();
-    // Common localized patterns for Google Takeout year folders
-    if (RegExp(r'/photos from \d{4}/').hasMatch(s)) return true; // English
-    if (RegExp(r'/fotos de \d{4}/').hasMatch(s)) return true; // Spanish
-    if (RegExp(r'/fotos del \d{4}/').hasMatch(s)) return true; // Spanish alt.
-    if (RegExp(r'/fotos desde \d{4}/').hasMatch(s)) return true; // Spanish alt.
-    return false;
-  }
 }

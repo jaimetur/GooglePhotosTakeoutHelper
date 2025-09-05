@@ -55,6 +55,12 @@ class MediaEntity {
 
     final normalized = _normalizeAndSplit(all);
 
+    // Ensure albumsMap is enriched with non-canonical files discovered in this entity.
+    final updatedAlbums = _augmentAlbumsForNonCanonical(
+      albumsMap ?? const {},
+      <FileEntity>[normalized.primary, ...normalized.secondaries, ...normalized.duplicates],
+    );
+
     return MediaEntity._internal(
       primaryFile: normalized.primary,
       secondaryFiles: normalized.secondaries,
@@ -63,7 +69,7 @@ class MediaEntity {
       dateAccuracy: dateAccuracy,
       dateTimeExtractionMethod: dateTimeExtractionMethod,
       partnerShared: partnershared,
-      albumsMap: albumsMap ?? const {},
+      albumsMap: updatedAlbums,
     );
   }
 
@@ -329,6 +335,12 @@ class MediaEntity {
 
     final normalized = _normalizeAndSplit(mergedAll);
 
+    // Enrich merged album metadata using any non-canonical files present in the merged entity.
+    final mergedAlbumsUpdated = _augmentAlbumsForNonCanonical(
+      mergedAlbums,
+      <FileEntity>[normalized.primary, ...normalized.secondaries, ...normalized.duplicates],
+    );
+
     return MediaEntity._internal(
       primaryFile: normalized.primary,
       secondaryFiles: normalized.secondaries,
@@ -337,7 +349,7 @@ class MediaEntity {
       dateAccuracy: bestAccuracy,
       dateTimeExtractionMethod: bestMethod,
       partnerShared: partnerShared || other.partnerShared,
-      albumsMap: mergedAlbums,
+      albumsMap: mergedAlbumsUpdated,
     );
   }
 
@@ -390,19 +402,18 @@ class MediaEntity {
     Object.hashAllUnordered(duplicatesFiles.map(_fileIdentityKey)),
   );
 
-  @override
-  String toString() {
-    final dateInfo = dateTaken != null ? ', dateTaken: $dateTaken' : '';
-    final accuracyInfo = dateAccuracy != null
-        ? ' (${dateAccuracy!.description})'
-        : '';
-    final partnerInfo = partnerShared ? ', partnershared: true' : '';
-    final albumsCount = albumNames.length;
-    final secondaries = secondaryFiles.length;
-    final duplicates = duplicatesFiles.length;
-    return 'MediaEntity(${primaryFile.sourcePath}$dateInfo$accuracyInfo, '
-        'albums: $albumsCount, secondaries: $secondaries, duplicates: $duplicates$partnerInfo)';
-  }
+@override
+String toString() {
+  final dateInfo = dateTaken != null ? ', dateTaken: $dateTaken' : '';
+  final accuracyInfo = dateAccuracy != null ? ' (${dateAccuracy!.description})' : '';
+  final albumsCount = albumNames.length;
+  final secondaries = secondaryFiles.length;
+  final duplicates = duplicatesFiles.length;
+  // Always print partnerShared in camelCase and include the flag even when false.
+  return 'MediaEntity(${primaryFile.sourcePath}$dateInfo$accuracyInfo, '
+      'albums: $albumsCount, secondaries: $secondaries, duplicates: $duplicates, partnerShared: $partnerShared)';
+}
+
 
   // ===== Private helpers =====
 
@@ -604,16 +615,46 @@ class MediaEntity {
     return false;
   }
 
-  MediaEntity _copyWithFiles(final _SplitResult norm) => MediaEntity._internal(
-    primaryFile: norm.primary,
-    secondaryFiles: norm.secondaries,
-    duplicatesFiles: norm.duplicates,
-    dateTaken: dateTaken,
-    dateAccuracy: dateAccuracy,
-    dateTimeExtractionMethod: dateTimeExtractionMethod,
-    partnerShared: partnerShared,
-    albumsMap: albumsMap,
-  );
+  /// Enriches the albums map using every non-canonical file in [files].
+  /// Album name is inferred from the parent directory name of each file.
+  static Map<String, AlbumInfo> _augmentAlbumsForNonCanonical(
+    final Map<String, AlbumInfo> base,
+    final List<FileEntity> files,
+  ) {
+    if (files.isEmpty) return base;
+    final next = Map<String, AlbumInfo>.from(base);
+    for (final f in files) {
+      if (f.isCanonical) continue; // Only enrich from non-canonical files
+      final dir = _dirOf(f.sourcePath);
+      if (dir.isEmpty) continue;
+      final albumName = _basenameOf(dir);
+      if (albumName.isEmpty) continue;
+
+      final existing = next[albumName];
+      next[albumName] = existing == null
+          ? AlbumInfo(name: albumName, sourceDirectories: {dir})
+          : existing.addSourceDir(dir);
+    }
+    return next;
+  }
+
+  MediaEntity _copyWithFiles(final _SplitResult norm) {
+    // Auto-augment albums metadata with any non-canonical files present in this new shape.
+    final updatedAlbums = _augmentAlbumsForNonCanonical(
+      albumsMap,
+      <FileEntity>[norm.primary, ...norm.secondaries, ...norm.duplicates],
+    );
+    return MediaEntity._internal(
+      primaryFile: norm.primary,
+      secondaryFiles: norm.secondaries,
+      duplicatesFiles: norm.duplicates,
+      dateTaken: dateTaken,
+      dateAccuracy: dateAccuracy,
+      dateTimeExtractionMethod: dateTimeExtractionMethod,
+      partnerShared: partnerShared,
+      albumsMap: updatedAlbums,
+    );
+  }
 }
 
 /// Helper container for normalized split.

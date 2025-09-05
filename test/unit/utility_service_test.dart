@@ -142,21 +142,15 @@ void main() {
         final f1 = fixture.createFile('2023/test1.jpg', [9]);
         final media1 = MediaEntity.single(file: FileEntity(sourcePath: f1.path));
 
-        // media2: album-only (no year) → does NOT count for "nothing"
+        // media2: album-only (no year) → also count for "nothing" with the new strategy implementation because all Albums files are now moved into ALL_PHOTOS folder but no associated to any Album.
         final bytes2 = [10];
         final a21 = fixture.createFile('Albums/Album1/test2.jpg', bytes2);
-        final media2 = (await albumSvc.detectAndMergeAlbums([
-          MediaEntity.single(file: FileEntity(sourcePath: a21.path)),
-        ]))
-            .single;
+        final media2 = (await albumSvc.detectAndMergeAlbums([MediaEntity.single(file: FileEntity(sourcePath: a21.path))])).single;
 
-        final count = service.calculateOutputFileCount(
-          [media1, media2],
-          'nothing',
-        );
+        final count = service.calculateOutputFileCount([media1, media2], 'nothing');
 
-        // Only count year-based → 1
-        expect(count, equals(1));
+        // Expected 1 + 1 → 2
+        expect(count, equals(2));
       });
 
       test('throws ArgumentError for invalid album option', () {
