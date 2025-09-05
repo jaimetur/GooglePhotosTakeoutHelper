@@ -307,7 +307,10 @@ class LoggingService {
   /// Writes a single line to the log file without ANSI control codes.
   void _writeToFile(final String line) {
     try {
-      _fileSink?.writeln(line);
+      // Asynchronous write with flush to avoid lost last lines
+      final String? p = _globalLogFilePath ?? _logFilePath;
+      if (p == null) return;
+      File(p).writeAsStringSync('$line\n', mode: FileMode.append, flush: true);
     } catch (_) {
       // Swallow file I/O errors to avoid breaking the application flow.
     }

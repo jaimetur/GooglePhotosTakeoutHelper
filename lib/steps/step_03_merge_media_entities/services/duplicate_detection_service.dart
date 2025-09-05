@@ -536,9 +536,9 @@ class DuplicateDetectionService with LoggerMixin {
       0,
       (final s, final g) => s + g.length - 1,
     );
-    if (duplicateGroups.isNotEmpty) {
-      // logDebug('[Step 3/8] FAST mode found ${duplicateGroups.length} duplicate groups with $totalDuplicates duplicate files');
-    }
+    // if (duplicateGroups.isNotEmpty) {
+    //   logDebug('[Step 3/8] FAST mode found ${duplicateGroups.length} duplicate groups with $totalDuplicates duplicate files');
+    // }
 
     return output;
   }

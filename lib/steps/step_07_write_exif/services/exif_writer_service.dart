@@ -166,12 +166,12 @@ class ExifWriterService with LoggerMixin {
         nativeFailsCombined;
 
     final lines = <String>[
-      '[Step 7/8] Telemetry Summary:',
-      '[Step 7/8] \t[WRITE-EXIF] Native  : totalFiles=$nativeProcessed, writtenDate=$nativeWrittenDate, writtenGPS=$nativeWrittenGps, writtenCombined=$nativeWrittenCombined, failsDate=$nativeFailsDate, failsGPS=$nativeFailsGps, failsCombined=$nativeFailsCombined, timeDate=${_fmtSec(nativeDurDate)}, timeGPS=${_fmtSec(nativeDurGps)}, timeCombined=${_fmtSec(nativeDurCombined)}',
-      '[Step 7/8] \t[WRITE-EXIF] Exiftool: totalFiles=$exiftoolProcessedFiles, writtenDate=$exiftoolDateWritten, writtenGPS=$exiftoolWrittenGps, writtenCombined=$exiftoolWrittenCombined, failsDate=$exiftoolFailsDate, failsGPS=$exiftoolFailsGps, failsCombined=$exiftoolFailsCombined, timeDate=${_fmtSec(exiftoolDurDate)}, timeGPS=${_fmtSec(exiftoolDurGps)}, timeCombined=${_fmtSec(exiftooDurlCombined)}',
-      '[Step 7/8] \t                       (directTried=$exiftoolDirectFilesTried, fallbackDatesTried=$exiftoolFallbackFilesTried, fallbackCombinedTried=$exiftoolFallbackCombinedTried, exiftoolCalls=$exiftoolCalls), (success=$exiftoolSuccessFiles, fail=$exiftoolFailFiles)',
-      '[Step 7/8] \t[WRITE-EXIF-GPS] Native  : writtenNative=$_gpsWrittenNative, missNative=$_gpsMissNative, nativeTime=${_fmtSec(nativeDurGps + nativeDurCombined)}',
-      '[Step 7/8] \t[WRITE-EXIF-GPS] Exiftool: writtenExifTool=$_gpsWrittenExiftool, missExifTool=$_gpsMissExiftool, exiftoolTime=${_fmtSec(exiftoolDurGps + exiftooDurlCombined)} (fallbackTried=${exiftoolFallbackDateTried + exiftoolFallbackCombinedTried})',
+      '[Step 7/8] === Telemetry Summary ===',
+      '[Step 7/8]     [WRITE-EXIF] Native  : totalFiles=$nativeProcessed, writtenDate=$nativeWrittenDate, writtenGPS=$nativeWrittenGps, writtenCombined=$nativeWrittenCombined, failsDate=$nativeFailsDate, failsGPS=$nativeFailsGps, failsCombined=$nativeFailsCombined, timeDate=${_fmtSec(nativeDurDate)}, timeGPS=${_fmtSec(nativeDurGps)}, timeCombined=${_fmtSec(nativeDurCombined)}',
+      '[Step 7/8]     [WRITE-EXIF] Exiftool: totalFiles=$exiftoolProcessedFiles, writtenDate=$exiftoolDateWritten, writtenGPS=$exiftoolWrittenGps, writtenCombined=$exiftoolWrittenCombined, failsDate=$exiftoolFailsDate, failsGPS=$exiftoolFailsGps, failsCombined=$exiftoolFailsCombined, timeDate=${_fmtSec(exiftoolDurDate)}, timeGPS=${_fmtSec(exiftoolDurGps)}, timeCombined=${_fmtSec(exiftooDurlCombined)}',
+      '[Step 7/8]                            (directTried=$exiftoolDirectFilesTried, fallbackDatesTried=$exiftoolFallbackFilesTried, fallbackCombinedTried=$exiftoolFallbackCombinedTried, exiftoolCalls=$exiftoolCalls), (success=$exiftoolSuccessFiles, fail=$exiftoolFailFiles)',
+      '[Step 7/8]     [WRITE-EXIF-GPS] Native  : writtenNative=$_gpsWrittenNative, missNative=$_gpsMissNative, nativeTime=${_fmtSec(nativeDurGps + nativeDurCombined)}',
+      '[Step 7/8]     [WRITE-EXIF-GPS] Exiftool: writtenExifTool=$_gpsWrittenExiftool, missExifTool=$_gpsMissExiftool, exiftoolTime=${_fmtSec(exiftoolDurGps + exiftooDurlCombined)} (fallbackTried=${exiftoolFallbackDateTried + exiftoolFallbackCombinedTried})',
     ];
     if (logger != null) {
     } else {

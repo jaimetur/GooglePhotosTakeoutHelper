@@ -651,6 +651,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
       final dtPrim = ExifWriterService.uniqueDatePrimaryCount;
       final dtSec = ExifWriterService.uniqueDateSecondaryCount;
 
+      print('');  // print to force new line after progress bar
       if (gpsTotal > 0) {
         logPrint('[Step 7/8] $gpsTotal files got GPS set in EXIF data (primary=$gpsPrim, secondary=$gpsSec)');
       }

@@ -372,16 +372,16 @@ class MediaEntityMovingService with LoggerMixin {
         jsonRefs +
         failures;
 
+    print('');  // print to force new line after progress bar
     const int detailsCol = 50; // starting column for the parenthesis block
     logPrint('[Step 6/8] === Moving Files Summary ===');
-    logPrint('${'[Step 6/8] \tPrimary files moved: $primaryMoves'.padRight(detailsCol)}(ALL_PHOTOS: $primaryMovesAllPhotos, Albums: $primaryMovesAlbums)');
-    logPrint('${'[Step 6/8] \tNon-primary moves: $nonPrimaryMoves'.padRight(detailsCol)}(ALL_PHOTOS: $nonPrimaryMovesAllPhotos, Albums: $nonPrimaryMovesAlbums)');
-    logPrint('${'[Step 6/8] \tDuplicated copies created: ${copiesAllPhotos + copiesAlbums}'.padRight(detailsCol)}(ALL_PHOTOS: $copiesAllPhotos, Albums: $copiesAlbums)');
-    logPrint('${'[Step 6/8] \tSymlinks created: $symlinksCreated'.padRight(detailsCol)}(ALL_PHOTOS: $symlinksAllPhotos, Albums: $symlinksAlbums)');
-    logPrint('${'[Step 6/8] \tJSON refs created: $jsonRefs'.padRight(detailsCol)}(ALL_PHOTOS: $jsonRefsAllPhotos, Albums: $jsonRefsAlbums)');
-    logPrint('${'[Step 6/8] \ttFailures: $failures'.padRight(detailsCol)}(ALL_PHOTOS: $failuresAllPhotos, Albums: $failuresAlbums)');
-    final totalLeft = '[Step 6/8] \tTotal operations: $totalOps${computedOps != totalOps ? ' (computed: $computedOps)' : ''}';
-    logPrint('${totalLeft.padRight(detailsCol)}(ALL_PHOTOS: $totalOpsAllPhotos, Albums: $totalOpsAlbums)');
+    logPrint('${'[Step 6/8]     Primary files moved: $primaryMoves'.padRight(detailsCol)}(ALL_PHOTOS: $primaryMovesAllPhotos, Albums: $primaryMovesAlbums)');
+    logPrint('${'[Step 6/8]     Non-primary moves: $nonPrimaryMoves'.padRight(detailsCol)}(ALL_PHOTOS: $nonPrimaryMovesAllPhotos, Albums: $nonPrimaryMovesAlbums)');
+    logPrint('${'[Step 6/8]     Duplicated copies created: ${copiesAllPhotos + copiesAlbums}'.padRight(detailsCol)}(ALL_PHOTOS: $copiesAllPhotos, Albums: $copiesAlbums)');
+    logPrint('${'[Step 6/8]     Symlinks created: $symlinksCreated'.padRight(detailsCol)}(ALL_PHOTOS: $symlinksAllPhotos, Albums: $symlinksAlbums)');
+    logPrint('${'[Step 6/8]     JSON refs created: $jsonRefs'.padRight(detailsCol)}(ALL_PHOTOS: $jsonRefsAllPhotos, Albums: $jsonRefsAlbums)');
+    logPrint('${'[Step 6/8]     Failures: $failures'.padRight(detailsCol)}(ALL_PHOTOS: $failuresAllPhotos, Albums: $failuresAlbums)');
+    logPrint('${'[Step 6/8]     Total operations: $totalOps${computedOps != totalOps ? ' (computed: $computedOps)' : ''}'.padRight(detailsCol)}(ALL_PHOTOS: $totalOpsAllPhotos, Albums: $totalOpsAlbums)');
 
     if (failures > 0) {
       logError('[Step 6/8] Errors encountered:');

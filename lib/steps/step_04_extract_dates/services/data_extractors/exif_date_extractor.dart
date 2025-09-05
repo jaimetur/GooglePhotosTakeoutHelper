@@ -69,10 +69,10 @@ class ExifDateExtractor with LoggerMixin {
     final LoggerMixin? loggerMixin,
     final bool exiftoolFallbackEnabled = false,
   }) {
-    final lineCalls     = '[Step 4/8] \t[READ-EXIF] Calls=$_total | videos=$_videoDirect | nativeSupported=$_nativeSupported | unsupported=$_nativeUnsupported';
-    final lineDict      = '[Step 4/8] \t[READ-EXIF] ExternalDict: tried=$_dictTried, hit=$_dictHit, miss=$_dictMiss, time=${_fmtSec(_dictDuration)}';
-    final lineNative    = '[Step 4/8] \t[READ-EXIF] Native: tried=$_nativeTried, hit=$_nativeHit, miss=$_nativeMiss, headReads=$_nativeHeadReads, fullReads=$_nativeFullReads, time=${_fmtSec(_nativeDuration)}';
-    final lineExiftool  = '[Step 4/8] \t[READ-EXIF] Exiftool: directTried=$_exiftoolDirectTried , directHit=$_exiftoolDirectHit, fallbackTried=$_exiftoolFallbackTried, fallbackHit=$_exiftoolFallbackHit, errors=$_exiftoolFail, time=${_fmtSec(_exiftoolDuration)} (exiftoolFallbackEnabled = $exiftoolFallbackEnabled)';
+    final lineCalls     = '[Step 4/8]     [READ-EXIF] Calls=$_total | videos=$_videoDirect | nativeSupported=$_nativeSupported | unsupported=$_nativeUnsupported';
+    final lineDict      = '[Step 4/8]     [READ-EXIF] ExternalDict: tried=$_dictTried, hit=$_dictHit, miss=$_dictMiss, time=${_fmtSec(_dictDuration)}';
+    final lineNative    = '[Step 4/8]     [READ-EXIF] Native: tried=$_nativeTried, hit=$_nativeHit, miss=$_nativeMiss, headReads=$_nativeHeadReads, fullReads=$_nativeFullReads, time=${_fmtSec(_nativeDuration)}';
+    final lineExiftool  = '[Step 4/8]     [READ-EXIF] Exiftool: directTried=$_exiftoolDirectTried , directHit=$_exiftoolDirectHit, fallbackTried=$_exiftoolFallbackTried, fallbackHit=$_exiftoolFallbackHit, errors=$_exiftoolFail, time=${_fmtSec(_exiftoolDuration)} (exiftoolFallbackEnabled = $exiftoolFallbackEnabled)';
 
     // Only show the dictionary stats line when a global jsonDatesDictionary is present
     bool showDictLine = false;
@@ -83,7 +83,7 @@ class ExifDateExtractor with LoggerMixin {
     }
 
     if (loggerMixin != null) {
-      loggerMixin.logInfo('[Step 4/8] Telemetry Summary:', forcePrint: true);
+      loggerMixin.logInfo('[Step 4/8] === Telemetry Summary ===', forcePrint: true);
       loggerMixin.logInfo(lineCalls, forcePrint: true);
       if (showDictLine) {
         loggerMixin.logInfo(lineDict, forcePrint: true);
@@ -91,7 +91,7 @@ class ExifDateExtractor with LoggerMixin {
       loggerMixin.logInfo(lineNative, forcePrint: true);
       loggerMixin.logInfo(lineExiftool, forcePrint: true);
     } else {
-      LoggingService().printPlain('[Step 4/8] Telemetry Summary:');
+      LoggingService().printPlain('[Step 4/8] === Telemetry Summary ===');
       LoggingService().printPlain(lineCalls);
       if (showDictLine) {
         LoggingService().printPlain(lineDict);

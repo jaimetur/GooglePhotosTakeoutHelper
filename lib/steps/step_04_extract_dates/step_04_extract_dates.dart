@@ -291,8 +291,22 @@ class ExtractDatesStep extends ProcessingStep with LoggerMixin {
         }
       }
 
+      print('');  // print to force new line after progress bar
+      logPrint('[Step 4/8] Date extraction completed');
+
+      // READ-EXIF Telemetry Summary (seconds)
+      ExifDateExtractor.dumpStats(
+        reset: true,
+        loggerMixin: this,
+        exiftoolFallbackEnabled:
+            ServiceContainer
+                .instance
+                .globalConfig
+                .fallbackToExifToolOnNativeMiss ==
+            true,
+      );
+
       // Print stats
-      logPrint('[Step 4/8] Date extraction completed:');
       logPrint('[Step 4/8] === Date Extraction Summary ===');
       final byName = <String, int>{
         for (final e in extractionStats.entries) e.key.name: e.value,
@@ -308,18 +322,6 @@ class ExtractDatesStep extends ProcessingStep with LoggerMixin {
       for (final k in order) {
         logPrint('[Step 4/8]     $k: ${byName[k] ?? 0} files');
       }
-
-      // READ-EXIF stats summary (seconds)
-      ExifDateExtractor.dumpStats(
-        reset: true,
-        loggerMixin: this,
-        exiftoolFallbackEnabled:
-            ServiceContainer
-                .instance
-                .globalConfig
-                .fallbackToExifToolOnNativeMiss ==
-            true,
-      );
 
       sw.stop();
       return StepResult.success(

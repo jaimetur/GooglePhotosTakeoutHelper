@@ -193,6 +193,8 @@ class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
         progressBar.update(i + 1);
       }
 
+      print('');  // print to force new line after progress bar
+
       // Explicit summary line (with per-type breakdown)
       logPrint(
         '[Step 8/8] Update Creation Time Summary → '
@@ -289,7 +291,7 @@ class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
         if (fileHandle == INVALID_HANDLE_VALUE) {
           // Log GetLastError for diagnostics (helped catch \\?\ misuse).
           final int err = GetLastError();
-          logWarning('[Step 8/8] CreateFileW failed for "$extended" (error=$err)', forcePrint: true);
+          logWarning('[Step 8/8] CreateFile failed for "$extended" (error=$err)', forcePrint: true);
           return false;
         }
 
