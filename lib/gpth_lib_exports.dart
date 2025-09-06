@@ -51,7 +51,6 @@ export 'common/services/media_services/media_hash_service.dart';
 export 'common/services/media_services/mime_type_service.dart';
 // modules from common/value_objects
 export 'common/value_objects/date_accuracy.dart';
-export 'common/value_objects/file_entity.dart';
 export 'common/value_objects/media_entity.dart';
 export 'common/value_objects/media_entity_collection.dart';
 export 'common/value_objects/media_files_collection.dart';

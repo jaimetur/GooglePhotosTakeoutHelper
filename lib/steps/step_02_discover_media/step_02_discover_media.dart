@@ -224,7 +224,7 @@ class DiscoverMediaStep extends ProcessingStep with LoggerMixin {
           file: mediaFile,
           partnerShared: isPartnerShared,
           albumsMap: {
-            albumName: AlbumInfo(
+            albumName: AlbumEntity(
               name: albumName,
               sourceDirectories: {parentDir},
             ),

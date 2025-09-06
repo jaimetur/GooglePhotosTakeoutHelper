@@ -171,12 +171,12 @@ class FindAlbumsStep extends ProcessingStep with LoggerMixin {
 
       for (int i = 0; i < collection.length; i++) {
         final mediaEntity = collection[i];
-        final Map<String, AlbumInfo> albumsMap = mediaEntity.albumsMap;
+        final Map<String, AlbumEntity> albumsMap = mediaEntity.albumsMap;
 
         if (albumsMap.isEmpty) continue;
         mediaWithAlbums++;
 
-        Map<String, AlbumInfo> updatedAlbumsMap = albumsMap;
+        Map<String, AlbumEntity> updatedAlbumsMap = albumsMap;
         bool changed = false;
 
         // 1) Sanitize album names (trim) and merge if the normalized key collides.
@@ -184,12 +184,12 @@ class FindAlbumsStep extends ProcessingStep with LoggerMixin {
           final String origName = album.key;
           final String sanitized = _sanitizeAlbumName(origName);
           if (sanitized != origName) {
-            final AlbumInfo existing = album.value;
-            final AlbumInfo merged = (updatedAlbumsMap[sanitized] == null)
+            final AlbumEntity existing = album.value;
+            final AlbumEntity merged = (updatedAlbumsMap[sanitized] == null)
                 ? existing
                 : updatedAlbumsMap[sanitized]!.merge(existing);
             if (identical(updatedAlbumsMap, albumsMap)) {
-              updatedAlbumsMap = Map<String, AlbumInfo>.from(albumsMap)
+              updatedAlbumsMap = Map<String, AlbumEntity>.from(albumsMap)
                 ..remove(origName)
                 ..[sanitized] = merged;
             } else {
@@ -203,15 +203,15 @@ class FindAlbumsStep extends ProcessingStep with LoggerMixin {
 
         // 2) Ensure at least one sourceDirectory per existing membership.
         for (final entry in updatedAlbumsMap.entries) {
-          final AlbumInfo info = entry.value;
+          final AlbumEntity info = entry.value;
           if (info.sourceDirectories.isEmpty) {
             final String parent = _safeParentDir(mediaEntity.primaryFile);
-            final AlbumInfo patched = info.addSourceDir(parent);
+            final AlbumEntity patched = info.addSourceDir(parent);
             if (!identical(updatedAlbumsMap, albumsMap) || changed) {
-              updatedAlbumsMap = Map<String, AlbumInfo>.from(updatedAlbumsMap)
+              updatedAlbumsMap = Map<String, AlbumEntity>.from(updatedAlbumsMap)
                 ..[entry.key] = patched;
             } else {
-              updatedAlbumsMap = Map<String, AlbumInfo>.from(albumsMap)
+              updatedAlbumsMap = Map<String, AlbumEntity>.from(albumsMap)
                 ..[entry.key] = patched;
             }
             enrichedAlbumInfos++;

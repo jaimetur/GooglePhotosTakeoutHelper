@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:gpth/gpth_lib_exports.dart';
 
 /// Immutable domain entity representing a media file (photo or video).
@@ -45,7 +46,7 @@ class MediaEntity {
     final DateAccuracy? dateAccuracy,
     final DateTimeExtractionMethod? dateTimeExtractionMethod,
     final bool partnershared = false,
-    final Map<String, AlbumInfo>? albumsMap,
+    final Map<String, AlbumEntity>? albumsMap,
   }) {
     final all = <FileEntity>[
       primaryFile,
@@ -80,7 +81,7 @@ class MediaEntity {
     final DateAccuracy? dateAccuracy,
     final DateTimeExtractionMethod? dateTimeExtractionMethod,
     final bool partnerShared = false,
-    final Map<String, AlbumInfo>? albumsMap,
+    final Map<String, AlbumEntity>? albumsMap,
   }) => MediaEntity(
     primaryFile: file,
     secondaryFiles: const <FileEntity>[],
@@ -106,7 +107,7 @@ class MediaEntity {
 
   /// Album metadata: album name → AlbumInfo.
   /// This is used to reconstruct album relationships later in the pipeline.
-  final Map<String, AlbumInfo> albumsMap;
+  final Map<String, AlbumEntity> albumsMap;
 
   /// Capture/creation datetime (best-known).
   final DateTime? dateTaken;
@@ -164,23 +165,23 @@ class MediaEntity {
   /// Returns the number of duplicate files (same-folder duplicates).
   int get duplicatesCount => duplicatesFiles.length;
 
-  /// Returns all secondary files.
-  List<FileEntity> getSecondaries() =>
-      List<FileEntity>.unmodifiable(secondaryFiles);
-
-  /// Returns all duplicate files.
-  List<FileEntity> getDuplicates() =>
-      List<FileEntity>.unmodifiable(duplicatesFiles);
-
   /// Returns the total number of files in the entity.
   int get totalFilesCount => 1 + secondaryFiles.length + duplicatesFiles.length;
 
+  /// Returns only the primary file (as a singleton unmodifiable list).
+  List<FileEntity> getPrimary() => List<FileEntity>.unmodifiable([primaryFile]);
+
+  /// Returns all secondary files.
+  List<FileEntity> getSecondary() => List<FileEntity>.unmodifiable(secondaryFiles);
+
+  /// Returns primary and secondary files (unmodifiable). (excludes duplicates).
+  List<FileEntity> getPrimaryAndSecondary() => List<FileEntity>.unmodifiable([primaryFile, ...secondaryFiles]);
+
+  /// Returns all duplicate files.
+  List<FileEntity> getDuplicates() => List<FileEntity>.unmodifiable(duplicatesFiles);
+
   /// Returns all files in the entity, including the primary one.
-  List<FileEntity> getAllFiles() => <FileEntity>[
-    primaryFile,
-    ...secondaryFiles,
-    ...duplicatesFiles,
-  ];
+  List<FileEntity> getAllFiles() => List<FileEntity>.unmodifiable([primaryFile, ...secondaryFiles, ...duplicatesFiles]);
 
   /// Returns the best-ranked file (i.e., the current primary).
   FileEntity getBestRankedFile() => primaryFile;
@@ -225,7 +226,7 @@ class MediaEntity {
     if (albumName.isEmpty) return this;
     final existing = albumsMap[albumName];
     final updated = (existing == null)
-        ? AlbumInfo(
+        ? AlbumEntity(
             name: albumName,
             sourceDirectories: sourceDir != null && sourceDir.isNotEmpty
                 ? {sourceDir}
@@ -235,7 +236,7 @@ class MediaEntity {
               ? existing.addSourceDir(sourceDir)
               : existing);
 
-    final next = Map<String, AlbumInfo>.from(albumsMap)
+    final next = Map<String, AlbumEntity>.from(albumsMap)
       ..[albumName] = updated;
 
     return MediaEntity._internal(
@@ -284,7 +285,7 @@ class MediaEntity {
   /// The final primary is selected by ranking rules across the merged set.
   MediaEntity mergeWith(final MediaEntity other) {
     // 1) Merge album metadata
-    final Map<String, AlbumInfo> mergedAlbums = <String, AlbumInfo>{};
+    final Map<String, AlbumEntity> mergedAlbums = <String, AlbumEntity>{};
     for (final e in albumsMap.entries) {
       mergedAlbums[e.key] = e.value;
     }
@@ -617,12 +618,12 @@ String toString() {
 
   /// Enriches the albums map using every non-canonical file in [files].
   /// Album name is inferred from the parent directory name of each file.
-  static Map<String, AlbumInfo> _augmentAlbumsForNonCanonical(
-    final Map<String, AlbumInfo> base,
+  static Map<String, AlbumEntity> _augmentAlbumsForNonCanonical(
+    final Map<String, AlbumEntity> base,
     final List<FileEntity> files,
   ) {
     if (files.isEmpty) return base;
-    final next = Map<String, AlbumInfo>.from(base);
+    final next = Map<String, AlbumEntity>.from(base);
     for (final f in files) {
       if (f.isCanonical) continue; // Only enrich from non-canonical files
       final dir = _dirOf(f.sourcePath);
@@ -632,7 +633,7 @@ String toString() {
 
       final existing = next[albumName];
       next[albumName] = existing == null
-          ? AlbumInfo(name: albumName, sourceDirectories: {dir})
+          ? AlbumEntity(name: albumName, sourceDirectories: {dir})
           : existing.addSourceDir(dir);
     }
     return next;
@@ -657,6 +658,211 @@ String toString() {
   }
 }
 
+/// Represents a single file entity within GPTH.
+/// Encapsulates source and target paths, canonicality, shortcut status,
+/// date accuracy, and ranking information.
+///
+/// A FileEntity can represent:
+/// - The primary file of a MediaEntity (lowest ranking value)
+/// - A secondary file (higher ranking values)
+/// - A shortcut created during Step 7 (isShortcut = true)
+class FileEntity {
+  FileEntity({
+    required final String sourcePath,
+    final String? targetPath,
+    final bool isShortcut = false,
+    final bool isMoved = false,
+    final DateAccuracy? dateAccuracy,
+    final int ranking = 0,
+  }) : _sourcePath = sourcePath,
+       _targetPath = targetPath,
+       _isShortcut = isShortcut,
+       _isMoved = isMoved,
+       _dateAccuracy = dateAccuracy,
+       _ranking = ranking,
+       _isCanonical = _calculateCanonical(sourcePath, targetPath);
+
+  String _sourcePath;
+  String? _targetPath;
+  bool _isCanonical;
+  bool _isShortcut;
+  bool _isMoved;
+  DateAccuracy? _dateAccuracy;
+  int _ranking;
+
+  // ────────────────────────────────────────────────────────────────
+  // Getters
+  // ────────────────────────────────────────────────────────────────
+
+  /// Original source path (where the file was discovered).
+  String get sourcePath => _sourcePath;
+
+  /// Final target path (where the file is moved/copied to), or null if not moved.
+  String? get targetPath => _targetPath;
+
+  /// Effective path: returns targetPath if not null (file moved), otherwise sourcePath.
+  String get path => _targetPath ?? _sourcePath;
+
+  /// Whether this file is considered canonical (see _calculateCanonical).
+  bool get isCanonical => _isCanonical;
+
+  /// True when Step 7 strategy placed this file as a shortcut to the entity primary.
+  bool get isShortcut => _isShortcut;
+
+  /// True when the file has been moved to a new target path.
+  bool get isMoved => _isMoved;
+
+  /// Date accuracy associated to this file (if any).
+  DateAccuracy? get dateAccuracy => _dateAccuracy;
+
+  /// Ranking score (lower is better). The best-ranked file becomes the primary.
+  int get ranking => _ranking;
+
+  /// Convenience: obtain a dart:io File for the effective path (target if present).
+  File asFile() => File(path);
+
+  // ────────────────────────────────────────────────────────────────
+  // Setters
+  // ────────────────────────────────────────────────────────────────
+
+  set sourcePath(final String value) {
+    _sourcePath = value;
+    _isCanonical = _calculateCanonical(_sourcePath, _targetPath);
+  }
+
+  set targetPath(final String? value) {
+    _targetPath = value;
+    _isCanonical = _calculateCanonical(_sourcePath, _targetPath);
+  }
+
+  set isShortcut(final bool value) {
+    _isShortcut = value;
+  }
+
+  set isMoved(final bool value) {
+    _isMoved = value;
+  }
+
+  set dateAccuracy(final DateAccuracy? accuracy) {
+    _dateAccuracy = accuracy;
+  }
+
+  set ranking(final int value) {
+    _ranking = value;
+  }
+
+  // ────────────────────────────────────────────────────────────────
+  // Internal logic
+  // ────────────────────────────────────────────────────────────────
+
+  /// Canonicality rules:
+  /// - Canonical if sourcePath resides under a folder segment that starts with "Photos from YYYY)" where YYYY is 19xx or 20xx (suffix allowed until next separator), OR
+  /// - Canonical if targetPath points to ALL_PHOTOS (versus Albums folders).
+  ///
+  /// Additional rules (extended as requested):
+  /// - For the source: if the *parent folder name* contains "Photos from YYYY" (case-insensitive, where YYYY is a valid year 19xx/20xx), OR if the parent folder name is exactly "YYYY".
+  /// - For the target: look at the *directory path* (excluding the filename) and return true if it contains:
+  ///     * "ALL_PHOTOS" anywhere, OR
+  ///     * a segment "YYYY", OR
+  ///     * a structure "YYYY/MM", OR
+  ///     * a segment "YYYY-MM"  (YYYY is 19xx/20xx and MM is 01..12).
+  static bool _calculateCanonical(final String source, final String? target) {
+    // Normalize separators to work uniformly with /.
+    String _norm(final String p) => p.replaceAll('\\', '/');
+
+    // Extract parent folder name of the file from a full path.
+    String _parentName(final String p) {
+      final n = _norm(p);
+      final lastSlash = n.lastIndexOf('/');
+      if (lastSlash < 0) return '';
+      final dir = n.substring(0, lastSlash);
+      final prevSlash = dir.lastIndexOf('/');
+      return prevSlash < 0 ? dir : dir.substring(prevSlash + 1);
+    }
+
+    // Extract directory path (exclude filename) from a full path.
+    String _dirPath(final String p) {
+      final n = _norm(p);
+      final lastSlash = n.lastIndexOf('/');
+      return lastSlash < 0 ? '' : n.substring(0, lastSlash);
+    }
+
+    // ── Source parent folder checks ────────────────────────────────
+    final parent = _parentName(source);
+    final yearOnlyRe = RegExp(r'^(?:19|20)\d{2}$'); // exact folder "YYYY"
+    final photosFromRe = RegExp(r'photos\s+from\s+(?:19|20)\d{2}', caseSensitive: false); // contains "Photos from YYYY"
+
+    final fromYearFolder = yearOnlyRe.hasMatch(parent) || photosFromRe.hasMatch(parent);
+
+    // ── Target directory checks (exclude filename) ─────────────────
+    bool toAllPhotos = false;
+    bool toYearStructures = false;
+
+    if (target != null && target.isNotEmpty) {
+      final dir = _dirPath(target);
+
+      // ALL_PHOTOS anywhere in the path (directory context only)
+      final allPhotosPattern = RegExp(r'(?:^|/)ALL_PHOTOS(?:/|$)');
+      toAllPhotos = allPhotosPattern.hasMatch(dir);
+
+      // Year-only segment: .../YYYY/...
+      final yearOnlySegment = RegExp(r'(?:^|/)(?:19|20)\d{2}(?:/|$)');
+
+      // Year/Month structure: .../YYYY/MM/...
+      final yearMonthSlash = RegExp(r'(?:^|/)(?:19|20)\d{2}/(?:0[1-9]|1[0-2])(?:/|$)');
+
+      // Year-Month segment: .../YYYY-MM/...
+      final yearMonthDash = RegExp(r'(?:^|/)(?:19|20)\d{2}-(?:0[1-9]|1[0-2])(?:/|$)');
+
+      toYearStructures = yearOnlySegment.hasMatch(dir) ||
+                         yearMonthSlash.hasMatch(dir) ||
+                         yearMonthDash.hasMatch(dir);
+    }
+
+    return fromYearFolder || toAllPhotos || toYearStructures;
+  }
+
+  @override
+  String toString() => 'FileEntity(sourcePath=$_sourcePath, targetPath=$_targetPath, '
+        'path=$path, isCanonical=$_isCanonical, isShortcut=$_isShortcut, '
+        'isMoved=$_isMoved, dateAccuracy=$_dateAccuracy, ranking=$_ranking)';
+}
+
+
+/// Strongly-typed album metadata for a media entity.
+/// Kept minimal on purpose but easily extensible (cover, description, id, etc.).
+class AlbumEntity {
+  const AlbumEntity({required this.name, final Set<String>? sourceDirectories})
+    : sourceDirectories = sourceDirectories ?? const {};
+
+  /// Album display/name key (already sanitized by the discovery layer).
+  final String name;
+
+  /// Directories in the Takeout where a physical file for this album existed.
+  /// Useful for diagnostics and reliable album reconstruction.
+  final Set<String> sourceDirectories;
+
+  /// Returns a new `AlbumInfo` with `dir` added to `sourceDirectories`.
+  AlbumEntity addSourceDir(final String dir) {
+    if (dir.isEmpty) return this;
+    final next = Set<String>.from(sourceDirectories)..add(dir);
+    return AlbumEntity(name: name, sourceDirectories: next);
+  }
+
+  /// Merges two AlbumInfo objects with the same album name.
+  AlbumEntity merge(final AlbumEntity other) {
+    if (other.name != name) return this;
+    if (other.sourceDirectories.isEmpty) return this;
+    final next = Set<String>.from(sourceDirectories)
+      ..addAll(other.sourceDirectories);
+    return AlbumEntity(name: name, sourceDirectories: next);
+  }
+
+  @override
+  String toString() =>
+      'AlbumInfo(name: $name, dirs: ${sourceDirectories.length})';
+}
+
 /// Helper container for normalized split.
 class _SplitResult {
   const _SplitResult({
@@ -668,38 +874,4 @@ class _SplitResult {
   final FileEntity primary;
   final List<FileEntity> secondaries;
   final List<FileEntity> duplicates;
-}
-
-/// Strongly-typed album metadata for a media entity.
-/// Kept minimal on purpose but easily extensible (cover, description, id, etc.).
-class AlbumInfo {
-  const AlbumInfo({required this.name, final Set<String>? sourceDirectories})
-    : sourceDirectories = sourceDirectories ?? const {};
-
-  /// Album display/name key (already sanitized by the discovery layer).
-  final String name;
-
-  /// Directories in the Takeout where a physical file for this album existed.
-  /// Useful for diagnostics and reliable album reconstruction.
-  final Set<String> sourceDirectories;
-
-  /// Returns a new `AlbumInfo` with `dir` added to `sourceDirectories`.
-  AlbumInfo addSourceDir(final String dir) {
-    if (dir.isEmpty) return this;
-    final next = Set<String>.from(sourceDirectories)..add(dir);
-    return AlbumInfo(name: name, sourceDirectories: next);
-  }
-
-  /// Merges two AlbumInfo objects with the same album name.
-  AlbumInfo merge(final AlbumInfo other) {
-    if (other.name != name) return this;
-    if (other.sourceDirectories.isEmpty) return this;
-    final next = Set<String>.from(sourceDirectories)
-      ..addAll(other.sourceDirectories);
-    return AlbumInfo(name: name, sourceDirectories: next);
-  }
-
-  @override
-  String toString() =>
-      'AlbumInfo(name: $name, dirs: ${sourceDirectories.length})';
 }

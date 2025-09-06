@@ -1007,12 +1007,16 @@ Future<void> _cleanOutputDirectory(
   final Directory outputDir,
   final ProcessingConfig config,
 ) async {
+  // Skip deleting any file/directory whose basename contains "PhotoMigrator" (case-insensitive).
   await for (final file in outputDir.list().where(
     (final e) => path.absolute(e.path) != path.absolute(config.inputPath),
   )) {
+    final basename = path.basename(file.path);
+    if (basename.toLowerCase().contains('photomigrator')) continue;
     await file.delete(recursive: true);
   }
 }
+
 
 /// **FINAL RESULTS DISPLAY**
 ///

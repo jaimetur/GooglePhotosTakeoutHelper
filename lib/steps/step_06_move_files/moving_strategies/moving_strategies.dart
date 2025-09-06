@@ -1019,7 +1019,145 @@ class DuplicateCopyMovingStrategy extends MediaEntityMovingStrategy {
       }
     }
   }
-
   @override
   void validateContext(final MovingContext context) {}
+}
+
+
+/// ─────────────────────────────────────────────────────────────────────────
+/// Common helpers to avoid code duplication across strategies
+/// (centralized in this service module so strategies can import and reuse them)
+/// ─────────────────────────────────────────────────────────────────────────
+class MovingStrategyUtils {
+  const MovingStrategyUtils._();
+
+  /// Generate ALL_PHOTOS target directory (date-structured if needed).
+  static Directory allPhotosDir(
+    final PathGeneratorService pathService,
+    final MediaEntity entity,
+    final MovingContext context,
+  ) => pathService.generateTargetDirectory(
+      null,
+      entity.dateTaken,
+      context,
+      isPartnerShared: entity.partnerShared,
+    );
+
+  /// Generate Albums/<albumName> target directory (date-structured if needed).
+  static Directory albumDir(
+    final PathGeneratorService pathService,
+    final String albumName,
+    final MediaEntity entity,
+    final MovingContext context,
+  ) => pathService.generateTargetDirectory(
+      albumName,
+      entity.dateTaken,
+      context,
+      isPartnerShared: entity.partnerShared,
+    );
+
+  /// Returns true if 'child' path equals or is a subpath of 'parent'.
+  static bool isSubPath(final String child, final String parent) {
+    final String c = child.replaceAll('\\', '/');
+    final String p = parent.replaceAll('\\', '/');
+    return c == p || c.startsWith('$p/');
+  }
+
+  /// Returns the directory (without trailing slash) of a path, handling both separators.
+  static String dirOf(final String p) {
+    final normalized = p.replaceAll('\\', '/');
+    final idx = normalized.lastIndexOf('/');
+    return idx < 0 ? '' : normalized.substring(0, idx);
+  }
+
+  /// Infer album name for a given file source directory using albumsMap metadata.
+  /// Returns null if no album matches.
+  static String? inferAlbumForSourceDir(
+    final MediaEntity entity,
+    final String fileSourceDir,
+  ) {
+    for (final entry in entity.albumsMap.entries) {
+      for (final src in entry.value.sourceDirectories) {
+        if (isSubPath(fileSourceDir, src)) return entry.key;
+      }
+    }
+    return entity.albumNames.isNotEmpty ? entity.albumNames.first : null;
+  }
+
+  /// Compute the list of album names a given file (by its source directory) belonged to.
+  static List<String> albumsForFile(
+    final MediaEntity entity,
+    final FileEntity file,
+  ) {
+    final fileDir = dirOf(file.sourcePath);
+    final List<String> result = <String>[];
+    for (final entry in entity.albumsMap.entries) {
+      for (final src in entry.value.sourceDirectories) {
+        if (isSubPath(fileDir, src)) {
+          result.add(entry.key);
+          break;
+        }
+      }
+    }
+    return result;
+  }
+
+  /// Predicate: whether [file] belonged to the given [albumName] according to sourceDirectories.
+  static bool fileBelongsToAlbum(
+    final MediaEntity entity,
+    final FileEntity file,
+    final String albumName,
+  ) {
+    final info = entity.albumsMap[albumName];
+    if (info == null || info.sourceDirectories.isEmpty) return false;
+    final fileDir = dirOf(file.sourcePath);
+    for (final src in info.sourceDirectories) {
+      if (isSubPath(fileDir, src)) return true;
+    }
+    return false;
+  }
+
+  /// Create a symlink to [target] inside [dir] and try to rename it to [preferredBasename].
+  /// On name collision, appends " (n)" before extension.
+  static Future<File> createSymlinkWithPreferredName(
+    final SymlinkService symlinkService,
+    final Directory dir,
+    final File target,
+    final String preferredBasename,
+  ) async {
+    final File link = await symlinkService.createSymlink(dir, target);
+    final String currentBase = link.uri.pathSegments.last;
+    if (currentBase == preferredBasename) return link;
+
+    final String finalBasename = _resolveUniqueBasename(dir, preferredBasename);
+    final String desiredPath = '${dir.path}/$finalBasename';
+    try {
+      return await link.rename(desiredPath);
+    } catch (_) {
+      return link;
+    }
+  }
+
+  static String _resolveUniqueBasename(final Directory dir, final String base) {
+    final int dot = base.lastIndexOf('.');
+    final String stem = dot > 0 ? base.substring(0, dot) : base;
+    final String ext = dot > 0 ? base.substring(dot) : '';
+    String candidate = base;
+    int idx = 1;
+    while (_existsAny('${dir.path}/$candidate')) {
+      candidate = '$stem ($idx)$ext';
+      idx++;
+    }
+    return candidate;
+  }
+
+  static bool _existsAny(final String fullPath) {
+    try {
+      return File(fullPath).existsSync() ||
+          Link(fullPath).existsSync() ||
+          Directory(fullPath).existsSync();
+    } catch (_) {
+      return false;
+    }
+  }
 }
