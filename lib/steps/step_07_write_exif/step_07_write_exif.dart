@@ -90,6 +90,7 @@ import 'package:mime/mime.dart';
 /// - **Batch Processing**: Groups multiple files for efficient processing
 /// - **Memory Management**: Processes files without loading full content
 /// - **I/O Minimization**: Optimizes file read/write operations
+///
 /// - **Progress Tracking**: Provides user feedback for long-running operations
 ///
 /// ## Error Handling and Recovery
@@ -447,7 +448,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
                       tagsToWrite['GPSLongitude'] = coords.toDD().longitude.toString();
                       tagsToWrite['GPSLatitudeRef'] = coords.latDirection.abbreviation.toString();
                       tagsToWrite['GPSLongitudeRef'] = coords.longDirection.abbreviation.toString();
-                      // Do NOT set gpsWrittenThis here.
+                      ExifWriterService.markFallbackGpsTried(file);
                     }
                   }
                 } else {
@@ -456,7 +457,6 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
                   tagsToWrite['GPSLongitude'] = coords.toDD().longitude.toString();
                   tagsToWrite['GPSLatitudeRef'] = coords.latDirection.abbreviation.toString();
                   tagsToWrite['GPSLongitudeRef'] = coords.longDirection.abbreviation.toString();
-                  // Do NOT set gpsWrittenThis here.
                 }
               } else {
                 // Non-JPEG: rely on ExifTool only
@@ -465,7 +465,6 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
                   tagsToWrite['GPSLongitude'] = coords.toDD().longitude.toString();
                   tagsToWrite['GPSLatitudeRef'] = coords.latDirection.abbreviation.toString();
                   tagsToWrite['GPSLongitudeRef'] = coords.longDirection.abbreviation.toString();
-                  // Do NOT set gpsWrittenThis here.
                 }
               }
             }
@@ -473,7 +472,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
             logWarning('[Step 7/8] Failed to prepare GPS tags for ${file.path}: $e', forcePrint: true);
           }
 
-          // Date/time from entity
+        // Date/time from entity
           try {
             if (effectiveDate != null) {
               if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) {
@@ -497,7 +496,6 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
                   tagsToWrite['DateTimeOriginal'] = '"$dt"';
                   tagsToWrite['DateTimeDigitized'] = '"$dt"';
                   tagsToWrite['DateTime'] = '"$dt"';
-                  // Do NOT set dtWrittenThis here.
                 }
               }
             }
@@ -663,7 +661,6 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
       final int touchedFilesBeforeReset = ExifWriterService.uniqueFilesTouchedCount;
       final int touchedGpsBeforeReset = ExifWriterService.uniqueGpsFilesCount;
       final int touchedDateBeforeReset = ExifWriterService.uniqueDateFilesCount;
-
 
       // Dump internal writer stats (resets counters)
       ExifWriterService.dumpWriterStats(logger: this);

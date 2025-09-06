@@ -15,7 +15,7 @@ class ExifWriterService with LoggerMixin {
 
   // ───────────────────── Instrumentation (per-process static) ─────────────────
   // Calls
-  static int exiftoolCalls = 0; // number of exiftool invocations
+  // exiftoolCalls removed from public telemetry aggregation to avoid confusion in the new format.
 
   // Unique file tracking (authoritative for Step 5 final “files got …”)
   static final Set<String> _touchedFiles = <String>{};
@@ -89,6 +89,11 @@ class ExifWriterService with LoggerMixin {
   static int get uniqueGpsPrimaryCount => _gpsTouchedPrimary.length;
   static int get uniqueGpsSecondaryCount => _gpsTouchedSecondary.length;
 
+  // Fallback marks to correctly classify ExifTool runs as “fallback” (after native failure)
+  static final Set<String> _fallbackMarkedDate = <String>{};
+  static final Set<String> _fallbackMarkedGps = <String>{};
+  static final Set<String> _fallbackMarkedCombined = <String>{};
+
   static void _resetTouched() {
     _touchedFiles.clear();
     _dateTouchedFiles.clear();
@@ -98,136 +103,190 @@ class ExifWriterService with LoggerMixin {
     _gpsTouchedPrimary.clear();
     _gpsTouchedSecondary.clear();
     _primaryHint.clear(); // clear hints as well
+
+    _fallbackMarkedDate.clear();
+    _fallbackMarkedGps.clear();
+    _fallbackMarkedCombined.clear();
+
+    // Reset new counters
+    nativeDateSuccess = 0;
+    nativeDateFail = 0;
+    nativeDateDur = Duration.zero;
+
+    nativeGpsSuccess = 0;
+    nativeGpsFail = 0;
+    nativeGpsDur = Duration.zero;
+
+    nativeCombinedSuccess = 0;
+    nativeCombinedFail = 0;
+    nativeCombinedDur = Duration.zero;
+
+    xtDateDirectSuccess = 0;
+    xtDateDirectFail = 0;
+    xtDateDirectDur = Duration.zero;
+
+    xtGpsDirectSuccess = 0;
+    xtGpsDirectFail = 0;
+    xtGpsDirectDur = Duration.zero;
+
+    xtCombinedDirectSuccess = 0;
+    xtCombinedDirectFail = 0;
+    xtCombinedDirectDur = Duration.zero;
+
+    xtDateFallbackRecovered = 0;
+    xtDateFallbackFail = 0;
+    xtDateFallbackDur = Duration.zero;
+
+    xtGpsFallbackRecovered = 0;
+    xtGpsFallbackFail = 0;
+    xtGpsFallbackDur = Duration.zero;
+
+    xtCombinedFallbackRecovered = 0;
+    xtCombinedFallbackFail = 0;
+    xtCombinedFallbackDur = Duration.zero;
   }
 
   // Native path (success/fail split by type)
-  static int nativeWrittenDate = 0;
-  static int nativeWrittenGps = 0;
-  static int nativeWrittenCombined = 0;
-  static int nativeFailsDate = 0;
-  static int nativeFailsGps = 0;
-  static int nativeFailsCombined = 0;
+  // Counts are now grouped by category (DATE, GPS, DATE+GPS) and by Native Direct.
+  static int nativeDateSuccess = 0;
+  static int nativeDateFail = 0;
+  static Duration nativeDateDur = Duration.zero;
+
+  static int nativeGpsSuccess = 0;
+  static int nativeGpsFail = 0;
+  static Duration nativeGpsDur = Duration.zero;
+
+  static int nativeCombinedSuccess = 0;
+  static int nativeCombinedFail = 0;
+  static Duration nativeCombinedDur = Duration.zero;
 
   // ExifTool path (success/fail split by type)
-  // IMPORTANT: “Processed” means success + fail (for symmetry with Native).
-  static int exiftoolProcessedFiles = 0; // success + fail (single or batch)
-  static int exiftoolSuccessFiles = 0; // success only
-  static int exiftoolFailFiles = 0; // fail only
+  // IMPORTANT: Fallbacks are counted separately from Direct so the total line excludes fallbacks.
+  static int xtDateDirectSuccess = 0;
+  static int xtDateDirectFail = 0;
+  static Duration xtDateDirectDur = Duration.zero;
+
+  static int xtGpsDirectSuccess = 0;
+  static int xtGpsDirectFail = 0;
+  static Duration xtGpsDirectDur = Duration.zero;
+
+  static int xtCombinedDirectSuccess = 0;
+  static int xtCombinedDirectFail = 0;
+  static Duration xtCombinedDirectDur = Duration.zero;
 
   // Routing breakdown for ExifTool
-  static int exiftoolDirectFilesTried =
-      0; // sent directly (non-JPEG or decided to go exiftool)
-  static int exiftoolFallbackFilesTried =
-      0; // routed to exiftool after a native JPEG attempt failed
+  // Fallback metrics (files that reached ExifTool because native failed first).
+  static int xtDateFallbackRecovered = 0;
+  static int xtDateFallbackFail = 0;
+  static Duration xtDateFallbackDur = Duration.zero;
 
-  // Explicit counters to be bumped at enqueue-time after native failure (called from Step 7).
-  static int exiftoolFallbackDateTried = 0;
-  static int exiftoolFallbackCombinedTried = 0;
+  static int xtGpsFallbackRecovered = 0;
+  static int xtGpsFallbackFail = 0;
+  static Duration xtGpsFallbackDur = Duration.zero;
 
-  // ExifTool success by category
-  static int exiftoolDateWritten = 0;
-  static int exiftoolWrittenGps = 0;
-  static int exiftoolWrittenCombined = 0;
+  static int xtCombinedFallbackRecovered = 0;
+  static int xtCombinedFallbackFail = 0;
+  static Duration xtCombinedFallbackDur = Duration.zero;
 
-  // ExifTool fails by category
-  static int exiftoolFailsDate = 0;
-  static int exiftoolFailsGps = 0;
-  static int exiftoolFailsCombined = 0;
-
-  // Durations
-  static Duration nativeDurDate = Duration.zero;
-  static Duration nativeDurGps = Duration.zero;
-  static Duration nativeDurCombined = Duration.zero;
-  static Duration exiftoolDurDate = Duration.zero;
-  static Duration exiftoolDurGps = Duration.zero;
-  static Duration exiftooDurlCombined = Duration.zero;
-
-  // NEW: Mirrors for GPS write stats so no dependency on any extractor.
-  static int _gpsWrittenNative = 0;
-  static int _gpsMissNative = 0;
-  static int _gpsWrittenExiftool = 0;
-  static int _gpsMissExiftool = 0;
-
+  // Durations helpers
   static String _fmtSec(final Duration d) =>
       '${(d.inMilliseconds / 1000.0).toStringAsFixed(3)}s';
+
+  // NEW: Mirrors for GPS write stats so no dependency on any extractor.
+  // These per-tag mirrors are no longer used in the final summary; preserved behaviorally by the unique-file sets above.
 
   /// Print instrumentation lines; reset counters optionally.
   static void dumpWriterStats({
     final bool reset = true,
     final LoggerMixin? logger,
   }) {
-    // Native totals: processed = successes + fails
-    final int nativeProcessed =
-        nativeWrittenDate +
-        nativeWrittenGps +
-        nativeWrittenCombined +
-        nativeFailsDate +
-        nativeFailsGps +
-        nativeFailsCombined;
-
-    final lines = <String>[
-      '[Step 7/8] === Telemetry Summary ===',
-      '[Step 7/8]     [WRITE-EXIF] Native  : totalFiles=$nativeProcessed, writtenDate=$nativeWrittenDate, writtenGPS=$nativeWrittenGps, writtenCombined=$nativeWrittenCombined, failsDate=$nativeFailsDate, failsGPS=$nativeFailsGps, failsCombined=$nativeFailsCombined, timeDate=${_fmtSec(nativeDurDate)}, timeGPS=${_fmtSec(nativeDurGps)}, timeCombined=${_fmtSec(nativeDurCombined)}',
-      '[Step 7/8]     [WRITE-EXIF] Exiftool: totalFiles=$exiftoolProcessedFiles, writtenDate=$exiftoolDateWritten, writtenGPS=$exiftoolWrittenGps, writtenCombined=$exiftoolWrittenCombined, failsDate=$exiftoolFailsDate, failsGPS=$exiftoolFailsGps, failsCombined=$exiftoolFailsCombined, timeDate=${_fmtSec(exiftoolDurDate)}, timeGPS=${_fmtSec(exiftoolDurGps)}, timeCombined=${_fmtSec(exiftooDurlCombined)}',
-      '[Step 7/8]                            (directTried=$exiftoolDirectFilesTried, fallbackDatesTried=$exiftoolFallbackFilesTried, fallbackCombinedTried=$exiftoolFallbackCombinedTried, exiftoolCalls=$exiftoolCalls), (success=$exiftoolSuccessFiles, fail=$exiftoolFailFiles)',
-      '[Step 7/8]     [WRITE-EXIF-GPS] Native  : writtenNative=$_gpsWrittenNative, missNative=$_gpsMissNative, nativeTime=${_fmtSec(nativeDurGps + nativeDurCombined)}',
-      '[Step 7/8]     [WRITE-EXIF-GPS] Exiftool: writtenExifTool=$_gpsWrittenExiftool, missExifTool=$_gpsMissExiftool, exiftoolTime=${_fmtSec(exiftoolDurGps + exiftooDurlCombined)} (fallbackTried=${exiftoolFallbackDateTried + exiftoolFallbackCombinedTried})',
-    ];
-    if (logger != null) {
-    } else {
-      // ignore: avoid_print
-      LoggingService().printPlain('');
-    }
-    for (final l in lines) {
+    // Helper for output respecting the original LoggerMixin pattern
+    void _out(final String s) {
       if (logger != null) {
-        logger.logInfo(l, forcePrint: true);
+        logger.logInfo(s, forcePrint: true);
       } else {
         // ignore: avoid_print
-        LoggingService().printPlain(l);
+        LoggingService().printPlain(s);
       }
     }
+
+    // Category printer conforming to new format
+    void _printCategory({
+      required final String title,
+      required final int nativeOk,
+      required final int nativeFail,
+      required final Duration nativeDur,
+      required final int xtDirectOk,
+      required final int xtDirectFail,
+      required final Duration xtDirectDur,
+      required final int xtFallbackRecovered,
+      required final int xtFallbackFail,
+      required final Duration xtFallbackDur,
+    }) {
+      final totalNative = nativeOk + nativeFail;
+      final totalDirect = xtDirectOk + xtDirectFail;
+      final totalFallback = xtFallbackRecovered + xtFallbackFail;
+
+      _out('[Step 7/8]    $title');
+      _out('[Step 7/8]         Native Direct    : Total: $totalNative (Success: $nativeOk, Fails: $nativeFail) - Time: ${_fmtSec(nativeDur)}');
+      _out('[Step 7/8]         Exiftool Direct  : Total: $totalDirect (Success: $xtDirectOk, Fails: $xtDirectFail) - Time: ${_fmtSec(xtDirectDur)}');
+      _out('[Step 7/8]         Exiftool Fallback: Total: $totalFallback (Recovered: $xtFallbackRecovered, Fails: $xtFallbackFail) - Time: ${_fmtSec(xtFallbackDur)}');
+
+      // Total excludes fallbacks to avoid double counting the same files twice.
+      final totalOk = nativeOk + xtDirectOk;
+      final totalFail = nativeFail + xtDirectFail;
+      final total = totalOk + totalFail;
+      final totalTime = _fmtSec(nativeDur + xtDirectDur);
+      _out('[Step 7/8]         Total Files      : Total: $total (Success: $totalOk, Fails: $totalFail) - Time: $totalTime');
+    }
+
+    // Header
+    _out('[Step 7/8] === Telemetry Summary ===');
+
+    // DATE+GPS
+    _printCategory(
+      title: '[WRITE DATE+GPS]:',
+      nativeOk: nativeCombinedSuccess,
+      nativeFail: nativeCombinedFail,
+      nativeDur: nativeCombinedDur,
+      xtDirectOk: xtCombinedDirectSuccess,
+      xtDirectFail: xtCombinedDirectFail,
+      xtDirectDur: xtCombinedDirectDur,
+      xtFallbackRecovered: xtCombinedFallbackRecovered,
+      xtFallbackFail: xtCombinedFallbackFail,
+      xtFallbackDur: xtCombinedFallbackDur,
+    );
+
+    // ONLY DATE
+    _printCategory(
+      title: '[WRITE ONLY DATE]:',
+      nativeOk: nativeDateSuccess,
+      nativeFail: nativeDateFail,
+      nativeDur: nativeDateDur,
+      xtDirectOk: xtDateDirectSuccess,
+      xtDirectFail: xtDateDirectFail,
+      xtDirectDur: xtDateDirectDur,
+      xtFallbackRecovered: xtDateFallbackRecovered,
+      xtFallbackFail: xtDateFallbackFail,
+      xtFallbackDur: xtDateFallbackDur,
+    );
+
+    // ONLY GPS
+    _printCategory(
+      title: '[WRITE ONLY GPS]:',
+      nativeOk: nativeGpsSuccess,
+      nativeFail: nativeGpsFail,
+      nativeDur: nativeGpsDur,
+      xtDirectOk: xtGpsDirectSuccess,
+      xtDirectFail: xtGpsDirectFail,
+      xtDirectDur: xtGpsDirectDur,
+      xtFallbackRecovered: xtGpsFallbackRecovered,
+      xtFallbackFail: xtGpsFallbackFail,
+      xtFallbackDur: xtGpsFallbackDur,
+    );
+
     if (reset) {
-      exiftoolCalls = 0;
-
       _resetTouched();
-
-      nativeWrittenDate = 0;
-      nativeWrittenGps = 0;
-      nativeWrittenCombined = 0;
-      nativeFailsDate = 0;
-      nativeFailsGps = 0;
-      nativeFailsCombined = 0;
-
-      exiftoolProcessedFiles = 0;
-      exiftoolSuccessFiles = 0;
-      exiftoolFailFiles = 0;
-
-      exiftoolDirectFilesTried = 0;
-      exiftoolFallbackFilesTried = 0;
-
-      // reset explicit "fallback tried" counters
-      exiftoolFallbackDateTried = 0;
-      exiftoolFallbackCombinedTried = 0;
-
-      exiftoolDateWritten = 0;
-      exiftoolWrittenGps = 0;
-      exiftoolWrittenCombined = 0;
-      exiftoolFailsDate = 0;
-      exiftoolFailsGps = 0;
-      exiftoolFailsCombined = 0;
-
-      nativeDurDate = Duration.zero;
-      nativeDurGps = Duration.zero;
-      nativeDurCombined = Duration.zero;
-      exiftoolDurDate = Duration.zero;
-      exiftoolDurGps = Duration.zero;
-      exiftooDurlCombined = Duration.zero;
-
-      // reset WRITE-EXIF-GPS mirrors
-      _gpsWrittenNative = 0;
-      _gpsMissNative = 0;
-      _gpsWrittenExiftool = 0;
-      _gpsMissExiftool = 0;
     }
   }
 
@@ -283,85 +342,48 @@ class ExifWriterService with LoggerMixin {
     );
   }
 
-  static void _countExiftoolSuccess(
-    final bool isDate,
-    final bool isGps,
-    final bool isCombined,
-    final Duration elapsed,
-    final File file,
-  ) {
-    exiftoolSuccessFiles++;
-
-    // Consume primary/secondary hint if present (set in Step 7 when enqueuing/calling ExifTool).
-    final bool? hintIsPrimary = _consumePrimaryHint(file);
-
-    if (isCombined) {
-      exiftoolWrittenCombined++;
-      exiftooDurlCombined += elapsed;
-      if (hintIsPrimary != null) {
-        // Use Step 7’s knowledge to split primary/secondary correctly.
-        markDateTouchedFromStep5(file, isPrimary: hintIsPrimary);
-        markGpsTouchedFromStep5(file, isPrimary: hintIsPrimary);
-      } else {
-        _markTouched(file, date: true, gps: true);
-      }
-      // Reflect GPS write stats for WRITE-EXIF-GPS
-      _gpsWrittenExiftool++;
-    } else {
-      if (isDate) {
-        exiftoolDateWritten++;
-        exiftoolDurDate += elapsed;
-        if (hintIsPrimary != null) {
-          markDateTouchedFromStep5(file, isPrimary: hintIsPrimary);
-        } else {
-          _markTouched(file, date: true, gps: false);
-        }
-      }
-      if (isGps) {
-        exiftoolWrittenGps++;
-        exiftoolDurGps += elapsed;
-        if (hintIsPrimary != null) {
-          markGpsTouchedFromStep5(file, isPrimary: hintIsPrimary);
-        } else {
-          _markTouched(file, date: false, gps: true);
-        }
-        // Reflect GPS write stats for WRITE-EXIF-GPS
-        _gpsWrittenExiftool++;
-      }
-    }
+  static bool _consumeMarkedFallback(
+    final File file, {
+    required final bool asDate,
+    required final bool asGps,
+    required final bool asCombined,
+  }) {
+    final p = file.path;
+    if (asCombined && _fallbackMarkedCombined.remove(p)) return true;
+    if (asDate && _fallbackMarkedDate.remove(p)) return true;
+    if (asGps && _fallbackMarkedGps.remove(p)) return true;
+    return false;
   }
 
-  static void _countExiftoolFail(
-    final bool isDate,
-    final bool isGps,
-    final bool isCombined,
-  ) {
-    exiftoolFailFiles++;
-    if (isCombined) {
-      exiftoolFailsCombined++;
-      // Combined also implies a GPS write attempt
-      _gpsMissExiftool++;
-    } else {
-      if (isDate) exiftoolFailsDate++;
-      if (isGps) {
-        exiftoolFailsGps++;
-        _gpsMissExiftool++;
-      }
-    }
+  static bool _peekMarkedFallback(
+    final File file, {
+    required final bool asDate,
+    required final bool asGps,
+    required final bool asCombined,
+  }) {
+    final p = file.path;
+    if (asCombined && _fallbackMarkedCombined.contains(p)) return true;
+    if (asDate && _fallbackMarkedDate.contains(p)) return true;
+    if (asGps && _fallbackMarkedGps.contains(p)) return true;
+    return false;
   }
 
   // Public markers to be called when enqueueing ExifTool after a native failure.
   static void markFallbackDateTried(final File file) {
-    exiftoolFallbackDateTried++;
+    _fallbackMarkedDate.add(file.path);
   }
 
   static void markFallbackCombinedTried(final File file) {
-    exiftoolFallbackCombinedTried++;
+    _fallbackMarkedCombined.add(file.path);
+  }
+
+  static void markFallbackGpsTried(final File file) {
+    _fallbackMarkedGps.add(file.path);
   }
 
   // ─────────────────────────── Public helpers ────────────────────────────────
 
-  /// Single-exec write for arbitrary tags (counts as one exiftool call).
+  /// Single-exec write for arbitrary tags (counts success/fail and duration).
   Future<bool> writeTagsWithExifTool(
     final File file,
     final Map<String, dynamic> tags, {
@@ -378,21 +400,129 @@ class ExifWriterService with LoggerMixin {
     final bool asDate = isDate || cls.isDate;
     final bool asGps = isGps || cls.isGps;
 
-    // Count as “processed” no matter success or failure (symmetry with Native).
-    exiftoolProcessedFiles++;
-    if (looksFallback) {
-      exiftoolFallbackFilesTried++;
-    } else {
-      exiftoolDirectFilesTried++;
-    }
-
     try {
       await _exifTool.writeExifData(file, tags);
-      exiftoolCalls++;
-      _countExiftoolSuccess(asDate, asGps, asCombined, sw.elapsed, file);
+
+      final elapsed = sw.elapsed;
+      final wasMarkedFallback = _consumeMarkedFallback(
+        file,
+        asDate: asDate,
+        asGps: asGps,
+        asCombined: asCombined,
+      );
+
+      // Direct vs Fallback routing
+
+      // =============================
+      // ExifTool as Native's Fallback
+      // =============================
+      // 1) Combined: Date+GPS
+      if (asCombined) {
+        if (wasMarkedFallback || looksFallback) {
+          xtCombinedFallbackRecovered++;
+          xtCombinedFallbackDur += elapsed;
+          logDebug('[Step 7/8] [WRITE-EXIF] Date+GPS written with ExifTool as Fallback of Native writter: ${file.path}');
+        } else {
+          xtCombinedDirectSuccess++;
+          xtCombinedDirectDur += elapsed;
+        }
+      }
+      // 2) Date Only
+      else if (asDate) {
+        if (wasMarkedFallback || looksFallback) {
+          xtDateFallbackRecovered++;
+          xtDateFallbackDur += elapsed;
+          logDebug('[Step 7/8] [WRITE-EXIF] Date written with ExifTool as Fallback of Native writter: ${file.path}');
+        } else {
+          xtDateDirectSuccess++;
+          xtDateDirectDur += elapsed;
+        }
+      }
+      // 3) GPS Only
+      else if (asGps) {
+        if (wasMarkedFallback || looksFallback) {
+          xtGpsFallbackRecovered++;
+          xtGpsFallbackDur += elapsed;
+          logDebug('[Step 7/8] [WRITE-EXIF] GPS written with ExifTool as Fallback of Native writter: ${file.path}');
+        } else {
+          xtGpsDirectSuccess++;
+          xtGpsDirectDur += elapsed;
+        }
+      }
+
+      // =============================
+      // ExifTool Direct (no Fallback)
+      // =============================
+      // Consume primary/secondary hint if present (set in Step 7 when enqueuing/calling ExifTool).
+      final bool? hintIsPrimary = _consumePrimaryHint(file);
+
+      // 1) Combined: Date+GPS
+      if (asCombined) {
+        if (hintIsPrimary != null) {
+          markDateTouchedFromStep5(file, isPrimary: hintIsPrimary);
+          markGpsTouchedFromStep5(file, isPrimary: hintIsPrimary);
+          logDebug('[Step 7/8] [WRITE-EXIF] Date+GPS written with ExifTool: ${file.path}');
+        } else {
+          _markTouched(file, date: true, gps: true);
+        }
+      }
+      // 2) Date Only
+      else if (asDate) {
+        if (hintIsPrimary != null) {
+          markDateTouchedFromStep5(file, isPrimary: hintIsPrimary);
+          logDebug('[Step 7/8] [WRITE-EXIF] Date written with ExifTool: ${file.path}');
+        } else {
+          _markTouched(file, date: true, gps: false);
+        }
+      }
+      // 3) GPS Only
+      else if (asGps) {
+        if (hintIsPrimary != null) {
+          markGpsTouchedFromStep5(file, isPrimary: hintIsPrimary);
+          logDebug('[Step 7/8] [WRITE-EXIF] GPS written with ExifTool: ${file.path}');
+        } else {
+          _markTouched(file, date: false, gps: true);
+        }
+      }
+
       return true;
-    } catch (e) {
-      _countExiftoolFail(asDate, asGps, asCombined);
+    }
+    // Fails
+    catch (e) {
+      final elapsed = sw.elapsed;
+      final wasMarkedFallback = _consumeMarkedFallback(
+        file,
+        asDate: asDate,
+        asGps: asGps,
+        asCombined: asCombined,
+      );
+
+      if (asCombined) {
+        if (wasMarkedFallback || looksFallback) {
+          xtCombinedFallbackFail++;
+          xtCombinedFallbackDur += elapsed;
+        } else {
+          xtCombinedDirectFail++;
+          xtCombinedDirectDur += elapsed;
+        }
+      } else if (asDate) {
+        if (wasMarkedFallback || looksFallback) {
+          xtDateFallbackFail++;
+          xtDateFallbackDur += elapsed;
+        } else {
+          xtDateDirectFail++;
+          xtDateDirectDur += elapsed;
+        }
+      } else if (asGps) {
+        if (wasMarkedFallback || looksFallback) {
+          xtGpsFallbackFail++;
+          xtGpsFallbackDur += elapsed;
+        } else {
+          xtGpsDirectFail++;
+          xtGpsDirectDur += elapsed;
+        }
+      }
+
       logError('[Step 7/8] Failed to write tags ${tags.keys.toList()} to ${file.path}: $e');
       return false;
     }
@@ -415,100 +545,115 @@ class ExifWriterService with LoggerMixin {
             bool isDate,
             bool isGps,
             bool isCombined,
-            bool isFallback,
+            bool isFallbackMarked,
           }
         )>[];
-    int countDate = 0, countGps = 0, countCombined = 0;
-    int direct = 0, fallback = 0;
+    int countDateDirect = 0, countGpsDirect = 0, countCombinedDirect = 0;
+    int countDateFallback = 0, countGpsFallback = 0, countCombinedFallback = 0;
 
     for (final entry in batch) {
       final cls = _classifyTags(entry.value);
-      final isFallback = _looksLikeFallbackToExiftool(entry.key, entry.value);
+      final isFallbackMarked = _peekMarkedFallback(
+        entry.key,
+        asDate: cls.isDate,
+        asGps: cls.isGps,
+        asCombined: cls.isCombined,
+      );
       entriesMeta.add((
         file: entry.key,
         isDate: cls.isDate,
         isGps: cls.isGps,
         isCombined: cls.isCombined,
-        isFallback: isFallback,
+        isFallbackMarked: isFallbackMarked,
       ));
+
       if (cls.isCombined) {
-        countCombined++;
+        if (isFallbackMarked) countCombinedFallback++; else countCombinedDirect++;
       } else if (cls.isDate) {
-        countDate++;
-      }
-      else if (cls.isGps) {
-        countGps++;
-      }
-      if (isFallback) {
-        fallback++;
-      } else {
-        direct++;
+        if (isFallbackMarked) countDateFallback++; else countDateDirect++;
+      } else if (cls.isGps) {
+        if (isFallbackMarked) countGpsFallback++; else countGpsDirect++;
       }
     }
 
-    final totalTagged = (countDate + countGps + countCombined).clamp(1, 1 << 30); // avoid div/0
+    final totalTagged =
+        (countDateDirect + countGpsDirect + countCombinedDirect +
+                countDateFallback + countGpsFallback + countCombinedFallback)
+            .clamp(1, 1 << 30);
+
     final sw = Stopwatch()..start();
     try {
-      // Increment exiftoolCalls per call, even if it fail.
-      exiftoolCalls++;
       if (useArgFileWhenLarge) {
         await _exifTool.writeExifDataBatchViaArgFile(batch);
       } else {
         await _exifTool.writeExifDataBatch(batch);
       }
 
-      // Mark all entries as “processed” and attribute routing now (batch is one attempt).
-      exiftoolProcessedFiles += batch.length;
-      exiftoolDirectFilesTried += direct;
-      exiftoolFallbackFilesTried += fallback;
-
       final elapsed = sw.elapsed;
-      // Proportional time attribution for success totals
-      if (countCombined > 0) {
-        exiftoolWrittenCombined += countCombined;
-        exiftooDurlCombined += elapsed * (countCombined / totalTagged);
+
+      // Attribute durations and successes proportionally
+      if (countCombinedDirect > 0) {
+        xtCombinedDirectSuccess += countCombinedDirect;
+        xtCombinedDirectDur += elapsed * (countCombinedDirect / totalTagged);
       }
-      if (countDate > 0) {
-        exiftoolDateWritten += countDate;
-        exiftoolDurDate += elapsed * (countDate / totalTagged);
+      if (countCombinedFallback > 0) {
+        xtCombinedFallbackRecovered += countCombinedFallback;
+        xtCombinedFallbackDur += elapsed * (countCombinedFallback / totalTagged);
       }
-      if (countGps > 0) {
-        exiftoolWrittenGps += countGps;
-        exiftoolDurGps += elapsed * (countGps / totalTagged);
-        logDebug('[Step 7/8] [WRITE-EXIF] GPS written via exiftool (batch): $countGps files');
+      if (countDateDirect > 0) {
+        xtDateDirectSuccess += countDateDirect;
+        xtDateDirectDur += elapsed * (countDateDirect / totalTagged);
+      }
+      if (countDateFallback > 0) {
+        xtDateFallbackRecovered += countDateFallback;
+        xtDateFallbackDur += elapsed * (countDateFallback / totalTagged);
+      }
+      if (countGpsDirect > 0) {
+        xtGpsDirectSuccess += countGpsDirect;
+        xtGpsDirectDur += elapsed * (countGpsDirect / totalTagged);
+      }
+      if (countGpsFallback > 0) {
+        xtGpsFallbackRecovered += countGpsFallback;
+        xtGpsFallbackDur += elapsed * (countGpsFallback / totalTagged);
       }
 
-      // All entries succeeded → count successes and mark unique files by type.
-      exiftoolSuccessFiles += batch.length;
+      // Mark all entries as touched and consume fallback marks
       for (final m in entriesMeta) {
-        // Consume hint (if present) per file to split primary/secondary correctly.
         final bool? hintIsPrimary = _consumePrimaryHint(m.file);
-
+        // 1) Combined First: Date+GPS
         if (m.isCombined) {
           if (hintIsPrimary != null) {
             markDateTouchedFromStep5(m.file, isPrimary: hintIsPrimary);
             markGpsTouchedFromStep5(m.file, isPrimary: hintIsPrimary);
+            logDebug('[Step 7/8] [WRITE-EXIF] Date+GPS written with ExifTool using batches: ${m.file.path}');
           } else {
             _markTouched(m.file, date: true, gps: true);
           }
-          _gpsWrittenExiftool++;
-        } else if (m.isDate) {
+          _consumeMarkedFallback(m.file, asDate: false, asGps: false, asCombined: true);
+        }
+        // 2) Date Only
+        else if (m.isDate) {
           if (hintIsPrimary != null) {
             markDateTouchedFromStep5(m.file, isPrimary: hintIsPrimary);
+            logDebug('[Step 7/8] [WRITE-EXIF] Date written with ExifTool using batches: ${m.file.path}');
           } else {
             _markTouched(m.file, date: true, gps: false);
           }
-        } else if (m.isGps) {
+          _consumeMarkedFallback(m.file, asDate: true, asGps: false, asCombined: false);
+        }
+        // 3) GPS Only
+        else if (m.isGps) {
           if (hintIsPrimary != null) {
             markGpsTouchedFromStep5(m.file, isPrimary: hintIsPrimary);
+            logDebug('[Step 7/8] [WRITE-EXIF] GPS written with ExifTool using batches: ${m.file.path}');
           } else {
             _markTouched(m.file, date: false, gps: true);
           }
-          _gpsWrittenExiftool++;
+          _consumeMarkedFallback(m.file, asDate: false, asGps: true, asCombined: false);
         }
       }
     } catch (e) {
-      // Batch failed as a whole; Step 5 will split and retry per-file.
+      // Batch failed as a whole; Step 7 will split and retry per-file.
       logWarning('[Step 7/8] [WRITE-EXIF] Batch exiftool write failed: $e');
       rethrow;
     }
@@ -526,7 +671,8 @@ class ExifWriterService with LoggerMixin {
       final Uint8List orig = await file.readAsBytes();
       final exif = decodeJpgExif(orig);
       if (exif == null || exif.isEmpty) {
-        nativeFailsDate++;
+        nativeDateFail++;
+        nativeDateDur += sw.elapsed;
         return false;
       }
 
@@ -539,17 +685,20 @@ class ExifWriterService with LoggerMixin {
 
       final Uint8List? out = injectJpgExif(orig, exif);
       if (out == null) {
-        nativeFailsDate++;
+        nativeDateFail++;
+        nativeDateDur += sw.elapsed;
         return false;
       }
 
       await file.writeAsBytes(out);
-      nativeWrittenDate++;
-      nativeDurDate += sw.elapsed;
+      nativeDateSuccess++;
+      nativeDateDur += sw.elapsed;
       _markTouched(file, date: true, gps: false);
+      logDebug('[Step 7/8] [WRITE-EXIF] Date written natively (JPEG): ${file.path}');
       return true;
     } catch (e) {
-      nativeFailsDate++;
+      nativeDateFail++;
+      nativeDateDur += sw.elapsed;
       logWarning('[Step 7/8] [WRITE-EXIF] Native JPEG DateTime write failed for ${file.path}: $e');
       return false;
     }
@@ -565,8 +714,8 @@ class ExifWriterService with LoggerMixin {
       final Uint8List orig = await file.readAsBytes();
       final exif = decodeJpgExif(orig);
       if (exif == null || exif.isEmpty) {
-        nativeFailsGps++;
-        _gpsMissNative++;
+        nativeGpsFail++;
+        nativeGpsDur += sw.elapsed;
         return false;
       }
 
@@ -577,22 +726,20 @@ class ExifWriterService with LoggerMixin {
 
       final Uint8List? out = injectJpgExif(orig, exif);
       if (out == null) {
-        nativeFailsGps++;
-        _gpsMissNative++;
+        nativeGpsFail++;
+        nativeGpsDur += sw.elapsed;
         return false;
       }
 
       await file.writeAsBytes(out);
-      nativeWrittenGps++;
-      nativeDurGps += sw.elapsed;
+      nativeGpsSuccess++;
+      nativeGpsDur += sw.elapsed;
       _markTouched(file, date: false, gps: true);
       logDebug('[Step 7/8] [WRITE-EXIF] GPS written natively (JPEG): ${file.path}');
-      // Mirror GPS write stats for WRITE-EXIF-GPS
-      _gpsWrittenNative++;
       return true;
     } catch (e) {
-      nativeFailsGps++;
-      _gpsMissNative++;
+      nativeGpsFail++;
+      nativeGpsDur += sw.elapsed;
       logWarning('[Step 7/8] [WRITE-EXIF] Native JPEG GPS write failed for ${file.path}: $e');
       return false;
     }
@@ -609,8 +756,8 @@ class ExifWriterService with LoggerMixin {
       final Uint8List orig = await file.readAsBytes();
       final exif = decodeJpgExif(orig);
       if (exif == null || exif.isEmpty) {
-        nativeFailsCombined++;
-        _gpsMissNative++; // combined includes GPS attempt
+        nativeCombinedFail++;
+        nativeCombinedDur += sw.elapsed;
         return false;
       }
 
@@ -628,22 +775,20 @@ class ExifWriterService with LoggerMixin {
 
       final Uint8List? out = injectJpgExif(orig, exif);
       if (out == null) {
-        nativeFailsCombined++;
-        _gpsMissNative++; // combined includes GPS attempt
+        nativeCombinedFail++;
+        nativeCombinedDur += sw.elapsed;
         return false;
       }
 
       await file.writeAsBytes(out);
-      nativeWrittenCombined++;
-      nativeDurCombined += sw.elapsed;
+      nativeCombinedSuccess++;
+      nativeCombinedDur += sw.elapsed;
       _markTouched(file, date: true, gps: true);
       logDebug('[Step 7/8] [WRITE-EXIF] Date+GPS written natively (JPEG): ${file.path}');
-      // Mirror GPS write stats for WRITE-EXIF-GPS
-      _gpsWrittenNative++;
       return true;
     } catch (e) {
-      nativeFailsCombined++;
-      _gpsMissNative++; // combined includes GPS attempt
+      nativeCombinedFail++;
+      nativeCombinedDur += sw.elapsed;
       logWarning('[Step 7/8] [WRITE-EXIF] Native JPEG combined write failed for ${file.path}: $e');
       return false;
     }
