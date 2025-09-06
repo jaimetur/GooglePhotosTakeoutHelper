@@ -126,9 +126,32 @@ Future<void> main(final List<String> arguments) async {
       return; // Help was shown or other early exit
     }
 
+    // --- PRE-CLEAN OUTPUT DIR BEFORE OPENING THE NEW LOG FILE ---
+    // Clean the output directory (if needed) *before* creating the logger that will place
+    // the new log file inside that directory. This avoids file-lock errors on Windows.
+    final Directory _preCleanOut = Directory(config.outputPath);
+    if (await _preCleanOut.exists()) {
+      final bool _needsClean = !await _isOutputDirectoryEmpty(_preCleanOut, config);
+      if (_needsClean) {
+        if (config.isInteractiveMode) {
+          if (await ServiceContainer.instance.interactiveService.askForCleanOutput()) {
+            await _cleanOutputDirectory(_preCleanOut, config);
+          }
+        } else {
+          await _cleanOutputDirectory(_preCleanOut, config);
+        }
+      }
+    }
+    await _preCleanOut.create(recursive: true);
+    // --- END PRE-CLEAN ---
+
     // Update logger with correct verbosity and reinitialize services with it
-    _logger = LoggingService(isVerbose: config.verbose, saveLog: ServiceContainer.instance.globalConfig.saveLog);
-    LoggerMixin.sharedDefaultLogger = _logger;; // NEW: propagate final logger to everyone
+    _logger = LoggingService(
+        isVerbose: config.verbose,
+        saveLog: ServiceContainer.instance.globalConfig.saveLog,
+        preferredLogDir: config.outputPath);
+
+    LoggerMixin.sharedDefaultLogger = _logger; // NEW: propagate final logger to everyone
 
     // Reinitialize ServiceContainer with the properly configured logger
     await ServiceContainer.instance.initialize(loggingService: _logger);
@@ -143,7 +166,7 @@ Future<void> main(final List<String> arguments) async {
     await _loadFileDatesIntoGlobalConfigFromArgs(parsedArguments);
 
     // Execute the processing pipeline
-    final result = await _executeProcessing(config);
+    final result = await _executeProcessing(config, precleanedOutput: true);
 
     // Show final results
     _showResults(config, result);
@@ -821,6 +844,7 @@ Future<void> _configureDependencies(final ProcessingConfig config) async {
 /// @returns ProcessingResult with comprehensive statistics and status
 Future<ProcessingResult> _executeProcessing(
   final ProcessingConfig config,
+    { final bool precleanedOutput = false } // If true, skip internal output cleaning
 ) async {
   Directory inputDir = Directory(config.inputPath);
   final outputDir = Directory(config.outputPath);
@@ -914,17 +938,17 @@ Future<ProcessingResult> _executeProcessing(
         )
       : config;
 
-  // Handle output directory cleanup if needed (compare against runtimeConfig.inputPath)
-  if (await outputDir.exists() && !await _isOutputDirectoryEmpty(outputDir, runtimeConfig)) {
-    if (runtimeConfig.isInteractiveMode) {
-      // Interactivo: pregunta antes de limpiar
-      if (await ServiceContainer.instance.interactiveService.askForCleanOutput()) {
+  // Skip internal cleaning if it was already done before logger creation
+  if (!precleanedOutput) {
+    if (await outputDir.exists() && !await _isOutputDirectoryEmpty(outputDir, runtimeConfig)) {
+      if (runtimeConfig.isInteractiveMode) {
+        if (await ServiceContainer.instance.interactiveService.askForCleanOutput()) {
+          await _cleanOutputDirectory(outputDir, runtimeConfig);
+        }
+      } else {
+        logWarning('Output directory is not empty. Cleaning it automatically (non-interactive mode).');
         await _cleanOutputDirectory(outputDir, runtimeConfig);
       }
-    } else {
-      // No interactivo: limpiar siempre automáticamente
-      logWarning('Output directory is not empty. Cleaning it automatically (non-interactive mode).');
-      await _cleanOutputDirectory(outputDir, runtimeConfig);
     }
   }
 
@@ -940,7 +964,6 @@ Future<ProcessingResult> _executeProcessing(
     outputDirectory: outputDir,
   );
 }
-
 
 /// **OUTPUT DIRECTORY VALIDATION**
 ///

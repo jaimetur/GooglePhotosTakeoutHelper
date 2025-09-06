@@ -8,7 +8,7 @@
 ## 5.0.2
 
 ### ✨ **New Features**
-  - New flag `--save-log` to save log messages into disk file.
+  - New flag `--save-log` to save log messages into output folder.
   - Step 8 (Update creation time) is now multi-platform. Also update creation date for physical files and symlinks on linux/macos.
 
 ### 🚀 **Improvements**

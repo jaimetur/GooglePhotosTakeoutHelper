@@ -7,7 +7,8 @@ import 'package:gpth/gpth_lib_exports.dart';
 /// that can be easily mocked and configured for different environments.
 class LoggingService {
   /// Creates a new instance of LoggingService
-  LoggingService({this.isVerbose = false, this.enableColors = true, this.saveLog = false}) {
+  LoggingService({this.isVerbose = false, this.enableColors = true, this.saveLog = false, final String? preferredLogDir})
+      : _preferredLogDir = preferredLogDir {
     if (saveLog) _initFileSink();
   }
 
@@ -15,8 +16,8 @@ class LoggingService {
   factory LoggingService.fromConfig(final ProcessingConfig config) =>
       LoggingService(
         isVerbose: config.verbose,
-        enableColors:
-            !Platform.isWindows || Platform.environment['TERM'] != null,
+        enableColors: !Platform.isWindows || Platform.environment['TERM'] != null,
+        preferredLogDir: config.outputPath,
       );
 
   /// Test override for quit/exit to prevent actual process termination in tests
@@ -55,6 +56,9 @@ class LoggingService {
 
   /// Sink used to persist logs to disk (points to global sink)
   IOSink? _fileSink;
+
+  /// Preferred Log Dir to save the log
+  final String? _preferredLogDir;
 
   /// Log levels with associated colors
   static const Map<String, String> _levelColors = {
@@ -162,6 +166,7 @@ class LoggingService {
         isVerbose: isVerbose ?? this.isVerbose,
         enableColors: enableColors ?? this.enableColors,
         saveLog: saveLog ?? this.saveLog,
+        preferredLogDir: _preferredLogDir,
       );
 
   /// Gets all collected warning messages
@@ -224,7 +229,8 @@ class LoggingService {
         return;
       }
 
-      final Directory dir = Directory('Logs');
+      final String baseDirPath = _preferredLogDir ?? 'Logs';
+      final Directory dir = Directory(baseDirPath);
       if (!dir.existsSync()) dir.createSync(recursive: true);
 
       // Use (or set) a global timestamp so every instance writes to the same file

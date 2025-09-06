@@ -308,12 +308,12 @@ You can configure extension fixing behavior with:
 
 ### Other Options
 
-| Argument           | Description                                                 |
-|--------------------|-------------------------------------------------------------|
-| `--interactive`    | Force interactive mode                                      |
-| `--save-log`, `-s` | Save a log file into `Logs` folder withini execution folder |
-| `--verbose`, `-v`  | Show detailed logging output                                |
-| `--fix`            | Special mode: fix dates in any folder (not just Takeout)    |
+| Argument           | Description                                              |
+|--------------------|----------------------------------------------------------|
+| `--interactive`    | Force interactive mode                                   |
+| `--save-log`, `-s` | Save a log file into output folder                       |
+| `--verbose`, `-v`  | Show detailed logging output                             |
+| `--fix`            | Special mode: fix dates in any folder (not just Takeout) |
 
 ### Example Commands
 
