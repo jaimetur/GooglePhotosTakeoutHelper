@@ -411,7 +411,7 @@ String toString() {
   final duplicates = duplicatesFiles.length;
   // Always print partnerShared in camelCase and include the flag even when false.
   return 'MediaEntity(${primaryFile.sourcePath}$dateInfo$accuracyInfo, '
-      'albums: $albumsCount, secondaries: $secondaries, duplicates: $duplicates, partnerShared: $partnerShared)';
+      'dateTaken: $dateTaken, dateAccuracy: $dateAccuracy, albums: $albumsCount, secondaries: $secondaries, duplicates: $duplicates, partnerShared: $partnerShared)';
 }
 
 

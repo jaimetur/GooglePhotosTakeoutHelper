@@ -95,6 +95,7 @@ void main() {
       test('removes duplicates keeping best quality', () async {
         final file1 = fixture.createImageWithExif('image1.jpg');
         final file2 = fixture.createImageWithExif('image2.jpg');
+
         final media1 = createTestMediaEntityWithDate(
           file1,
           dateTaken: DateTime(2022, 12, 16),
@@ -115,8 +116,29 @@ void main() {
         final result = await service.removeDuplicates([media1, media2]);
 
         expect(result.length, equals(1));
-        expect(result.first, equals(media1)); // Better date accuracy
+        final MediaEntity resultMedia = result.first;
+
+        // Winner keeps better date accuracy (media1)
+        expect(resultMedia.dateTaken, equals(media1.dateTaken));
+        expect(resultMedia.dateAccuracy, equals(media1.dateAccuracy));
+
+        // Primary file equality by path (FileEntity does not override ==)
+        expect(resultMedia.primaryFile.sourcePath, equals(media1.primaryFile.sourcePath));
+
+        // Album associations preserved from the best entity
+        expect(resultMedia.albumNames, equals(media1.albumNames));
+
+        // Duplicates are recorded: exactly one duplicate coming from media2
+        expect(resultMedia.duplicatesCount, equals(1));
+        expect(
+          resultMedia.duplicatesFiles.any((f) => f.sourcePath == media2.primaryFile.sourcePath),
+          isTrue,
+        );
+
+        // No secondaries in this scenario
+        expect(resultMedia.secondaryCount, equals(0));
       });
+
 
       test('handles empty list', () async {
         final result = await service.removeDuplicates([]);
@@ -337,8 +359,9 @@ void main() {
 
 /// Mock implementation of MediaHashService for testing
 class MockMediaHashService implements MediaHashService {
-  final Map<File, int> _fileSizes = {};
-  final Map<File, String> _fileHashes = {};
+  // IMPORTANT: use file paths as keys to avoid instance-identity mismatches.
+  final Map<String, int> _fileSizes = {};
+  final Map<String, String> _fileHashes = {};
 
   @override
   int get maxCacheSize => 1000;
@@ -363,33 +386,35 @@ class MockMediaHashService implements MediaHashService {
   void logPrint(final String message, {final bool forcePrint = true}) {}
 
   void mockFileSize(final File file, final int size) {
-    _fileSizes[file] = size;
+    _fileSizes[file.path] = size;
   }
 
   void mockFileHash(final File file, final String hash) {
-    _fileHashes[file] = hash;
+    _fileHashes[file.path] = hash;
   }
 
   @override
   Future<int> calculateFileSize(final File file) async {
-    if (_fileSizes.containsKey(file)) {
-      return _fileSizes[file]!;
+    final String p = file.path;
+    if (_fileSizes.containsKey(p)) {
+      return _fileSizes[p]!;
     }
     return file.lengthSync();
   }
 
   @override
   Future<String> calculateFileHash(final File file) async {
-    if (_fileHashes.containsKey(file)) {
-      return _fileHashes[file]!;
+    final String p = file.path;
+    if (_fileHashes.containsKey(p)) {
+      return _fileHashes[p]!;
     }
-    throw FileSystemException('File not mocked', file.path);
+    throw FileSystemException('File not mocked', p);
   }
 
   @override
   Future<({String hash, int size})> calculateHashAndSize(final File file) async {
-    final hash = await calculateFileHash(file);
-    final size = await calculateFileSize(file);
+    final String hash = await calculateFileHash(file);
+    final int size = await calculateFileSize(file);
     return (hash: hash, size: size);
   }
 
@@ -398,7 +423,7 @@ class MockMediaHashService implements MediaHashService {
     final results = <String, String>{};
     for (final file in files) {
       try {
-        final hash = await calculateFileHash(file);
+        final String hash = await calculateFileHash(file);
         results[file.path] = hash;
       } catch (_) {
         // Skip files that can't be hashed
@@ -409,12 +434,12 @@ class MockMediaHashService implements MediaHashService {
 
   @override
   Future<bool> areFilesIdentical(final File file1, final File file2) async {
-    final size1 = await calculateFileSize(file1);
-    final size2 = await calculateFileSize(file2);
+    final int size1 = await calculateFileSize(file1);
+    final int size2 = await calculateFileSize(file2);
     if (size1 != size2) return false;
 
-    final hash1 = await calculateFileHash(file1);
-    final hash2 = await calculateFileHash(file2);
+    final String hash1 = await calculateFileHash(file1);
+    final String hash2 = await calculateFileHash(file2);
     return hash1 == hash2;
   }
 
@@ -424,8 +449,8 @@ class MockMediaHashService implements MediaHashService {
     final results = <({String path, String hash, int size, bool success})>[];
     for (final file in files) {
       try {
-        final hash = await calculateFileHash(file);
-        final size = await calculateFileSize(file);
+        final String hash = await calculateFileHash(file);
+        final int size = await calculateFileSize(file);
         results.add((path: file.path, hash: hash, size: size, success: true));
       } catch (_) {
         results.add((path: file.path, hash: '', size: 0, success: false));
@@ -448,6 +473,7 @@ class MockMediaHashService implements MediaHashService {
     _fileSizes.clear();
   }
 }
+
 
 /// Helper function to create test MediaEntity
 MediaEntity createTestMediaEntity(final File file) =>

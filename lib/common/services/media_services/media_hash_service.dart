@@ -306,7 +306,7 @@ class MediaHashService with LoggerMixin {
     while (_hashCache.length >= maxCacheSize) {
       final oldestKey = _hashCache.keys.first;
       _hashCache.remove(oldestKey);
-      logDebug('Evicting cache entry for key: $oldestKey');
+      // logDebug('Evicting cache entry for key: $oldestKey');
     }
 
     _hashCache[cacheKey] = _CacheEntry(hash: hash, size: size);
