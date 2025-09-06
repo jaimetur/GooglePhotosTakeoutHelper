@@ -108,7 +108,7 @@ class MediaEntityCollection with LoggerMixin {
   /// Delegates to RemoveDuplicatesStep.execute(context).
   ///
   /// Returns the number of removed duplicates when available, otherwise 0.
-  Future<int> removeDuplicates({
+  Future<int> mergeMediaEntities({
     final ProcessingConfig? config,
     final Directory? inputDirectory,
     final Directory? outputDirectory,
@@ -126,6 +126,7 @@ class MediaEntityCollection with LoggerMixin {
     if (data.containsKey('removed')) return _asInt(data['removed']);
     if (data.containsKey('duplicatesRemoved')) return _asInt(data['duplicatesRemoved']);
     if (data.containsKey('removedCount')) return _asInt(data['removedCount']);
+    if (data.containsKey('duplicateFilesRemoved')) return _asInt(data['duplicateFilesRemoved']);
     return 0;
   }
 

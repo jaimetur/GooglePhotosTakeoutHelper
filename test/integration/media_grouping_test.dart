@@ -6,6 +6,7 @@
 library;
 
 import 'dart:typed_data';
+import 'package:path/path.dart' as path;
 import 'package:gpth/gpth_lib_exports.dart';
 import 'package:test/test.dart';
 
@@ -33,10 +34,11 @@ void main() {
           Uint8List.fromList([1, 2, 3]),
         );
         final entity = MediaEntity.single(file: FileEntity(sourcePath: file.path));
+        final expectedAlbum = path.basename(path.dirname(file.path)); // p.ej. "Vacation" o "fixture_..."
 
         expect(entity.primaryFile.path, file.path);
-        expect(entity.hasAlbumAssociations, isFalse);
-        expect(entity.albumNames, isEmpty);
+        expect(entity.hasAlbumAssociations, isTrue); // the parent folder of any file will always be consideer as Album, except for those cannonical year folder ("Photos from yyyy", "yyyy", "yyyy/mm", "yyyy-mm")
+        expect(entity.albumNames, contains(expectedAlbum)); // The album name is the name of the parent folder (in this case always start with 'fixture_')
         expect(entity.dateTaken, isNull);
         expect(entity.dateAccuracy, isNull);
       });
@@ -150,6 +152,12 @@ void main() {
 
     group('MediaEntityCollection - Duplicate Detection', () {
       test('removes duplicate entities successfully', () async {
+        // Explicit config for this test (pass required paths; other options use defaults)
+        final cfg = ProcessingConfig(
+          inputPath: fixture.basePath,
+          outputPath: fixture.basePath,
+        );
+
         final file1 = fixture.createFile(
           'test1.jpg',
           Uint8List.fromList([1, 2, 3, 4, 5]),
@@ -169,13 +177,18 @@ void main() {
 
         final collection = MediaEntityCollection([entity1, entity2, entity3]);
 
-        final removedCount = await collection.removeDuplicates();
+        final removedCount = await collection.mergeMediaEntities(config: cfg);
 
         expect(collection.length, 2);
         expect(removedCount, 1);
       });
 
       test('handles collection with no duplicates', () async {
+        // Explicit config for this test (pass required paths; other options use defaults)
+        final cfg = ProcessingConfig(
+          inputPath: fixture.basePath,
+          outputPath: fixture.basePath,
+        );
         final file1 = fixture.createFile(
           'test1.jpg',
           Uint8List.fromList([1, 2, 3]),
@@ -190,7 +203,7 @@ void main() {
 
         final collection = MediaEntityCollection([entity1, entity2]);
 
-        final removedCount = await collection.removeDuplicates();
+        final removedCount = await collection.mergeMediaEntities(config: cfg);
 
         expect(collection.length, 2);
         expect(removedCount, 0);
@@ -199,6 +212,12 @@ void main() {
 
     group('MediaEntityCollection - Album Detection', () {
       test('finds albums in collection (no-op when none present)', () async {
+        // Explicit config for this test (pass required paths; other options use defaults)
+        final cfg = ProcessingConfig(
+          inputPath: fixture.basePath,
+          outputPath: fixture.basePath,
+        );
+
         final file1 = fixture.createFile(
           'test1.jpg',
           Uint8List.fromList([1, 2, 3]),
@@ -213,12 +232,18 @@ void main() {
 
         final collection = MediaEntityCollection([entity1, entity2]);
 
-        await collection.findAlbums();
+        await collection.findAlbums(config: cfg);
 
         expect(collection.length, 2);
       });
 
       test('processes entities with album associations after detection', () async {
+        // Explicit config for this test (pass required paths; other options use defaults)
+        final cfg = ProcessingConfig(
+          inputPath: fixture.basePath,
+          outputPath: fixture.basePath,
+        );
+
         final bytesA = Uint8List.fromList([7, 7, 7]);
         final year = fixture.createFile('2023/test.jpg', bytesA);
         final album = fixture.createFile('Albums/Vacation 2023/test.jpg', bytesA);
@@ -228,12 +253,14 @@ void main() {
           MediaEntity.single(file: FileEntity(sourcePath: album.path)),
         ]);
 
-        await collection.findAlbums();
+        await collection.findAlbums(config: cfg);
 
-        expect(collection.length, 1);
-        final entity = collection.entities.first;
-        expect(entity.hasAlbumAssociations, isTrue);
-        expect(entity.albumNames, contains('Vacation 2023'));
+        expect(collection.length, 2);
+        final entity1 = collection.entities.first;
+        final entity2 = collection.entities.last;
+        expect(entity1.hasAlbumAssociations, isFalse);
+        expect(entity2.hasAlbumAssociations, isTrue);
+        expect(entity2.albumNames, contains('Vacation 2023'));
       });
     });
 

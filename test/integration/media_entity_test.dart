@@ -4,6 +4,7 @@
 library;
 
 import 'dart:io';
+import 'package:path/path.dart' as path;
 import 'package:gpth/gpth_lib_exports.dart';
 import 'package:test/test.dart';
 
@@ -30,10 +31,11 @@ void main() {
       test('creates MediaEntity object with required properties', () {
         final file = fixture.createFile('test.jpg', [1, 2, 3]);
         final entity = MediaEntity.single(file: FileEntity(sourcePath: file.path));
+        final expectedAlbum = path.basename(path.dirname(file.path)); // p.ej. "Vacation" o "fixture_..."
 
         expect(entity.primaryFile.path, file.path);
-        expect(entity.hasAlbumAssociations, isFalse);
-        expect(entity.albumNames, isEmpty);
+        expect(entity.hasAlbumAssociations, isTrue); // the parent folder of any file will always be consideer as Album, except for those cannonical year folder ("Photos from yyyy", "yyyy", "yyyy/mm", "yyyy-mm")
+        expect(entity.albumNames, contains(expectedAlbum)); // The album name is the name of the parent folder (in this case always start with 'fixture_')
         expect(entity.dateTaken, isNull);
         expect(entity.dateTakenAccuracy, isNull);
       });
@@ -92,6 +94,11 @@ void main() {
 
     group('MediaEntityCollection - Duplicate Detection and Management', () {
       test('removeDuplicates identifies and removes duplicate files', () async {
+                // Explicit config for this test (pass required paths; other options use defaults)
+        final cfg = ProcessingConfig(
+          inputPath: fixture.basePath,
+          outputPath: fixture.basePath,
+        );
         final file1 = fixture.createFile('test1.jpg', [1, 2, 3]);
         final file2 = fixture.createFile('test2.jpg', [1, 2, 3]); // duplicate
         final file3 = fixture.createFile('test3.jpg', [4, 5, 6]);
@@ -102,7 +109,7 @@ void main() {
           MediaEntity.single(file: FileEntity(sourcePath: file3.path)),
         ]);
 
-        final removedCount = await collection.removeDuplicates();
+        final removedCount = await collection.mergeMediaEntities(config: cfg);
 
         expect(removedCount, 1);
         expect(collection.length, 2);
@@ -111,6 +118,11 @@ void main() {
       });
 
       test('handles duplicate detection with many files efficiently', () async {
+        // Explicit config for this test (pass required paths; other options use defaults)
+        final cfg = ProcessingConfig(
+          inputPath: fixture.basePath,
+          outputPath: fixture.basePath,
+        );
         final collection = MediaEntityCollection();
 
         for (int i = 0; i < 100; i++) {
@@ -122,7 +134,7 @@ void main() {
         collection.add(MediaEntity.single(file: FileEntity(sourcePath: dup.path)));
 
         final start = DateTime.now();
-        final removedCount = await collection.removeDuplicates();
+        final removedCount = await collection.mergeMediaEntities(config: cfg);
         final end = DateTime.now();
 
         expect(removedCount, 1);
@@ -132,8 +144,14 @@ void main() {
     });
 
     group('Album Detection and Management - File Relationship Handling', () {
-      test('findAlbums merges duplicate files from different albums', () async {
-        // Year + Album (same content) → after findAlbums there must be 1 entity with albumNames=['Vacation']
+      test('findAlbums does not merges duplicates files from different albums, but mergeMediaEntities does.', () async {
+        // Explicit config for this test (pass required paths; other options use defaults)
+        final cfg = ProcessingConfig(
+          inputPath: fixture.basePath,
+          outputPath: fixture.basePath,
+        );
+
+        // Year + Album (same content) → after findAlbums the number of entities needs to be the same, but after mergeMediaEntities there must be 1 entity with albumNames=['Vacation']
         final c = [1, 2, 3];
         final yearFile = fixture.createFile('2023/photo.jpg', c);
         final albumFile = fixture.createFile('Albums/Vacation/photo.jpg', c);
@@ -144,8 +162,11 @@ void main() {
         ]);
 
         final originalLength = collection.length;
-        await collection.findAlbums();
 
+        await collection.findAlbums(config: cfg);
+        expect(collection.length, originalLength);
+
+        await collection.mergeMediaEntities(config: cfg);
         expect(collection.length, lessThan(originalLength));
         expect(collection.length, 1);
 
@@ -155,6 +176,11 @@ void main() {
       });
 
       test('preserves best metadata when merging albums', () async {
+        // Explicit config for this test (pass required paths; other options use defaults)
+        final cfg = ProcessingConfig(
+          inputPath: fixture.basePath,
+          outputPath: fixture.basePath,
+        );
         final c = [1, 2, 3];
         final f1 = fixture.createFile('2023/photo1.jpg', c);
         final f2 = fixture.createFile('Albums/Album/photo1.jpg', c);
@@ -164,7 +190,8 @@ void main() {
           MediaEntity.single(file: FileEntity(sourcePath: f2.path), dateTaken: DateTime(2023)),
         ]);
 
-        await collection.findAlbums();
+        // await collection.findAlbums(config: cfg);
+        await collection.mergeMediaEntities(config: cfg);
 
         expect(collection.length, 1);
         final mergedEntity = collection.entities.first;
@@ -181,6 +208,11 @@ void main() {
 
     group('Performance and Scalability - Large Collection Handling', () {
       test('handles large collections efficiently in comprehensive workflow', () async {
+        // Explicit config for this test (pass required paths; other options use defaults)
+        final cfg = ProcessingConfig(
+          inputPath: fixture.basePath,
+          outputPath: fixture.basePath,
+        );
         final collection = MediaEntityCollection();
         final createdFiles = <File>[];
 
@@ -197,11 +229,11 @@ void main() {
           expect(currentContent.sublist(0, 10), isNot(prevContent.sublist(0, 10)));
         }
 
-        final removedCount = await collection.removeDuplicates();
+        final removedCount = await collection.mergeMediaEntities(config: cfg);
         expect(removedCount, 0);
 
         final memoryBefore = ProcessInfo.currentRss;
-        await collection.removeDuplicates();
+        await collection.mergeMediaEntities(config: cfg);
         final memoryAfter = ProcessInfo.currentRss;
 
         if (!Platform.isWindows) {
@@ -210,6 +242,10 @@ void main() {
       });
 
       test('manages memory usage during intensive operations', () async {
+        final cfg = ProcessingConfig(
+          inputPath: fixture.basePath,
+          outputPath: fixture.basePath,
+        );
         final collection = MediaEntityCollection();
 
         for (int i = 0; i < 50; i++) {
@@ -217,8 +253,8 @@ void main() {
           collection.add(MediaEntity.single(file: FileEntity(sourcePath: file.path)));
         }
 
-        await collection.removeDuplicates();
-        await collection.findAlbums();
+        await collection.mergeMediaEntities(config: cfg);
+        await collection.findAlbums(config: cfg);
 
         expect(collection.length, 50);
       });
@@ -272,6 +308,10 @@ void main() {
       });
 
       test('provides accurate statistics', () async {
+        final cfg = ProcessingConfig(
+          inputPath: fixture.basePath,
+          outputPath: fixture.basePath,
+        );
         final f1 = fixture.createFile('2023/test1.jpg', [1, 2, 3]); // year
         final f2 = fixture.createFile('Albums/Album/test2.jpg', [4, 5, 6]); // album
 
@@ -281,7 +321,7 @@ void main() {
         ]);
 
         // Detect albums before calculating stats
-        await collection.findAlbums();
+        await collection.findAlbums(config: cfg);
 
         final stats = collection.getStatistics();
         expect(stats.totalMedia, 2);

@@ -209,8 +209,15 @@ void main() {
     });
 
     group('End-to-End Coordinate Workflow', () {
+      // test
       test('processes complete collection with mixed coordinate data', () async {
         final collection = MediaEntityCollection();
+
+        // Explicit config for this test (pass required paths; other options use defaults)
+        final cfg = ProcessingConfig(
+          inputPath: fixture.basePath,
+          outputPath: fixture.basePath,
+        );
 
         // Create test files with various coordinate scenarios
         final testFiles = [
@@ -257,7 +264,7 @@ void main() {
 
           await jsonFile.writeAsString(jsonEncode(jsonData));
 
-          // IMPORTANT: MediaEntity.single now expects a FileEntity
+          // IMPORTANT: MediaEntity.single expects a FileEntity
           final mediaEntity = MediaEntity.single(
             file: FileEntity(sourcePath: file.path),
             dateTaken: DateTime.fromMillisecondsSinceEpoch(1609459200 * 1000),
@@ -265,8 +272,8 @@ void main() {
           collection.add(mediaEntity);
         }
 
-        // Updated API: no inputPath/outputPath named parameters
-        final results = await collection.writeExifData();
+        // Pass config explicitly (no reliance on globalConfig)
+        final results = await collection.writeExifData(config: cfg);
 
         expect(results, isA<Map<String, int>>());
         expect(results.containsKey('coordinatesWritten'), isTrue);
@@ -293,6 +300,12 @@ void main() {
       test('handles coordinate writing errors gracefully', () async {
         final collection = MediaEntityCollection();
 
+        // Explicit config for this test (pass required paths; other options use defaults)
+        final cfg = ProcessingConfig(
+          inputPath: fixture.basePath,
+          outputPath: fixture.basePath,
+        );
+
         // Unsupported file type scenario
         final textFile = fixture.createFile('test.txt', [65, 66, 67]); // "ABC"
         final jsonFile = File('${textFile.path}.json');
@@ -314,7 +327,7 @@ void main() {
         collection.add(mediaEntity);
 
         // Updated API: no inputPath/outputPath named parameters
-        final results = await collection.writeExifData();
+        final results = await collection.writeExifData(config: cfg);
 
         expect(results, isA<Map<String, int>>());
         // ignore: avoid_print

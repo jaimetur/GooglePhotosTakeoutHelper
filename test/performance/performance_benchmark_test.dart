@@ -181,7 +181,7 @@ void main() {
 
         // Test duplicate removal performance
         stopwatch = Stopwatch()..start();
-        final duplicatesRemoved = await collection.removeDuplicates();
+        final duplicatesRemoved = await collection.mergeMediaEntities();
         stopwatch.stop();
         print(
           'Duplicate removal: ${stopwatch.elapsed} (removed: $duplicatesRemoved)',

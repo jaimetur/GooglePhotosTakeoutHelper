@@ -164,7 +164,7 @@ void main() {
         expect(albumDir.existsSync(), isTrue);
       });
 
-      test('handles entity without album associations', () async {
+      test('handles entity without album associations but not in cannonical folder', () async {
         final sourceFile = fixture.createFile('test.jpg', [1, 2, 3]);
         final entity = entityFromFile(sourceFile, DateTime(2023, 6, 15));
 
@@ -173,9 +173,11 @@ void main() {
           results.add(r);
         }
 
-        expect(results.length, equals(1)); // only move
+        expect(results.length, equals(2)); // strategy used: shortcut (default). results should be two files (one in ALL_PHOTOS (created with move) and other in Albums folder (created as symlink))
         expect(results[0].success, isTrue);
         expect(results[0].operation.operationType, equals(MediaEntityOperationType.move));
+        expect(results[1].success, isTrue);
+        expect(results[1].operation.operationType, equals(MediaEntityOperationType.createSymlink));
       });
     });
 
@@ -186,7 +188,7 @@ void main() {
         strategy = DuplicateCopyMovingStrategy(fileService, pathService);
       });
 
-      test('moves file to ALL_PHOTOS and copies to album folders', () async {
+      test('moves canonical file to ALL_PHOTOS and moves (not copies) non-canonical files to album folders', () async {
         final content = [1, 2, 3];
         final yearFile = fixture.createFile('2023/test.jpg', content);
         final albumFile = fixture.createFile('Albums/Vacation/test.jpg', content);
@@ -206,7 +208,9 @@ void main() {
         expect(results[0].success, isTrue);
         expect(results[0].operation.operationType, equals(MediaEntityOperationType.move));
         expect(results[1].success, isTrue);
-        expect(results[1].operation.operationType, equals(MediaEntityOperationType.copy));
+        // expect(results[1].operation.operationType, equals(MediaEntityOperationType.copy));
+        expect(results[1].operation.operationType, equals(MediaEntityOperationType.move));  // Now is move operaions expected
+
 
         // Validate ALL_PHOTOS directory using the path generator
         final allPhotosDir = pathService.generateTargetDirectory(

@@ -170,30 +170,30 @@ class FindAlbumsStep extends ProcessingStep with LoggerMixin {
       final Map<String, int> albumCounts = <String, int>{};
 
       for (int i = 0; i < collection.length; i++) {
-        final e = collection[i];
-        final Map<String, AlbumInfo> albums = e.albumsMap;
+        final mediaEntity = collection[i];
+        final Map<String, AlbumInfo> albumsMap = mediaEntity.albumsMap;
 
-        if (albums.isEmpty) continue;
+        if (albumsMap.isEmpty) continue;
         mediaWithAlbums++;
 
-        Map<String, AlbumInfo> updated = albums;
+        Map<String, AlbumInfo> updatedAlbumsMap = albumsMap;
         bool changed = false;
 
         // 1) Sanitize album names (trim) and merge if the normalized key collides.
-        for (final entry in albums.entries) {
-          final String origName = entry.key;
+        for (final album in albumsMap.entries) {
+          final String origName = album.key;
           final String sanitized = _sanitizeAlbumName(origName);
           if (sanitized != origName) {
-            final AlbumInfo incoming = entry.value;
-            final AlbumInfo merged = (updated[sanitized] == null)
-                ? incoming
-                : updated[sanitized]!.merge(incoming);
-            if (identical(updated, albums)) {
-              updated = Map<String, AlbumInfo>.from(albums)
+            final AlbumInfo existing = album.value;
+            final AlbumInfo merged = (updatedAlbumsMap[sanitized] == null)
+                ? existing
+                : updatedAlbumsMap[sanitized]!.merge(existing);
+            if (identical(updatedAlbumsMap, albumsMap)) {
+              updatedAlbumsMap = Map<String, AlbumInfo>.from(albumsMap)
                 ..remove(origName)
                 ..[sanitized] = merged;
             } else {
-              updated
+              updatedAlbumsMap
                 ..remove(origName)
                 ..[sanitized] = merged;
             }
@@ -202,16 +202,16 @@ class FindAlbumsStep extends ProcessingStep with LoggerMixin {
         }
 
         // 2) Ensure at least one sourceDirectory per existing membership.
-        for (final entry in updated.entries) {
+        for (final entry in updatedAlbumsMap.entries) {
           final AlbumInfo info = entry.value;
           if (info.sourceDirectories.isEmpty) {
-            final String parent = _safeParentDir(e.primaryFile);
+            final String parent = _safeParentDir(mediaEntity.primaryFile);
             final AlbumInfo patched = info.addSourceDir(parent);
-            if (!identical(updated, albums) || changed) {
-              updated = Map<String, AlbumInfo>.from(updated)
+            if (!identical(updatedAlbumsMap, albumsMap) || changed) {
+              updatedAlbumsMap = Map<String, AlbumInfo>.from(updatedAlbumsMap)
                 ..[entry.key] = patched;
             } else {
-              updated = Map<String, AlbumInfo>.from(albums)
+              updatedAlbumsMap = Map<String, AlbumInfo>.from(albumsMap)
                 ..[entry.key] = patched;
             }
             enrichedAlbumInfos++;
@@ -222,13 +222,13 @@ class FindAlbumsStep extends ProcessingStep with LoggerMixin {
         // Apply updates if any
         if (changed) {
           final updatedEntity = MediaEntity(
-            primaryFile: e.primaryFile,
-            secondaryFiles: e.secondaryFiles,
-            albumsMap: updated,
-            dateTaken: e.dateTaken,
-            dateAccuracy: e.dateAccuracy,
-            dateTimeExtractionMethod: e.dateTimeExtractionMethod,
-            partnershared: e.partnerShared,
+            primaryFile: mediaEntity.primaryFile,
+            secondaryFiles: mediaEntity.secondaryFiles,
+            albumsMap: updatedAlbumsMap,
+            dateTaken: mediaEntity.dateTaken,
+            dateAccuracy: mediaEntity.dateAccuracy,
+            dateTimeExtractionMethod: mediaEntity.dateTimeExtractionMethod,
+            partnershared: mediaEntity.partnerShared,
           );
           collection.replaceAt(i, updatedEntity);
         }

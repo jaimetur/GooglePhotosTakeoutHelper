@@ -68,7 +68,7 @@ class DuplicateDetectionService with LoggerMixin {
     final Map<String, List<MediaEntity>> output = <String, List<MediaEntity>>{};
     final stopwatch = Stopwatch()..start();
 
-    logInfo('Starting duplicate detection for ${mediaList.length} files...');
+    logInfo('[Step 3/8] Starting duplicate detection for ${mediaList.length} files...');
 
     // Step 1: Calculate all sizes in parallel with optimal batching
     final sizeResults = <({MediaEntity media, int size})>[];
@@ -86,7 +86,7 @@ class DuplicateDetectionService with LoggerMixin {
           return (media: media, size: size);
         } catch (e) {
           logError(
-            'Failed to get size for ${media.primaryFile.sourcePath}: $e',
+            '[Step 3/8] Failed to get size for ${media.primaryFile.sourcePath}: $e',
           );
           return null;
         }
@@ -145,9 +145,7 @@ class DuplicateDetectionService with LoggerMixin {
               );
               return (media: media, hash: hash);
             } catch (e) {
-              logError(
-                'Failed to calculate hash for ${media.primaryFile.sourcePath}: $e',
-              );
+              logError('[Step 3/8] Failed to calculate hash for ${media.primaryFile.sourcePath}: $e');
               return null;
             }
           });
@@ -203,9 +201,7 @@ class DuplicateDetectionService with LoggerMixin {
     );
 
     if (duplicateGroups.isNotEmpty) {
-      logInfo(
-        'Found ${duplicateGroups.length} duplicate groups with $totalDuplicates duplicate files',
-      );
+      logInfo('[Step 3/8] Found ${duplicateGroups.length} duplicate groups with $totalDuplicates duplicate files');
     }
 
     return output;
@@ -226,9 +222,7 @@ class DuplicateDetectionService with LoggerMixin {
   }) async {
     if (mediaList.length <= 1) return mediaList;
 
-    logInfo(
-      'Starting duplicate removal for ${mediaList.length} media entities...',
-    );
+    logInfo('[Step 3/8] Starting duplicate removal for ${mediaList.length} media entities...');
 
     final grouped = await groupIdentical(mediaList);
     final result = <MediaEntity>[];
@@ -267,7 +261,7 @@ class DuplicateDetectionService with LoggerMixin {
       progressCallback?.call(processed, grouped.length);
     }
 
-    logInfo('Duplicate removal completed: removed $duplicatesRemoved files, kept ${result.length}');
+    logInfo('[Step 3/8] Duplicate removal completed: removed $duplicatesRemoved files, kept ${result.length}');
 
     // Log cache performance
     final cacheStats = _hashService.getCacheStats();
@@ -432,7 +426,7 @@ class DuplicateDetectionService with LoggerMixin {
           return (media: media, size: size);
         } catch (e) {
           logError(
-            'Failed to get size for ${media.primaryFile.sourcePath}: $e',
+            '[Step 3/8] Failed to get size for ${media.primaryFile.sourcePath}: $e',
           );
           return null;
         }
@@ -444,7 +438,7 @@ class DuplicateDetectionService with LoggerMixin {
         final processed = math.min(i + sizeBatch, mediaList.length);
         final progress = (processed / mediaList.length * 100).clamp(0, 100);
         logDebug(
-          'Size calculation progress (FAST): ${progress.toStringAsFixed(1)}%',
+          '[Step 3/8] Size calculation progress (FAST): ${progress.toStringAsFixed(1)}%',
         );
       }
     }
@@ -495,7 +489,7 @@ class DuplicateDetectionService with LoggerMixin {
             return (media: media, key: key);
           } catch (e) {
             logError(
-              'Fingerprint failed for ${media.primaryFile.sourcePath}: $e',
+              '[Step 3/8] Fingerprint failed for ${media.primaryFile.sourcePath}: $e',
             );
             return (media: media, key: 'ERR|${media.primaryFile.sourcePath}');
           }
@@ -565,7 +559,7 @@ class DuplicateDetectionService with LoggerMixin {
           return (media: media, hash: h);
         } catch (e) {
           logError(
-            'Failed to calculate hash for ${media.primaryFile.sourcePath}: $e',
+            '[Step 3/8] Failed to calculate hash for ${media.primaryFile.sourcePath}: $e',
           );
           return (media: media, hash: 'ERR|${media.primaryFile.sourcePath}');
         }
@@ -673,6 +667,6 @@ class DuplicateStats {
 
   /// Human readable summary
   String get summary =>
-      'Found $duplicateGroups duplicate groups with $duplicateFiles files. '
-      'Space wasted: ${(spaceWastedBytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+      '[Step 3/8] Found $duplicateGroups duplicate groups with $duplicateFiles files. '
+      '[Step 3/8] Space wasted: ${(spaceWastedBytes / (1024 * 1024)).toStringAsFixed(1)} MB';
 }

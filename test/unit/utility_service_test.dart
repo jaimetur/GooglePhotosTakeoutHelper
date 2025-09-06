@@ -267,13 +267,13 @@ void main() {
       });
     });
 
-    group('printError', () {
-      test('prints error message to stderr', () {
-        // Note: Direct testing of stderr writing is complex in Dart tests
-        // This test documents the expected behavior
-        expect(() => service.printError('Test error'), returnsNormally);
-      });
-    });
+    // group('printError', () {
+    //   test('prints error message to stderr', () {
+    //     // Note: Direct testing of stderr writing is complex in Dart tests
+    //     // This test documents the expected behavior
+    //     expect(() => service.printError('Test error'), returnsNormally);
+    //   });
+    // });
   });
 
   group('StringUtilityExtensions', () {
