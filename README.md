@@ -76,6 +76,7 @@ dart compile exe bin/gpth.dart -o gpth
 2. Deselect all, then select only **Google Photos**
 3. Download all ZIP files
 
+<!--suppress ALL -->
 <img width="75%" alt="gpth usage image tutorial" src="https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/assets/40139196/8e85f58c-9958-466a-a176-51af85bb73dd">
 
 ### 2. Choose Your Extraction Method
