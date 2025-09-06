@@ -509,7 +509,7 @@ class ExifWriterService with LoggerMixin {
       }
     } catch (e) {
       // Batch failed as a whole; Step 5 will split and retry per-file.
-      logWarning('[Step 7/8] Batch exiftool write failed: $e');
+      logWarning('[Step 7/8] [WRITE-EXIF] Batch exiftool write failed: $e');
       rethrow;
     }
   }
@@ -550,7 +550,7 @@ class ExifWriterService with LoggerMixin {
       return true;
     } catch (e) {
       nativeFailsDate++;
-      logWarning('[Step 7/8] Native JPEG DateTime write failed for ${file.path}: $e');
+      logWarning('[Step 7/8] [WRITE-EXIF] Native JPEG DateTime write failed for ${file.path}: $e');
       return false;
     }
   }
@@ -593,7 +593,7 @@ class ExifWriterService with LoggerMixin {
     } catch (e) {
       nativeFailsGps++;
       _gpsMissNative++;
-      logWarning('[Step 7/8] Native JPEG GPS write failed for ${file.path}: $e');
+      logWarning('[Step 7/8] [WRITE-EXIF] Native JPEG GPS write failed for ${file.path}: $e');
       return false;
     }
   }
@@ -644,7 +644,7 @@ class ExifWriterService with LoggerMixin {
     } catch (e) {
       nativeFailsCombined++;
       _gpsMissNative++; // combined includes GPS attempt
-      logWarning('[Step 7/8] Native JPEG combined write failed for ${file.path}: $e');
+      logWarning('[Step 7/8] [WRITE-EXIF] Native JPEG combined write failed for ${file.path}: $e');
       return false;
     }
   }
