@@ -140,6 +140,7 @@ class InteractiveConfigurationService {
       case AlbumBehavior.reverseShortcut:
       case AlbumBehavior.json:
       case AlbumBehavior.nothing:
+      case AlbumBehavior.ignoreAlbums:
         outputMultiplier = 0.0; // Move mode - no extra space needed
         break;
       case AlbumBehavior.duplicateCopy:

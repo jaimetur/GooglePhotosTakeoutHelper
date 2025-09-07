@@ -57,6 +57,7 @@ class MoveFilesStep extends ProcessingStep with LoggerMixin {
       int primaryMovedCount = 0;
       int nonPrimaryMoves = 0;
       int symlinksCreated = 0;
+      int deletesCount = 0; // <-- definido
 
       bool samePath(final String a, final String b) =>
           a.replaceAll('\\', '/').toLowerCase() ==
@@ -64,6 +65,7 @@ class MoveFilesStep extends ProcessingStep with LoggerMixin {
 
       for (final r in movingService.lastResults) {
         if (!r.success) continue;
+
         switch (r.operation.operationType) {
           case MediaEntityOperationType.move:
             final src = r.operation.sourceFile.path;
@@ -74,13 +76,19 @@ class MoveFilesStep extends ProcessingStep with LoggerMixin {
               nonPrimaryMoves++;
             }
             break;
+
           case MediaEntityOperationType.createSymlink:
           case MediaEntityOperationType.createReverseSymlink:
             symlinksCreated++;
             break;
+
           case MediaEntityOperationType.copy:
           case MediaEntityOperationType.createJsonReference:
             // not headline
+            break;
+
+          case MediaEntityOperationType.delete:
+            deletesCount++;
             break;
         }
       }
@@ -96,11 +104,13 @@ class MoveFilesStep extends ProcessingStep with LoggerMixin {
           'primaryMovedCount': primaryMovedCount,
           'nonPrimaryMoves': nonPrimaryMoves,
           'symlinksCreated': symlinksCreated,
+          'deletes': deletesCount,
         },
         message:
             'Moved $primaryMovedCount primary files, created $symlinksCreated symlinks'
             '${nonPrimaryMoves > 0 ? ', non-primary moves: $nonPrimaryMoves' : ''}'
-            '${transformedCount > 0 ? ', transformed $transformedCount Pixel files to .mp4' : ''}',
+            '${transformedCount > 0 ? ', transformed $transformedCount Pixel files to .mp4' : ''}'
+            '${deletesCount > 0 ? ', deletes: $deletesCount' : ''}',
       );
     } catch (e) {
       stopwatch.stop();

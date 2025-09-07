@@ -92,7 +92,9 @@ class ConsolidatedInteractiveService with LoggerMixin {
   /// Returns the selected album behavior option key
   Future<String> askAlbums() async {
     await _presenter.promptForAlbumBehavior();
-    int i = 0;
+
+    // Mostrar las opciones numeradas empezando en 1 (como en los prompts)
+    int i = 1;
     for (final MapEntry<String, String> entry
         in InteractivePresenterService.albumOptions.entries) {
       _presenter.showAlbumOption(i++, entry.key, entry.value);
@@ -101,11 +103,12 @@ class ConsolidatedInteractiveService with LoggerMixin {
     while (true) {
       final input = await readUserInput();
       final int? answer = int.tryParse(input);
+
       if (answer != null &&
-          answer >= 0 &&
-          answer < InteractivePresenterService.albumOptions.length) {
+          answer >= 1 &&
+          answer <= InteractivePresenterService.albumOptions.length) {
         final String choice = InteractivePresenterService.albumOptions.keys
-            .elementAt(answer);
+            .elementAt(answer - 1);
         final String description =
             InteractivePresenterService.albumOptions[choice]!;
         await _presenter.showUserSelection(input, '$choice: $description');
@@ -114,6 +117,8 @@ class ConsolidatedInteractiveService with LoggerMixin {
       await _presenter.showInvalidAnswerError();
     }
   }
+
+
 
   /// Asks if user wants to clean output directory
   Future<bool> askForCleanOutput() async {
@@ -433,7 +438,7 @@ class ConsolidatedInteractiveService with LoggerMixin {
   /// Prompts user to select input directory using file picker dialog
   Future<Directory> selectInputDirectory() async {
     await _presenter.promptForInputDirectory();
-    _presenter.showPressEnterPrompt();
+    // _presenter.showPressEnterPrompt();
 
     try {
       final String? selectedPath = await _showDirectoryPicker(
@@ -461,7 +466,7 @@ class ConsolidatedInteractiveService with LoggerMixin {
   /// Prompts user to select output directory
   Future<Directory> selectOutputDirectory() async {
     await _presenter.promptForOutputDirectory();
-    _presenter.showPressEnterPrompt();
+    // _presenter.showPressEnterPrompt();
 
     try {
       final String? selectedPath = await _showDirectoryPicker(
@@ -489,7 +494,7 @@ class ConsolidatedInteractiveService with LoggerMixin {
   /// Prompts user to select ZIP files for extraction
   Future<List<File>> selectZipFiles() async {
     await _presenter.promptForZipFiles();
-    _presenter.showPressEnterPrompt();
+    // _presenter.showPressEnterPrompt();
 
     try {
       final FilePickerResult? filePickerResult = await _showFilesPicker(
@@ -538,7 +543,7 @@ class ConsolidatedInteractiveService with LoggerMixin {
   /// Prompts user to select extraction directory for ZIP files
   Future<Directory> selectExtractionDirectory() async {
     await _presenter.promptForExtractionDirectory();
-    _presenter.showPressEnterPrompt();
+    // _presenter.showPressEnterPrompt();
 
     try {
       final String? selectedPath = await _showDirectoryPicker(
@@ -580,7 +585,8 @@ class ConsolidatedInteractiveService with LoggerMixin {
     final bool verbose = false,
     final bool skipExtras = false,
     final bool guessFromName = true,
-    final bool keepInput = false, // NEW: allow building config with keep-input
+    final bool keepInput = false,       // mantiene el input intacto con copia temporal
+    final bool keepDuplicates = false,  // NUEVO: coherente con la pregunta interactiva
   }) => ProcessingConfig(
     inputPath: inputPath,
     outputPath: outputPath,
@@ -594,8 +600,10 @@ class ConsolidatedInteractiveService with LoggerMixin {
     verbose: verbose,
     skipExtras: skipExtras,
     guessFromName: guessFromName,
-    keepInput: keepInput, // NEW
+    keepInput: keepInput,
+    keepDuplicates: keepDuplicates,
   );
+
 
   /// Validates input directory for processing
   FormattingValidationResult validateInputDirectory(final String path) {
@@ -689,12 +697,10 @@ class ConsolidatedInteractiveService with LoggerMixin {
   Future<bool> askKeepInput() async {
     // Keeping style consistent with other prompts: we print here directly,
     // then reuse presenter helpers for selection/validation feedback.
-    logPrint(
-      'Do you want to keep your original --input folder untouched by working on a temporary sibling copy (suffix _tmp)?',
-    );
-    logPrint('[1] (Default) - No, work directly on the original input');
-    logPrint('[2] - Yes, create and use "<input>_tmp" as the working directory');
-    logPrint('(Type 1 or 2, or press enter for default):');
+    print('Do you want to keep your original --input folder untouched by working on a temporary sibling copy (suffix _tmp)?');
+    print('[1] (Default) - No, work directly on the original input');
+    print('[2] - Yes, create and use "<input>_tmp" as the working directory');
+    print('(Type 1 or 2, or press enter for default):');
 
     while (true) {
       final input = await readUserInput();
@@ -732,14 +738,10 @@ class ConsolidatedInteractiveService with LoggerMixin {
   /// - true  -> Duplicates will be move to "_Duplicates" directory within output directory.
   /// - false -> Duplicates will be removed totally
   Future<bool> askKeepDuplicates() async {
-    logPrint(
-      'Do you want to keep duplicates files in `_Duplicates` subfolder within output folder?',
-    );
-    logPrint('[1] (Default) - No, you can remove all duplicates found');
-    logPrint(
-      '[2] - Yes, create a `_Duplicates` subfolder within output folder (slower)',
-    );
-    logPrint('(Type 1 or 2, or press enter for default):');
+    print('Do you want to keep duplicates files in `_Duplicates` subfolder within output folder?');
+    print('[1] (Default) - No, you can remove all duplicates found');
+    print('[2] - Yes, create a `_Duplicates` subfolder within output folder (slower)');
+    print('(Type 1 or 2, or press enter for default):');
 
     while (true) {
       final input = await readUserInput();
@@ -791,22 +793,12 @@ class ConsolidatedInteractiveService with LoggerMixin {
 /// Extension methods for enum conversion
 extension AlbumBehaviorExtension on AlbumBehavior {
   static AlbumBehavior fromString(final String value) {
-    switch (value.toLowerCase()) {
-      case 'shortcut':
-        return AlbumBehavior.shortcut;
-      case 'duplicate-copy':
-        return AlbumBehavior.duplicateCopy;
-      case 'json':
-        return AlbumBehavior.json;
-      case 'nothing':
-        return AlbumBehavior.nothing;
-      case 'reverse-shortcut':
-        return AlbumBehavior.reverseShortcut;
-      default:
-        throw ArgumentError('Unknown album behavior: $value');
-    }
+    // Delegamos al método del propio enum para mantener una única fuente de verdad
+    return AlbumBehavior.fromString(value);
   }
 }
+
+
 
 extension ExtensionFixingModeExtension on ExtensionFixingMode {
   static ExtensionFixingMode fromString(final String value) {

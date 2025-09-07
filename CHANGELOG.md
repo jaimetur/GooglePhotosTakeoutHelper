@@ -1,3 +1,16 @@
+## 5.0.4
+
+### ✨ **New Features**
+  - New album moving strategy `ignore-albums` to completely ignore all Albums content. The difference with `nothing` strategy is that `nothing` don't create Albums folders but process and move all Albums content into `ALL_PHOTOS` folder.
+
+### 🚀 **Improvements**
+  - Moving Strategies re-defined
+
+### 🐛 **Bug Fixes**
+  - Added `reverse-shortcut` strategy to interactive mode.
+  - Fixed some moving strategies that was missing some files in the input folder.
+
+
 ## 5.0.3
 
 ### 🚀 **Improvements**

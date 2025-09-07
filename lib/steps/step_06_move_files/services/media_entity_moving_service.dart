@@ -269,7 +269,7 @@ class MediaEntityMovingService with LoggerMixin {
     int copiesAlbums = 0;
     int symlinksCreated = 0;
     int jsonRefs = 0;
-    int failures = 0;
+    int deletes = 0;
 
     // NEW: per-destination breakdown (ALL_PHOTOS vs Albums)
     int primaryMovesAllPhotos = 0;
@@ -284,8 +284,10 @@ class MediaEntityMovingService with LoggerMixin {
     int jsonRefsAllPhotos = 0;
     int jsonRefsAlbums = 0;
 
-    int failuresAllPhotos = 0;
-    int failuresAlbums = 0;
+    int deletesAllPhotos = 0;
+    int deletesAlbums = 0;
+
+    int failures = 0;
 
     // NEW: total operations breakdown (independent of success)
     int totalOpsAllPhotos = 0;
@@ -303,11 +305,6 @@ class MediaEntityMovingService with LoggerMixin {
 
       if (!r.success) {
         failures++;
-        if (op.isAlbumFile) {
-          failuresAlbums++;
-        } else {
-          failuresAllPhotos++;
-        }
         continue;
       }
 
@@ -359,6 +356,15 @@ class MediaEntityMovingService with LoggerMixin {
             jsonRefsAllPhotos++;
           }
           break;
+
+        case MediaEntityOperationType.delete:
+          deletes++;
+          if (op.isAlbumFile) {
+            deletesAlbums++;
+          } else {
+            deletesAllPhotos++;
+          }
+          break;
       }
     }
 
@@ -370,6 +376,7 @@ class MediaEntityMovingService with LoggerMixin {
         copiesAlbums +
         symlinksCreated +
         jsonRefs +
+        deletes +
         failures;
 
     print('');  // print to force new line after progress bar
@@ -380,7 +387,8 @@ class MediaEntityMovingService with LoggerMixin {
     logPrint('${'[Step 6/8]     Duplicated copies created: ${copiesAllPhotos + copiesAlbums}'.padRight(detailsCol)}(ALL_PHOTOS: $copiesAllPhotos, Albums: $copiesAlbums)');
     logPrint('${'[Step 6/8]     Symlinks created: $symlinksCreated'.padRight(detailsCol)}(ALL_PHOTOS: $symlinksAllPhotos, Albums: $symlinksAlbums)');
     logPrint('${'[Step 6/8]     JSON refs created: $jsonRefs'.padRight(detailsCol)}(ALL_PHOTOS: $jsonRefsAllPhotos, Albums: $jsonRefsAlbums)');
-    logPrint('${'[Step 6/8]     Failures: $failures'.padRight(detailsCol)}(ALL_PHOTOS: $failuresAllPhotos, Albums: $failuresAlbums)');
+    logPrint('${'[Step 6/8]     Deleted from source: $deletes'.padRight(detailsCol)}(ALL_PHOTOS: $deletesAllPhotos, Albums: $deletesAlbums)');
+    logPrint('${'[Step 6/8]     Failures: $failures'.padRight(detailsCol)}(ALL_PHOTOS: ${results.where((final r) => !r.success && !r.operation.isAlbumFile).length}, Albums: ${results.where((final r) => !r.success && r.operation.isAlbumFile).length})');
     logPrint('${'[Step 6/8]     Total operations: $totalOps${computedOps != totalOps ? ' (computed: $computedOps)' : ''}'.padRight(detailsCol)}(ALL_PHOTOS: $totalOpsAllPhotos, Albums: $totalOpsAlbums)');
 
     if (failures > 0) {
@@ -455,6 +463,7 @@ enum MediaEntityOperationType {
   createSymlink,
   createReverseSymlink,
   createJsonReference,
+  delete, // NEW: represents a deletion from source (no output artifact)
 }
 
 /// Operation result
@@ -544,7 +553,8 @@ class MediaEntityMovingStrategyFactory {
         return JsonMovingStrategy(_fileService, _pathService);
       case AlbumBehavior.nothing:
         return NothingMovingStrategy(_fileService, _pathService);
+      case AlbumBehavior.ignoreAlbums: // NEW: wire the new strategy
+        return IgnoreAlbumsMovingStrategy(_fileService, _pathService);
     }
   }
 }
-
