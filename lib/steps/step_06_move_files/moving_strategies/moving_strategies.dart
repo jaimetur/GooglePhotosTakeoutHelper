@@ -528,9 +528,12 @@ class ShortcutMovingStrategy extends MediaEntityMovingStrategy {
     // Snapshot
     final FileEntity primary = entity.primaryFile;
     final List<FileEntity> secondaries = <FileEntity>[...entity.secondaryFiles];
+    final List<FileEntity> allFiles = <FileEntity>[primary, ...secondaries];
+
+    // Snapshot flag: primary canonicity BEFORE any move
+    final bool primaryWasCanonical = primary.isCanonical == true;
 
     // Decide which file to move to ALL_PHOTOS (prefer best canonical if exists)
-    final List<FileEntity> allFiles = <FileEntity>[primary, ...secondaries];
     final List<FileEntity> canonicals =
         allFiles.where((f) => f.isCanonical == true).toList();
     final FileEntity chosen =
@@ -596,7 +599,7 @@ class ShortcutMovingStrategy extends MediaEntityMovingStrategy {
       );
 
       // Primary shortcut if originally non-canonical and belonged to this album
-      if (primary.isCanonical != true &&
+      if (!primaryWasCanonical &&
           MovingStrategyUtils.fileBelongsToAlbum(entity, primary, albumName)) {
         final String desiredName = path.basename(primary.sourcePath);
         final ssw = Stopwatch()..start();
@@ -783,6 +786,11 @@ class ReverseShortcutMovingStrategy extends MediaEntityMovingStrategy {
     final List<FileEntity> secondaries = <FileEntity>[...entity.secondaryFiles];
     final List<FileEntity> allFiles = <FileEntity>[primary, ...secondaries];
 
+    // Snapshot canonicity BEFORE any move
+    final Map<FileEntity, bool> wasCanonical = {
+      for (final f in allFiles) f: f.isCanonical == true
+    };
+
     final List<FileEntity> nonCanonicals =
         allFiles.where((f) => f.isCanonical != true).toList();
 
@@ -855,14 +863,16 @@ class ReverseShortcutMovingStrategy extends MediaEntityMovingStrategy {
         return;
       }
 
-      // For each CANONICAL (primary or secondary), create shortcut in ALL_PHOTOS pointing to anchor and delete original
+      // For each CANONICAL (pre-move), create shortcut in ALL_PHOTOS pointing to anchor and delete original
       final Directory allPhotosDir = MovingStrategyUtils.allPhotosDir(
         _pathService,
         entity,
         context,
       );
 
-      for (final fe in allFiles.where((f) => f.isCanonical == true)) {
+      for (final fe in allFiles) {
+        if (wasCanonical[fe] != true) continue;
+
         final ssw = Stopwatch()..start();
         try {
           final File shortcut = await _symlinkService.createSymlink(
