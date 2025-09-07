@@ -4,7 +4,8 @@
   - New album moving strategy `ignore-albums` to completely ignore all Albums content. The difference with `nothing` strategy is that `nothing` don't create Albums folders but process and move all Albums content into `ALL_PHOTOS` folder.
 
 ### 🚀 **Improvements**
-  - Moving Strategies re-defined
+  - Moving Strategies re-defined.
+  - Included Timeouts on ExifTool operations.
 
 ### 🐛 **Bug Fixes**
   - Added `reverse-shortcut` strategy to interactive mode.
