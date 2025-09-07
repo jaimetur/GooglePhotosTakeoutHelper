@@ -193,9 +193,6 @@ class ExtractDatesStep extends ProcessingStep with LoggerMixin {
           final media = entry.value;
           final actualIndex = batchStartIndex + batchIndex;
 
-          // TODO: Don't forget to remove this trace
-          if (_entityContainsTarget(media, '2013-05-19 20.27.53-MOTION.gif')) { logInfo(_formatMediaEntityTrace(media), forcePrint: true); }
-
           // If already has a date, keep it (parity with previous behavior)
           if (media.dateTaken != null) {
             final method =
@@ -347,89 +344,6 @@ class ExtractDatesStep extends ProcessingStep with LoggerMixin {
       return f.path;
     } catch (_) {
       return '<unknown-file>';
-    }
-  }
-
-  // TODO: Don't forget to remove this Trace helpers
-  // ====== Trace helpers (private) ======
-
-  bool _entityContainsTarget(final MediaEntity m, final String targetBaseName) {
-    if (_basename(m.primaryFile.path) == targetBaseName) return true;
-    for (final f in m.secondaryFiles) { if (_basename(f.path) == targetBaseName) return true; }
-    for (final f in m.duplicatesFiles) { if (_basename(f.path) == targetBaseName) return true; }
-    return false;
-  }
-
-  String _formatMediaEntityTrace(final MediaEntity e) {
-    final b = StringBuffer();
-    b.writeln('========== TRACE: MediaEntity (target matched) ==========');
-    b.writeln('primary.path: ${e.primaryFile.path}');
-    b.writeln('primary.sourcePath: ${e.primaryFile.sourcePath}');
-    b.writeln('primary.targetPath: ${e.primaryFile.targetPath}');
-    b.writeln('primary.isCanonical: ${e.primaryFile.isCanonical}');
-    b.writeln('primary.isShortcut: ${e.primaryFile.isShortcut}');
-    b.writeln('primary.ranking: ${e.primaryFile.ranking}');
-    b.writeln('primary.dateAccuracy.value: ${_formatDateAccuracy(e.primaryFile.dateAccuracy)}');
-    b.writeln('dateTaken: ${e.dateTaken}');
-    b.writeln('dateAccuracy.value(entity): ${_formatDateAccuracy(e.dateAccuracy)}');
-    b.writeln('dateTimeExtractionMethod: ${e.dateTimeExtractionMethod?.name}');
-    b.writeln('partnerShared: ${e.partnerShared}');
-    b.writeln('hasAlbumAssociations: ${e.hasAlbumAssociations}');
-    b.writeln('hasYearBasedFiles: ${e.hasYearBasedFiles}');
-    b.writeln('albums.count: ${e.albumsMap.length}');
-    if (e.albumsMap.isNotEmpty) {
-      for (final entry in e.albumsMap.entries) {
-        final name = entry.key;
-        final info = entry.value;
-        b.writeln('  album: $name | dirs: ${info.sourceDirectories.join(' | ')}');
-      }
-    }
-    b.writeln('secondaryFiles.count: ${e.secondaryFiles.length}');
-    if (e.secondaryFiles.isNotEmpty) {
-      for (int i = 0; i < e.secondaryFiles.length; i++) {
-        final f = e.secondaryFiles[i];
-        b.writeln('  secondary[$i].path: ${f.path}');
-        b.writeln('  secondary[$i].sourcePath: ${f.sourcePath}');
-        b.writeln('  secondary[$i].targetPath: ${f.targetPath}');
-        b.writeln('  secondary[$i].isCanonical: ${f.isCanonical}');
-        b.writeln('  secondary[$i].isShortcut: ${f.isShortcut}');
-        b.writeln('  secondary[$i].ranking: ${f.ranking}');
-        b.writeln('  secondary[$i].dateAccuracy.value: ${_formatDateAccuracy(f.dateAccuracy)}');
-      }
-    }
-    b.writeln('duplicatesFiles.count: ${e.duplicatesFiles.length}');
-    if (e.duplicatesFiles.isNotEmpty) {
-      for (int i = 0; i < e.duplicatesFiles.length; i++) {
-        final f = e.duplicatesFiles[i];
-        b.writeln('  duplicate[$i].path: ${f.path}');
-        b.writeln('  duplicate[$i].sourcePath: ${f.sourcePath}');
-        b.writeln('  duplicate[$i].targetPath: ${f.targetPath}');
-        b.writeln('  duplicate[$i].isCanonical: ${f.isCanonical}');
-        b.writeln('  duplicate[$i].isShortcut: ${f.isShortcut}');
-        b.writeln('  duplicate[$i].ranking: ${f.ranking}');
-        b.writeln('  duplicate[$i].dateAccuracy.value: ${_formatDateAccuracy(f.dateAccuracy)}');
-      }
-    }
-    b.writeln('=========================================================');
-    return b.toString();
-  }
-
-  String _basename(final String p) {
-    final n = p.replaceAll('\\', '/');
-    final idx = n.lastIndexOf('/');
-    return idx >= 0 ? n.substring(idx + 1) : n;
-  }
-
-  String _formatDateAccuracy(final DateAccuracy? acc) {
-    if (acc == null) return 'null';
-    try {
-      // Prefer exposing the numeric value if available; otherwise fallback to toString()
-      // Avoid accessing fields like "description" that may not exist.
-      // ignore: unnecessary_raw_strings
-      final v = (acc as dynamic).value;
-      return '$v';
-    } catch (_) {
-      return '$acc';
     }
   }
 }

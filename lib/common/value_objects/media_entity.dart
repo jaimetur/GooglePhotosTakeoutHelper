@@ -672,12 +672,14 @@ class FileEntity {
     final String? targetPath,
     final bool isShortcut = false,
     final bool isMoved = false,
+    final bool isDeleted = false,
     final DateAccuracy? dateAccuracy,
     final int ranking = 0,
   }) : _sourcePath = sourcePath,
        _targetPath = targetPath,
        _isShortcut = isShortcut,
        _isMoved = isMoved,
+       _isDeleted = isDeleted,
        _dateAccuracy = dateAccuracy,
        _ranking = ranking,
        _isCanonical = _calculateCanonical(sourcePath, targetPath);
@@ -687,6 +689,7 @@ class FileEntity {
   bool _isCanonical;
   bool _isShortcut;
   bool _isMoved;
+  bool _isDeleted;
   DateAccuracy? _dateAccuracy;
   int _ranking;
 
@@ -711,6 +714,9 @@ class FileEntity {
 
   /// True when the file has been moved to a new target path.
   bool get isMoved => _isMoved;
+
+  /// True when the file has been marked as deleted.
+  bool get isDeleted => _isDeleted;
 
   /// Date accuracy associated to this file (if any).
   DateAccuracy? get dateAccuracy => _dateAccuracy;
@@ -741,6 +747,10 @@ class FileEntity {
 
   set isMoved(final bool value) {
     _isMoved = value;
+  }
+
+  set isDeleted(final bool value) {
+    _isDeleted = value;
   }
 
   set dateAccuracy(final DateAccuracy? accuracy) {
@@ -825,7 +835,7 @@ class FileEntity {
   @override
   String toString() => 'FileEntity(sourcePath=$_sourcePath, targetPath=$_targetPath, '
         'path=$path, isCanonical=$_isCanonical, isShortcut=$_isShortcut, '
-        'isMoved=$_isMoved, dateAccuracy=$_dateAccuracy, ranking=$_ranking)';
+        'isMoved=$_isMoved, isDeleted=$_isDeleted, dateAccuracy=$_dateAccuracy, ranking=$_ranking)';
 }
 
 

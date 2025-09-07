@@ -220,15 +220,37 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
 
       // Batch queues (images/videos)
       final bool isWindows = Platform.isWindows;
-      final int baseBatchSize = isWindows ? 60 : 120;
+      final int baseBatchSize = isWindows ? 100 : 200;
       final int maxImageBatch = _resolveInt('maxExifImageBatchSize', defaultValue: 500);
       final int maxVideoBatch = _resolveInt('maxExifVideoBatchSize', defaultValue: 24);
 
-      final pendingImagesBatch = <MapEntry<File, Map<String, dynamic>>>[];
-      final pendingVideosBatch = <MapEntry<File, Map<String, dynamic>>>[];
+      // NEW: group batches by an identical tag-set to avoid cross-file tag bleeding.
+      final Map<String, List<MapEntry<File, Map<String, dynamic>>>> pendingImagesByTagset = {};
+      final Map<String, List<MapEntry<File, Map<String, dynamic>>>> pendingVideosByTagset = {};
 
-      // --- NEW: Helpers to preserve OS mtime around writes (tool-agnostic) ---
-      // This mirrors ExifTool's -P and also protects native-writer paths.
+      String stableTagsetKey(final Map<String, dynamic> tags) {
+        // Deterministic signature: sorted keys + '=' + stringified value
+        final keys = tags.keys.toList()..sort();
+        final buf = StringBuffer();
+        for (final k in keys) {
+          buf.write(k);
+          buf.write('=');
+          final v = tags[k];
+          buf.write(v is String ? v : v.toString());
+          buf.write('\u0001'); // non-printable separator
+        }
+        return buf.toString();
+      }
+
+      int totalQueued(final Map<String, List<MapEntry<File, Map<String, dynamic>>>> byTagset) {
+        int n = 0;
+        for (final list in byTagset.values) {
+          n += list.length;
+        }
+        return n;
+      }
+
+      // --- Helpers to preserve OS mtime around writes (tool-agnostic) ---
       Future<T> preserveMTime<T>(final File f, final Future<T> Function() op) async {
         DateTime? before;
         try {
@@ -279,8 +301,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
             final entry = chunk.first;
             final snap = snapshotMtimes(chunk); // snapshot for single too
             try {
-              // Keep the old behavior: 'useArgFileWhenLarge' obeys the incoming useArgFile decision
-              await exifWriter.writeBatchWithExifTool([entry], useArgFileWhenLarge: useArgFile);
+              await exifWriter.writeTagsWithExifToolUsingBatch([entry], useArgFileWhenLarge: useArgFile);
             } catch (e) {
               if (!_shouldSilenceExiftoolError(e)) {
                 logWarning(
@@ -304,7 +325,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
           final snap = snapshotMtimes(chunk);
 
           try {
-            await exifWriter.writeBatchWithExifTool(chunk, useArgFileWhenLarge: useArgFile);
+            await exifWriter.writeTagsWithExifToolUsingBatch(chunk, useArgFileWhenLarge: useArgFile);
           } catch (e) {
             await _tryDeleteTmpForChunk(chunk);
             if (!_shouldSilenceExiftoolError(e)) {
@@ -328,45 +349,60 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
         await splitAndWrite(queue);
       }
 
-      // Flush helpers
-      Future<void> flushBatch(
-        final List<MapEntry<File, Map<String, dynamic>>> queue, {
+      // Flush helpers (iterate by homogeneous tag-set)
+      Future<void> flushMapByTagset(
+        final Map<String, List<MapEntry<File, Map<String, dynamic>>>> byTagset, {
         required final bool useArgFile,
         required final bool isVideoBatch,
+        required final int capPerChunk,
       }) async {
         if (nativeOnly || !enableExifToolBatch) return;
-        if (queue.isEmpty) return;
+        if (byTagset.isEmpty) return;
         if (exifWriter == null) {
-          queue.clear();
+          byTagset.clear();
           return;
         }
 
-        // Enforce safe caps
-        while (queue.length > (isVideoBatch ? maxVideoBatch : maxImageBatch)) {
-          final sub = queue.sublist(0, isVideoBatch ? maxVideoBatch : maxImageBatch);
-          await writeBatchSafe(sub, useArgFile: true, isVideoBatch: isVideoBatch);
-          queue.removeRange(0, sub.length);
-        }
+        final keys = byTagset.keys.toList();
+        for (final k in keys) {
+          final list = byTagset[k];
+          if (list == null || list.isEmpty) {
+            byTagset.remove(k);
+            continue;
+          }
 
-        // When batching is enabled, honor the useArgFile decision (do not force true)
-        await writeBatchSafe(queue, useArgFile: useArgFile, isVideoBatch: isVideoBatch);
-        queue.clear();
+          while (list.length > capPerChunk) {
+            final sub = list.sublist(0, capPerChunk);
+            await writeBatchSafe(sub, useArgFile: true, isVideoBatch: isVideoBatch);
+            list.removeRange(0, sub.length);
+          }
+
+          await writeBatchSafe(list, useArgFile: useArgFile, isVideoBatch: isVideoBatch);
+          byTagset.remove(k);
+        }
       }
 
       Future<void> flushImageBatch({required final bool useArgFile}) =>
-          flushBatch(pendingImagesBatch, useArgFile: useArgFile, isVideoBatch: false);
+          flushMapByTagset(pendingImagesByTagset, useArgFile: useArgFile, isVideoBatch: false, capPerChunk: maxImageBatch);
       Future<void> flushVideoBatch({required final bool useArgFile}) =>
-          flushBatch(pendingVideosBatch, useArgFile: useArgFile, isVideoBatch: true);
+          flushMapByTagset(pendingVideosByTagset, useArgFile: useArgFile, isVideoBatch: true, capPerChunk: maxVideoBatch);
 
       Future<void> maybeFlushThresholds() async {
         if (nativeOnly || !enableExifToolBatch) return;
-        final int targetImageBatch = baseBatchSize.clamp(1, maxImageBatch);
-        final int targetVideoBatch = 12.clamp(1, maxVideoBatch);
-        if (pendingImagesBatch.length >= targetImageBatch) {
-          await flushImageBatch(useArgFile: true);
+        final int targetImageBatch = baseBatchSize.clamp(1, maxImageBatch).toInt();
+        final int targetVideoBatch = 12.clamp(1, maxVideoBatch).toInt();
+
+        for (final entry in pendingImagesByTagset.entries.toList()) {
+          if (entry.value.length >= targetImageBatch) {
+            await writeBatchSafe(entry.value, useArgFile: true, isVideoBatch: false);
+            pendingImagesByTagset.remove(entry.key);
+          }
         }
-        if (pendingVideosBatch.length >= targetVideoBatch) {
-          await flushVideoBatch(useArgFile: true);
+        for (final entry in pendingVideosByTagset.entries.toList()) {
+          if (entry.value.length >= targetVideoBatch) {
+            await writeBatchSafe(entry.value, useArgFile: true, isVideoBatch: true);
+            pendingVideosByTagset.remove(entry.key);
+          }
         }
       }
 
@@ -472,7 +508,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
             logWarning('[Step 7/8] Failed to prepare GPS tags for ${file.path}: $e', forcePrint: true);
           }
 
-        // Date/time from entity
+          // Date/time from entity
           try {
             if (effectiveDate != null) {
               if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) {
@@ -515,6 +551,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
 
               if (isUnsupported && !unsupportedPolicy.forceProcessUnsupportedFormats) {
                 if (!unsupportedPolicy.silenceUnsupportedWarnings) {
+                  // Skip unsupported files (if not forced by configuration)
                   final detectedFmt = _describeUnsupported(
                     mimeHeader: mimeHeader,
                     mimeExt: mimeExt,
@@ -522,7 +559,9 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
                   );
                   logWarning('[Step 7/8] Skipping $detectedFmt file - ExifTool cannot write $detectedFmt: ${file.path}', forcePrint: true);
                 }
-              } else {
+              }
+              else {
+                // Write with ExifTool without Batches
                 if (!enableExifToolBatch) {
                   // Respect configuration: no batching → per-file write (preserving mtime)
                   try {
@@ -538,15 +577,16 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
                     }
                     await _tryDeleteTmp(file);
                   }
-                } else {
+                }
+                // Write with ExifTool in Batches
+                else {
+                  // Register primary/secondary hint before enqueueing to batch.
+                  ExifWriterService.setPrimaryHint(file, markAsPrimary);
+                  final key = stableTagsetKey(tagsToWrite);
                   if (isVideo) {
-                    // Register primary/secondary hint before enqueueing to batch.
-                    ExifWriterService.setPrimaryHint(file, markAsPrimary);
-                    pendingVideosBatch.add(MapEntry(file, tagsToWrite));
+                    (pendingVideosByTagset[key] ??= <MapEntry<File, Map<String, dynamic>>>[]).add(MapEntry(file, tagsToWrite));
                   } else {
-                    // Register primary/secondary hint before enqueueing to batch.
-                    ExifWriterService.setPrimaryHint(file, markAsPrimary);
-                    pendingImagesBatch.add(MapEntry(file, tagsToWrite));
+                    (pendingImagesByTagset[key] ??= <MapEntry<File, Map<String, dynamic>>>[]).add(MapEntry(file, tagsToWrite));
                   }
                 }
               }
@@ -632,13 +672,15 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
 
       // Final batch flush (if batching was used). Use the old heuristic to decide argfile.
       if (!nativeOnly && enableExifToolBatch) {
-        final bool flushImagesWithArg = pendingImagesBatch.length > (Platform.isWindows ? 30 : 60);
-        final bool flushVideosWithArg = pendingVideosBatch.length > 6;
+        final int imagesQueued = totalQueued(pendingImagesByTagset);
+        final int videosQueued = totalQueued(pendingVideosByTagset);
+        final bool flushImagesWithArg = imagesQueued > (Platform.isWindows ? 30 : 60);
+        final bool flushVideosWithArg = videosQueued > 6;
         await flushImageBatch(useArgFile: flushImagesWithArg);
         await flushVideoBatch(useArgFile: flushVideosWithArg);
       } else {
-        pendingImagesBatch.clear();
-        pendingVideosBatch.clear();
+        pendingImagesByTagset.clear();
+        pendingVideosByTagset.clear();
       }
 
       // Unique-file metrics

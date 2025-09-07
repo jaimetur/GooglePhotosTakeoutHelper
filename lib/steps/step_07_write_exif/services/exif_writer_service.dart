@@ -201,17 +201,18 @@ class ExifWriterService with LoggerMixin {
     final LoggerMixin? logger,
   }) {
     // Helper for output respecting the original LoggerMixin pattern
-    void _out(final String s) {
+    void out(final String s) {
       if (logger != null) {
         logger.logInfo(s, forcePrint: true);
       } else {
         // ignore: avoid_print
-        LoggingService().printPlain(s);
+        // LoggingService().printPlain(s);
+        LoggingService().info(s);
       }
     }
 
     // Category printer conforming to new format
-    void _printCategory({
+    void printCategory({
       required final String title,
       required final int nativeOk,
       required final int nativeFail,
@@ -227,24 +228,24 @@ class ExifWriterService with LoggerMixin {
       final totalDirect = xtDirectOk + xtDirectFail;
       final totalFallback = xtFallbackRecovered + xtFallbackFail;
 
-      _out('[Step 7/8]    $title');
-      _out('[Step 7/8]         Native Direct    : Total: $totalNative (Success: $nativeOk, Fails: $nativeFail) - Time: ${_fmtSec(nativeDur)}');
-      _out('[Step 7/8]         Exiftool Direct  : Total: $totalDirect (Success: $xtDirectOk, Fails: $xtDirectFail) - Time: ${_fmtSec(xtDirectDur)}');
-      _out('[Step 7/8]         Exiftool Fallback: Total: $totalFallback (Recovered: $xtFallbackRecovered, Fails: $xtFallbackFail) - Time: ${_fmtSec(xtFallbackDur)}');
+      out('[Step 7/8]    $title');
+      out('[Step 7/8]         Native Direct    : Total: $totalNative (Success: $nativeOk, Fails: $nativeFail) - Time: ${_fmtSec(nativeDur)}');
+      out('[Step 7/8]         Exiftool Direct  : Total: $totalDirect (Success: $xtDirectOk, Fails: $xtDirectFail) - Time: ${_fmtSec(xtDirectDur)}');
+      out('[Step 7/8]         Exiftool Fallback: Total: $totalFallback (Recovered: $xtFallbackRecovered, Fails: $xtFallbackFail) - Time: ${_fmtSec(xtFallbackDur)}');
 
       // Total excludes fallbacks to avoid double counting the same files twice.
       final totalOk = nativeOk + xtDirectOk;
       final totalFail = nativeFail + xtDirectFail;
       final total = totalOk + totalFail;
       final totalTime = _fmtSec(nativeDur + xtDirectDur);
-      _out('[Step 7/8]         Total Files      : Total: $total (Success: $totalOk, Fails: $totalFail) - Time: $totalTime');
+      out('[Step 7/8]         Total Files      : Total: $total (Success: $totalOk, Fails: $totalFail) - Time: $totalTime');
     }
 
     // Header
-    _out('[Step 7/8] === Telemetry Summary ===');
+    out('[Step 7/8] === Telemetry Summary ===');
 
     // DATE+GPS
-    _printCategory(
+    printCategory(
       title: '[WRITE DATE+GPS]:',
       nativeOk: nativeCombinedSuccess,
       nativeFail: nativeCombinedFail,
@@ -258,7 +259,7 @@ class ExifWriterService with LoggerMixin {
     );
 
     // ONLY DATE
-    _printCategory(
+    printCategory(
       title: '[WRITE ONLY DATE]:',
       nativeOk: nativeDateSuccess,
       nativeFail: nativeDateFail,
@@ -272,7 +273,7 @@ class ExifWriterService with LoggerMixin {
     );
 
     // ONLY GPS
-    _printCategory(
+    printCategory(
       title: '[WRITE ONLY GPS]:',
       nativeOk: nativeGpsSuccess,
       nativeFail: nativeGpsFail,
@@ -531,7 +532,7 @@ class ExifWriterService with LoggerMixin {
   /// Batch write: list of (file -> tags). Counts one exiftool call.
   /// Time attribution is **proportional** across categories to avoid overcount.
   /// Also splits "direct vs fallback" using the same heuristic per entry.
-  Future<void> writeBatchWithExifTool(
+  Future<void> writeTagsWithExifToolUsingBatch(
     final List<MapEntry<File, Map<String, dynamic>>> batch, {
     required final bool useArgFileWhenLarge,
   }) async {
@@ -568,11 +569,23 @@ class ExifWriterService with LoggerMixin {
       ));
 
       if (cls.isCombined) {
-        if (isFallbackMarked) countCombinedFallback++; else countCombinedDirect++;
+        if (isFallbackMarked) {
+          countCombinedFallback++;
+        } else {
+          countCombinedDirect++;
+        }
       } else if (cls.isDate) {
-        if (isFallbackMarked) countDateFallback++; else countDateDirect++;
+        if (isFallbackMarked) {
+          countDateFallback++;
+        } else {
+          countDateDirect++;
+        }
       } else if (cls.isGps) {
-        if (isFallbackMarked) countGpsFallback++; else countGpsDirect++;
+        if (isFallbackMarked) {
+          countGpsFallback++;
+        } else {
+          countGpsDirect++;
+        }
       }
     }
 

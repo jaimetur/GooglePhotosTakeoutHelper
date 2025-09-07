@@ -91,13 +91,13 @@ class ExifDateExtractor with LoggerMixin {
       loggerMixin.logInfo(lineNative, forcePrint: true);
       loggerMixin.logInfo(lineExiftool, forcePrint: true);
     } else {
-      LoggingService().printPlain('[Step 4/8] === Telemetry Summary ===');
-      LoggingService().printPlain(lineCalls);
+      LoggingService().info('[Step 4/8] === Telemetry Summary ===');
+      LoggingService().info(lineCalls);
       if (showDictLine) {
-        LoggingService().printPlain(lineDict);
+        LoggingService().info(lineDict);
       }
-      LoggingService().printPlain(lineNative);
-      LoggingService().printPlain(lineExiftool);
+      LoggingService().info(lineNative);
+      LoggingService().info(lineExiftool);
     }
 
     if (reset) {
