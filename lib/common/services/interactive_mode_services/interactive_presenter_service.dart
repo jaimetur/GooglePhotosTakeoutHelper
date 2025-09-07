@@ -298,7 +298,6 @@ class InteractivePresenterService with LoggerMixin {
   /// Prompts user to select album behavior
   /// Updated to include the new 'ignore-albums' option as [5].
   Future<void> promptForAlbumBehavior() async {
-
     print('What should be done with albums?');
     print('[1] shortcut: [Recommended] Album folders with symlinks to');
     print('    original photos. Recommended as it provides better compatibility');
@@ -327,8 +326,10 @@ class InteractivePresenterService with LoggerMixin {
     print('    WARNING: This ignores Archive/Trash !!!');
     print('');
     print('(Type a number or press enter for recommended option):');
+
     if (enableSleep) await _sleep(1);
   }
+
 
   /// Shows an album option to the user
   void showAlbumOption(final int index, final String key, final String value) {

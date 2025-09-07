@@ -266,9 +266,9 @@ void main() {
         await for (final r in strategy.processMediaEntity(merged[1], context)) {
           results2.add(r);
         }
-
-        expect(results1.length, equals(1));
-        expect(results2.length, equals(1));
+  
+        expect(results1.length, equals(2));   // 2 operarions (1. MOVE for the primary and 2. DELETE for the secondary)
+        expect(results2.length, equals(2));   // 2 operarions (1. MOVE for the primary and 2. DELETE for the secondary)
         expect(results1[0].success, isTrue);
         expect(results2[0].success, isTrue);
 

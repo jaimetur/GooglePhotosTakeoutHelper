@@ -580,7 +580,7 @@ class ShortcutMovingStrategy extends MediaEntityMovingStrategy {
           operationType: MediaEntityOperationType.move,
           mediaEntity: entity,
         ),
-        errorMessage: 'Failed to move chosen file: $e',
+        errorMessage: 'Failed to move primary file: $e',
         duration: elapsed,
       );
       return;

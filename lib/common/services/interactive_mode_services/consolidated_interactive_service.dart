@@ -86,21 +86,23 @@ class ConsolidatedInteractiveService with LoggerMixin {
   Future<String> askAlbums() async {
     await _presenter.promptForAlbumBehavior();
 
-    // int i = 1;
-    // for (final MapEntry<String, String> entry
-    //     in InteractivePresenterService.albumOptions.entries) {
-    //   _presenter.showAlbumOption(i++, entry.key, entry.value);
-    // }
+    // Present album options to the user (numbering starts at 1).
+    int i = 1;
+    for (final MapEntry<String, String> entry
+        in InteractivePresenterService.albumOptions.entries) {
+      _presenter.showAlbumOption(i++, entry.key, entry.value);
+    }
 
     while (true) {
       final input = await readUserInput();
       final int? answer = int.tryParse(input);
 
       if (answer != null &&
-          answer >= 1 &&
+          answer >= 0 &&
           answer <= InteractivePresenterService.albumOptions.length) {
+        final int index = (answer == 0) ? 0 : (answer - 1);
         final String choice = InteractivePresenterService.albumOptions.keys
-            .elementAt(answer - 1);
+            .elementAt(index);
         final String description =
             InteractivePresenterService.albumOptions[choice]!;
         await _presenter.showUserSelection(input, '$choice: $description');
@@ -109,6 +111,8 @@ class ConsolidatedInteractiveService with LoggerMixin {
       await _presenter.showInvalidAnswerError();
     }
   }
+
+
 
 
 

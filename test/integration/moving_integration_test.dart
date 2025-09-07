@@ -110,7 +110,7 @@ void main() {
       expect(allPhotosDir.existsSync(), isTrue);
 
       // Verify flattened album directory
-      final albumDir = Directory('${outputDir.path}/Summer Vacation');
+      final albumDir = Directory('${outputDir.path}/Albums/Summer Vacation');
       expect(albumDir.existsSync(), isTrue);
     });
 
