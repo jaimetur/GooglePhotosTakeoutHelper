@@ -443,50 +443,50 @@ Future<ProcessingConfig> _buildConfigFromArgs(final ArgResults res) async {
   ExtensionFixingMode extensionFixingMode;
   if (isInteractiveMode) {
     // Ask user for date division preference in interactive mode
-    logPrint('');
+    print('');
     final dateDivision = await ServiceContainer.instance.interactiveService.askDivideDates();
     final divisionLevel = DateDivisionLevel.fromInt(dateDivision);
     configBuilder.dateDivision = divisionLevel;
 
     // Ask user for extension fixing preference in interactive mode
-    logPrint('');
+    print('');
     final extensionFixingChoice = await ServiceContainer.instance.interactiveService.askFixExtensions();
     extensionFixingMode = ExtensionFixingMode.fromString(extensionFixingChoice);
 
     // Ask user for EXIF writing preference in interactive mode
-    logPrint('');
+    print('');
     final writeExif = await ServiceContainer.instance.interactiveService.askIfWriteExif();
     configBuilder.exifWriting = writeExif;
 
     // Ask user for Album mode
-    logPrint('');
+    print('');
     final albumModeString = await ServiceContainer.instance.interactiveService.askAlbums();
     final AlbumBehavior albumBehaviour = AlbumBehavior.fromString(albumModeString);
     configBuilder.albumBehavior = albumBehaviour;
 
     // Ask user for Pixel/MP file transformation in interactive mode
-    logPrint('');
+    print('');
     final transformPixelMP = await ServiceContainer.instance.interactiveService.askTransformPixelMP();
     configBuilder.pixelTransformation = transformPixelMP;
 
     // Ask user for file size limiting in interactive mode
-    logPrint('');
+    print('');
     final limitFileSize = await ServiceContainer.instance.interactiveService.askIfLimitFileSize();
     configBuilder.fileSizeLimit = limitFileSize;
 
     // Ask whether to keep the original input (work on "<input>_tmp")
-    logPrint('');
+    print('');
     final keepInputFlag = await ServiceContainer.instance.interactiveService.askKeepInput();
     configBuilder.keepInput = keepInputFlag;
 
     // Ask whether to keep the original input (work on "<input>_tmp")
-    logPrint('');
+    print('');
     final keepDuplicates= await ServiceContainer.instance.interactiveService.askKeepDuplicates();
     configBuilder.keepDuplicates = keepDuplicates;
 
     // Ask user for creation time update in interactive mode (Windows only)
     if (Platform.isWindows) {
-      logPrint('');
+      print('');
       final updateCreationTime = await ServiceContainer.instance.interactiveService.askChangeCreationTime();
       configBuilder.creationTimeUpdate = updateCreationTime;
     }
@@ -590,21 +590,21 @@ Future<InputOutputPaths> _getInputOutputPaths(
   if (isInteractiveMode) {
     // Interactive mode handles path collection
     await ServiceContainer.instance.interactiveService.showGreeting();
-    logPrint('');
+    print('');
 
     final bool shouldUnzip = await ServiceContainer.instance.interactiveService.askIfUnzip();
-    logPrint('');
+    print('');
 
     late Directory inDir;
     if (shouldUnzip) {
       final zips = await ServiceContainer.instance.interactiveService.selectZipFiles();
-      logPrint('');
+      print('');
 
       final extractDir = await ServiceContainer.instance.interactiveService.selectExtractionDirectory();
-      logPrint('');
+      print('');
 
       final out = await ServiceContainer.instance.interactiveService.selectOutputDirectory();
-      logPrint('');
+      print('');
       // Calculate space requirements
       final cumZipsSize =
           zips.map((final e) => e.lengthSync()).reduce((final a, final b) => a + b);
@@ -612,12 +612,12 @@ Future<InputOutputPaths> _getInputOutputPaths(
           (cumZipsSize * 2) +
           256 * 1024 * 1024; // Double because original ZIPs remain
       await ServiceContainer.instance.interactiveService.freeSpaceNotice(requiredSpace, extractDir);
-      logPrint('');
+      print('');
       inDir = extractDir;
       outputPath = out.path;
 
       await ServiceContainer.instance.interactiveService.extractAll(zips, extractDir);
-      logPrint('');
+      print('');
       extractedFromZip = true;
     } else {
       try {
@@ -637,10 +637,10 @@ Future<InputOutputPaths> _getInputOutputPaths(
           'Interactive input directory selection failed. If you are running headless or on a NAS, run with CLI options: `gpth --input <path> --output <path>`',
         );
       }
-      logPrint('');
+      print('');
       final out = await ServiceContainer.instance.interactiveService.selectOutputDirectory();
       outputPath = out.path;
-      logPrint('');
+      print('');
     }
 
     inputPath = inDir.path;
