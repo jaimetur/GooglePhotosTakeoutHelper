@@ -117,7 +117,7 @@ Follow the prompts to select input/output folders and options
 
 GPTH offers several ways to handle your Google Photos albums:
 
-### 🔗 Shortcut (Recommended)
+### 1. 🔗 Shortcut (Recommended)
 **What it does:** Creates symbolic links from album folders to files in `ALL_PHOTOS`. The original files are moved to `ALL_PHOTOS`, and symlinks are created in album folders.
 
 **Advantages:**
@@ -133,7 +133,7 @@ GPTH offers several ways to handle your Google Photos albums:
 
 **Best for:** Most users who want space efficiency and better compatibility with modern applications and cloud services.
 
-### 🔄 Reverse Shortcut
+### 2. 🔄 Reverse Shortcut
 **What it does:** The opposite of shortcut mode. Files remain in their original album folders, and shortcuts are created in `ALL_PHOTOS` pointing to the album locations.
 
 **Advantages:**
@@ -148,7 +148,7 @@ GPTH offers several ways to handle your Google Photos albums:
 
 **Best for:** Users who primarily organize and browse photos by albums rather than chronologically.
 
-### 📁 Duplicate Copy
+### 3. 📁 Duplicate Copy
 **What it does:** Creates actual file copies in both `ALL_PHOTOS` and album folders. Each photo appears as a separate physical file in every location.
 
 **Advantages:**
@@ -164,7 +164,7 @@ GPTH offers several ways to handle your Google Photos albums:
 
 **Best for:** Users who need maximum compatibility, plan to share folders across different systems, or have plenty of disk space.
 
-### 📄 JSON
+### 4. 📄 JSON
 **What it does:** Creates a single `ALL_PHOTOS` folder with all files, plus an `albums-info.json` file containing metadata about which albums each file belonged to.
 
 **Advantages:**
@@ -181,7 +181,7 @@ GPTH offers several ways to handle your Google Photos albums:
 
 **Best for:** Developers, users migrating to photo management software that can read JSON metadata, or those who don't care about visual album organization.
 
-### ❌ Nothing
+### 5. ❌ Nothing
 **What it does:** Doesn't create `Albums` folder. All photos from each album and from year folders are moved to `ALL_PHOTOS` with all files organized chronologically. All files are moved to `ALL_PHOTOS` regardless of their source location. If one file belong to more than 1 albums, then only 1 copy will be kept in `ALL_PHOTOS`
 
 **Advantages:**
@@ -198,7 +198,7 @@ GPTH offers several ways to handle your Google Photos albums:
 
 **Best for:** Users who don't care about album organization and just want all photos in chronological order.
 
-### 🗑️ Ignore Albums
+### 6. 🗑️ Ignore Albums
 **What it does:** Ignores albums entirely and creates only `ALL_PHOTOS` with all files organized chronologically. All files in any Album folder is removed.
 
 **Advantages:**
