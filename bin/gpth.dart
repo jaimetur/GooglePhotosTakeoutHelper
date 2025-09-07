@@ -442,6 +442,16 @@ Future<ProcessingConfig> _buildConfigFromArgs(final ArgResults res) async {
   // Set extension fixing mode
   ExtensionFixingMode extensionFixingMode;
   if (isInteractiveMode) {
+    // Ask whether to keep the original input (work on "<input>_tmp")
+    print('');
+    final keepInputFlag = await ServiceContainer.instance.interactiveService.askKeepInput();
+    configBuilder.keepInput = keepInputFlag;
+
+    // Ask whether to keep the original input (work on "<input>_tmp")
+    print('');
+    final keepDuplicates= await ServiceContainer.instance.interactiveService.askKeepDuplicates();
+    configBuilder.keepDuplicates = keepDuplicates;
+
     // Ask user for date division preference in interactive mode
     print('');
     final dateDivision = await ServiceContainer.instance.interactiveService.askDivideDates();
@@ -473,16 +483,6 @@ Future<ProcessingConfig> _buildConfigFromArgs(final ArgResults res) async {
     print('');
     final limitFileSize = await ServiceContainer.instance.interactiveService.askIfLimitFileSize();
     configBuilder.fileSizeLimit = limitFileSize;
-
-    // Ask whether to keep the original input (work on "<input>_tmp")
-    print('');
-    final keepInputFlag = await ServiceContainer.instance.interactiveService.askKeepInput();
-    configBuilder.keepInput = keepInputFlag;
-
-    // Ask whether to keep the original input (work on "<input>_tmp")
-    print('');
-    final keepDuplicates= await ServiceContainer.instance.interactiveService.askKeepDuplicates();
-    configBuilder.keepDuplicates = keepDuplicates;
 
     // Ask user for creation time update in interactive mode (Windows only)
     if (Platform.isWindows) {

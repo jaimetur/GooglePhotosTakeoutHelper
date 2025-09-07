@@ -86,12 +86,11 @@ class ConsolidatedInteractiveService with LoggerMixin {
   Future<String> askAlbums() async {
     await _presenter.promptForAlbumBehavior();
 
-    // Mostrar las opciones numeradas empezando en 1 (como en los prompts)
-    int i = 1;
-    for (final MapEntry<String, String> entry
-        in InteractivePresenterService.albumOptions.entries) {
-      _presenter.showAlbumOption(i++, entry.key, entry.value);
-    }
+    // int i = 1;
+    // for (final MapEntry<String, String> entry
+    //     in InteractivePresenterService.albumOptions.entries) {
+    //   _presenter.showAlbumOption(i++, entry.key, entry.value);
+    // }
 
     while (true) {
       final input = await readUserInput();

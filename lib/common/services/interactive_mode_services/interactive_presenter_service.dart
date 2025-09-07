@@ -36,11 +36,11 @@ class InteractivePresenterService with LoggerMixin {
         'Recommended as it will take the least space and provides better compability\n'
         'with cloud services and file type detection\n',
     'reverse-shortcut':
-      'Album folders with ORIGINAL photos. "ALL_PHOTOS" folder \n'
-      'with shortcuts/symlinks to albums. If a photo is in an album, \n'
-      'the original is saved. CAUTION: If a photo is in multiple albums, it will \n'
-      'be duplicated in the other albums, and the shortcuts/symlinks in \n'
-      '"ALL_PHOTOS" will point only to one album.\n',
+        'Album folders with ORIGINAL photos. "ALL_PHOTOS" folder \n'
+        'with shortcuts/symlinks to albums. If a photo is in an album, \n'
+        'the original is saved. CAUTION: If a photo is in multiple albums, it will \n'
+        'be duplicated in the other albums, and the shortcuts/symlinks in \n'
+        '"ALL_PHOTOS" will point only to one album.\n',
     'duplicate-copy':
         'Album folders with photos copied into them. \n'
         'This will work across all systems, but may take wayyy more space!!\n',
@@ -298,6 +298,7 @@ class InteractivePresenterService with LoggerMixin {
   /// Prompts user to select album behavior
   /// Updated to include the new 'ignore-albums' option as [5].
   Future<void> promptForAlbumBehavior() async {
+
     print('What should be done with albums?');
     print('[1] shortcut: [Recommended] Album folders with symlinks to');
     print('    original photos. Recommended as it provides better compatibility');
