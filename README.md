@@ -133,22 +133,6 @@ GPTH offers several ways to handle your Google Photos albums:
 
 **Best for:** Most users who want space efficiency and better compatibility with modern applications and cloud services.
 
-### 📁 Duplicate Copy
-**What it does:** Creates actual file copies in both `ALL_PHOTOS` and album folders. Each photo appears as a separate physical file in every location.
-
-**Advantages:**
-- Works across all systems and applications
-- Complete independence between folders
-- Safe for moving/copying folders between devices
-- Album photos remain accessible even if `ALL_PHOTOS` is deleted
-
-**Disadvantages:**
-- Uses significantly more disk space (multiplied by number of albums)
-- Slower processing due to file copying
-- Changes to one copy don't affect others
-
-**Best for:** Users who need maximum compatibility, plan to share folders across different systems, or have plenty of disk space.
-
 ### 🔄 Reverse Shortcut
 **What it does:** The opposite of shortcut mode. Files remain in their original album folders, and shortcuts are created in `ALL_PHOTOS` pointing to the album locations.
 
@@ -164,6 +148,22 @@ GPTH offers several ways to handle your Google Photos albums:
 
 **Best for:** Users who primarily organize and browse photos by albums rather than chronologically.
 
+### 📁 Duplicate Copy
+**What it does:** Creates actual file copies in both `ALL_PHOTOS` and album folders. Each photo appears as a separate physical file in every location.
+
+**Advantages:**
+- Works across all systems and applications
+- Complete independence between folders
+- Safe for moving/copying folders between devices
+- Album photos remain accessible even if `ALL_PHOTOS` is deleted
+
+**Disadvantages:**
+- ⚠️ Uses significantly more disk space (multiplied by number of albums)
+- Slower processing due to file copying
+- Changes to one copy don't affect others
+
+**Best for:** Users who need maximum compatibility, plan to share folders across different systems, or have plenty of disk space.
+
 ### 📄 JSON
 **What it does:** Creates a single `ALL_PHOTOS` folder with all files, plus an `albums-info.json` file containing metadata about which albums each file belonged to.
 
@@ -177,11 +177,12 @@ GPTH offers several ways to handle your Google Photos albums:
 - No visual album folders
 - Requires custom software to utilize album information
 - Not user-friendly for manual browsing
+- ⚠️ `Trash` and `Archive` content will be also move to `ALL_PHOTOS` since both folders are considered as Album folders and this strategy moves them to `ALL_PHOTOS`
 
 **Best for:** Developers, users migrating to photo management software that can read JSON metadata, or those who don't care about visual album organization.
 
 ### ❌ Nothing
-**What it does:** Ignores albums entirely and creates only `ALL_PHOTOS` with all files organized chronologically. All files are moved to `ALL_PHOTOS` regardless of their source location.
+**What it does:** Doesn't create `Albums` folder. All photos from each album and from year folders are moved to `ALL_PHOTOS` with all files organized chronologically. All files are moved to `ALL_PHOTOS` regardless of their source location. If one file belong to more than 1 albums, then only 1 copy will be kept in `ALL_PHOTOS`
 
 **Advantages:**
 - Simplest processing
@@ -191,10 +192,28 @@ GPTH offers several ways to handle your Google Photos albums:
 - No data loss - all files are moved
 
 **Disadvantages:**
-- Completely loses album organization
-- No way to recover album information later
+- ⚠️ Completely loses album organization
+- ⚠️ No way to recover album information later
+- ⚠️ `Trash` and `Archive` content will be also move to `ALL_PHOTOS` since both folders are considered as Album folders and this strategy moves them to `ALL_PHOTOS`
 
 **Best for:** Users who don't care about album organization and just want all photos in chronological order.
+
+### 🗑️ Ignore Albums
+**What it does:** Ignores albums entirely and creates only `ALL_PHOTOS` with all files organized chronologically. All files in any Album folder is removed.
+
+**Advantages:**
+- Simplest processing
+- Fastest execution
+- Clean, single-folder result
+- No data loss - all files are moved
+
+**Disadvantages:**
+- ⚠️ Completely loses album organization
+- ⚠️ No way to recover album information later
+- ⚠️ `Trash` and `Archive` content will be deleted since both folders are considered as Album folders and this strategy delete all albums
+
+**Best for:** Users who don't care about album organization and just want all photos in chronological order.
+
 
 ## Important Notes
 
