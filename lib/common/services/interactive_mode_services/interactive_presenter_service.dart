@@ -55,16 +55,15 @@ class InteractivePresenterService with LoggerMixin {
 
   /// Displays greeting message and introduction to the tool
   Future<void> showGreeting() async {
-    print('GooglePhotosTakeoutHelper v$version');
+    logPrint('GooglePhotosTakeoutHelper v$version');
     await _sleep(1);
-    print(
+    logPrint(
       'Hi there! This tool will help you to get all of your photos from '
       'Google Takeout to one nice tidy folder\n',
     );
     await _sleep(3);
-    print(
-      '(If any part confuses you, read the guide on:\n'
-      'https://github.com/Xentraxx/GooglePhotosTakeoutHelper)',
+    logPrint(
+      '(If any part confuses you, read the guide on: https://github.com/Xentraxx/GooglePhotosTakeoutHelper)',
     );
     await _sleep(3);
   }
@@ -95,7 +94,7 @@ class InteractivePresenterService with LoggerMixin {
 
   /// Prompts user to press enter to continue
   void showPressEnterPrompt() {
-    print('[press enter to continue]');
+    logPrint('[press enter to continue]');
     stdin.readLineSync();
   }
 
@@ -111,7 +110,7 @@ class InteractivePresenterService with LoggerMixin {
 
   /// Shows available album options and prompts user to select one
   Future<String> selectAlbumOption() async {
-    print('How do you want to handle albums?');
+    logPrint('How do you want to handle albums?');
     await _sleep(1);
 
     int index = 1;
@@ -119,12 +118,12 @@ class InteractivePresenterService with LoggerMixin {
 
     for (final entry in albumOptions.entries) {
       options.add(entry.key);
-      print('[$index] ${entry.key}');
-      print('    ${entry.value}');
+      logPrint('[$index] ${entry.key}');
+      logPrint('    ${entry.value}');
       index++;
     }
 
-    print('Please enter the number of your choice:');
+    logPrint('Please enter the number of your choice:');
 
     while (true) {
       final input = await readUserInput();
@@ -132,12 +131,12 @@ class InteractivePresenterService with LoggerMixin {
 
       if (choice != null && choice >= 1 && choice <= options.length) {
         final selectedOption = options[choice - 1];
-        print('You selected: $selectedOption');
+        logPrint('You selected: $selectedOption');
         await _sleep(1);
         return selectedOption;
       }
 
-      print(
+      logPrint(
         'Invalid choice. Please enter a number between 1 and ${options.length}:',
       );
     }
@@ -145,12 +144,12 @@ class InteractivePresenterService with LoggerMixin {
 
   /// Shows directory selection prompt
   Future<Directory?> selectDirectory(final String prompt) async {
-    print(prompt);
+    logPrint(prompt);
     await _sleep(1);
 
     // For now, delegate to file picker or manual input
     // This could be enhanced with a proper directory picker
-    print('Please enter the full path to the directory:');
+    logPrint('Please enter the full path to the directory:');
 
     final input = await readUserInput();
     if (input.isEmpty) {
@@ -168,20 +167,20 @@ class InteractivePresenterService with LoggerMixin {
 
   /// Prompts user to select input directory
   Future<void> promptForInputDirectory() async {
-    print('Select the directory where you unzipped all your takeout zips');
-    print('(Make sure they are merged => there is only one "Takeout" folder!)');
+    logPrint('Select the directory where you unzipped all your takeout zips');
+    logPrint('(Make sure they are merged => there is only one "Takeout" folder!)');
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows confirmation message for input directory selection
   Future<void> showInputDirectoryConfirmation() async {
-    print('Cool!');
+    logPrint('Cool!');
     if (enableSleep) await _sleep(1);
   }
 
   /// Prompts user to select ZIP files
   Future<void> promptForZipFiles() async {
-    print(
+    logPrint(
       'First, select all .zips from Google Takeout '
       '(use Ctrl to select multiple)',
     );
@@ -204,7 +203,7 @@ class InteractivePresenterService with LoggerMixin {
     final int count,
     final String size,
   ) async {
-    print('Selected $count zip files ($size)');
+    logPrint('Selected $count zip files ($size)');
     if (enableSleep) await _sleep(1);
   }
 
@@ -216,7 +215,7 @@ class InteractivePresenterService with LoggerMixin {
 
   /// Prompts user to select output directory
   Future<void> promptForOutputDirectory() async {
-    print(
+    logPrint(
       'Select the output directory, where GPTH should move your photos to.',
     );
     if (enableSleep) await _sleep(1);
@@ -224,144 +223,144 @@ class InteractivePresenterService with LoggerMixin {
 
   /// Shows confirmation message for output directory selection
   Future<void> showOutputDirectoryConfirmation() async {
-    print('Great!');
+    logPrint('Great!');
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows list of files to be processed
   Future<void> showFileList(final List<String> files) async {
-    print('Files to be processed:');
+    logPrint('Files to be processed:');
     for (final file in files) {
-      print('  - $file');
+      logPrint('  - $file');
     }
     if (enableSleep) await _sleep(1);
   }
 
   /// Prompts user to select date division option
   Future<void> promptForDateDivision() async {
-    print(
+    logPrint(
       'Do you want your photos in one big chronological folder, '
       'or divided to folders by year/month?',
     );
-    print('[0] (default) - one big folder');
-    print('[1] - year folders');
-    print('[2] - year/month folders');
-    print('[3] - year/month/day folders');
-    print('(Type a number or press enter for default):');
+    logPrint('[0] (default) - one big folder');
+    logPrint('[1] - year folders');
+    logPrint('[2] - year/month folders');
+    logPrint('[3] - year/month/day folders');
+    logPrint('(Type a number or press enter for default):');
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows the selected date division choice
   Future<void> showDateDivisionChoice(final String choice) async {
-    print('You selected: $choice');
+    logPrint('You selected: $choice');
     if (enableSleep) await _sleep(1);
   }
 
   /// Prompts user to select album behavior
   Future<void> promptForAlbumBehavior() async {
-    print('What should be done with albums?');
-    print('[1] shortcut: [Recommended] Album folders with symlinks to');
-    print(
+    logPrint('What should be done with albums?');
+    logPrint('[1] shortcut: [Recommended] Album folders with symlinks to');
+    logPrint(
       '    original photos. Recommended as it provides better compatibility',
     );
-    print('    with cloud services and takes the least space');
-    print('');
-    print('[2] duplicate-copy: Album folders with photos copied into them.');
-    print(
+    logPrint('    with cloud services and takes the least space');
+    logPrint('');
+    logPrint('[2] duplicate-copy: Album folders with photos copied into them.');
+    logPrint(
       '    This will work across all systems, but may take wayyy more space!!',
     );
-    print('');
-    print(
+    logPrint('');
+    logPrint(
       '[3] json: Put ALL photos (including Archive and Trash) in one folder and',
     );
-    print('    make a .json file with info about albums.');
-    print('    Use if you\'re a programmer, or just want to get everything,');
-    print('    ignoring lack of year-folders etc.');
-    print('');
-    print('[4] nothing: Just ignore them and put year-photos into one folder.');
-    print('    WARNING: This ignores Archive/Trash !!!');
-    print('');
-    print('(Type a number or press enter for recommended option):');
+    logPrint('    make a .json file with info about albums.');
+    logPrint('    Use if you\'re a programmer, or just want to get everything,');
+    logPrint('    ignoring lack of year-folders etc.');
+    logPrint('');
+    logPrint('[4] nothing: Just ignore them and put year-photos into one folder.');
+    logPrint('    WARNING: This ignores Archive/Trash !!!');
+    logPrint('');
+    logPrint('(Type a number or press enter for recommended option):');
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows an album option to the user
   void showAlbumOption(final int index, final String key, final String value) {
-    print('[$index] $key: $value');
+    logPrint('[$index] $key: $value');
   }
 
   /// Shows the selected album choice
   Future<void> showAlbumChoice(final String choice) async {
-    print('You selected album option: $choice');
+    logPrint('You selected album option: $choice');
     if (enableSleep) await _sleep(1);
   }
 
   /// Prompts for output cleanup
   Future<void> promptForOutputCleanup() async {
-    print('Output folder IS NOT EMPTY! What to do? Type either:');
-    print('[1] - delete *all* files inside output folder and continue');
-    print('[2] - continue as usual - put output files alongside existing');
-    print('[3] - exit program to examine situation yourself');
-    print('(Type 1, 2, or 3):');
+    logPrint('Output folder IS NOT EMPTY! What to do? Type either:');
+    logPrint('[1] - delete *all* files inside output folder and continue');
+    logPrint('[2] - continue as usual - put output files alongside existing');
+    logPrint('[3] - exit program to examine situation yourself');
+    logPrint('(Type 1, 2, or 3):');
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows output cleanup response
   Future<void> showOutputCleanupResponse(final String answer) async {
-    print('You selected: $answer');
+    logPrint('You selected: $answer');
     if (enableSleep) await _sleep(1);
   }
 
   /// Prompts for Pixel MP transform
   Future<void> promptForPixelMpTransform() async {
-    print(
+    logPrint(
       'Pixel Motion Pictures are saved with the .MP or .MV '
       'extensions. Do you want to change them to .mp4 '
       'for better compatibility?',
     );
-    print('[1] - yes, change extension to .mp4');
-    print('[2] (default) - no, keep original extension');
-    print('(Type 1 or 2, or press enter for default):');
+    logPrint('[1] - yes, change extension to .mp4');
+    logPrint('[2] (default) - no, keep original extension');
+    logPrint('(Type 1 or 2, or press enter for default):');
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows Pixel MP transform response
   Future<void> showPixelMpTransformResponse(final String answer) async {
-    print('You selected: $answer');
+    logPrint('You selected: $answer');
     if (enableSleep) await _sleep(1);
   }
 
   /// Prompts for creation time update
   Future<void> promptForCreationTimeUpdate() async {
-    print(
+    logPrint(
       'This program fixes file "modified times". '
       'Due to language limitations, creation times remain unchanged. '
       'Would you like to run a separate script at the end to sync '
       'creation times with modified times?'
       '\nNote: ONLY ON WINDOWS',
     );
-    print('[1] (Default) - No, don\'t update creation time');
-    print('[2] - Yes, update creation time to match modified time');
-    print('(Type 1 or 2, or press enter for default):');
+    logPrint('[1] (Default) - No, don\'t update creation time');
+    logPrint('[2] - Yes, update creation time to match modified time');
+    logPrint('(Type 1 or 2, or press enter for default):');
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows creation time update response
   Future<void> showCreationTimeUpdateResponse(final String answer) async {
-    print('You selected: $answer');
+    logPrint('You selected: $answer');
     if (enableSleep) await _sleep(1);
   }
 
   /// Prompts for EXIF writing
   Future<void> promptForExifWriting(final bool exifToolInstalled) async {
     if (exifToolInstalled) {
-      print(
+      logPrint(
         'This mode will write Exif data (dates/times/coordinates) back to your files. '
         'Note that this mode will alter your original files. '
         'Do you want to continue with writing exif data enabled?',
       );
     } else {
-      print(
+      logPrint(
         'This mode will write Exif data (dates/times/coordinates) back to your files. '
         'We detected that ExifTool is NOT available! '
         'To achieve the best results, we strongly recommend to download Exiftool and place it next to this executable or in your \$PATH.'
@@ -371,126 +370,126 @@ class InteractivePresenterService with LoggerMixin {
         'Do you want to continue with writing exif data enabled?',
       );
     }
-    print('[1] (Default) - Yes, write exif');
-    print('[2] - No, don\'t write to exif');
-    print('(Type 1 or 2, or press enter for default):');
+    logPrint('[1] (Default) - Yes, write exif');
+    logPrint('[2] - No, don\'t write to exif');
+    logPrint('(Type 1 or 2, or press enter for default):');
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows EXIF writing response
   Future<void> showExifWritingResponse(final String answer) async {
-    print('You selected: $answer');
+    logPrint('You selected: $answer');
     if (enableSleep) await _sleep(1);
   }
 
   /// Prompts for file size limit
   Future<void> promptForFileSizeLimit() async {
-    print(
+    logPrint(
       'By default we will process all your files.'
       'However, if you have large video files and run this script on a low ram system (e.g. a NAS or your smart toaster), you might want to '
       'limit the maximum file size to 64 MB not run out of memory.'
       'We recommend to only activate this if you run into problems as this fork made significant improvements to memory management',
     );
-    print('[1] (Default) - Don\'t limit me! Process everything!');
-    print('[2] - I operate a Toaster. Limit supported media size to 64 MB');
-    print('(Type 1 or 2, or press enter for default):');
+    logPrint('[1] (Default) - Don\'t limit me! Process everything!');
+    logPrint('[2] - I operate a Toaster. Limit supported media size to 64 MB');
+    logPrint('(Type 1 or 2, or press enter for default):');
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows file size limit response
   Future<void> showFileSizeLimitResponse(final String answer) async {
-    print('You selected: $answer');
+    logPrint('You selected: $answer');
     if (enableSleep) await _sleep(1);
   }
 
   /// Prompts for extension fixing
   Future<void> promptForExtensionFixing() async {
-    print(
+    logPrint(
       'Google Photos sometimes saves files with incorrect extensions. '
       'For example, a HEIC file might be saved as .jpg. '
       'Do you want to fix these mismatched extensions?',
     );
-    print('[1] (default) - Standard: Fix extensions but skip TIFF-based files');
-    print(
+    logPrint('[1] (default) - Standard: Fix extensions but skip TIFF-based files');
+    logPrint(
       '[2] - Conservative: Fix extensions but skip both TIFF-based and JPEG files',
     );
-    print('[3] - Solo: Fix extensions then exit immediately');
-    print('[4] - None: Don\'t fix extensions');
-    print('(Type a number or press enter for default):');
+    logPrint('[3] - Solo: Fix extensions then exit immediately');
+    logPrint('[4] - None: Don\'t fix extensions');
+    logPrint('(Type a number or press enter for default):');
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows extension fixing response
   Future<void> showExtensionFixingResponse(final String answer) async {
-    print('You selected: $answer');
+    logPrint('You selected: $answer');
     if (enableSleep) await _sleep(1);
   }
 
   /// Prompts for data source
   Future<void> promptForDataSource() async {
-    print('Select your data source:');
+    logPrint('Select your data source:');
     await _sleep(1);
 
-    print('[1] (Recommended) - Select ZIP files from Google Takeout');
-    print('    GPTH will automatically extract and process them');
-    print('    ✓ Convenient and automated');
-    print('    ✓ Validates file integrity');
-    print('    ✓ Handles multiple ZIP files seamlessly');
-    print('');
-    print('[2] - Use already extracted folder');
-    print('    You have manually extracted ZIP files to a folder');
-    print('    ✓ Faster if files are already extracted');
-    print('    ✓ Uses less temporary disk space');
-    print('    ⚠️  Requires manual extraction and merging of ZIP files');
-    print('');
+    logPrint('[1] (Recommended) - Select ZIP files from Google Takeout');
+    logPrint('    GPTH will automatically extract and process them');
+    logPrint('    ✓ Convenient and automated');
+    logPrint('    ✓ Validates file integrity');
+    logPrint('    ✓ Handles multiple ZIP files seamlessly');
+    logPrint('');
+    logPrint('[2] - Use already extracted folder');
+    logPrint('    You have manually extracted ZIP files to a folder');
+    logPrint('    ✓ Faster if files are already extracted');
+    logPrint('    ✓ Uses less temporary disk space');
+    logPrint('    ⚠️  Requires manual extraction and merging of ZIP files');
+    logPrint('');
 
-    print('(Type 1 or 2, or press enter for recommended option):');
+    logPrint('(Type 1 or 2, or press enter for recommended option):');
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows data source response
   Future<void> showDataSourceResponse(final String answer) async {
-    print('You selected: $answer');
+    logPrint('You selected: $answer');
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows disk space notice
   Future<void> showDiskSpaceNotice(final String message) async {
-    print('Disk space notice: $message');
+    logPrint('Disk space notice: $message');
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows unzip start message
   Future<void> showUnzipStartMessage() async {
-    print('Starting unzip process...');
+    logPrint('Starting unzip process...');
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows unzip progress
   Future<void> showUnzipProgress(final String fileName) async {
-    print('Unzipping: $fileName');
+    logPrint('Unzipping: $fileName');
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows unzip success
   Future<void> showUnzipSuccess(final String fileName) async {
-    print('Successfully unzipped: $fileName');
+    logPrint('Successfully unzipped: $fileName');
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows unzip complete
   Future<void> showUnzipComplete() async {
-    print('Unzip process complete.');
+    logPrint('Unzip process complete.');
     if (enableSleep) await _sleep(1);
   }
 
   /// Prompts user to select extraction directory for ZIP files
   Future<void> promptForExtractionDirectory() async {
-    print('Now select where you want to extract the ZIP files to.');
-    print(
+    logPrint('Now select where you want to extract the ZIP files to.');
+    logPrint(
       'This directory will contain the extracted Google Photos data and serve as the input directory for GPTH.',
     );
-    print(
+    logPrint(
       '(You can delete this directory after processing if you want to save space)',
     );
     if (enableSleep) await _sleep(1);
@@ -515,7 +514,7 @@ class InteractivePresenterService with LoggerMixin {
       displayValue = '$selectedValue (default)';
     }
 
-    print('You selected: $displayValue');
+    logPrint('You selected: $displayValue');
     if (enableSleep) await _sleep(1);
   }
 
@@ -554,14 +553,14 @@ class InteractivePresenterService with LoggerMixin {
     final hasErrors = loggedErrors.isNotEmpty || failedSteps.isNotEmpty;
 
     if (hasWarnings || hasErrors) {
-      print('\n=== Warnings and Errors Summary ===');
+      logPrint('\n=== Warnings and Errors Summary ===');
 
       if (hasErrors) {
-        print('Errors:');
+        logPrint('Errors:');
 
         // Show logged errors first
         for (final error in loggedErrors) {
-          print('  ❌ $error');
+          logPrint('  ❌ $error');
         }
 
         // Show failed steps that haven't been logged as errors
@@ -569,30 +568,30 @@ class InteractivePresenterService with LoggerMixin {
           final stepError =
               '${step.stepName}: ${step.message ?? 'Unknown error'}';
           if (!loggedErrors.any((final e) => e.contains(step.stepName))) {
-            print('  ❌ $stepError');
+            logPrint('  ❌ $stepError');
             if (step.error != null) {
-              print('     Details: ${step.error}');
+              logPrint('     Details: ${step.error}');
             }
           }
         }
       }
 
       if (hasWarnings) {
-        print('Warnings:');
+        logPrint('Warnings:');
 
         // Show logged warnings first
         for (final warning in loggedWarnings) {
-          print('  ⚠️  $warning');
+          logPrint('  ⚠️  $warning');
         }
 
         // Show additional warnings from step results
         for (final warning in additionalWarnings) {
-          print('  ⚠️  $warning');
+          logPrint('  ⚠️  $warning');
         }
       }
 
       if (!hasWarnings && !hasErrors) {
-        print('No warnings or errors encountered during processing.');
+        logPrint('No warnings or errors encountered during processing.');
       }
     }
 
@@ -606,31 +605,31 @@ class InteractivePresenterService with LoggerMixin {
     final List<StepResult> stepResults,
     final Map<String, Duration> stepTimings,
   ) async {
-    print('\n=== Step-by-Step Results ===');
+    logPrint('\n=== Step-by-Step Results ===');
 
     for (final result in stepResults) {
       final timing = stepTimings[result.stepName] ?? result.duration;
       final status = result.isSuccess ? '✅' : '❌';
       final skipped = result.data['skipped'] == true;
 
-      print('$status ${result.stepName} (${_formatDuration(timing)})');
+      logPrint('$status ${result.stepName} (${_formatDuration(timing)})');
 
       if (skipped) {
-        print('   Status: Skipped');
-        print('   Reason: ${result.message ?? 'Conditions not met'}');
+        logPrint('   Status: Skipped');
+        logPrint('   Reason: ${result.message ?? 'Conditions not met'}');
       } else if (result.isSuccess) {
-        print('   Status: Completed successfully');
+        logPrint('   Status: Completed successfully');
         if (result.message != null) {
-          print('   Result: ${result.message}');
+          logPrint('   Result: ${result.message}');
         }
 
         // Display specific metrics for each step
         _showStepMetrics(result);
       } else {
-        print('   Status: Failed');
-        print('   Error: ${result.message ?? 'Unknown error'}');
+        logPrint('   Status: Failed');
+        logPrint('   Error: ${result.message ?? 'Unknown error'}');
       }
-      print('');
+      logPrint('');
     }
 
     if (enableSleep) await _sleep(1);
@@ -644,12 +643,12 @@ class InteractivePresenterService with LoggerMixin {
     required final int skippedSteps,
     required final int mediaCount,
   }) async {
-    print('\n=== Processing Summary ===');
-    print('Total time: ${totalTime.inMinutes}m ${totalTime.inSeconds % 60}s');
-    print(
+    logPrint('\n=== Processing Summary ===');
+    logPrint('Total time: ${totalTime.inMinutes}m ${totalTime.inSeconds % 60}s');
+    logPrint(
       'Steps: $successfulSteps successful, $failedSteps failed, $skippedSteps skipped',
     );
-    print('Final media count: $mediaCount');
+    logPrint('Final media count: $mediaCount');
 
     if (enableSleep) await _sleep(1);
   }
@@ -661,41 +660,41 @@ class InteractivePresenterService with LoggerMixin {
     switch (result.stepName) {
       case 'Fix Extensions':
         if (data['extensionsFixed'] != null) {
-          print('   Extensions fixed: ${data['extensionsFixed']} files');
+          logPrint('   Extensions fixed: ${data['extensionsFixed']} files');
         }
         break;
 
       case 'Discover Media':
         if (data['mediaFound'] != null) {
-          print('   Media files found: ${data['mediaFound']}');
+          logPrint('   Media files found: ${data['mediaFound']}');
         }
         if (data['jsonFilesFound'] != null) {
-          print('   JSON metadata files: ${data['jsonFilesFound']}');
+          logPrint('   JSON metadata files: ${data['jsonFilesFound']}');
         }
         if (data['extrasSkipped'] != null) {
-          print('   Extra files skipped: ${data['extrasSkipped']}');
+          logPrint('   Extra files skipped: ${data['extrasSkipped']}');
         }
         break;
 
       case 'Merge Media Entities':
         if (data['duplicatesRemoved'] != null) {
-          print('   Duplicates removed: ${data['duplicatesRemoved']} files');
+          logPrint('   Duplicates removed: ${data['duplicatesRemoved']} files');
         }
         if (data['uniqueFiles'] != null) {
-          print('   Unique files (Media Entities) remaining: ${data['uniqueFiles']}');
+          logPrint('   Unique files (Media Entities) remaining: ${data['uniqueFiles']}');
         }
         break;
 
       case 'Extract Dates':
         if (data['datesExtracted'] != null) {
-          print('   Dates extracted: ${data['datesExtracted']} files');
+          logPrint('   Dates extracted: ${data['datesExtracted']} files');
         }
         if (data['extractionStats'] != null) {
           final stats = data['extractionStats'] as Map<dynamic, dynamic>;
-          print('   Extraction methods used:');
+          logPrint('   Extraction methods used:');
           for (final entry in stats.entries) {
             if (entry.value > 0) {
-              print('     ${entry.key}: ${entry.value} files');
+              logPrint('     ${entry.key}: ${entry.value} files');
             }
           }
         }
@@ -703,37 +702,37 @@ class InteractivePresenterService with LoggerMixin {
 
       case 'Write EXIF':
         if (data['coordinatesWritten'] != null) {
-          print(
+          logPrint(
             '   GPS coordinates written: ${data['coordinatesWritten']} files',
           );
         }
         if (data['dateTimesWritten'] != null) {
-          print('   DateTime written: ${data['dateTimesWritten']} files');
+          logPrint('   DateTime written: ${data['dateTimesWritten']} files');
         }
         break;
 
       case 'Find Albums':
         if (data['initialCount'] != null && data['finalCount'] != null) {
-          print('   Initial media count: ${data['initialCount']}');
-          print('   Final media count: ${data['finalCount']}');
+          logPrint('   Initial media count: ${data['initialCount']}');
+          logPrint('   Final media count: ${data['finalCount']}');
         }
         if (data['mergedCount'] != null) {
-          print('   Album relationships merged: ${data['mergedCount']}');
+          logPrint('   Album relationships merged: ${data['mergedCount']}');
         }
         break;
 
       case 'Move Files':
         if (data['processedCount'] != null) {
-          print('   Files processed: ${data['processedCount']}');
+          logPrint('   Files processed: ${data['processedCount']}');
         }
         if (data['albumBehavior'] != null) {
-          print('   Album behavior: ${data['albumBehavior']}');
+          logPrint('   Album behavior: ${data['albumBehavior']}');
         }
         break;
 
       case 'Update Creation Time':
         if (data['updatedCount'] != null) {
-          print('   Creation times updated: ${data['updatedCount']} files');
+          logPrint('   Creation times updated: ${data['updatedCount']} files');
         }
         break;
     }
@@ -760,27 +759,27 @@ class InteractivePresenterService with LoggerMixin {
   /// - `true`  → work on `<input>_tmp` (original stays intact)
   /// - `false` → work on the original input directory directly
   Future<bool> askKeepInput() async {
-    print(
+    logPrint(
       'Do you want to keep the ORIGINAL input folder untouched by working on a '
       'temporary copy (sibling folder with suffix "_tmp")?',
     );
-    print('[1] - Yes, make a temporary copy "<input>_tmp" and work there');
-    print('[2] (Default) - No, work on the original input folder');
-    print('(Type 1 or 2, or press enter for default):');
+    logPrint('[1] - Yes, make a temporary copy "<input>_tmp" and work there');
+    logPrint('[2] (Default) - No, work on the original input folder');
+    logPrint('(Type 1 or 2, or press enter for default):');
     if (enableSleep) await _sleep(1);
 
     while (true) {
       final input = await readUserInput();
       if (input.isEmpty) {
-        print('You selected: 2 (default) - No, work on the original input');
+        logPrint('You selected: 2 (default) - No, work on the original input');
         return false;
       }
       if (input == '1') {
-        print('You selected: 1 - Yes, use a temporary "<input>_tmp" copy');
+        logPrint('You selected: 1 - Yes, use a temporary "<input>_tmp" copy');
         return true;
       }
       if (input == '2') {
-        print('You selected: 2 - No, work on the original input');
+        logPrint('You selected: 2 - No, work on the original input');
         return false;
       }
       await showInvalidAnswerError(

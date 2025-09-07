@@ -1012,7 +1012,7 @@ Future<void> _cleanOutputDirectory(
     (final e) => path.absolute(e.path) != path.absolute(config.inputPath),
   )) {
     final basename = path.basename(file.path);
-    if (basename.toLowerCase().contains('photomigrator')) continue;
+    if (basename.toLowerCase().contains('photomigrator')) continue; // Avoid remove PhotoMigrator Logs stored in Output folder.
     await file.delete(recursive: true);
   }
 }

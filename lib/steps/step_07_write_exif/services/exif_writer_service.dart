@@ -673,6 +673,20 @@ class ExifWriterService with LoggerMixin {
   }
 
   // ─────────────────────── Native JPEG implementations ───────────────────────
+  /// Ensures we have an ExifData container and the required IFDs.
+  /// If there is no EXIF block, creates a fresh one so we can inject tags.
+  ExifData _ensureExifContainers(final ExifData? exif) {
+    final ExifData data = exif ?? ExifData();
+
+    // Ensure required IFD directories exist by name.
+    // Valid keys in image are typically: 'ifd0' (image), 'exif', 'gps', 'ifd1' (thumbnail), 'interop'.
+    final dirs = data.directories;
+    if (!dirs.containsKey('ifd0')) data['ifd0'] = IfdDirectory();
+    if (!dirs.containsKey('exif')) data['exif'] = IfdDirectory();
+    if (!dirs.containsKey('gps')) data['gps'] = IfdDirectory();
+
+    return data;
+  }
 
   /// Native JPEG DateTime write (returns true if wrote; false if failed).
   Future<bool> writeDateTimeNativeJpeg(
@@ -682,21 +696,20 @@ class ExifWriterService with LoggerMixin {
     final sw = Stopwatch()..start();
     try {
       final Uint8List orig = await file.readAsBytes();
-      final exif = decodeJpgExif(orig);
-      if (exif == null || exif.isEmpty) {
-        nativeDateFail++;
-        nativeDateDur += sw.elapsed;
-        return false;
-      }
+      final ExifData? exif = decodeJpgExif(orig);
+
+      // Ensure EXIF container and required directories exist
+      final ExifData data = _ensureExifContainers(exif);
 
       final fmt = DateFormat('yyyy:MM:dd HH:mm:ss');
       final dt = fmt.format(dateTime);
 
-      exif.imageIfd['DateTime'] = dt;
-      exif.exifIfd['DateTimeOriginal'] = dt;
-      exif.exifIfd['DateTimeDigitized'] = dt;
+      // Write tags by name into proper directories
+      data.imageIfd['DateTime'] = dt;
+      data.exifIfd['DateTimeOriginal'] = dt;
+      data.exifIfd['DateTimeDigitized'] = dt;
 
-      final Uint8List? out = injectJpgExif(orig, exif);
+      final Uint8List? out = injectJpgExif(orig, data);
       if (out == null) {
         nativeDateFail++;
         nativeDateDur += sw.elapsed;
@@ -725,19 +738,18 @@ class ExifWriterService with LoggerMixin {
     final sw = Stopwatch()..start();
     try {
       final Uint8List orig = await file.readAsBytes();
-      final exif = decodeJpgExif(orig);
-      if (exif == null || exif.isEmpty) {
-        nativeGpsFail++;
-        nativeGpsDur += sw.elapsed;
-        return false;
-      }
+      final ExifData? exif = decodeJpgExif(orig);
 
-      exif.gpsIfd.gpsLatitude = coords.toDD().latitude;
-      exif.gpsIfd.gpsLongitude = coords.toDD().longitude;
-      exif.gpsIfd.gpsLatitudeRef = coords.latDirection.abbreviation;
-      exif.gpsIfd.gpsLongitudeRef = coords.longDirection.abbreviation;
+      // Ensure EXIF container and required directories exist
+      final ExifData data = _ensureExifContainers(exif);
 
-      final Uint8List? out = injectJpgExif(orig, exif);
+      // Use typed GPS setters when disponibles; fallback to map-like via _putGps.
+      _putGps(data.gpsIfd, 'GPSLatitude', coords.toDD().latitude);
+      _putGps(data.gpsIfd, 'GPSLongitude', coords.toDD().longitude);
+      _putGps(data.gpsIfd, 'GPSLatitudeRef', coords.latDirection.abbreviation);
+      _putGps(data.gpsIfd, 'GPSLongitudeRef', coords.longDirection.abbreviation);
+
+      final Uint8List? out = injectJpgExif(orig, data);
       if (out == null) {
         nativeGpsFail++;
         nativeGpsDur += sw.elapsed;
@@ -767,26 +779,24 @@ class ExifWriterService with LoggerMixin {
     final sw = Stopwatch()..start();
     try {
       final Uint8List orig = await file.readAsBytes();
-      final exif = decodeJpgExif(orig);
-      if (exif == null || exif.isEmpty) {
-        nativeCombinedFail++;
-        nativeCombinedDur += sw.elapsed;
-        return false;
-      }
+      final ExifData? exif = decodeJpgExif(orig);
+
+      // Ensure EXIF container and required directories exist
+      final ExifData data = _ensureExifContainers(exif);
 
       final fmt = DateFormat('yyyy:MM:dd HH:mm:ss');
       final dt = fmt.format(dateTime);
 
-      exif.imageIfd['DateTime'] = dt;
-      exif.exifIfd['DateTimeOriginal'] = dt;
-      exif.exifIfd['DateTimeDigitized'] = dt;
+      data.imageIfd['DateTime'] = dt;
+      data.exifIfd['DateTimeOriginal'] = dt;
+      data.exifIfd['DateTimeDigitized'] = dt;
 
-      exif.gpsIfd.gpsLatitude = coords.toDD().latitude;
-      exif.gpsIfd.gpsLongitude = coords.toDD().longitude;
-      exif.gpsIfd.gpsLatitudeRef = coords.latDirection.abbreviation;
-      exif.gpsIfd.gpsLongitudeRef = coords.longDirection.abbreviation;
+      _putGps(data.gpsIfd, 'GPSLatitude', coords.toDD().latitude);
+      _putGps(data.gpsIfd, 'GPSLongitude', coords.toDD().longitude);
+      _putGps(data.gpsIfd, 'GPSLatitudeRef', coords.latDirection.abbreviation);
+      _putGps(data.gpsIfd, 'GPSLongitudeRef', coords.longDirection.abbreviation);
 
-      final Uint8List? out = injectJpgExif(orig, exif);
+      final Uint8List? out = injectJpgExif(orig, data);
       if (out == null) {
         nativeCombinedFail++;
         nativeCombinedDur += sw.elapsed;
@@ -806,4 +816,19 @@ class ExifWriterService with LoggerMixin {
       return false;
     }
   }
+
+  /// Normalizes GPS container access for both typed and map-like models.
+  void _putGps(final Object? gpsIfd, final String key, final Object? value) {
+    try {
+      if (key == 'GPSLatitude') { (gpsIfd as dynamic).gpsLatitude = value; return; }
+      if (key == 'GPSLongitude') { (gpsIfd as dynamic).gpsLongitude = value; return; }
+      if (key == 'GPSLatitudeRef') { (gpsIfd as dynamic).gpsLatitudeRef = value; return; }
+      if (key == 'GPSLongitudeRef') { (gpsIfd as dynamic).gpsLongitudeRef = value; return; }
+    } catch (_) {
+      // ignore and try map-like access
+    }
+    if (gpsIfd is Map) { gpsIfd[key] = value; }
+  }
+
+
 }
