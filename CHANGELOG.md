@@ -9,6 +9,9 @@
 ### 🐛 **Bug Fixes**
   - Added `reverse-shortcut` strategy to interactive mode.
   - Fixed some moving strategies that was missing some files in the input folder.
+  - Fixed exiftool_service.dart to avoid IFD0 pointer references.
+  - Fixed exiftool_service.dart to avoid use of -common_args when -@ ARGFILE is used.
+  - Fixed PNG management writting XMP instead of EXIF for those files.
 
 
 ## 5.0.3
