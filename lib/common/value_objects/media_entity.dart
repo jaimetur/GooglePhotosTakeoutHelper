@@ -673,6 +673,7 @@ class FileEntity {
     final bool isShortcut = false,
     final bool isMoved = false,
     final bool isDeleted = false,
+    final bool isDuplicateCopy = false,
     final DateAccuracy? dateAccuracy,
     final int ranking = 0,
   }) : _sourcePath = sourcePath,
@@ -680,6 +681,7 @@ class FileEntity {
        _isShortcut = isShortcut,
        _isMoved = isMoved,
        _isDeleted = isDeleted,
+       _isDuplicateCopy = isDuplicateCopy,
        _dateAccuracy = dateAccuracy,
        _ranking = ranking,
        _isCanonical = _calculateCanonical(sourcePath, targetPath);
@@ -690,6 +692,7 @@ class FileEntity {
   bool _isShortcut;
   bool _isMoved;
   bool _isDeleted;
+  bool _isDuplicateCopy;
   DateAccuracy? _dateAccuracy;
   int _ranking;
 
@@ -717,6 +720,9 @@ class FileEntity {
 
   /// True when the file has been marked as deleted.
   bool get isDeleted => _isDeleted;
+
+  /// True when the file is a duplicate copy of another entity.
+  bool get isDuplicateCopy => _isDuplicateCopy;
 
   /// Date accuracy associated to this file (if any).
   DateAccuracy? get dateAccuracy => _dateAccuracy;
@@ -753,6 +759,10 @@ class FileEntity {
     _isDeleted = value;
   }
 
+  set isDuplicateCopy(final bool value) {
+    _isDuplicateCopy = value;
+  }
+
   set dateAccuracy(final DateAccuracy? accuracy) {
     _dateAccuracy = accuracy;
   }
@@ -778,11 +788,11 @@ class FileEntity {
   ///     * a segment "YYYY-MM"  (YYYY is 19xx/20xx and MM is 01..12).
   static bool _calculateCanonical(final String source, final String? target) {
     // Normalize separators to work uniformly with /.
-    String _norm(final String p) => p.replaceAll('\\', '/');
+    String norm(final String p) => p.replaceAll('\\', '/');
 
     // Extract parent folder name of the file from a full path.
-    String _parentName(final String p) {
-      final n = _norm(p);
+    String parentName(final String p) {
+      final n = norm(p);
       final lastSlash = n.lastIndexOf('/');
       if (lastSlash < 0) return '';
       final dir = n.substring(0, lastSlash);
@@ -791,14 +801,14 @@ class FileEntity {
     }
 
     // Extract directory path (exclude filename) from a full path.
-    String _dirPath(final String p) {
-      final n = _norm(p);
+    String dirPath(final String p) {
+      final n = norm(p);
       final lastSlash = n.lastIndexOf('/');
       return lastSlash < 0 ? '' : n.substring(0, lastSlash);
     }
 
     // ── Source parent folder checks ────────────────────────────────
-    final parent = _parentName(source);
+    final parent = parentName(source);
     final yearOnlyRe = RegExp(r'^(?:19|20)\d{2}$'); // exact folder "YYYY"
     final photosFromRe = RegExp(r'photos\s+from\s+(?:19|20)\d{2}', caseSensitive: false); // contains "Photos from YYYY"
 
@@ -809,7 +819,7 @@ class FileEntity {
     bool toYearStructures = false;
 
     if (target != null && target.isNotEmpty) {
-      final dir = _dirPath(target);
+      final dir = dirPath(target);
 
       // ALL_PHOTOS anywhere in the path (directory context only)
       final allPhotosPattern = RegExp(r'(?:^|/)ALL_PHOTOS(?:/|$)');
@@ -835,7 +845,8 @@ class FileEntity {
   @override
   String toString() => 'FileEntity(sourcePath=$_sourcePath, targetPath=$_targetPath, '
         'path=$path, isCanonical=$_isCanonical, isShortcut=$_isShortcut, '
-        'isMoved=$_isMoved, isDeleted=$_isDeleted, dateAccuracy=$_dateAccuracy, ranking=$_ranking)';
+        'isMoved=$_isMoved, isDeleted=$_isDeleted, isDuplicateCopy=$_isDuplicateCopy, '
+        'dateAccuracy=$_dateAccuracy, ranking=$_ranking)';
 }
 
 
