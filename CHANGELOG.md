@@ -6,6 +6,7 @@
 ### 🚀 **Improvements**
   - Moving Strategies re-defined.
   - Included Timeouts on ExifTool operations.
+  - Changed log name from `gpth-{version}_{timestamp}.log` to `gpth_{version}_{timestamp}.log`
 
 ### 🐛 **Bug Fixes**
   - Added `reverse-shortcut` strategy to interactive mode.

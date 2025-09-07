@@ -235,7 +235,7 @@ class LoggingService {
 
       // Use (or set) a global timestamp so every instance writes to the same file
       final String ts = _globalTimestamp ??= _tsForFilename(DateTime.now());
-      final String candidatePath = '${dir.path}${Platform.pathSeparator}gpth-v${version}_$ts.log';
+      final String candidatePath = '${dir.path}${Platform.pathSeparator}gpth_v${version}_$ts.log';
       final File f = File(candidatePath);
 
       // Create file explicitly (Windows/Google Drive can fail with append-open on non-existing files)
