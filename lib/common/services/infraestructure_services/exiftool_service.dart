@@ -37,6 +37,11 @@ class ExifToolService with LoggerMixin {
   bool _isDisposed = false;
   bool _isStarting = false;
 
+  // NEW: generous timeouts to avoid indefinite hangs while still tolerating heavy load.
+  final Duration _singleWriteTimeout = const Duration(minutes: 4);
+  final Duration _batchWriteTimeout = const Duration(minutes: 8);
+  final Duration _readTimeout = const Duration(minutes: 1);
+
   /// Find ExifTool in PATH, near the binary/script, or in common locations.
   static Future<ExifToolService?> find({
     final bool showDiscoveryMessage = true,
@@ -191,25 +196,64 @@ class ExifToolService with LoggerMixin {
   /// One-shot execution. Batch minimizes launches, but we still use one-shot here.
   Future<String> executeCommand(final List<String> args) async => _executeOneShot(args);
 
-  Future<String> _executeOneShot(final List<String> args) async {
+  // NEW: one-shot runner with timeout support and proper kill on expiration.
+  Future<String> _executeOneShot(
+    final List<String> args, {
+    Duration? timeout,
+  }) async {
+    final sw = Stopwatch()..start();
+    Process? proc;
     try {
-      final result = await Process.run(exiftoolPath, args);
-      if (result.exitCode != 0) {
-        logWarning('[ExifToolService] ExifTool command failed with exit code ${result.exitCode}. | Command: $exiftoolPath ${args.join(' ')}. | Stderr: ${result.stderr}');
-        throw Exception('ExifTool command failed: ${result.stderr}');
+      logDebug('[ExifToolService] Running: $exiftoolPath ${args.join(' ')}');
+      proc = await Process.start(
+        exiftoolPath,
+        args,
+        mode: ProcessStartMode.detachedWithStdio,
+        runInShell: false,
+      );
+
+      final stdoutF = proc.stdout.transform(utf8.decoder).toList();
+      final stderrF = proc.stderr.transform(utf8.decoder).toList();
+
+      // Wait for exit (with optional timeout)
+      final exitCode = await proc.exitCode.timeout(
+        timeout ?? const Duration(days: 365), // effectively "no timeout" if not provided
+        onTimeout: () {
+          try { proc?.kill(ProcessSignal.sigkill); } catch (_) {}
+          throw TimeoutException('ExifTool execution timed out after ${timeout!.inSeconds}s');
+        },
+      );
+
+      final out = (await stdoutF).join();
+      final err = (await stderrF).join();
+
+      if (exitCode != 0) {
+        logWarning('[ExifToolService] ExifTool command failed with exit code $exitCode. | Command: $exiftoolPath ${args.join(' ')}. | Stderr: $err');
+        throw Exception('ExifTool command failed: $err');
       }
-      // logPrint('[ExifToolService] ${result.stdout.toString()}');
-      return result.stdout.toString();
+
+      if (err.trim().isNotEmpty) {
+        // ExifTool often writes warnings to stderr even on success; keep as warning.
+        logWarning('[ExifToolService] exiftool stderr (non-fatal): ${err.trim()}');
+      }
+
+      return out.toString();
+    } on TimeoutException catch (e) {
+      logWarning('[ExifToolService] Timeout: $e');
+      rethrow;
     } catch (e) {
       logWarning('[ExifToolService] ExifTool one-shot execution failed: $e');
       rethrow;
+    } finally {
+      sw.stop();
+      logDebug('[ExifToolService] Elapsed: ${(sw.elapsedMilliseconds / 1000.0).toStringAsFixed(3)}s');
     }
   }
 
   /// Read EXIF (fast path).
   Future<Map<String, dynamic>> readExifData(final File file) async {
     final args = ['-fast', '-j', '-n', file.path];
-    final output = await executeCommand(args);
+    final output = await _executeOneShot(args, timeout: _readTimeout);
     if (output.trim().isEmpty) return {};
     try {
       final List<dynamic> jsonList = jsonDecode(output);
@@ -232,6 +276,7 @@ class ExifToolService with LoggerMixin {
   //  - -charset filename=UTF8 ensures UTF-8 filename handling consistently across platforms.
   //  - -overwrite_original keeps the "replace" semantics across filesystems (safer than _in_place_).
   //  - -api QuickTimeUTC=1 normalizes QuickTime time handling to UTC (no measurable slowdown).
+  //  - NEW: -m to allow minor warnings (avoid aborting on recoverable EXIF issues).
   List<String> _commonWriteArgs() => <String>[
         '-P',
         '-charset',
@@ -239,6 +284,7 @@ class ExifToolService with LoggerMixin {
         '-overwrite_original',
         '-api',
         'QuickTimeUTC=1',
+        '-m',
       ];
 
   /// Write EXIF data to a single file (classic argv).
@@ -255,7 +301,7 @@ class ExifToolService with LoggerMixin {
     }
     args.add(file.path);
 
-    final output = await executeCommand(args);
+    final output = await _executeOneShot(args, timeout: _singleWriteTimeout);
     if (output.contains('error') ||
         output.contains('Error') ||
         output.contains("weren't updated due to errors")) {
@@ -282,7 +328,7 @@ class ExifToolService with LoggerMixin {
       args.add(file.path);
     }
 
-    final output = await executeCommand(args);
+    final output = await _executeOneShot(args, timeout: _batchWriteTimeout);
     if (output.contains('error') ||
         output.contains('Error') ||
         output.contains("weren't updated due to errors")) {
@@ -296,9 +342,10 @@ class ExifToolService with LoggerMixin {
   ) async {
     if (batch.isEmpty) return;
 
-    // Build argfile with common args once via -common_args.
+    // Build argfile with common args at the top (NO -common_args inside argfile).
     final StringBuffer buf = StringBuffer();
-    buf.writeln('-common_args');
+
+    // Common args (applies to the whole single invocation)
     for (final a in _commonWriteArgs()) {
       if (a.contains(' ')) {
         final parts = a.split(' ');
@@ -310,6 +357,7 @@ class ExifToolService with LoggerMixin {
       }
     }
 
+    // Then file-specific tags and files
     for (final fileAndTags in batch) {
       final file = fileAndTags.key;
       final tags = fileAndTags.value;
@@ -327,7 +375,7 @@ class ExifToolService with LoggerMixin {
     await tmp.writeAsString(buf.toString());
 
     try {
-      final output = await executeCommand(['-@', tmp.path]);
+      final output = await _executeOneShot(['-@', tmp.path], timeout: _batchWriteTimeout);
       if (output.contains('error') ||
           output.contains('Error') ||
           output.contains("weren't updated due to errors")) {

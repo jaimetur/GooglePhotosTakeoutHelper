@@ -301,7 +301,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
             final entry = chunk.first;
             final snap = snapshotMtimes(chunk); // snapshot for single too
             try {
-              await exifWriter.writeTagsWithExifToolUsingBatch([entry], useArgFileWhenLarge: useArgFile);
+              await exifWriter.writeTagsWithExifToolUsingBatch([entry], useArgFileWhenLarge: false);
             } catch (e) {
               if (!_shouldSilenceExiftoolError(e)) {
                 logWarning(
@@ -406,7 +406,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
         }
       }
 
-      // Per-file EXIF write (file already in output). Uses entity's dateTaken and
+      // Per-file EXIF/XMP write (file already in output). Uses entity's dateTaken and
       // GPS coords previously extracted from the primary sidecar JSON.
       Future<Map<String, bool>> writeForFile({
         required final File file,
@@ -450,6 +450,11 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
           }
 
           final tagsToWrite = <String, dynamic>{};
+
+          // Decide writing namespace for non-JPEG images:
+          //  - JPEG: EXIF native (and/or ExifTool fallback tags without XMP).
+          //  - PNG: write XMP tags to avoid EXIF/IFD pointer issues.
+          final bool isPng = (mimeHeader == 'image/png' || lower.endsWith('.png'));
 
           // GPS (if primary coords available)
           try {
@@ -495,12 +500,19 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
                   tagsToWrite['GPSLongitudeRef'] = coords.longDirection.abbreviation.toString();
                 }
               } else {
-                // Non-JPEG: rely on ExifTool only
+                // Non-JPEG: rely on ExifTool only.
+                // For PNG specifically, write XMP GPS tags to avoid EXIF IFD pointer issues.
                 if (!nativeOnly) {
-                  tagsToWrite['GPSLatitude'] = coords.toDD().latitude.toString();
-                  tagsToWrite['GPSLongitude'] = coords.toDD().longitude.toString();
-                  tagsToWrite['GPSLatitudeRef'] = coords.latDirection.abbreviation.toString();
-                  tagsToWrite['GPSLongitudeRef'] = coords.longDirection.abbreviation.toString();
+                  if (isPng) {
+                    tagsToWrite['XMP:GPSLatitude'] = coords.toDD().latitude.toString();
+                    tagsToWrite['XMP:GPSLongitude'] = coords.toDD().longitude.toString();
+                    // XMP does not need Ref letters; coordinates are signed.
+                  } else {
+                    tagsToWrite['GPSLatitude'] = coords.toDD().latitude.toString();
+                    tagsToWrite['GPSLongitude'] = coords.toDD().longitude.toString();
+                    tagsToWrite['GPSLatitudeRef'] = coords.latDirection.abbreviation.toString();
+                    tagsToWrite['GPSLongitudeRef'] = coords.longDirection.abbreviation.toString();
+                  }
                 }
               }
             }
@@ -527,11 +539,21 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
                 }
               } else {
                 if (!nativeOnly) {
-                  final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
-                  final dt = exifFormat.format(effectiveDate);
-                  tagsToWrite['DateTimeOriginal'] = '"$dt"';
-                  tagsToWrite['DateTimeDigitized'] = '"$dt"';
-                  tagsToWrite['DateTime'] = '"$dt"';
+                  if (isPng) {
+                    // Write XMP datetime for PNG
+                    // Use XMP standard: CreateDate and DateTimeOriginal
+                    final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
+                    final dt = exifFormat.format(effectiveDate);
+                    tagsToWrite['XMP:CreateDate'] = '"$dt"';
+                    tagsToWrite['XMP:DateTimeOriginal'] = '"$dt"';
+                    tagsToWrite['XMP:ModifyDate'] = '"$dt"';
+                  } else {
+                    final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
+                    final dt = exifFormat.format(effectiveDate);
+                    tagsToWrite['DateTimeOriginal'] = '"$dt"';
+                    tagsToWrite['DateTimeDigitized'] = '"$dt"';
+                    tagsToWrite['DateTime'] = '"$dt"';
+                  }
                 }
               }
             }
@@ -668,6 +690,13 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
         }
 
         if (!nativeOnly && enableExifToolBatch) await maybeFlushThresholds();
+      }
+
+      // ── Telemetry before final flush (helps diagnose "stalls" at N/N-1) ──
+      if (!nativeOnly && enableExifToolBatch) {
+        final int imagesQueued = totalQueued(pendingImagesByTagset);
+        final int videosQueued = totalQueued(pendingVideosByTagset);
+        logPrint('[Step 7/8] Pending before final flush → Images: $imagesQueued, Videos: $videosQueued');
       }
 
       // Final batch flush (if batching was used). Use the old heuristic to decide argfile.

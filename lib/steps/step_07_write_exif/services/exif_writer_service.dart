@@ -6,6 +6,12 @@ import 'package:gpth/gpth_lib_exports.dart';
 import 'package:image/image.dart';
 import 'package:intl/intl.dart';
 
+/// NOTE (2025-09-07): No functional changes required in this module for items 1–6.
+///  - (1) Argfile without `-common_args` and (2) adding `-m` and (4) timeouts are handled in ExifToolService.
+///  - (3) PNG → XMP tag selection and (6) flush telemetry live in WriteExifStep.
+///  - (5) Retry policy is managed by WriteExifStep (splitting batches / per-file).
+/// Keeping this file intact preserves counters/telemetry and native JPEG paths.
+
 /// Service that writes EXIF data (fast native JPEG path + adaptive exiftool batching).
 /// Includes detailed instrumentation of counts and durations (seconds).
 class ExifWriterService with LoggerMixin {
@@ -205,8 +211,6 @@ class ExifWriterService with LoggerMixin {
       if (logger != null) {
         logger.logInfo(s, forcePrint: true);
       } else {
-        // ignore: avoid_print
-        // LoggingService().printPlain(s);
         LoggingService().info(s);
       }
     }
