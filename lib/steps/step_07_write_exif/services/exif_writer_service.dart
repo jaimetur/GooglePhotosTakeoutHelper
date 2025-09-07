@@ -670,6 +670,42 @@ class ExifWriterService with LoggerMixin {
         }
       }
     } catch (e) {
+      // CHANGE: if batch has exactly 1 file, attribute FallbackFail (or DirectFail) here
+      // using the precomputed classification; this closes the telemetry gap when batch fails.
+      final elapsed = sw.elapsed;
+      try {
+        if (batch.length == 1 && entriesMeta.isNotEmpty) {
+          final m = entriesMeta.first;
+          if (m.isCombined) {
+            if (m.isFallbackMarked) {
+              xtCombinedFallbackFail++;
+              xtCombinedFallbackDur += elapsed;
+            } else {
+              xtCombinedDirectFail++;
+              xtCombinedDirectDur += elapsed;
+            }
+          } else if (m.isDate) {
+            if (m.isFallbackMarked) {
+              xtDateFallbackFail++;
+              xtDateFallbackDur += elapsed;
+            } else {
+              xtDateDirectFail++;
+              xtDateDirectDur += elapsed;
+            }
+          } else if (m.isGps) {
+            if (m.isFallbackMarked) {
+              xtGpsFallbackFail++;
+              xtGpsFallbackDur += elapsed;
+            } else {
+              xtGpsDirectFail++;
+              xtGpsDirectDur += elapsed;
+            }
+          }
+        }
+      } catch (_) {
+        // swallow attribution errors; the original failure still gets rethrown below
+      }
+
       // Batch failed as a whole; Step 7 will split and retry per-file.
       logWarning('[Step 7/8] [WRITE-EXIF] Batch exiftool write failed: $e');
       rethrow;

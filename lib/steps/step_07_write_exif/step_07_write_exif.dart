@@ -301,7 +301,12 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
             final entry = chunk.first;
             final snap = snapshotMtimes(chunk); // snapshot for single too
             try {
-              await exifWriter.writeTagsWithExifToolUsingBatch([entry], useArgFileWhenLarge: false);
+              // CHANGE: when the batch has a single file, call the single method so fallback
+              // metrics (Recovered/Fail) are accounted correctly in ExifWriterService.
+              await preserveMTime(entry.key, () async {
+                // NOTE: ExifWriterService should internally add `-P` (preserve file times).
+                await exifWriter.writeTagsWithExifTool(entry.key, entry.value);
+              });
             } catch (e) {
               if (!_shouldSilenceExiftoolError(e)) {
                 logWarning(
