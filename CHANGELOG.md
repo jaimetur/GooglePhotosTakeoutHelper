@@ -8,6 +8,7 @@
   - Included Timeouts on ExifTool operations.
   - Log saving enabled by default. Use flag `--no-save-log` to disable it.
   - Changed log name from `gpth-{version}_{timestamp}.log` to `gpth_{version}_{timestamp}.log`
+  - Added progress bar to Step 3 (Merge Media Entities).
 
 ### 🐛 **Bug Fixes**
   - Added `reverse-shortcut` strategy to interactive mode.
