@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:gpth/gpth_lib_exports.dart';
 import 'package:path/path.dart' as path;
+import 'package:console_bars/console_bars.dart';
 
 /// Step 3: Remove duplicate media files
 ///
@@ -500,22 +501,26 @@ class MergeMediaEntitiesStep extends ProcessingStep with LoggerMixin {
       final int mergedEntities = entitiesToMerge.length;
       if (mergedEntities > 0) {
         logPrint(
-          '[Step 3/8] Merged $mergedEntities media entities (entities with multiple file paths for the same file content)',
+          '[Step 3/8] $mergedEntities media entities will be merged (entities with multiple file paths for the same file content)',
         );
       }
 
       // Remove merged-away entities from the collection ONLY (do not delete files here)
       if (entitiesToMerge.isNotEmpty) {
+        // NEW (progress): show a progress bar while compacting the collection.
+        final FillingBar pbar = FillingBar(total: mergedEntities, width: 50, percentage: true, time: false, desc: '[ INFO  ] [Step 3/8] Merging entities');
+        int done = 0;
         for (final e in entitiesToMerge) {
           try {
             mediaCollection.remove(e);
           } catch (err) {
-            logWarning(
-              '[Step 3/8] Failed to remove entity ${_safeEntity(e)}: $err',
-              forcePrint: true,
-            );
+            logWarning('[Step 3/8] Failed to remove entity ${_safeEntity(e)}: $err', forcePrint: true);
+          } finally {
+            done++;
+            if ((done % 250) == 0 || done == mergedEntities) pbar.update(done); // note: throttle updates to keep console smooth.
           }
         }
+        stdout.writeln(); // note: ensure the next logs start in a new line after the bar.
       }
 
       logPrint('[Step 3/8] ${mediaCollection.entities.length} final media entities left');
@@ -552,13 +557,22 @@ class MergeMediaEntitiesStep extends ProcessingStep with LoggerMixin {
           '[Step 3/8] Found ${duplicateFiles.length} duplicates files (within-folder duplicates). Processing them for removal/quarantine',
         );
         final ioSw = Stopwatch()..start();
+
+        // NEW (progress): show a progress bar during duplicate I/O (remove/move).
+        final FillingBar pbarIO = FillingBar(total: duplicateFiles.length, width: 50, percentage: true, time: false, desc: '[ INFO  ] [Step 3/8] Removing/moving duplicate files');
+        int doneIO = 0;
+
         final bool moved = await _removeOrQuarantineDuplicateFiles(
           duplicateFiles,
           context,
           onRemoved: () {
             duplicateFilesRemoved++;
+            doneIO++;
+            if ((doneIO % 250) == 0 || doneIO == duplicateFiles.length) pbarIO.update(doneIO); // note: throttled updates.
           },
         );
+        stdout.writeln(); // note: finish the bar line cleanly.
+
         ioSw.stop();
         telem.msRemoveIO += ioSw.elapsedMilliseconds;
         if (moved) {
