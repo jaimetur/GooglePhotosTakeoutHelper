@@ -194,38 +194,51 @@ class ExifToolService with LoggerMixin {
   }
 
   /// One-shot execution. Batch minimizes launches, but we still use one-shot here.
-  Future<String> executeCommand(final List<String> args) async => _executeOneShot(args);
+  Future<String> executeExiftoolCommand(final List<String> args) async => _executeExifoolCommand(args);
 
   // NEW: one-shot runner with timeout support and proper kill on expiration.
-  Future<String> _executeOneShot(
+  Future<String> _executeExifoolCommand(
     final List<String> args, {
-    Duration? timeout,
+    final Duration? timeout,
   }) async {
     final sw = Stopwatch()..start();
     Process? proc;
     try {
       logDebug('[ExifToolService] Running: $exiftoolPath ${args.join(' ')}');
+
+      // NOTE #1: Don't' use detachedWithStdio. We need live pipes to read stdout/stderr.
       proc = await Process.start(
         exiftoolPath,
         args,
-        mode: ProcessStartMode.detachedWithStdio,
-        runInShell: false,
       );
 
-      final stdoutF = proc.stdout.transform(utf8.decoder).toList();
-      final stderrF = proc.stderr.transform(utf8.decoder).toList();
+      // NOTE #2: Drain stdout/stderr from the beginning to no block by back-pressure.
+      final stdoutFuture = proc.stdout.transform(utf8.decoder).join();
+      final stderrFuture = proc.stderr.transform(utf8.decoder).join();
 
       // Wait for exit (with optional timeout)
       final exitCode = await proc.exitCode.timeout(
         timeout ?? const Duration(days: 365), // effectively "no timeout" if not provided
         onTimeout: () {
-          try { proc?.kill(ProcessSignal.sigkill); } catch (_) {}
+          try {
+            if (Platform.isWindows) {
+              // Windows: no POSIX signals, kill() ends process.
+              proc?.kill();
+            } else {
+              // POSIX: try to finish process with SIGTERM, if not use SIGKILL as fallback.
+              proc?.kill();
+              // Second try "best effort" later on
+              Future<void>.delayed(const Duration(milliseconds: 300), () {
+                try { proc?.kill(ProcessSignal.sigkill); } catch (_) {}
+              });
+            }
+          } catch (_) {}
           throw TimeoutException('ExifTool execution timed out after ${timeout!.inSeconds}s');
         },
       );
 
-      final out = (await stdoutF).join();
-      final err = (await stderrF).join();
+      final out = await stdoutFuture;
+      final err = await stderrFuture;
 
       if (exitCode != 0) {
         logWarning('[ExifToolService] ExifTool command failed with exit code $exitCode. | Command: $exiftoolPath ${args.join(' ')}. | Stderr: $err');
@@ -242,7 +255,7 @@ class ExifToolService with LoggerMixin {
       logWarning('[ExifToolService] Timeout: $e');
       rethrow;
     } catch (e) {
-      logWarning('[ExifToolService] ExifTool one-shot execution failed: $e');
+      logWarning('[ExifToolService] ExifTool command execution failed: $e');
       rethrow;
     } finally {
       sw.stop();
@@ -253,7 +266,7 @@ class ExifToolService with LoggerMixin {
   /// Read EXIF (fast path).
   Future<Map<String, dynamic>> readExifData(final File file) async {
     final args = ['-fast', '-j', '-n', file.path];
-    final output = await _executeOneShot(args, timeout: _readTimeout);
+    final output = await _executeExifoolCommand(args, timeout: _readTimeout);
     if (output.trim().isEmpty) return {};
     try {
       final List<dynamic> jsonList = jsonDecode(output);
@@ -301,11 +314,11 @@ class ExifToolService with LoggerMixin {
     }
     args.add(file.path);
 
-    final output = await _executeOneShot(args, timeout: _singleWriteTimeout);
+    final output = await _executeExifoolCommand(args, timeout: _singleWriteTimeout);
     if (output.contains('error') ||
         output.contains('Error') ||
         output.contains("weren't updated due to errors")) {
-      throw Exception('ExifTool failed to write metadata to ${file.path}: $output');
+      throw Exception('[ExifToolService] ExifTool failed to write metadata to ${file.path}: $output');
     }
   }
 
@@ -328,11 +341,11 @@ class ExifToolService with LoggerMixin {
       args.add(file.path);
     }
 
-    final output = await _executeOneShot(args, timeout: _batchWriteTimeout);
+    final output = await _executeExifoolCommand(args, timeout: _batchWriteTimeout);
     if (output.contains('error') ||
         output.contains('Error') ||
         output.contains("weren't updated due to errors")) {
-      throw Exception('ExifTool failed in batch write: $output');
+      throw Exception('[ExifToolService] ExifTool failed in batch write: $output');
     }
   }
 
@@ -375,11 +388,11 @@ class ExifToolService with LoggerMixin {
     await tmp.writeAsString(buf.toString());
 
     try {
-      final output = await _executeOneShot(['-@', tmp.path], timeout: _batchWriteTimeout);
+      final output = await _executeExifoolCommand(['-@', tmp.path], timeout: _batchWriteTimeout);
       if (output.contains('error') ||
           output.contains('Error') ||
           output.contains("weren't updated due to errors")) {
-        throw Exception('ExifTool failed in batch (argfile) write: $output');
+        throw Exception('[ExifToolService] ExifTool failed in batch (argfile) write: $output');
       }
     } finally {
       try {

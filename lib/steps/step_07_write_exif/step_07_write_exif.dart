@@ -287,6 +287,11 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
         }
       }
 
+      // SECOND-BAR: counters and bar holder for the final flush (created later)
+      FillingBar? finalFlushBar;
+      int finalFlushTotal = 0;
+      int finalFlushDone = 0;
+
       // Safe batched write (splits on failure to isolate bad files)
       Future<void> writeBatchSafe(
         final List<MapEntry<File, Map<String, dynamic>>> queue, {
@@ -319,6 +324,11 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
             } finally {
               await restoreMtimes(snap); // preserve file mtime regardless of ExifTool behavior
             }
+            // SECOND-BAR: advance when a chunk finishes (here chunk = 1)
+            if (finalFlushBar != null) {
+              finalFlushDone += 1;
+              finalFlushBar.update(finalFlushDone);
+            }
             return;
           }
 
@@ -349,6 +359,12 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
 
           // On success, restore mtimes for the whole chunk
           await restoreMtimes(snap);
+
+          // SECOND-BAR: advance by the whole chunk when it succeeds
+          if (finalFlushBar != null) {
+            finalFlushDone += chunk.length;
+            finalFlushBar.update(finalFlushDone);
+          }
         }
 
         await splitAndWrite(queue);
@@ -459,7 +475,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
           // Decide writing namespace for non-JPEG images:
           //  - JPEG: EXIF native (and/or ExifTool fallback tags without XMP).
           //  - PNG: write XMP tags to avoid EXIF/IFD pointer issues.
-          final bool isPng = (mimeHeader == 'image/png' || lower.endsWith('.png'));
+          final bool isPng = mimeHeader == 'image/png' || lower.endsWith('.png');
 
           // GPS (if primary coords available)
           try {
@@ -701,7 +717,19 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
       if (!nativeOnly && enableExifToolBatch) {
         final int imagesQueued = totalQueued(pendingImagesByTagset);
         final int videosQueued = totalQueued(pendingVideosByTagset);
+        print(''); // Forze breakline after progress bar
         logPrint('[Step 7/8] Pending before final flush → Images: $imagesQueued, Videos: $videosQueued');
+
+        // SECOND-BAR: create and initialize the final flush bar ONLY now,
+        // after the first bar has completed.
+        finalFlushTotal = imagesQueued + videosQueued;
+        if (finalFlushTotal > 0) {
+          finalFlushBar = FillingBar(
+            desc: '[ INFO  ] [Step 7/8] Flushing pending EXIF writes',
+            total: finalFlushTotal,
+            width: 50,
+          );
+        }
       }
 
       // Final batch flush (if batching was used). Use the old heuristic to decide argfile.
@@ -712,6 +740,13 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
         final bool flushVideosWithArg = videosQueued > 6;
         await flushImageBatch(useArgFile: flushImagesWithArg);
         await flushVideoBatch(useArgFile: flushVideosWithArg);
+
+        // SECOND-BAR: ensure it ends at 100% even si hubo splits/errores contados
+        if (finalFlushBar != null) {
+          finalFlushDone = finalFlushTotal;
+          finalFlushBar.update(finalFlushDone);
+          print(''); // salto de línea tras la segunda barra
+        }
       } else {
         pendingImagesByTagset.clear();
         pendingVideosByTagset.clear();

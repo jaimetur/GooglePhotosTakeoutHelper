@@ -74,7 +74,7 @@ class MockExifToolService extends ExifToolService {
   }
 
   @override
-  Future<String> executeCommand(final List<String> args) async {
+  Future<String> executeExiftoolCommand(final List<String> args) async {
     if (shouldFail) {
       throw Exception('Mock ExifTool command failure');
     }

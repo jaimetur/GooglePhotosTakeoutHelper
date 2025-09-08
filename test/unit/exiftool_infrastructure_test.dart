@@ -93,7 +93,7 @@ void main() {
         if (exiftool == null) return; // Skip if exiftool not available
 
         // Test basic version command
-        final output = await exiftool!.executeCommand(['-ver']);
+        final output = await exiftool!.executeExiftoolCommand(['-ver']);
 
         expect(output, isNotEmpty);
         expect(output.trim(), matches(r'^\d+\.\d+'));

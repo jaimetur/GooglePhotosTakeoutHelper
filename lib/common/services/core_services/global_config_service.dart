@@ -79,7 +79,7 @@ class GlobalConfigService {
     // NEW: reset unsupported-policy and batch caps
     forceProcessUnsupportedFormats = false;
     silenceUnsupportedWarnings = true;
-    maxExifImageBatchSize = 500;
+    maxExifImageBatchSize = 100;
     maxExifVideoBatchSize = 24;
 
     moveDuplicatesToDuplicatesFolder = false;

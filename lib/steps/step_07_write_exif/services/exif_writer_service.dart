@@ -528,7 +528,7 @@ class ExifWriterService with LoggerMixin {
         }
       }
 
-      logError('[Step 7/8] Failed to write tags ${tags.keys.toList()} to ${file.path}: $e');
+      logWarning('[ExifToolService] Failed to write tags: ${tags.keys.toList()} to ${file.path}: $e');
       return false;
     }
   }
