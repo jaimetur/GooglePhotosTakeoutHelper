@@ -29,7 +29,7 @@ class InteractivePresenterService with LoggerMixin {
   }
 
   /// Album options with descriptions for user selection
-  /// Updated to include 'ignore-albums' so interactive flow stays consistent with CLI and strategies.
+  /// Updated to include 'ignore' so interactive flow stays consistent with CLI and strategies.
   static const Map<String, String> albumOptions = <String, String>{
     'shortcut':
         '[Recommended] Album folders with symlinks to original photos\n'
@@ -53,7 +53,7 @@ class InteractivePresenterService with LoggerMixin {
     'nothing':
         'Just ignore them and put year-photos into one folder. \n'
         'WARNING: This moves Archive/Trash into ALL_PHOTOS!!!\n',
-    'ignore-albums':
+    'ignore':
         'Ignore albums completely. Canonical files go to ALL_PHOTOS; \n'
         'non-canonical files are deleted (not moved or copied to albums). \n'
         'Use when you do not want any album representation.\n'
@@ -296,7 +296,7 @@ class InteractivePresenterService with LoggerMixin {
   }
 
   /// Prompts user to select album behavior
-  /// Updated to include the new 'ignore-albums' option as [5].
+  /// Updated to include the new 'ignore' option as [5].
   Future<void> promptForAlbumBehavior() async {
     print('What should be done with albums?');
     print('[1] shortcut: [Recommended] Album folders with symlinks to');
@@ -321,7 +321,7 @@ class InteractivePresenterService with LoggerMixin {
     print('[5] nothing: Just ignore them and put year-photos into one folder.');
     print('    WARNING: This moves Archive/Trash into ALL_PHOTOS !!!');
     print('');
-    print('[6] ignore-albums: Ignore albums completely. Canonical files go to ALL_PHOTOS;');
+    print('[6] ignore: Ignore albums completely. Canonical files go to ALL_PHOTOS;');
     print('    non-canonical files are deleted (not moved or copied to albums).');
     print('    WARNING: This ignores Archive/Trash !!!');
     print('');

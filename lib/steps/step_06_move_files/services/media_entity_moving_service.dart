@@ -65,21 +65,24 @@ class MediaEntityMovingService with LoggerMixin {
 
     // Process each media entity
     for (final entity in entityCollection.entities) {
-      // We only require a single MOVE for the primary source.
-      final String primarySourcePath = entity.primaryFile.path;
-      var primaryMoveEmitted = false;
+      // We require the primary to be "accounted for": either MOVED or DELETED.
+      final String primarySourcePath = entity.primaryFile.sourcePath;
+      var primaryAccounted = false;
 
       await for (final result in strategy.processMediaEntity(entity, context)) {
         allResults.add(result);
 
-        // Coverage: mark as emitted when we see a MOVE (for the primary).
-        if (result.operation.operationType == MediaEntityOperationType.move) {
-          // Some strategies may emit MOVE(s) for non-primary sources (legacy),
-          // but the one we *require* is the one whose source is the original primary.
-          final String opSrc = result.operation.sourceFile.path;
-          if (_samePath(opSrc, primarySourcePath)) {
-            primaryMoveEmitted = true;
-          }
+        final op = result.operation;
+        final String opSrc = op.operationType == MediaEntityOperationType.delete ||
+                             op.operationType == MediaEntityOperationType.move
+            ? op.sourceFile.path
+            : op.sourceFile.path; // same, kept explicit for clarity
+
+        // Primary is considered handled if strategy MOVED or DELETED it
+        if (_samePath(opSrc, primarySourcePath) &&
+            (op.operationType == MediaEntityOperationType.move ||
+             op.operationType == MediaEntityOperationType.delete)) {
+          primaryAccounted = true;
         }
 
         if (!result.success && context.verbose) {
@@ -89,8 +92,8 @@ class MediaEntityMovingService with LoggerMixin {
         }
       }
 
-      // Inject a synthetic failure if the strategy didn't emit the primary MOVE.
-      if (!primaryMoveEmitted) {
+      // Inject a synthetic failure only if the primary was neither moved nor deleted
+      if (!primaryAccounted) {
         final syntheticOp = MediaEntityMovingOperation(
           sourceFile: File(primarySourcePath),
           targetDirectory: Directory(context.outputDirectory.path),
@@ -100,7 +103,7 @@ class MediaEntityMovingService with LoggerMixin {
         final synthetic = MediaEntityMovingResult.failure(
           operation: syntheticOp,
           errorMessage:
-              'No MOVE operation emitted by strategy for primary file',
+              'Primary file was not moved or deleted by strategy',
           duration: Duration.zero,
         );
         allResults.add(synthetic);
@@ -143,6 +146,7 @@ class MediaEntityMovingService with LoggerMixin {
     _printSummary(allResults);
   }
 
+
   /// High-performance parallel media moving with batched operations.
   ///
   /// Emits progress as "entities processed". Concurrency is per-entity.
@@ -176,26 +180,26 @@ class MediaEntityMovingService with LoggerMixin {
           semaphore.acquire().then((_) async {
             try {
               final results = <MediaEntityMovingResult>[];
-              final String primarySourcePath = entity.primaryFile.path;
-              var primaryMoveEmitted = false;
+              final String primarySourcePath = entity.primaryFile.sourcePath;
+              var primaryAccounted = false;
 
               await for (final r in strategy.processMediaEntity(
                 entity,
                 context,
               )) {
                 results.add(r);
-                if (r.operation.operationType ==
-                    MediaEntityOperationType.move) {
-                  if (_samePath(
-                    r.operation.sourceFile.path,
-                    primarySourcePath,
-                  )) {
-                    primaryMoveEmitted = true;
-                  }
+
+                final op = r.operation;
+                final String opSrc = op.sourceFile.path;
+
+                if (_samePath(opSrc, primarySourcePath) &&
+                    (op.operationType == MediaEntityOperationType.move ||
+                     op.operationType == MediaEntityOperationType.delete)) {
+                  primaryAccounted = true;
                 }
               }
 
-              if (!primaryMoveEmitted) {
+              if (!primaryAccounted) {
                 results.add(
                   MediaEntityMovingResult.failure(
                     operation: MediaEntityMovingOperation(
@@ -205,7 +209,7 @@ class MediaEntityMovingService with LoggerMixin {
                       mediaEntity: entity,
                     ),
                     errorMessage:
-                        'No MOVE operation emitted by strategy for primary file',
+                        'Primary file was not moved or deleted by strategy',
                     duration: Duration.zero,
                   ),
                 );
@@ -246,6 +250,7 @@ class MediaEntityMovingService with LoggerMixin {
     // Print summary
     _printSummary(allResults);
   }
+
 
   void _logResult(final MediaEntityMovingResult result) {
     final operation = result.operation;

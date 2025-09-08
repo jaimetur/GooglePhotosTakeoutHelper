@@ -212,7 +212,7 @@ class ProcessingConfigBuilder {
   bool _inputExtractedFromZip = false;
   String? _userInputRoot; // NEW
 
-  /// Set album behavior (shortcut, reverse-shortcut, duplicate-copy, json, nothing, ignore-albums)
+  /// Set album behavior (shortcut, reverse-shortcut, duplicate-copy, json, nothing, ignore)
   set albumBehavior(final AlbumBehavior behavior) {
     _albumBehavior = behavior;
   }
@@ -353,7 +353,7 @@ enum AlbumBehavior {
   duplicateCopy('duplicate-copy'),
   json('json'),
   nothing('nothing'),
-  ignoreAlbums('ignore-albums'); // NEW: strategy that ignores albums (move canonicals to ALL_PHOTOS, delete non-canonicals)
+  ignoreAlbums('ignore'); // NEW: strategy that ignores albums (move canonicals to ALL_PHOTOS, delete non-canonicals)
 
   const AlbumBehavior(this.value);
   final String value;

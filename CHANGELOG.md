@@ -1,11 +1,12 @@
 ## 5.0.4
 
 ### ✨ **New Features**
-  - New album moving strategy `ignore-albums` to completely ignore all Albums content. The difference with `nothing` strategy is that `nothing` don't create Albums folders but process and move all Albums content into `ALL_PHOTOS` folder.
+  - New album moving strategy `ignore` to completely ignore all Albums content. The difference with `nothing` strategy is that `nothing` don't create Albums folders but process and move all Albums content into `ALL_PHOTOS` folder.
 
 ### 🚀 **Improvements**
   - Moving Strategies re-defined.
   - Included Timeouts on ExifTool operations.
+  - Log saving enabled by default. Use flag `--no-save-log` to disable it.
   - Changed log name from `gpth-{version}_{timestamp}.log` to `gpth_{version}_{timestamp}.log`
 
 ### 🐛 **Bug Fixes**
@@ -26,7 +27,7 @@
 ## 5.0.2
 
 ### ✨ **New Features**
-  - New flag `--save-log` to save log messages into output folder.
+  - New flag `--save-log` to enable/disable messages log saving into output folder.
   - Step 8 (Update creation time) is now multi-platform. Also update creation date for physical files and symlinks on linux/macos.
 
 ### 🚀 **Improvements**

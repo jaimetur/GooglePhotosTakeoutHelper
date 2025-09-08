@@ -231,12 +231,12 @@ gpth --input "/path/to/takeout" --output "/path/to/organized" --albums "shortcut
 
 ### Core Arguments
 
-| Argument            | Description                                                                                                        |
-|---------------------|--------------------------------------------------------------------------------------------------------------------|
-| `--input`, `-i`     | Input folder containing extracted Takeout or your unextracted zip files                                            |
-| `--output`, `-o`    | Output folder for organized photos                                                                                 |
-| `--albums`          | Album handling: `shortcut`, `duplicate-copy`, `reverse-shortcut`, `json`, `nothing`, `ignore-albums`                                |
-| `--keep-input`      | Work on a temporary sibling copy of --input (suffix _tmp), keeping the original untouched                          |
+| Argument         | Description                                                                                   |
+|------------------|-----------------------------------------------------------------------------------------------|
+| `--input`, `-i`  | Input folder containing extracted Takeout or your unextracted zip files                       |
+| `--output`, `-o` | Output folder for organized photos                                                            |
+| `--albums`       | Album handling: `shortcut`, `duplicate-copy`, `reverse-shortcut`, `json`, `nothing`, `ignore` |
+| `--keep-input`   | Work on a temporary sibling copy of --input (suffix _tmp), keeping the original untouched     |
 
 
 ### Organization Options
@@ -246,7 +246,7 @@ gpth --input "/path/to/takeout" --output "/path/to/organized" --albums "shortcut
 | `--divide-to-dates`       | Date-based folder structure for ALL_PHOTOS: `0`=one folder, `1`=by year, `2`=year/month, `3`=year/month/day (albums remain flattened) |
 | `--divide-partner-shared` | Separate partner shared media into a dedicated `PARTNER_SHARED` folder (works with date division)                                     |
 | `--skip-extras`           | Skip extra images like "-edited" versions                                                                                             |
-| `--keep-duplicates` | Keeps all duplicates files found in `_Duplicates` subfolder within in output folder instead of remove them totally |
+| `--keep-duplicates`       | Keeps all duplicates files found in `_Duplicates` subfolder within in output folder instead of remove them totally                    |
 
 ### Metadata & Processing
 
@@ -281,7 +281,7 @@ GPTH natively writes EXIF data to files with JPEG signatures, while other format
 
 You can configure extension fixing behavior with:
 
-| Argument                       | Description                                         | Technical Details                                                                                                                                             | When to Use                                                                                                   |
+| Argument                        | Description                                           | Technical Details                                                                                                                                                   | When to Use                                                                                                   |
 |---------------------------------|-------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------|
 | `--fix-extensions=none`         | **Disable extension fixing entirely**                 | Files keep their original extensions regardless of content type. EXIF writing may fail for mismatched files.                                                        | When you're certain all extensions are correct, or when you want to preserve original filenames at all costs. |
 | `--fix-extensions=standard`     | **Default: Fix extensions but skip TIFF-based files** | Renames files where extension doesn't match MIME type, but avoids TIFF-based formats (like RAW files from cameras) which are often misidentified by MIME detection. | **Recommended for most users**. Balances safety with effectiveness. Good for typical Google Photos exports.   |
@@ -324,7 +324,7 @@ You can configure extension fixing behavior with:
 | Argument           | Description                                              |
 |--------------------|----------------------------------------------------------|
 | `--interactive`    | Force interactive mode                                   |
-| `--save-log`, `-s` | Save a log file into output folder                       |
+| `--save-log`, `-s` | Save a log file into output folder (enabled by default)  |
 | `--verbose`, `-v`  | Show detailed logging output                             |
 | `--fix`            | Special mode: fix dates in any folder (not just Takeout) |
 | `--help`, `-h`     | Show help and exit                                       |
