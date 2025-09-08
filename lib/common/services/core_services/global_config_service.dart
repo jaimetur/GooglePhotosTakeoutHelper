@@ -29,7 +29,7 @@ class GlobalConfigService {
 
   // Seppeds up Step 7: Write EXIF by sending files by batches to ExifTool on evey ExifTool call
   bool enableExifToolBatch = true; // Disable this if you observe any abnormal dates in your output files.
-  int maxExifImageBatchSize = 1000;
+  int maxExifImageBatchSize = 100;
   int maxExifVideoBatchSize = 24;
 
   /// DatesDictionary passed as argument (if ussed flag --json-dates)

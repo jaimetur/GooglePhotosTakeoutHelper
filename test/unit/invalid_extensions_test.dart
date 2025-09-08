@@ -10,10 +10,10 @@ import '../setup/test_setup.dart';
 
 void main() {
   late ExifToolService? exiftool;
-  late FileExtensionCorrectorService extensionFixingService;
+  late FixExtensionService extensionFixingService;
 
   setUpAll(() async {
-    extensionFixingService = FileExtensionCorrectorService();
+    extensionFixingService = FixExtensionService();
     exiftool = await ExifToolService.find();
     if (exiftool != null) {
       await exiftool!.startPersistentProcess();

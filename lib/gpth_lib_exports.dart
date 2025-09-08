@@ -61,10 +61,11 @@ Barrel that exposes the pipeline and each step orchestration.
 */
 
 export 'steps/main_pipeline.dart';
-export 'steps/step_01_fix_extensions/services/file_extension_corrector_service.dart';
+export 'steps/step_01_fix_extensions/services/fix_extension_service.dart';
 // Step 01
 export 'steps/step_01_fix_extensions/step_01_fix_extensions.dart';
 // Step 02
+export 'steps/step_02_discover_media/services/discover_media_service.dart';
 export 'steps/step_02_discover_media/services/takeout_folder_classifier_service.dart';
 export 'steps/step_02_discover_media/step_02_discover_media.dart';
 // Step 03

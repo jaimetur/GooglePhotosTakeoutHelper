@@ -34,7 +34,7 @@ void main() {
         // Verify the incorrect file exists before fixing
         expect(await testFile.exists(), isTrue);
 
-        final extensionFixingService = FileExtensionCorrectorService();
+        final extensionFixingService = FixExtensionService();
 
         // Fix the extension
         final fixedCount = await extensionFixingService.fixIncorrectExtensions(

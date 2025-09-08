@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:console_bars/console_bars.dart';
 import 'package:gpth/gpth_lib_exports.dart';
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as path;
@@ -12,9 +13,9 @@ import 'package:path/path.dart' as path;
 /// - Google Photos compressing HEIC to JPEG but keeping original extension
 /// - Files incorrectly renamed from AVI to .mp4 during export
 /// - Web-downloaded images with generic or incorrect extensions
-class FileExtensionCorrectorService with LoggerMixin {
+class FixExtensionService with LoggerMixin {
   /// Creates a new file extension corrector service
-  FileExtensionCorrectorService() : _mimeTypeService = const MimeTypeService();
+  FixExtensionService() : _mimeTypeService = const MimeTypeService();
   final MimeTypeService _mimeTypeService;
   static const EditedVersionDetectorService _extrasService = EditedVersionDetectorService();
 
@@ -30,14 +31,38 @@ class FileExtensionCorrectorService with LoggerMixin {
   }) async {
     int fixedCount = 0;
 
+    // NEW (progress): compute total media items in a first pass to drive a precise progress bar.
+    // English note: we do a lightweight count-only pass before the processing pass to avoid
+    // buffering every entry in memory. This keeps memory stable at O(1) while offering real progress.
+    int total = 0;
+    await for (final _ in directory.list(recursive: true).wherePhotoVideo()) {
+      total++;
+    }
+
+    // NEW (progress): initialize the progress bar only when there is work to do.
+    final FillingBar? bar = (total > 0)
+        ? FillingBar(total: total, width: 40, percentage: true, desc: '[ INFO  ] [Step 1/8] Fixing extensions')
+        : null;
+
+    int done = 0;
+
     await for (final FileSystemEntity file in directory.list(recursive: true).wherePhotoVideo()) {
       try {
         final result = await _processFile(File(file.path), skipJpegFiles);
         if (result) fixedCount++;
       } catch (e) {
         logError('[Step 1/8] Failed to process file ${file.path}: $e');
+      } finally {
+        // NEW (progress): advance the bar with throttling to avoid excessive console updates.
+        if (bar != null) {
+          done++;
+          if ((done % 200) == 0 || done == total) bar.update(done);
+        }
       }
     }
+
+    // NEW (progress): ensure the next logs start on a new line after the bar.
+    if (bar != null) stdout.writeln();
 
     return fixedCount;
   }
@@ -126,7 +151,7 @@ class FileExtensionCorrectorService with LoggerMixin {
       final Directory dir = Directory(dirPath);
       if (await dir.exists()) {
         final List<FileSystemEntity> entries = dir.listSync(followLinks: false);
-        final String targetLower = '${baseName}.json'.toLowerCase();
+        final String targetLower = '$baseName.json'.toLowerCase();
         for (final FileSystemEntity e in entries) {
           if (e is! File) continue;
           final String name = path.basename(e.path);
@@ -151,7 +176,7 @@ class FileExtensionCorrectorService with LoggerMixin {
     // 3) Try same candidates but on a trimmed parent directory (if current ends with spaces)
     final String trimmedDirPath = _trimRight(dirPath);
     if (trimmedDirPath != dirPath) {
-      final String candidateInTrimmed = path.join(trimmedDirPath, '${baseName}.json');
+      final String candidateInTrimmed = path.join(trimmedDirPath, '$baseName.json');
       final File trimmedJson = File(candidateInTrimmed);
       if (await trimmedJson.exists()) return trimmedJson;
 
@@ -159,7 +184,7 @@ class FileExtensionCorrectorService with LoggerMixin {
         final Directory tdir = Directory(trimmedDirPath);
         if (await tdir.exists()) {
           final List<FileSystemEntity> entries = tdir.listSync(followLinks: false);
-          final String targetLower = '${baseName}.json'.toLowerCase();
+          final String targetLower = '$baseName.json'.toLowerCase();
           for (final FileSystemEntity e in entries) {
             if (e is! File) continue;
             final String name = path.basename(e.path);
@@ -308,7 +333,6 @@ class FileExtensionCorrectorService with LoggerMixin {
   /// Trims only trailing ASCII/Unicode spaces and tabs from a path segment or filename.
   /// We avoid full normalization to keep behavior minimal and predictable.
   static String _trimRight(final String s) {
-    // Remove trailing spaces and tabs (common offenders for folder names)
-    return s.replaceFirst(RegExp(r'[\u0020\u0009]+$'), '');
+    return s.replaceFirst(RegExp(r'[\u0020\u0009]+$'), ''); // Remove trailing spaces and tabs (common offenders for folder names)
   }
 }
