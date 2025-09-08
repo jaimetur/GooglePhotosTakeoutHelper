@@ -5,7 +5,7 @@
 library;
 
 /// Application version
-const String version = '5.0.4';
+const String version = '5.0.5';
 
 /// Default width for progress bars in console output
 const int defaultBarWidth = 40;
