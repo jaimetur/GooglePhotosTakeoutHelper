@@ -235,10 +235,9 @@ gpth --input "/path/to/takeout" --output "/path/to/organized" --albums "shortcut
 |---------------------|--------------------------------------------------------------------------------------------------------------------|
 | `--input`, `-i`     | Input folder containing extracted Takeout or your unextracted zip files                                            |
 | `--output`, `-o`    | Output folder for organized photos                                                                                 |
-| `--albums`          | Album handling: `shortcut`, `duplicate-copy`, `reverse-shortcut`, `json`, `nothing`                                |
+| `--albums`          | Album handling: `shortcut`, `duplicate-copy`, `reverse-shortcut`, `json`, `nothing`, `ignore-albums`                                |
 | `--keep-input`      | Work on a temporary sibling copy of --input (suffix _tmp), keeping the original untouched                          |
-| `--keep-duplicates` | Keeps all duplicates files found in `_Duplicates` subfolder within in output folder instead of remove them totally |
-| `--help`, `-h`      | Show help and exit                                                                                                 |
+
 
 ### Organization Options
 
@@ -247,6 +246,7 @@ gpth --input "/path/to/takeout" --output "/path/to/organized" --albums "shortcut
 | `--divide-to-dates`       | Date-based folder structure for ALL_PHOTOS: `0`=one folder, `1`=by year, `2`=year/month, `3`=year/month/day (albums remain flattened) |
 | `--divide-partner-shared` | Separate partner shared media into a dedicated `PARTNER_SHARED` folder (works with date division)                                     |
 | `--skip-extras`           | Skip extra images like "-edited" versions                                                                                             |
+| `--keep-duplicates` | Keeps all duplicates files found in `_Duplicates` subfolder within in output folder instead of remove them totally |
 
 ### Metadata & Processing
 
@@ -277,9 +277,11 @@ gpth --input "/path/to/takeout" --output "/path/to/organized" --albums "shortcut
 
 Google Photos has an option of 'data saving' which will compress images to JPEG format but retain the original filename extension. Additionally, some web-downloaded images may have incorrect extensions (e.g., a file named `.jpeg` may actually be `.heif` internally).
 
-GPTH natively writes EXIF data to files with JPEG signatures, while other formats require ExifTool. Files with mismatched extensions can cause ExifTool to fail, so GPTH provides several extension fixing strategies:
+GPTH natively writes EXIF data to files with JPEG signatures, while other formats require ExifTool. Files with mismatched extensions can cause ExifTool to fail, so GPTH provides several extension fixing strategies.
 
-| Mode                            | Description                                           | Technical Details                                                                                                                                                   | When to Use                                                                                                   |
+You can configure extension fixing behavior with:
+
+| Argument                       | Description                                         | Technical Details                                                                                                                                             | When to Use                                                                                                   |
 |---------------------------------|-------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------|
 | `--fix-extensions=none`         | **Disable extension fixing entirely**                 | Files keep their original extensions regardless of content type. EXIF writing may fail for mismatched files.                                                        | When you're certain all extensions are correct, or when you want to preserve original filenames at all costs. |
 | `--fix-extensions=standard`     | **Default: Fix extensions but skip TIFF-based files** | Renames files where extension doesn't match MIME type, but avoids TIFF-based formats (like RAW files from cameras) which are often misidentified by MIME detection. | **Recommended for most users**. Balances safety with effectiveness. Good for typical Google Photos exports.   |
@@ -317,15 +319,6 @@ GPTH natively writes EXIF data to files with JPEG signatures, while other format
 - `standard` mode renames to: `image.png.jpg`
 - `conservative` mode: **Skips** (avoids touching JPEG content)
 
-You can configure extension fixing behavior with:
-
-| Argument                        | Description                                                                                        |
-|---------------------------------|----------------------------------------------------------------------------------------------------|
-| `--fix-extensions=none`         | Disable extension fixing entirely                                                                  |
-| `--fix-extensions=standard`     | **Default**: Fix extensions but skip TIFF-based files (like RAW formats) to avoid potential issues |
-| `--fix-extensions=conservative` | Fix extensions but skip both TIFF-based and JPEG files for maximum safety                          |
-| `--fix-extensions=solo`         | Fix extensions then exit immediately (standalone mode for preprocessing files)                     |
-
 ### Other Options
 
 | Argument           | Description                                              |
@@ -334,6 +327,7 @@ You can configure extension fixing behavior with:
 | `--save-log`, `-s` | Save a log file into output folder                       |
 | `--verbose`, `-v`  | Show detailed logging output                             |
 | `--fix`            | Special mode: fix dates in any folder (not just Takeout) |
+| `--help`, `-h`     | Show help and exit                                       |
 
 ### Example Commands
 
