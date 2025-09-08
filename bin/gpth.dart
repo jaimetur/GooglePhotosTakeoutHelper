@@ -112,7 +112,7 @@ List<String> _applyAndStripTestMultipliers(final List<String> args) {
 Future<void> main(final List<String> arguments) async {
   // Initialize logger early with default settings
   _logger = LoggingService();
-  LoggerMixin.sharedDefaultLogger = _logger;; // NEW: make this the shared default
+  LoggerMixin.sharedDefaultLogger = _logger; // NEW: make this the shared default
 
   // Apply & strip hidden test-only concurrency multiplier flags before parsing normal args.
   final parsedArguments = _applyAndStripTestMultipliers(arguments);
@@ -129,20 +129,20 @@ Future<void> main(final List<String> arguments) async {
     // --- PRE-CLEAN OUTPUT DIR BEFORE OPENING THE NEW LOG FILE ---
     // Clean the output directory (if needed) *before* creating the logger that will place
     // the new log file inside that directory. This avoids file-lock errors on Windows.
-    final Directory _preCleanOut = Directory(config.outputPath);
-    if (await _preCleanOut.exists()) {
-      final bool _needsClean = !await _isOutputDirectoryEmpty(_preCleanOut, config);
-      if (_needsClean) {
+    final Directory preCleanOut = Directory(config.outputPath);
+    if (await preCleanOut.exists()) {
+      final bool needsClean = !await _isOutputDirectoryEmpty(preCleanOut, config);
+      if (needsClean) {
         if (config.isInteractiveMode) {
           if (await ServiceContainer.instance.interactiveService.askForCleanOutput()) {
-            await _cleanOutputDirectory(_preCleanOut, config);
+            await _cleanOutputDirectory(preCleanOut, config);
           }
         } else {
-          await _cleanOutputDirectory(_preCleanOut, config);
+          await _cleanOutputDirectory(preCleanOut, config);
         }
       }
     }
-    await _preCleanOut.create(recursive: true);
+    await preCleanOut.create(recursive: true);
     // --- END PRE-CLEAN ---
 
     // Update logger with correct verbosity and reinitialize services with it
@@ -215,7 +215,7 @@ Never _exitWithMessage(
   } catch (_) {}
 
   if (showInteractivePrompt && Platform.environment['INTERACTIVE'] == 'true') {
-    logPrint('[gpth ${code != 0 ? 'quitted :(' : 'finished :)'} (code $code) - press enter to close]', forcePrint: true);
+    logPrint('[gpth ${code != 0 ? 'quitted :(' : 'finished :)'} (code $code) - press enter to close]');
     stdin.readLineSync();
   }
 
@@ -382,7 +382,7 @@ for your OS and make sure the executable is in a folder in the \$PATH.
 Then, run: gpth --input "folder/with/all/takeouts" --output "your/output/folder"
 ...and gpth will parse and organize all photos into one big chronological folder
 
-${parser.usage}''', forcePrint: true);
+${parser.usage}''');
 
 /// **CONFIGURATION BUILDER**
 ///
@@ -791,9 +791,9 @@ Future<void> _configureDependencies(final ProcessingConfig config) async {
 
   // Log ExifTool status (already set during ServiceContainer initialization)
   if (ServiceContainer.instance.exifTool != null) {
-    logPrint('Exiftool found! Continuing with EXIF support...', forcePrint: true);
+    logPrint('Exiftool found! Continuing with EXIF support...');
   } else {
-    logPrint('Exiftool not found! Continuing without EXIF support...', forcePrint: true);
+    logPrint('Exiftool not found! Continuing without EXIF support...');
   }
 
   // EXTRA: let the user know if we have a file dates dictionary loaded
@@ -875,7 +875,7 @@ Future<ProcessingResult> _executeProcessing(
         }
         if (zips.isNotEmpty) {
           final extractDir = Directory(path.join(root.path, '.gpth-unzipped'));
-          logPrint('Found ${zips.length} ZIP file(s) under userInputRoot - extracting to ${extractDir.path} before processing', forcePrint: true);
+          logPrint('Found ${zips.length} ZIP file(s) under userInputRoot - extracting to ${extractDir.path} before processing');
 
           // Compute rough required space and log
           var cumZipsSize = 0;
@@ -883,7 +883,7 @@ Future<ProcessingResult> _executeProcessing(
             try { cumZipsSize += z.lengthSync(); } catch (_) {}
           }
           final requiredSpace = (cumZipsSize * 2) + 256 * 1024 * 1024;
-          logPrint('Estimated required temporary space for extraction: ${requiredSpace ~/ (1024 * 1024)} MB', forcePrint: true);
+          logPrint('Estimated required temporary space for extraction: ${requiredSpace ~/ (1024 * 1024)} MB');
 
           await ServiceContainer.instance.interactiveService.extractAll(zips, extractDir);
           effectiveUserRoot = extractDir.path;
@@ -892,7 +892,7 @@ Future<ProcessingResult> _executeProcessing(
           final resolvedInside = PathResolverService.resolveGooglePhotosPath(extractDir.path);
           inputDir = Directory(resolvedInside);
           extractedNow = true;
-          logPrint('Extraction completed in execute(); effective input is now $resolvedInside', forcePrint: true);
+          logPrint('Extraction completed in execute(); effective input is now $resolvedInside');
         }
       }
     } catch (e) {
@@ -906,12 +906,12 @@ Future<ProcessingResult> _executeProcessing(
 
   // Diagnostic Log to veryfy if we should clone InputDir
   final bool shouldClone = config.keepInput && !inputExtractedFromZipFlag;
-  logPrint('--keep-input = ${config.keepInput}, inputExtractedFromZip = $inputExtractedFromZipFlag => shouldClone = $shouldClone', forcePrint: true);
+  logPrint('--keep-input = ${config.keepInput}, inputExtractedFromZip = $inputExtractedFromZipFlag => shouldClone = $shouldClone');
 
   Directory effectiveInputDir = inputDir;
 
   if (shouldClone) {
-    logPrint('Input folder will be cloned as working copy because --keep-input = ${config.keepInput} and input does not come from ZIP extraction (inputExtractedFromZip = $inputExtractedFromZipFlag).', forcePrint: true);
+    logPrint('Input folder will be cloned as working copy because --keep-input = ${config.keepInput} and input does not come from ZIP extraction (inputExtractedFromZip = $inputExtractedFromZipFlag).');
     final cloner = InputCloneService();
     // Clone the **original user root**, not the already resolved Google Photos subfolder
     final Directory clonedRoot = await cloner.cloneToSiblingTmp(Directory(effectiveUserRoot));
@@ -1125,7 +1125,7 @@ void _showResults(
   if (!result.isSuccess) {
     stderr.writeln('[PROCESSING_RESULT] $exitMessage');
   } else {
-    logPrint('[SUCCESS] $exitMessage', forcePrint: true);
+    logPrint('[SUCCESS] $exitMessage');
   }
 
   exit(exitCode);
@@ -1141,11 +1141,11 @@ Future<void> _loadSaveLogIntoGlobalConfigFromArgs(
   try {
     if (res['save-log'])  {
       final logFilePath = ServiceContainer.instance.loggingService.logFilePath;
-      logPrint('--save-log flag detected. Messages Log will be saved to: $logFilePath', forcePrint: true);
+      logPrint('--save-log flag detected. Messages Log will be saved to: $logFilePath');
       ServiceContainer.instance.globalConfig.saveLog = res['save-log'] ;
     }
     else {
-      logPrint('--save-log flag not detected; skipping save log messages into disk.', forcePrint: true);
+      logPrint('--save-log flag not detected; skipping save log messages into disk.');
     }
   } catch (e) {
     logError('Failed to load --save-log flag into GlobalConfig: $e', forcePrint: true);
@@ -1162,11 +1162,11 @@ Future<void> _loadFileDatesIntoGlobalConfigFromArgs(
     final res = parser.parse(parsedArguments);
     final String? jsonPath = res['json-dates'] as String?;
     if (jsonPath == null) {
-      logPrint('--json-dates argument not given; skipping external dates dictionary load.', forcePrint: true);
+      logPrint('--json-dates argument not given; skipping external dates dictionary load.');
       return;
     }
 
-    logPrint('Attempting to load JSON Dates Dictionary from: $jsonPath', forcePrint: true);
+    logPrint('Attempting to load JSON Dates Dictionary from: $jsonPath');
 
     final file = File(jsonPath);
     if (!await file.exists()) {
@@ -1197,7 +1197,7 @@ Future<void> _loadFileDatesIntoGlobalConfigFromArgs(
     });
 
     ServiceContainer.instance.globalConfig.jsonDatesDictionary = normalized;
-    logPrint('Loaded ${normalized.length} entries from $jsonPath', forcePrint: true);
+    logPrint('Loaded ${normalized.length} entries from $jsonPath');
   } catch (e) {
       logWarning('Failed to load JSON Dates Dictionary: $e', forcePrint: true);
   }
