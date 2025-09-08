@@ -502,31 +502,31 @@ class InteractivePresenterService with LoggerMixin {
 
   /// Shows disk space notice
   Future<void> showDiskSpaceNotice(final String message) async {
-    print('Disk space notice: $message');
+    logPrint('Disk space notice: $message');
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows unzip start message
   Future<void> showUnzipStartMessage() async {
-    print('Starting unzip process...');
+    logPrint('Starting unpacking process...');
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows unzip progress
   Future<void> showUnzipProgress(final String fileName) async {
-    print('Unzipping: $fileName');
+    logPrint('Unpacking: $fileName');
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows unzip success
   Future<void> showUnzipSuccess(final String fileName) async {
-    print('Successfully unzipped: $fileName');
+    logPrint('Successfully unpacked: $fileName');
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows unzip complete
   Future<void> showUnzipComplete() async {
-    print('Unzip process complete.');
+    logPrint('Unpack process complete.');
     if (enableSleep) await _sleep(1);
   }
 
