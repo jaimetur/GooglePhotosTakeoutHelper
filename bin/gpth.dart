@@ -345,6 +345,7 @@ ArgParser _createArgumentParser() => ArgParser()
   ..addFlag(
     'update-creation-time',
     help: 'Set creation time equal to modification date (Windows only)',
+    defaultsTo: true,
   )
   ..addFlag(
     'write-exif',
