@@ -226,7 +226,7 @@ class ExifToolService with LoggerMixin {
               proc?.kill();
             } else {
               // POSIX: try to finish process with SIGTERM, if not use SIGKILL as fallback.
-              proc?.kill();
+              proc?.kill(ProcessSignal.sigterm);
               // Second try "best effort" later on
               Future<void>.delayed(const Duration(milliseconds: 300), () {
                 try { proc?.kill(ProcessSignal.sigkill); } catch (_) {}
