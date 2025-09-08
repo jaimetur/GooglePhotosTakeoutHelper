@@ -394,10 +394,10 @@ class MediaEntityMovingService with LoggerMixin {
     if (failures > 0) {
       logError('[Step 6/8] Errors encountered:');
       results.where((final r) => !r.success).take(5).forEach((final result) {
-        logError('[Step 6/8]   • ${result.operation.sourceFile.path}: ${result.errorMessage}');
+        logError('[Step 6/8]   • ${result.operation.sourceFile.path}: ${result.errorMessage}', forcePrint: true);
       });
       final extra = failures - 5;
-      if (extra > 0) logError('[Step 6/8]   ... and $extra more errors');
+      if (extra > 0) logError('[Step 6/8]   ... and $extra more errors', forcePrint: true);
     }
   }
 

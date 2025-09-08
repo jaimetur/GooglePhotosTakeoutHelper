@@ -9,7 +9,7 @@ class GlobalConfigService {
   GlobalConfigService();
 
   /// Enable/Disable Log saving into file.
-  bool saveLog = false;
+  bool saveLog = true;
 
   /// Whether verbose logging is enabled
   bool isVerbose = false;

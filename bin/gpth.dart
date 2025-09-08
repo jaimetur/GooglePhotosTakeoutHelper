@@ -424,7 +424,7 @@ Future<ProcessingConfig> _buildConfigFromArgs(final ArgResults res) async {
   );
   // Apply all configuration options
   // if (res['save-log']) configBuilder.saveLog = true;
-  if (res['save-log']) ServiceContainer.instance.globalConfig.saveLog = true; // override globalConfig value
+  if (!res['save-log']) ServiceContainer.instance.globalConfig.saveLog = false; // override globalConfig value
   if (res['verbose']) configBuilder.verboseOutput = true;
   if (res['skip-extras']) configBuilder.skipExtras = true;
   if (!res['guess-from-name']) configBuilder.guessFromName = false;
@@ -1145,7 +1145,7 @@ Future<void> _loadSaveLogIntoGlobalConfigFromArgs(
       ServiceContainer.instance.globalConfig.saveLog = res['save-log'] ;
     }
     else {
-      logPrint('--save-log flag not detected; skipping save log messages into disk.');
+      logPrint('--no-save-log flag detected; skipping save log messages into disk.');
     }
   } catch (e) {
     logError('Failed to load --save-log flag into GlobalConfig: $e', forcePrint: true);
