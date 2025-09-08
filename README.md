@@ -241,12 +241,12 @@ gpth --input "/path/to/takeout" --output "/path/to/organized" --albums "shortcut
 
 ### Organization Options
 
-| Argument                  | Description                                                                                                                           |
-|---------------------------|---------------------------------------------------------------------------------------------------------------------------------------|
-| `--divide-to-dates`       | Date-based folder structure for ALL_PHOTOS: `0`=one folder, `1`=by year, `2`=year/month, `3`=year/month/day (albums remain flattened) |
-| `--divide-partner-shared` | Separate partner shared media into a dedicated `PARTNER_SHARED` folder (works with date division)                                     |
-| `--skip-extras`           | Skip extra images like "-edited" versions                                                                                             |
-| `--keep-duplicates`       | Keeps all duplicates files found in `_Duplicates` subfolder within in output folder instead of remove them totally                    |
+| Argument                  | Description                                                                                                                                          |
+|---------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `--divide-to-dates`       | Date-based folder structure for ALL_PHOTOS: `0`=one folder, `1`=by year, `2`=year/month, `3`=year/month/day (albums remain flattened) (default: `2`) |
+| `--divide-partner-shared` | Separate partner shared media into a dedicated `PARTNER_SHARED` folder (works with date division)                                                    |
+| `--skip-extras`           | Skip extra images like "-edited" versions                                                                                                            |
+| `--keep-duplicates`       | Keeps all duplicates files found in `_Duplicates` subfolder within in output folder instead of remove them totally                                   |
 
 ### Metadata & Processing
 
@@ -324,7 +324,7 @@ You can configure extension fixing behavior with:
 | Argument           | Description                                              |
 |--------------------|----------------------------------------------------------|
 | `--interactive`    | Force interactive mode                                   |
-| `--save-log`, `-s` | Save a log file into output folder (enabled by default)  |
+| `--save-log`, `-l` | Save a log file into output folder (enabled by default)  |
 | `--verbose`, `-v`  | Show detailed logging output                             |
 | `--fix`            | Special mode: fix dates in any folder (not just Takeout) |
 | `--help`, `-h`     | Show help and exit                                       |

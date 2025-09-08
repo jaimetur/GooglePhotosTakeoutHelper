@@ -118,13 +118,25 @@ Future<void> main(final List<String> arguments) async {
   final parsedArguments = _applyAndStripTestMultipliers(arguments);
   try {
     // Initialize ServiceContainer early to support interactive mode during argument parsing
-    await ServiceContainer.instance.initialize();
+    // await ServiceContainer.instance.initialize();
+    await ServiceContainer.instance.initialize(loggingService: LoggingService(saveLog: false));
+
+    // IMPORTANT (Option A): ensure no early default logger opens a file in ./Logs
+    // by forcing global saveLog OFF until we explicitly set it from CLI args later.
+    ServiceContainer.instance.globalConfig.saveLog = false; // <- critical to avoid early file sink in ./Logs
 
     // Parse command line arguments
     final config = await _parseArguments(parsedArguments);
     if (config == null) {
       return; // Help was shown or other early exit
     }
+
+    // Apply --save-log from args BEFORE creating the final logger (Option A)
+    await _loadSaveLogIntoGlobalConfigFromArgs(
+      parsedArguments,
+      // NEW: tell the loader our output dir so it can preview and print the exact log path at startup.
+      preferredLogDirForPreview: config.outputPath,
+    ); // sets globalConfig.saveLog true/false only + prints the concrete path (no file I/O)
 
     // --- PRE-CLEAN OUTPUT DIR BEFORE OPENING THE NEW LOG FILE ---
     // Clean the output directory (if needed) *before* creating the logger that will place
@@ -147,20 +159,25 @@ Future<void> main(final List<String> arguments) async {
 
     // Update logger with correct verbosity and reinitialize services with it
     _logger = LoggingService(
-        isVerbose: config.verbose,
-        saveLog: ServiceContainer.instance.globalConfig.saveLog,
-        preferredLogDir: config.outputPath);
+      isVerbose: config.verbose,
+      saveLog: ServiceContainer.instance.globalConfig.saveLog, // now reflects CLI args
+      preferredLogDir: config.outputPath,
+    );
 
     LoggerMixin.sharedDefaultLogger = _logger; // NEW: propagate final logger to everyone
 
     // Reinitialize ServiceContainer with the properly configured logger
     await ServiceContainer.instance.initialize(loggingService: _logger);
 
+    // After the final logger is created, echo the previously shown path **into the log file** only (no console duplication).
+    if (ServiceContainer.instance.globalConfig.saveLog) {
+      // Using the same preview again guarantees the same filename thanks to the primed global timestamp.
+      final plannedPath = LoggingService.previewLogFilePath(config.outputPath);
+      _logger.printPlain('Messages Log will be saved to: $plannedPath', forcePrint: false);
+    }
+
     // Configure dependencies with the parsed config
     await _configureDependencies(config);
-
-    // Load optional flag --save-log AFTER the second ServiceContainer initialization
-    await _loadSaveLogIntoGlobalConfigFromArgs(parsedArguments);
 
     // Load optional json-dates dictionary AFTER the second ServiceContainer initialization
     await _loadFileDatesIntoGlobalConfigFromArgs(parsedArguments);
@@ -289,7 +306,7 @@ ArgParser _createArgumentParser() => ArgParser()
   ..addFlag('help', abbr: 'h', negatable: false)
   ..addOption('fix', help: 'Folder with any photos to fix dates (special mode)')
   ..addFlag('interactive', help: 'Use interactive mode')
-  ..addFlag('save-log', abbr: 's', help: 'Save log messages into a log file within Logs folder', defaultsTo: true)
+  ..addFlag('save-log', abbr: 'l', help: 'Save log messages into a log file within Logs folder', defaultsTo: true)
   ..addFlag('verbose', abbr: 'v', help: 'Shows extensive output')
   ..addOption('input', abbr: 'i', help: 'Input folder with extracted takeouts')
   ..addOption('output', abbr: 'o', help: 'Output folder for organized photos')
@@ -304,7 +321,7 @@ ArgParser _createArgumentParser() => ArgParser()
     'divide-to-dates',
     help: 'Divide output to folders by nothing/year/month/day',
     allowed: ['0', '1', '2', '3'],
-    defaultsTo: '0',
+    defaultsTo: '2',
   )
   ..addFlag('skip-extras', help: 'Skip extra images (like -edited etc)')
   ..addFlag(
@@ -424,7 +441,10 @@ Future<ProcessingConfig> _buildConfigFromArgs(final ArgResults res) async {
   );
   // Apply all configuration options
   // if (res['save-log']) configBuilder.saveLog = true;
-  if (!res['save-log']) ServiceContainer.instance.globalConfig.saveLog = false; // override globalConfig value
+
+  // IMPORTANT (Option A): set the global flag explicitly from CLI args
+  ServiceContainer.instance.globalConfig.saveLog = res['save-log'];
+
   if (res['verbose']) configBuilder.verboseOutput = true;
   if (res['skip-extras']) configBuilder.skipExtras = true;
   if (!res['guess-from-name']) configBuilder.guessFromName = false;
@@ -965,6 +985,7 @@ Future<ProcessingResult> _executeProcessing(
   );
 }
 
+
 /// **OUTPUT DIRECTORY VALIDATION**
 ///
 /// Checks if the output directory is empty or only contains the input folder.
@@ -1016,7 +1037,6 @@ Future<void> _cleanOutputDirectory(
     await file.delete(recursive: true);
   }
 }
-
 
 /// **FINAL RESULTS DISPLAY**
 ///
@@ -1134,18 +1154,26 @@ void _showResults(
 /// Helper to load the optional flag --save-log into GlobalConfig
 /// after the ServiceContainer has been re-initialized with the final logger.
 Future<void> _loadSaveLogIntoGlobalConfigFromArgs(
-  final List<String> parsedArguments,
-) async {
+  final List<String> parsedArguments, {
+  // NEW: allow previewing the exact log path and show it at startup without touching disk.
+  String? preferredLogDirForPreview,
+}) async {
   final parser = _createArgumentParser();
   final res = parser.parse(parsedArguments);
   try {
-    if (res['save-log'])  {
-      final logFilePath = ServiceContainer.instance.loggingService.logFilePath;
-      logPrint('--save-log flag detected. Messages Log will be saved to: $logFilePath');
-      ServiceContainer.instance.globalConfig.saveLog = res['save-log'] ;
-    }
-    else {
-      logPrint('--no-save-log flag detected; skipping save log messages into disk.');
+    // Option A: only set the flag here; do not attempt to open any file or read logFilePath yet.
+    ServiceContainer.instance.globalConfig.saveLog = res['save-log'];
+    if (res['save-log']) {
+      // If we know the output dir, preview the exact file path using the same timestamp
+      // the logger will reuse later (no I/O performed here).
+      if (preferredLogDirForPreview != null) {
+        final plannedPath = LoggingService.previewLogFilePath(preferredLogDirForPreview);
+        logPrint('Messages Log will be saved to: $plannedPath', forcePrint: true);
+      } else {
+        logPrint('Messages Log enabled by default (will use output folder).', forcePrint: true);
+      }
+    } else {
+      logPrint('--no-save-log flag detected; skipping save log messages into disk.', forcePrint: true);
     }
   } catch (e) {
     logError('Failed to load --save-log flag into GlobalConfig: $e', forcePrint: true);

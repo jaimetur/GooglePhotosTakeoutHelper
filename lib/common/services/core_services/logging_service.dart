@@ -71,6 +71,18 @@ class LoggingService {
   /// Fixed width for level text inside brackets to align like [WARNING]
   static const int _levelTextWidth = 7; // "WARNING" length
 
+  /// NEW: Pure, side-effect-free path preview that also *primes* the global timestamp.
+  /// This DOES NOT create any file or directory and MUST be called *before* the
+  /// final logger with `preferredLogDir` is constructed if you want a stable name.
+  static String previewLogFilePath(final String preferredLogDir) {
+    // Reuse the existing global timestamp or set it just once.
+    final String ts = _globalTimestamp ??= _tsForFilenameStatic(DateTime.now());
+    final String base = Directory(preferredLogDir).path;
+    final String sep = Platform.pathSeparator;
+    // Keep the exact naming scheme the sink will use later.
+    return '$base${sep}gpth_v${version}_$ts.log';
+  }
+
   /// Logs a message with the specified level
   ///
   /// [message] The message to log
@@ -234,7 +246,7 @@ class LoggingService {
       if (!dir.existsSync()) dir.createSync(recursive: true);
 
       // Use (or set) a global timestamp so every instance writes to the same file
-      final String ts = _globalTimestamp ??= _tsForFilename(DateTime.now());
+      final String ts = _globalTimestamp ??= _tsForFilenameStatic(DateTime.now());
       final String candidatePath = '${dir.path}${Platform.pathSeparator}gpth_v${version}_$ts.log';
       final File f = File(candidatePath);
 
@@ -285,8 +297,8 @@ class LoggingService {
     if (_globalSink == null || _globalLogFilePath == null) {
       try {
         final Directory tmp = Directory.systemTemp;
-        final String ts = _globalTimestamp ??= _tsForFilename(DateTime.now());
-        final String altPath = '${tmp.path}${Platform.pathSeparator}gpth_$ts.log';
+        final String ts = _globalTimestamp ??= _tsForFilenameStatic(DateTime.now());
+        final String altPath = '${tmp.path}${Platform.pathSeparator}gpth_v${version}_$ts.log';
         final File alt = File(altPath);
         if (!alt.existsSync()) alt.createSync(recursive: true);
         _globalLogFilePath = alt.absolute.path;
@@ -321,8 +333,8 @@ class LoggingService {
     }
   }
 
-  /// Formats timestamp as yyyymmdd-hhmmss for filenames.
-  String _tsForFilename(final DateTime dt) {
+  /// Formats timestamp as yyyymmdd-hhmmss for filenames. (static helper for preview)
+  static String _tsForFilenameStatic(final DateTime dt) {
     String two(final int v) => v < 10 ? '0$v' : '$v';
     final String y = dt.year.toString().padLeft(4, '0');
     final String m = two(dt.month);
@@ -419,7 +431,6 @@ mixin LoggerMixin {
     return LoggingService(enableColors: colors, saveLog: save);
   }
 }
-
 
 /// Exception thrown by quit when test override is active
 class _LoggingTestExitException implements Exception {
