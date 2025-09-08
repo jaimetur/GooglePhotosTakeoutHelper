@@ -290,6 +290,7 @@ class ExifToolService with LoggerMixin {
   //  - -overwrite_original keeps the "replace" semantics across filesystems (safer than _in_place_).
   //  - -api QuickTimeUTC=1 normalizes QuickTime time handling to UTC (no measurable slowdown).
   //  - NEW: -m to allow minor warnings (avoid aborting on recoverable EXIF issues).
+  //  - NEW: -F to fix broken IFD/offsets (A: often converts “Truncated InteropIFD” into success).
   List<String> _commonWriteArgs() => <String>[
         '-P',
         '-charset',
@@ -298,6 +299,7 @@ class ExifToolService with LoggerMixin {
         '-api',
         'QuickTimeUTC=1',
         '-m',
+        '-F', // NEW (A): ask exiftool to fix bad IFD offsets and continue
       ];
 
   /// Write EXIF data to a single file (classic argv).

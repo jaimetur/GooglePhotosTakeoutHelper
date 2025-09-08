@@ -292,6 +292,10 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
       int finalFlushTotal = 0;
       int finalFlushDone = 0;
 
+      // NEW (B): track JPEGs that must be written via XMP (broken EXIF, e.g. Truncated InteropIFD)
+      // Values are lowercased absolute paths.
+      final Set<String> _forceJpegXmp = <String>{};
+
       // Safe batched write (splits on failure to isolate bad files)
       Future<void> writeBatchSafe(
         final List<MapEntry<File, Map<String, dynamic>>> queue, {
@@ -343,6 +347,79 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
             await exifWriter.writeTagsWithExifToolUsingBatch(chunk, useArgFileWhenLarge: useArgFile);
           } catch (e) {
             await _tryDeleteTmpForChunk(chunk);
+
+            // ─────────────────────────────────────────────────────────────────
+            // NEW (C): smarter split — parse stderr, lift out only the bad files,
+            // retry the rest as a single batch, and process the bad ones separately.
+            // If we can't identify them, fall back to recursive halving.
+            // ─────────────────────────────────────────────────────────────────
+            final String errStr = e.toString();
+            final Set<String> badPaths = _extractBadPathsFromExifError(errStr);
+            final bool truncated = errStr.contains('Truncated InteropIFD');
+
+            if (badPaths.isNotEmpty) {
+              // Separate good vs bad using parsed paths
+              final List<MapEntry<File, Map<String, dynamic>>> bad = <MapEntry<File, Map<String, dynamic>>>[];
+              final List<MapEntry<File, Map<String, dynamic>>> good = <MapEntry<File, Map<String, Map<String, dynamic>>>>[].cast<MapEntry<File, Map<String, dynamic>>>();
+              for (final entry in chunk) {
+                final lower = entry.key.path.toLowerCase();
+                if (badPaths.contains(lower)) {
+                  bad.add(entry);
+                } else {
+                  good.add(entry);
+                }
+              }
+
+              // Mark JPEG bad files to be written via XMP if the error is the truncated IFD one (B)
+              if (truncated) {
+                for (final b in bad) {
+                  final lower = b.key.path.toLowerCase();
+                  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) {
+                    _forceJpegXmp.add(lower);
+                    _retagEntryToXmpIfJpeg(b); // convert tags in-place to XMP for this retry path
+                  }
+                }
+              }
+
+              // Restore mtimes for the failed chunk before the re-attempts (best-effort)
+              await restoreMtimes(snap);
+
+              // Retry the good ones together (single batch)
+              if (good.isNotEmpty) {
+                await writeBatchSafe(good, useArgFile: useArgFile, isVideoBatch: isVideoBatch);
+              }
+
+              // Bad ones: process individually (per-file) so they can't block
+              for (final entry in bad) {
+                final singleSnap = snapshotMtimes([entry]);
+                try {
+                  await preserveMTime(entry.key, () async {
+                    await exifWriter.writeTagsWithExifTool(entry.key, entry.value);
+                  });
+                } catch (e2) {
+                  if (!_shouldSilenceExiftoolError(e2)) {
+                    logWarning(
+                      isVideoBatch
+                          ? '[Step 7/8] Per-file video write failed: ${entry.key.path} -> $e2'
+                          : '[Step 7/8] Per-file write failed: ${entry.key.path} -> $e2',
+                    );
+                  }
+                  await _tryDeleteTmp(entry.key);
+                } finally {
+                  await restoreMtimes(singleSnap);
+                }
+                // SECOND-BAR: advance one tick per bad file handled individually
+                if (finalFlushBar != null) {
+                  finalFlushDone += 1;
+                  finalFlushBar.update(finalFlushDone);
+                }
+              }
+
+              // We've handled both good and bad; stop here.
+              return;
+            }
+
+            // If we couldn't identify the bad paths, use the previous recursive split.
             if (!_shouldSilenceExiftoolError(e)) {
               logWarning(
                 isVideoBatch
@@ -477,11 +554,15 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
           //  - PNG: write XMP tags to avoid EXIF/IFD pointer issues.
           final bool isPng = mimeHeader == 'image/png' || lower.endsWith('.png');
 
+          // NEW (B): Treat as “broken JPEG” (write XMP instead of EXIF/native)
+          final bool isJpeg = lower.endsWith('.jpg') || lower.endsWith('.jpeg');
+          final bool forceXmpJpeg = isJpeg && _forceJpegXmp.contains(lower);
+
           // GPS (if primary coords available)
           try {
             final coords = coordsFromPrimary;
             if (coords != null) {
-              if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) {
+              if (isJpeg && !forceXmpJpeg) {
                 if (!nativeOnly && exifWriter != null) {
                   if (effectiveDate != null) {
                     // IMPORTANT: preserve OS mtime around native JPEG combined write
@@ -521,13 +602,13 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
                   tagsToWrite['GPSLongitudeRef'] = coords.longDirection.abbreviation.toString();
                 }
               } else {
-                // Non-JPEG: rely on ExifTool only.
+                // Non-JPEG or forced-XMP JPEG: rely on ExifTool only.
                 // For PNG specifically, write XMP GPS tags to avoid EXIF IFD pointer issues.
                 if (!nativeOnly) {
-                  if (isPng) {
+                  if (isPng || forceXmpJpeg) {
+                    // XMP does not need Ref letters; coordinates are signed.
                     tagsToWrite['XMP:GPSLatitude'] = coords.toDD().latitude.toString();
                     tagsToWrite['XMP:GPSLongitude'] = coords.toDD().longitude.toString();
-                    // XMP does not need Ref letters; coordinates are signed.
                   } else {
                     tagsToWrite['GPSLatitude'] = coords.toDD().latitude.toString();
                     tagsToWrite['GPSLongitude'] = coords.toDD().longitude.toString();
@@ -544,7 +625,7 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
           // Date/time from entity
           try {
             if (effectiveDate != null) {
-              if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) {
+              if (isJpeg && !forceXmpJpeg) {
                 if (!dtWrittenThis && !nativeOnly && exifWriter != null) {
                   final ok = await preserveMTime(file, () async => exifWriter.writeDateTimeNativeJpeg(file, effectiveDate));
                   if (ok) {
@@ -560,8 +641,8 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
                 }
               } else {
                 if (!nativeOnly) {
-                  if (isPng) {
-                    // Write XMP datetime for PNG
+                  if (isPng || forceXmpJpeg) {
+                    // Write XMP datetime for PNG and for forced-XMP JPEG
                     // Use XMP standard: CreateDate and DateTimeOriginal
                     final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
                     final dt = exifFormat.format(effectiveDate);
@@ -916,6 +997,79 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
       if (v is String) return int.tryParse(v) ?? defaultValue;
     } catch (_) {}
     return defaultValue;
+  }
+
+  // ─────────────────────────────── NEW HELPERS ───────────────────────────────
+  /// Extract absolute paths from exiftool stderr lines like:
+  /// "Error: Truncated InteropIFD directory - /abs/path/file.jpg"
+  Set<String> _extractBadPathsFromExifError(final Object error) {
+    final out = <String>{};
+    final s = error.toString();
+    for (final line in s.split('\n')) {
+      final idx = line.lastIndexOf(' - /');
+      if (idx > 0) {
+        final p = line.substring(idx + 3).trim(); // after " - "
+        if (p.isNotEmpty) {
+          out.add(p.toLowerCase());
+        }
+      }
+      // Windows-style paths (e.g., " - C:\path\file.jpg")
+      final winIdx = line.lastIndexOf(' - ');
+      if (winIdx > 0 && line.length > winIdx + 3) {
+        final tail = line.substring(winIdx + 3).trim();
+        if (tail.contains(':\\') && !tail.contains(' /')) {
+          out.add(tail.toLowerCase());
+        }
+      }
+    }
+    return out;
+  }
+
+  /// Convert pending EXIF tags for a JPEG entry into XMP tags in place (B).
+  /// Date: uses existing EXIF dt when present; GPS: converts to signed and drops Ref letters.
+  void _retagEntryToXmpIfJpeg(final MapEntry<File, Map<String, dynamic>> entry) {
+    final lower = entry.key.path.toLowerCase();
+    if (!(lower.endsWith('.jpg') || lower.endsWith('.jpeg'))) return;
+    final tags = entry.value;
+
+    // DateTime mapping
+    final dynamic dtVal = tags['DateTimeOriginal'] ?? tags['DateTimeDigitized'] ?? tags['DateTime'];
+    tags.remove('DateTimeOriginal');
+    tags.remove('DateTimeDigitized');
+    tags.remove('DateTime');
+    if (dtVal != null) {
+      tags['XMP:CreateDate'] = dtVal;
+      tags['XMP:DateTimeOriginal'] = dtVal;
+      tags['XMP:ModifyDate'] = dtVal;
+    }
+
+    // GPS mapping
+    double? _toDouble(dynamic v) {
+      try {
+        if (v == null) return null;
+        final s = v.toString().trim().replaceAll('"', '');
+        return double.tryParse(s);
+      } catch (_) {
+        return null;
+      }
+    }
+
+    final latRef = (tags['GPSLatitudeRef'] ?? '').toString().toUpperCase();
+    final lonRef = (tags['GPSLongitudeRef'] ?? '').toString().toUpperCase();
+    double? lat = _toDouble(tags['GPSLatitude']);
+    double? lon = _toDouble(tags['GPSLongitude']);
+    if (lat != null && latRef == 'S') lat = -lat;
+    if (lon != null && lonRef == 'W') lon = -lon;
+
+    tags.remove('GPSLatitude');
+    tags.remove('GPSLongitude');
+    tags.remove('GPSLatitudeRef');
+    tags.remove('GPSLongitudeRef');
+
+    if (lat != null && lon != null) {
+      tags['XMP:GPSLatitude'] = lat.toString();
+      tags['XMP:GPSLongitude'] = lon.toString();
+    }
   }
 }
 
