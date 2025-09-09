@@ -740,26 +740,102 @@ class WriteExifProcessingService with LoggerMixin {
   }
 
   Set<String> _extractBadPathsFromExifError(final Object error) {
+    // This parser is designed to be robust across:
+    //  • Unix/macOS and Windows
+    //  • Absolute and relative paths
+    //  • Filenames with spaces and non-ASCII chars
+    //
+    // Strategy:
+    //  1) Split the multi-line stderr.
+    //  2) For lines that look like ExifTool diagnostics ("Error:" or "Warning:"),
+    //     grab the substring after the **last** " - " which ExifTool uses before the path.
+    //  3) Sanitize: trim, strip surrounding quotes, strip trailing punctuation.
+    //  4) Heuristics to decide if it’s a path:
+    //     - contains a path separator (/ or \)  OR
+    //     - looks like a Windows drive path (":\")  OR
+    //     - ends with a known media extension (jpg, jpeg, png, heic, tiff, tif, mp4, mov, avi, mpg, mpeg)
+    //  5) Add multiple variants to maximize matching with queue entries:
+    //     - as-is lowercased
+    //     - with slashes → backslashes
+    //     - with backslashes → slashes
+    //
+    // Note: we intentionally return LOWER-CASED strings because the caller compares
+    // with entry.key.path.toLowerCase().
     final out = <String>{};
     final s = error.toString();
-    for (final line in s.split('\n')) {
-      final idx = line.lastIndexOf(' - /');
-      if (idx > 0) {
-        final p = line.substring(idx + 3).trim();
-        if (p.isNotEmpty) {
-          out.add(p.toLowerCase());
-        }
+
+    // Quick extension whitelist to recognize simple 'filename.ext' cases
+    final exts = <String>{
+      '.jpg', '.jpeg', '.png', '.heic', '.tif', '.tiff',
+      '.mp4', '.mov', '.avi', '.mpg', '.mpeg'
+    };
+
+    bool _looksLikePath(final String p) {
+      final lp = p.toLowerCase();
+      if (lp.contains('/') || lp.contains('\\')) return true;       // has a separator
+      if (lp.length >= 3 && lp[1] == ':' && (lp[2] == '\\' || lp[2] == '/')) return true; // "c:\..."
+      for (final e in exts) {
+        if (lp.endsWith(e)) return true;
       }
-      final winIdx = line.lastIndexOf(' - ');
-      if (winIdx > 0 && line.length > winIdx + 3) {
-        final tail = line.substring(winIdx + 3).trim();
-        if (tail.contains(':\\') && !tail.contains(' /')) {
-          out.add(tail.toLowerCase());
-        }
-      }
+      return false;
     }
+
+    String _stripQuotesAndPunct(String p) {
+      var t = p.trim();
+
+      // Strip surrounding single/double quotes
+      if (t.length >= 2) {
+        final c0 = t.codeUnitAt(0);
+        final cN = t.codeUnitAt(t.length - 1);
+        if ((c0 == 0x22 && cN == 0x22) || (c0 == 0x27 && cN == 0x27)) {
+          t = t.substring(1, t.length - 1).trim();
+        }
+      }
+
+      // Strip trailing punctuation commonly added by logs
+      while (t.isNotEmpty) {
+        final last = t.codeUnitAt(t.length - 1);
+        // period, comma, semicolon, colon
+        if (last == 0x2E || last == 0x2C || last == 0x3B || last == 0x3A) {
+          t = t.substring(0, t.length - 1).trim();
+        } else {
+          break;
+        }
+      }
+      return t;
+    }
+
+    for (final rawLine in s.split('\n')) {
+      final line = rawLine.trim();
+      if (line.isEmpty) continue;
+
+      // Only consider typical diagnostic lines to reduce false positives
+      final hasDiag = line.startsWith('Error:') || line.startsWith('Warning:') || line.contains('Error:') || line.contains('Warning:');
+      if (!hasDiag) continue;
+
+      // ExifTool format usually:  "Error: <message> - <path>"
+      // We take the substring after the LAST " - " to be safe if the message contains hyphens.
+      final sep = ' - ';
+      final idx = line.lastIndexOf(sep);
+      if (idx <= 0 || idx + sep.length >= line.length) continue;
+
+      final after = _stripQuotesAndPunct(line.substring(idx + sep.length));
+
+      if (after.isEmpty) continue;
+      if (!_looksLikePath(after)) continue;
+
+      // Lowercase for matching with entry.key.path.toLowerCase()
+      final lower = after.toLowerCase();
+
+      // Add multiple variants to handle slash style mismatches between stderr and our queue
+      out.add(lower);
+      out.add(lower.replaceAll('\\', '/'));
+      out.add(lower.replaceAll('/', '\\'));
+    }
+
     return out;
   }
+
 
   void _retagEntryToXmpIfJpeg(final MapEntry<File, Map<String, dynamic>> entry) {
     final lower = entry.key.path.toLowerCase();
