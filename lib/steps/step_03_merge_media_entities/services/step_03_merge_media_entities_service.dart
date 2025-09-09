@@ -513,6 +513,9 @@ class DuplicateDetectionService with LoggerMixin {
     // Telemetry / performance instrumentation
     final _Telemetry telem = _Telemetry();
 
+    // Overall stopwatch for the whole merge step
+    final Stopwatch _totalSw = Stopwatch()..start();
+
     logPrint('[Step 3/8] Merging identical media entities and removing duplicates (this may take a while)...');
     if (context.config.keepDuplicates) {
       logPrint("[Step 3/8] Flag '--keep-duplicates' detected. Duplicates will be moved to '_Duplicates' subfolder within output folder");
@@ -915,6 +918,11 @@ class DuplicateDetectionService with LoggerMixin {
     logPrint('[Step 3/8] Non-Canonical files (within Album folder): $nonCanonicalAll');
     logPrint('[Step 3/8] Duplicate files removed/moved: $duplicateFilesRemoved');
     logPrint('[Step 3/8] Merge Media Entities finished, total entities merged: $mergedEntities');
+
+    // Stop overall stopwatch and store total time BEFORE printing telemetry
+    _totalSw.stop();
+    telem.msTotal = _totalSw.elapsedMilliseconds;
+    // telem.msTotal = telem.msSizeScan + telem.msExtBucket + telem.msQuickSig + telem.msHashGroups + telem.msMergeReplace + telem.msRemoveIO; // Optional fallback by summing phases
 
     // Telemetry summary
     if (ServiceContainer.instance.globalConfig.enableTelemetryInMergeMediaEntitiesStep) {
