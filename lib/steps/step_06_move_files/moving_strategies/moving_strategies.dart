@@ -535,7 +535,7 @@ class ShortcutMovingStrategy extends MoveMediaEntityStrategy {
 
     // Decide which file to move to ALL_PHOTOS (prefer best canonical if exists)
     final List<FileEntity> canonicals =
-        allFiles.where((f) => f.isCanonical == true).toList();
+        allFiles.where((final f) => f.isCanonical == true).toList();
     final FileEntity chosen =
         canonicals.isNotEmpty ? _chooseBestRanked(canonicals) : primary;
 
@@ -605,7 +605,7 @@ class ShortcutMovingStrategy extends MoveMediaEntityStrategy {
           usedBasenamesPerAlbum.putIfAbsent(albumName, () => <String>{});
 
       // Helper to reuse existing shortcut if a basename already exists in this album
-      Future<File?> _reuseIfExists(final String desiredName) async {
+      Future<File?> reuseIfExists(final String desiredName) async {
         final String candidate = path.join(albumDir.path, desiredName);
         // Reuse if something already exists with this name (file/link/dir), or we already created it in this entity.
         if (usedHere.contains(desiredName) || MovingStrategyUtils._existsAny(candidate)) {
@@ -621,7 +621,7 @@ class ShortcutMovingStrategy extends MoveMediaEntityStrategy {
         final ssw = Stopwatch()..start();
         try {
           // 1) Try reuse if the same basename already exists in album
-          final File? existing = await _reuseIfExists(desiredName);
+          final File? existing = await reuseIfExists(desiredName);
           if (existing != null) {
             ssw.stop();
 
@@ -713,7 +713,7 @@ class ShortcutMovingStrategy extends MoveMediaEntityStrategy {
         final ssw = Stopwatch()..start();
         try {
           // First, reuse if an identical basename already exists here
-          final File? existing = await _reuseIfExists(desiredName);
+          final File? existing = await reuseIfExists(desiredName);
           if (existing != null) {
             ssw.stop();
 
@@ -882,7 +882,7 @@ class ReverseShortcutMovingStrategy extends MoveMediaEntityStrategy {
     };
 
     final List<FileEntity> nonCanonicals =
-        allFiles.where((f) => f.isCanonical != true).toList();
+        allFiles.where((final f) => f.isCanonical != true).toList();
 
     if (nonCanonicals.isNotEmpty) {
       // Move every NON-CANONICAL to its album (deterministic choice per file)
@@ -1119,10 +1119,10 @@ class DuplicateCopyMovingStrategy extends MoveMediaEntityStrategy {
     final List<FileEntity> secondaries = <FileEntity>[...entity.secondaryFiles];
     final List<FileEntity> allFiles = <FileEntity>[primary, ...secondaries];
 
-    final bool hasCanonical = allFiles.any((f) => f.isCanonical == true);
+    final bool hasCanonical = allFiles.any((final f) => f.isCanonical == true);
 
     // Helper: move a file to a target dir
-    Future<(File?, Duration)> _moveWithTiming(
+    Future<(File?, Duration)> moveWithTiming(
       final File src,
       final Directory dest,
     ) async {
@@ -1142,7 +1142,7 @@ class DuplicateCopyMovingStrategy extends MoveMediaEntityStrategy {
     }
 
     // Helper: copy a file to a target dir
-    Future<(File?, Duration)> _copyWithTiming(
+    Future<(File?, Duration)> copyWithTiming(
       final File src,
       final Directory dest,
     ) async {
@@ -1164,9 +1164,9 @@ class DuplicateCopyMovingStrategy extends MoveMediaEntityStrategy {
     // Case A: There is at least one canonical in the entity
     if (hasCanonical) {
       // Move canonicals to ALL_PHOTOS
-      for (final fe in allFiles.where((f) => f.isCanonical == true)) {
+      for (final fe in allFiles.where((final f) => f.isCanonical == true)) {
         final File src = fe.asFile();
-        final (File? moved, Duration elapsed) = await _moveWithTiming(src, allPhotosDir);
+        final (File? moved, Duration elapsed) = await moveWithTiming(src, allPhotosDir);
         if (moved != null) {
           fe.targetPath = moved.path;
           fe.isShortcut = false;
@@ -1197,7 +1197,7 @@ class DuplicateCopyMovingStrategy extends MoveMediaEntityStrategy {
       }
 
       // For NON-CANONICALS: move to primary album and copy to the rest
-      for (final fe in allFiles.where((f) => f.isCanonical != true)) {
+      for (final fe in allFiles.where((final f) => f.isCanonical != true)) {
         final List<String> albumsForThisFile =
             MovingStrategyUtils.albumsForFile(entity, fe);
         final String primaryAlbum = albumsForThisFile.isNotEmpty
@@ -1213,7 +1213,7 @@ class DuplicateCopyMovingStrategy extends MoveMediaEntityStrategy {
         );
         final File srcMove = fe.asFile();
         final (File? movedToAlbum, Duration moveElapsed) =
-            await _moveWithTiming(srcMove, primaryAlbumDir);
+            await moveWithTiming(srcMove, primaryAlbumDir);
         if (movedToAlbum != null) {
           fe.targetPath = movedToAlbum.path;
           fe.isShortcut = false;
@@ -1254,7 +1254,7 @@ class DuplicateCopyMovingStrategy extends MoveMediaEntityStrategy {
             context,
           );
           final (File? copied, Duration copyElapsed) =
-              await _copyWithTiming(movedToAlbum, albumDir);
+              await copyWithTiming(movedToAlbum, albumDir);
           if (copied != null) {
             yield MoveMediaEntityResult.success(
               operation: MoveMediaEntityOperation(
@@ -1288,20 +1288,19 @@ class DuplicateCopyMovingStrategy extends MoveMediaEntityStrategy {
 
     // Case B: No canonicals → create ONE duplicate copy in ALL_PHOTOS from the best-ranked NON-CANONICAL
     final List<FileEntity> nonCanonicals =
-        allFiles.where((f) => f.isCanonical != true).toList();
+        allFiles.where((final f) => f.isCanonical != true).toList();
     if (nonCanonicals.isEmpty) return;
 
     final FileEntity best = _chooseBestRanked(nonCanonicals);
     final File srcBest = best.asFile();
     final (File? copiedToAll, Duration copyElapsed) =
-        await _copyWithTiming(srcBest, allPhotosDir);
+        await copyWithTiming(srcBest, allPhotosDir);
     if (copiedToAll != null) {
       // Synthetic secondary representing the duplicate copy in ALL_PHOTOS
       entity.secondaryFiles.add(
         FileEntity(
           sourcePath: best.sourcePath,
           targetPath: copiedToAll.path,
-          isShortcut: false,
           dateAccuracy: best.dateAccuracy,
           ranking: best.ranking,
         )..isDuplicateCopy = true, // mark duplicate copy
@@ -1347,7 +1346,7 @@ class DuplicateCopyMovingStrategy extends MoveMediaEntityStrategy {
       );
       final File srcMove = fe.asFile();
       final (File? movedToAlbum, Duration moveElapsed) =
-          await _moveWithTiming(srcMove, primaryAlbumDir);
+          await moveWithTiming(srcMove, primaryAlbumDir);
       if (movedToAlbum != null) {
         fe.targetPath = movedToAlbum.path;
         fe.isShortcut = false;
@@ -1388,7 +1387,7 @@ class DuplicateCopyMovingStrategy extends MoveMediaEntityStrategy {
           context,
         );
         final (File? copied, Duration copyElapsed2) =
-            await _copyWithTiming(movedToAlbum, albumDir);
+            await copyWithTiming(movedToAlbum, albumDir);
         if (copied != null) {
           yield MoveMediaEntityResult.success(
             operation: MoveMediaEntityOperation(
