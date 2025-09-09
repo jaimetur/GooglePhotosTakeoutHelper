@@ -960,44 +960,90 @@ class ReverseShortcutMovingStrategy extends MoveMediaEntityStrategy {
         context,
       );
 
+      // Per-entity registry of basenames already materialized in ALL_PHOTOS
+      // This prevents producing "(1)" when multiple canonical files map to the same desired name.
+      final Set<String> usedBasenamesAllPhotos = <String>{};
+
       for (final fe in allFiles) {
         if (wasCanonical[fe] != true) continue;
 
+        final String desiredName = path.basename(fe.sourcePath);
+        final String desiredPath = path.join(allPhotosDir.path, desiredName);
+
         final ssw = Stopwatch()..start();
         try {
-          final File shortcut = await _symlinkService.createSymlink(
-            allPhotosDir,
-            anchorMoved,
-          );
-          ssw.stop();
+          // Try reuse if a link/file with the desired basename already exists in ALL_PHOTOS
+          if (usedBasenamesAllPhotos.contains(desiredName) || MovingStrategyUtils._existsAny(desiredPath)) {
+            ssw.stop();
 
-          // Represent this canonical via shortcut (synthetic or reuse):
-          entity.secondaryFiles.add(
-            FileEntity(
-              sourcePath: fe.sourcePath,
-              targetPath: shortcut.path,
-              isShortcut: true,
-              dateAccuracy: fe.dateAccuracy,
-              ranking: fe.ranking,
-            ),
-          );
+            // Represent this canonical via the existing shortcut (synthetic entry)
+            entity.secondaryFiles.add(
+              FileEntity(
+                sourcePath: fe.sourcePath,
+                targetPath: desiredPath,
+                isShortcut: true,
+                dateAccuracy: fe.dateAccuracy,
+                ranking: fe.ranking,
+              ),
+            );
 
-          // Delete original canonical source
-          try {
-            await File(fe.sourcePath).delete();
-            fe.isDeleted = true;
-          } catch (_) {}
+            // Delete original canonical source
+            try {
+              await File(fe.sourcePath).delete();
+              fe.isDeleted = true;
+            } catch (_) {}
 
-          yield MoveMediaEntityResult.success(
-            operation: MoveMediaEntityOperation(
-              sourceFile: anchorMoved,
-              targetDirectory: allPhotosDir,
-              operationType: MediaEntityOperationType.createReverseSymlink,
-              mediaEntity: entity,
-            ),
-            resultFile: shortcut,
-            duration: ssw.elapsed,
-          );
+            usedBasenamesAllPhotos.add(desiredName);
+
+            yield MoveMediaEntityResult.success(
+              operation: MoveMediaEntityOperation(
+                sourceFile: anchorMoved,
+                targetDirectory: allPhotosDir,
+                operationType: MediaEntityOperationType.createReverseSymlink,
+                mediaEntity: entity,
+              ),
+              resultFile: File(desiredPath),
+              duration: ssw.elapsed,
+            );
+          } else {
+            // Otherwise create a symlink and try to rename it to the preferred basename
+            final File shortcut = await MovingStrategyUtils.createSymlinkWithPreferredName(
+              _symlinkService,
+              allPhotosDir,
+              anchorMoved,
+              desiredName,
+            );
+            ssw.stop();
+
+            entity.secondaryFiles.add(
+              FileEntity(
+                sourcePath: fe.sourcePath,
+                targetPath: shortcut.path,
+                isShortcut: true,
+                dateAccuracy: fe.dateAccuracy,
+                ranking: fe.ranking,
+              ),
+            );
+
+            // Delete original canonical source
+            try {
+              await File(fe.sourcePath).delete();
+              fe.isDeleted = true;
+            } catch (_) {}
+
+            usedBasenamesAllPhotos.add(path.basename(shortcut.path));
+
+            yield MoveMediaEntityResult.success(
+              operation: MoveMediaEntityOperation(
+                sourceFile: anchorMoved,
+                targetDirectory: allPhotosDir,
+                operationType: MediaEntityOperationType.createReverseSymlink,
+                mediaEntity: entity,
+              ),
+              resultFile: shortcut,
+              duration: ssw.elapsed,
+            );
+          }
         } catch (e) {
           final elapsed = ssw.elapsed;
           yield MoveMediaEntityResult.failure(
@@ -1197,6 +1243,9 @@ class DuplicateCopyMovingStrategy extends MoveMediaEntityStrategy {
       }
 
       // For NON-CANONICALS: move to primary album and copy to the rest
+      // Per-entity, per-album registry to avoid creating duplicate copies with "(1)" for the same basename.
+      final Map<String, Set<String>> usedBasenamesPerAlbum = <String, Set<String>>{};
+
       for (final fe in allFiles.where((final f) => f.isCanonical != true)) {
         final List<String> albumsForThisFile =
             MovingStrategyUtils.albumsForFile(entity, fe);
@@ -1218,6 +1267,10 @@ class DuplicateCopyMovingStrategy extends MoveMediaEntityStrategy {
           fe.targetPath = movedToAlbum.path;
           fe.isShortcut = false;
           fe.isMoved = true;
+
+          // Register the basename used by the moved original to prevent immediate duplicate copies in same album.
+          final String movedBase = path.basename(movedToAlbum.path);
+          (usedBasenamesPerAlbum[primaryAlbum] ??= <String>{}).add(movedBase);
 
           yield MoveMediaEntityResult.success(
             operation: MoveMediaEntityOperation(
@@ -1246,16 +1299,40 @@ class DuplicateCopyMovingStrategy extends MoveMediaEntityStrategy {
         }
 
         // Copy to remaining albums
-        for (final albumName in albumsForThisFile.skip(1)) {
+        for (final albumName in {...albumsForThisFile.skip(1)}) {
           final Directory albumDir = MovingStrategyUtils.albumDir(
             _pathService,
             albumName,
             entity,
             context,
           );
+          final Set<String> usedHere =
+              usedBasenamesPerAlbum.putIfAbsent(albumName, () => <String>{});
+
+          // Reuse existing copy if same basename already exists (either created earlier in this entity or already on disk)
+          final String desiredName = path.basename(movedToAlbum.path);
+          final String desiredPath = path.join(albumDir.path, desiredName);
+          if (usedHere.contains(desiredName) || MovingStrategyUtils._existsAny(desiredPath)) {
+            // We consider it success: another representation already exists with the same basename.
+            yield MoveMediaEntityResult.success(
+              operation: MoveMediaEntityOperation(
+                sourceFile: movedToAlbum,
+                targetDirectory: albumDir,
+                operationType: MediaEntityOperationType.copy,
+                mediaEntity: entity,
+                albumKey: albumName,
+              ),
+              resultFile: File(desiredPath),
+              duration: Duration.zero,
+            );
+            continue;
+          }
+
           final (File? copied, Duration copyElapsed) =
               await copyWithTiming(movedToAlbum, albumDir);
           if (copied != null) {
+            usedHere.add(path.basename(copied.path));
+
             yield MoveMediaEntityResult.success(
               operation: MoveMediaEntityOperation(
                 sourceFile: movedToAlbum,
@@ -1330,6 +1407,9 @@ class DuplicateCopyMovingStrategy extends MoveMediaEntityStrategy {
     }
 
     // Move each NON-CANONICAL original to its primary album and copy to other albums
+    // Per-entity, per-album registry to avoid creating duplicate copies with "(1)" for the same basename.
+    final Map<String, Set<String>> usedBasenamesPerAlbum = <String, Set<String>>{};
+
     for (final fe in nonCanonicals) {
       final List<String> albumsForThisFile =
           MovingStrategyUtils.albumsForFile(entity, fe);
@@ -1351,6 +1431,10 @@ class DuplicateCopyMovingStrategy extends MoveMediaEntityStrategy {
         fe.targetPath = movedToAlbum.path;
         fe.isShortcut = false;
         fe.isMoved = true;
+
+        // Register basename used by the moved original
+        final String movedBase = path.basename(movedToAlbum.path);
+        (usedBasenamesPerAlbum[primaryAlbum] ??= <String>{}).add(movedBase);
 
         yield MoveMediaEntityResult.success(
           operation: MoveMediaEntityOperation(
@@ -1379,16 +1463,39 @@ class DuplicateCopyMovingStrategy extends MoveMediaEntityStrategy {
       }
 
       // Copy to remaining albums
-      for (final albumName in albumsForThisFile.skip(1)) {
+      for (final albumName in {...albumsForThisFile.skip(1)}) {
         final Directory albumDir = MovingStrategyUtils.albumDir(
           _pathService,
           albumName,
           entity,
           context,
         );
+        final Set<String> usedHere =
+            usedBasenamesPerAlbum.putIfAbsent(albumName, () => <String>{});
+
+        // Reuse existing copy if same basename already exists (created earlier in this entity or already on disk)
+        final String desiredName = path.basename(movedToAlbum.path);
+        final String desiredPath = path.join(albumDir.path, desiredName);
+        if (usedHere.contains(desiredName) || MovingStrategyUtils._existsAny(desiredPath)) {
+          yield MoveMediaEntityResult.success(
+            operation: MoveMediaEntityOperation(
+              sourceFile: movedToAlbum,
+              targetDirectory: albumDir,
+              operationType: MediaEntityOperationType.copy,
+              mediaEntity: entity,
+              albumKey: albumName,
+            ),
+            resultFile: File(desiredPath),
+            duration: Duration.zero,
+          );
+          continue;
+        }
+
         final (File? copied, Duration copyElapsed2) =
             await copyWithTiming(movedToAlbum, albumDir);
         if (copied != null) {
+          usedHere.add(path.basename(copied.path));
+
           yield MoveMediaEntityResult.success(
             operation: MoveMediaEntityOperation(
               sourceFile: movedToAlbum,
