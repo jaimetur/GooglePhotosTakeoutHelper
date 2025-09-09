@@ -69,7 +69,7 @@ void main() {
         dateTaken: DateTime(2023, 6, 15),
       );
 
-      final results = <MediaEntityMovingResult>[];
+      final results = <MoveMediaEntityResult>[];
       try {
         print('About to process entity with strategy...');
         print('Entity primaryFile (effective path): ${entity.primaryFile.path}');

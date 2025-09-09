@@ -90,7 +90,7 @@ class MockExifToolService extends ExifToolService {
 void main() {
   /// Helper only used in this test: writes EXIF with exiftool and mirrors it to JSON
   Future<bool> writeExifDataWithJsonHelper(
-    final ExifWriterService service,
+    final WriteExifAuxiliaryService service,
     final ExifToolService exifTool,
     final File file,
     final File jsonFile,
@@ -111,13 +111,13 @@ void main() {
   }
 
   group('ExifWriterService', () {
-    late ExifWriterService service;
+    late WriteExifAuxiliaryService service;
     late MockExifToolService mockExifTool;
     late TestFixture fixture;
 
     setUp(() async {
       mockExifTool = MockExifToolService();
-      service = ExifWriterService(mockExifTool);
+      service = WriteExifAuxiliaryService(mockExifTool);
       fixture = TestFixture();
       await fixture.setUp();
     });

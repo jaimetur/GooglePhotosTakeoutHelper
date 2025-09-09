@@ -61,37 +61,40 @@ Barrel that exposes the pipeline and each step orchestration.
 */
 
 export 'steps/main_pipeline.dart';
-export 'steps/step_01_fix_extensions/services/fix_extension_service.dart';
 // Step 01
+export 'steps/step_01_fix_extensions/services/step_01_fix_extension_service.dart';
 export 'steps/step_01_fix_extensions/step_01_fix_extensions.dart';
 // Step 02
-export 'steps/step_02_discover_media/services/discover_media_service.dart';
+export 'steps/step_02_discover_media/services/step_02_discover_media_service.dart';
 export 'steps/step_02_discover_media/services/takeout_folder_classifier_service.dart';
 export 'steps/step_02_discover_media/step_02_discover_media.dart';
 // Step 03
-export 'steps/step_03_merge_media_entities/services/duplicate_detection_service.dart';
+export 'steps/step_03_merge_media_entities/services/step_03_merge_media_entities_service.dart';
 export 'steps/step_03_merge_media_entities/step_03_merge_media_entities.dart';
 // Step 04
-export 'steps/step_04_extract_dates/services/data_extractors/date_extractor_service.dart';
-export 'steps/step_04_extract_dates/services/data_extractors/exif_date_extractor.dart';
-export 'steps/step_04_extract_dates/services/data_extractors/filename_date_extractor.dart';
-export 'steps/step_04_extract_dates/services/data_extractors/folder_year_extractor.dart';
-export 'steps/step_04_extract_dates/services/data_extractors/json_date_extractor.dart';
+export 'steps/step_04_extract_dates/date_extractors/date_extractor_wrapper.dart';
+export 'steps/step_04_extract_dates/date_extractors/exif_date_extractor.dart';
+export 'steps/step_04_extract_dates/date_extractors/filename_date_extractor.dart';
+export 'steps/step_04_extract_dates/date_extractors/folder_year_extractor.dart';
+export 'steps/step_04_extract_dates/date_extractors/json_date_extractor.dart';
+export 'steps/step_04_extract_dates/services/step_04_extract_dates_service.dart';
 export 'steps/step_04_extract_dates/step_04_extract_dates.dart';
 // Step 05
+export 'steps/step_05_find_albums/services/step_05_find_albums_service.dart';
 export 'steps/step_05_find_albums/step_05_find_albums.dart';
 // Step 06
 export 'steps/step_06_move_files/moving_strategies/moving_strategies.dart';
 export 'steps/step_06_move_files/services/file_operation_service.dart';
-export 'steps/step_06_move_files/services/media_entity_moving_service.dart';
 export 'steps/step_06_move_files/services/moving_context_model.dart';
 export 'steps/step_06_move_files/services/path_generator_service.dart';
+export 'steps/step_06_move_files/services/step_06_move_media_entity_service.dart';
 export 'steps/step_06_move_files/services/symlink_service.dart';
-export 'steps/step_06_move_files/step_06_move_files.dart';
+export 'steps/step_06_move_files/step_06_move_media_entities.dart';
 // Step 07
 export 'steps/step_07_write_exif/services/exif_gps_extractor.dart';
-export 'steps/step_07_write_exif/services/exif_writer_service.dart';
+export 'steps/step_07_write_exif/services/step_07_write_exif_service.dart';
 export 'steps/step_07_write_exif/step_07_write_exif.dart';
 // Step 08
+export 'steps/step_08_update_creation_time/services/step_08_update_creation_time_service.dart';
 export 'steps/step_08_update_creation_time/step_08_update_creation_time.dart';
 export 'steps/steps_pipeline.dart';

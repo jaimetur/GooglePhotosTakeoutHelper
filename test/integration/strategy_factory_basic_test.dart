@@ -11,7 +11,7 @@ void main() {
       final pathService = PathGeneratorService();
       final symlinkService = SymlinkService();
 
-      final factory = MediaEntityMovingStrategyFactory(
+      final factory = MoveMediaEntityStrategyFactory(
         fileService,
         pathService,
         symlinkService,
@@ -35,7 +35,7 @@ void main() {
       final pathService = PathGeneratorService();
       final symlinkService = SymlinkService();
 
-      final factory = MediaEntityMovingStrategyFactory(
+      final factory = MoveMediaEntityStrategyFactory(
         fileService,
         pathService,
         symlinkService,

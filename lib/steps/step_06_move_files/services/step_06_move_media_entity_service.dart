@@ -1,6 +1,8 @@
+// Service module (updated) - MoveMediaEntityService
 import 'dart:async';
 import 'dart:collection';
 import 'dart:io';
+import 'package:console_bars/console_bars.dart';
 import 'package:gpth/gpth_lib_exports.dart';
 
 /// Modern media moving service using immutable MediaEntity
@@ -16,32 +18,32 @@ import 'package:gpth/gpth_lib_exports.dart';
 ///   - album associations via `albumsMap` / `albumNames`.
 /// There is NO `files` map anymore. This service therefore expects only one
 /// physical "move" per entity (the primary).
-class MediaEntityMovingService with LoggerMixin {
-  MediaEntityMovingService()
-    : _strategyFactory = MediaEntityMovingStrategyFactory(
+class MoveMediaEntityService with LoggerMixin {
+  MoveMediaEntityService()
+    : _strategyFactory = MoveMediaEntityStrategyFactory(
         FileOperationService(),
         PathGeneratorService(),
         SymlinkService(),
       );
 
   /// Custom constructor for dependency injection (useful for testing)
-  MediaEntityMovingService.withDependencies({
+  MoveMediaEntityService.withDependencies({
     required final FileOperationService fileService,
     required final PathGeneratorService pathService,
     required final SymlinkService symlinkService,
-  }) : _strategyFactory = MediaEntityMovingStrategyFactory(
+  }) : _strategyFactory = MoveMediaEntityStrategyFactory(
          fileService,
          pathService,
          symlinkService,
        );
 
-  final MediaEntityMovingStrategyFactory _strategyFactory;
+  final MoveMediaEntityStrategyFactory _strategyFactory;
 
   // Keeps the last full set of results for verification/reporting purposes
-  final List<MediaEntityMovingResult> _lastResults = [];
+  final List<MoveMediaEntityResult> _lastResults = [];
 
   /// Expose an immutable view of the last results after a run
-  List<MediaEntityMovingResult> get lastResults =>
+  List<MoveMediaEntityResult> get lastResults =>
       List.unmodifiable(_lastResults);
 
   /// Moves media entities according to the provided context
@@ -61,7 +63,7 @@ class MediaEntityMovingService with LoggerMixin {
     strategy.validateContext(context);
 
     int processedEntities = 0;
-    final allResults = <MediaEntityMovingResult>[];
+    final allResults = <MoveMediaEntityResult>[];
 
     // Process each media entity
     for (final entity in entityCollection.entities) {
@@ -94,13 +96,13 @@ class MediaEntityMovingService with LoggerMixin {
 
       // Inject a synthetic failure only if the primary was neither moved nor deleted
       if (!primaryAccounted) {
-        final syntheticOp = MediaEntityMovingOperation(
+        final syntheticOp = MoveMediaEntityOperation(
           sourceFile: File(primarySourcePath),
           targetDirectory: Directory(context.outputDirectory.path),
           operationType: MediaEntityOperationType.move, // nominal intent
           mediaEntity: entity,
         );
-        final synthetic = MediaEntityMovingResult.failure(
+        final synthetic = MoveMediaEntityResult.failure(
           operation: syntheticOp,
           errorMessage:
               'Primary file was not moved or deleted by strategy',
@@ -164,7 +166,7 @@ class MediaEntityMovingService with LoggerMixin {
 
     final entities = entityCollection.entities.toList();
     int processedEntities = 0;
-    final allResults = <MediaEntityMovingResult>[];
+    final allResults = <MoveMediaEntityResult>[];
 
     // Process entities in batches to avoid overwhelming the system
     for (int i = 0; i < entities.length; i += batchSize) {
@@ -172,14 +174,14 @@ class MediaEntityMovingService with LoggerMixin {
       final batch = entities.sublist(i, batchEnd);
 
       // Process batch with controlled concurrency
-      final futures = <Future<List<MediaEntityMovingResult>>>[];
+      final futures = <Future<List<MoveMediaEntityResult>>>[];
       final semaphore = _Semaphore(maxConcurrent);
 
       for (final entity in batch) {
         futures.add(
           semaphore.acquire().then((_) async {
             try {
-              final results = <MediaEntityMovingResult>[];
+              final results = <MoveMediaEntityResult>[];
               final String primarySourcePath = entity.primaryFile.sourcePath;
               var primaryAccounted = false;
 
@@ -201,8 +203,8 @@ class MediaEntityMovingService with LoggerMixin {
 
               if (!primaryAccounted) {
                 results.add(
-                  MediaEntityMovingResult.failure(
-                    operation: MediaEntityMovingOperation(
+                  MoveMediaEntityResult.failure(
+                    operation: MoveMediaEntityOperation(
                       sourceFile: File(primarySourcePath),
                       targetDirectory: Directory(context.outputDirectory.path),
                       operationType: MediaEntityOperationType.move,
@@ -252,7 +254,7 @@ class MediaEntityMovingService with LoggerMixin {
   }
 
 
-  void _logResult(final MediaEntityMovingResult result) {
+  void _logResult(final MoveMediaEntityResult result) {
     final operation = result.operation;
     final status = result.success ? 'SUCCESS' : 'FAILED';
     logPrint('[Step 6/8] [${operation.operationType.name.toUpperCase()}] $status: ${operation.sourceFile.path}');
@@ -261,12 +263,12 @@ class MediaEntityMovingService with LoggerMixin {
     }
   }
 
-  void _logError(final MediaEntityMovingResult result) {
+  void _logError(final MoveMediaEntityResult result) {
     logPrint('[Step 6/8] [Error] Failed to process ${result.operation.sourceFile.path}: ${result.errorMessage}');
   }
 
   // Print Summary
-  void _printSummary(final List<MediaEntityMovingResult> results) {
+  void _printSummary(final List<MoveMediaEntityResult> results) {
     // Totals per operation kind
     int primaryMoves = 0;
     int nonPrimaryMoves = 0;
@@ -409,6 +411,263 @@ class MediaEntityMovingService with LoggerMixin {
   bool _samePath(final String a, final String b) =>
       a.replaceAll('\\', '/').toLowerCase() ==
       b.replaceAll('\\', '/').toLowerCase();
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // Orchestrator moved from the Step: runs the whole Step 6 workflow inside the service
+  // ───────────────────────────────────────────────────────────────────────────
+
+  /// Runs the full Step 6 workflow and returns a summary with the same data/message the step used to produce.
+  Future<MoveFilesSummary> moveAll(final ProcessingContext context) async {
+    logPrint('[Step 6/8] Moving files to Output folder (this may take a while)...');
+
+    // Optional pre-pass: transform Pixel .MP/.MV → .mp4 ONLY on primary files (in-place, still in input).
+    int transformedCount = 0;
+    if (context.config.transformPixelMp) {
+      transformedCount = await _transformPixelPrimaries(context);
+      if (context.config.verbose) {
+        logDebug('[Step 6/8] Transformed $transformedCount Pixel .MP/.MV primary files to .mp4', forcePrint: true);
+      }
+    }
+
+    final progressBar = FillingBar(
+      desc: '[ INFO  ] [Step 6/8] Moving entities',
+      total: context.mediaCollection.length,
+      width: 50,
+    );
+
+    final movingContext = MovingContext(
+      outputDirectory: context.outputDirectory,
+      dateDivision: context.config.dateDivision,
+      albumBehavior: context.config.albumBehavior,
+    );
+
+    int entitiesProcessed = 0;
+    await for (final _ in moveMediaEntities(
+      context.mediaCollection,
+      movingContext,
+    )) {
+      entitiesProcessed++;
+      progressBar.update(entitiesProcessed);
+    }
+
+    // Summary based on lastResults from service
+    int primaryMovedCount = 0;
+    int nonPrimaryMoves = 0;
+    int symlinksCreated = 0;
+    int deletesCount = 0; // <-- defined
+
+    bool samePath(final String a, final String b) =>
+        a.replaceAll('\\', '/').toLowerCase() ==
+        b.replaceAll('\\', '/').toLowerCase();
+
+    for (final r in lastResults) {
+      if (!r.success) continue;
+
+      switch (r.operation.operationType) {
+        case MediaEntityOperationType.move:
+          final src = r.operation.sourceFile.path;
+          final prim = r.operation.mediaEntity.primaryFile.sourcePath;
+          if (samePath(src, prim)) {
+            primaryMovedCount++;
+          } else {
+            nonPrimaryMoves++;
+          }
+          break;
+
+        case MediaEntityOperationType.createSymlink:
+        case MediaEntityOperationType.createReverseSymlink:
+          symlinksCreated++;
+          break;
+
+        case MediaEntityOperationType.copy:
+        case MediaEntityOperationType.createJsonReference:
+          // not headline
+          break;
+
+        case MediaEntityOperationType.delete:
+          deletesCount++;
+          break;
+      }
+    }
+
+    // Build final message exactly as before
+    final String message =
+        'Moved $primaryMovedCount primary files, created $symlinksCreated symlinks'
+        '${nonPrimaryMoves > 0 ? ', non-primary moves: $nonPrimaryMoves' : ''}'
+        '${transformedCount > 0 ? ', transformed $transformedCount Pixel files to .mp4' : ''}'
+        '${deletesCount > 0 ? ', deletes: $deletesCount' : ''}';
+
+    return MoveFilesSummary(
+      entitiesProcessed: entitiesProcessed,
+      transformedCount: transformedCount,
+      albumBehaviorValue: context.config.albumBehavior.value,
+      primaryMovedCount: primaryMovedCount,
+      nonPrimaryMoves: nonPrimaryMoves,
+      symlinksCreated: symlinksCreated,
+      deletesCount: deletesCount,
+      message: message,
+    );
+  }
+
+  /// Transform Pixel .MP/.MV → .mp4 ONLY for primary files (in input).
+  /// Since it still lives in input, update the FileEntity **sourcePath**.
+  Future<int> _transformPixelPrimaries(final ProcessingContext context) async {
+    int transformed = 0;
+
+    final collection = context.mediaCollection;
+    final entities = collection.asList(); // snapshot
+
+    for (final entity in entities) {
+      final primary = entity.primaryFile;
+      final lower = primary.path.toLowerCase();
+
+      if (lower.endsWith('.mp') || lower.endsWith('.mv')) {
+        final oldPath = primary.path;
+        final dot = oldPath.lastIndexOf('.');
+        final newPath = dot > 0
+            ? '${oldPath.substring(0, dot)}.mp4'
+            : '$oldPath.mp4';
+
+        try {
+          final renamed = await primary.asFile().rename(newPath);
+          // IMPORTANT: still input → update sourcePath, not targetPath
+          primary.sourcePath = renamed.path;
+          transformed++;
+        } catch (e) {
+          logPrint('[Step 6/8] Warning: Failed to transform ${primary.path}: $e');
+        }
+      }
+    }
+
+    return transformed;
+  }
+}
+
+
+/// Operation result
+class MoveMediaEntityResult {
+  const MoveMediaEntityResult({
+    required this.operation,
+    required this.success,
+    required this.duration,
+    this.resultFile,
+    this.errorMessage,
+  });
+
+  factory MoveMediaEntityResult.success({
+    required final MoveMediaEntityOperation operation,
+    required final File resultFile,
+    required final Duration duration,
+  }) => MoveMediaEntityResult(
+    operation: operation,
+    success: true,
+    resultFile: resultFile,
+    duration: duration,
+  );
+
+  factory MoveMediaEntityResult.failure({
+    required final MoveMediaEntityOperation operation,
+    required final String errorMessage,
+    required final Duration duration,
+  }) => MoveMediaEntityResult(
+    operation: operation,
+    success: false,
+    errorMessage: errorMessage,
+    duration: duration,
+  );
+
+  final MoveMediaEntityOperation operation;
+  final bool success;
+  final File? resultFile;
+  final Duration duration;
+  final String? errorMessage;
+
+  bool get isSuccess => success;
+  bool get isFailure => !success;
+}
+
+
+/// Base class for MediaEntity moving strategies (unchanged public API)
+abstract class MoveMediaEntityStrategy {
+  const MoveMediaEntityStrategy();
+
+  String get name;
+  bool get createsShortcuts;
+  bool get createsDuplicates;
+
+  Stream<MoveMediaEntityResult> processMediaEntity(
+    final MediaEntity entity,
+    final MovingContext context,
+  );
+
+  Future<List<MoveMediaEntityResult>> finalize(
+    final MovingContext context,
+    final List<MediaEntity> processedEntities,
+  ) async => [];
+
+  void validateContext(final MovingContext context) {}
+}
+
+/// Factory to create strategy by AlbumBehavior
+class MoveMediaEntityStrategyFactory {
+  const MoveMediaEntityStrategyFactory(
+    this._fileService,
+    this._pathService,
+    this._symlinkService,
+  );
+
+  final FileOperationService _fileService;
+  final PathGeneratorService _pathService;
+  final SymlinkService _symlinkService;
+
+  MoveMediaEntityStrategy createStrategy(final AlbumBehavior albumBehavior) {
+    switch (albumBehavior) {
+      case AlbumBehavior.shortcut:
+        return ShortcutMovingStrategy(_fileService, _pathService, _symlinkService);
+      case AlbumBehavior.duplicateCopy:
+        return DuplicateCopyMovingStrategy(_fileService, _pathService);
+      case AlbumBehavior.reverseShortcut:
+        return ReverseShortcutMovingStrategy(_fileService, _pathService, _symlinkService);
+      case AlbumBehavior.json:
+        return JsonMovingStrategy(_fileService, _pathService);
+      case AlbumBehavior.nothing:
+        return NothingMovingStrategy(_fileService, _pathService);
+      case AlbumBehavior.ignoreAlbums: // NEW: wire the new strategy
+        return IgnoreAlbumsMovingStrategy(_fileService, _pathService);
+    }
+  }
+}
+
+/// Represents a single file moving operation
+class MoveMediaEntityOperation {
+  const MoveMediaEntityOperation({
+    required this.sourceFile,
+    required this.targetDirectory,
+    required this.operationType,
+    required this.mediaEntity,
+    this.albumKey,
+  });
+
+  final File sourceFile;
+  final Directory targetDirectory;
+  final MediaEntityOperationType operationType;
+  final MediaEntity mediaEntity;
+  final String? albumKey;
+
+  File get targetFile =>
+      File('${targetDirectory.path}/${sourceFile.uri.pathSegments.last}');
+
+  bool get isAlbumFile => albumKey != null;
+  bool get isMainFile => albumKey == null;
+}
+
+enum MediaEntityOperationType {
+  move,
+  copy,
+  createSymlink,
+  createReverseSymlink,
+  createJsonReference,
+  delete, // NEW: represents a deletion from source (no output artifact)
 }
 
 /// Simple semaphore implementation for controlling concurrency
@@ -439,127 +698,25 @@ class _Semaphore {
   }
 }
 
-/// Represents a single file moving operation
-class MediaEntityMovingOperation {
-  const MediaEntityMovingOperation({
-    required this.sourceFile,
-    required this.targetDirectory,
-    required this.operationType,
-    required this.mediaEntity,
-    this.albumKey,
+/// Summary DTO returned by the orchestrator to keep StepResult data identical to before.
+class MoveFilesSummary {
+  const MoveFilesSummary({
+    required this.entitiesProcessed,
+    required this.transformedCount,
+    required this.albumBehaviorValue,
+    required this.primaryMovedCount,
+    required this.nonPrimaryMoves,
+    required this.symlinksCreated,
+    required this.deletesCount,
+    required this.message,
   });
 
-  final File sourceFile;
-  final Directory targetDirectory;
-  final MediaEntityOperationType operationType;
-  final MediaEntity mediaEntity;
-  final String? albumKey;
-
-  File get targetFile =>
-      File('${targetDirectory.path}/${sourceFile.uri.pathSegments.last}');
-
-  bool get isAlbumFile => albumKey != null;
-  bool get isMainFile => albumKey == null;
-}
-
-enum MediaEntityOperationType {
-  move,
-  copy,
-  createSymlink,
-  createReverseSymlink,
-  createJsonReference,
-  delete, // NEW: represents a deletion from source (no output artifact)
-}
-
-/// Operation result
-class MediaEntityMovingResult {
-  const MediaEntityMovingResult({
-    required this.operation,
-    required this.success,
-    required this.duration,
-    this.resultFile,
-    this.errorMessage,
-  });
-
-  factory MediaEntityMovingResult.success({
-    required final MediaEntityMovingOperation operation,
-    required final File resultFile,
-    required final Duration duration,
-  }) => MediaEntityMovingResult(
-    operation: operation,
-    success: true,
-    resultFile: resultFile,
-    duration: duration,
-  );
-
-  factory MediaEntityMovingResult.failure({
-    required final MediaEntityMovingOperation operation,
-    required final String errorMessage,
-    required final Duration duration,
-  }) => MediaEntityMovingResult(
-    operation: operation,
-    success: false,
-    errorMessage: errorMessage,
-    duration: duration,
-  );
-
-  final MediaEntityMovingOperation operation;
-  final bool success;
-  final File? resultFile;
-  final Duration duration;
-  final String? errorMessage;
-
-  bool get isSuccess => success;
-  bool get isFailure => !success;
-}
-
-/// Base class for MediaEntity moving strategies (unchanged public API)
-abstract class MediaEntityMovingStrategy {
-  const MediaEntityMovingStrategy();
-
-  String get name;
-  bool get createsShortcuts;
-  bool get createsDuplicates;
-
-  Stream<MediaEntityMovingResult> processMediaEntity(
-    final MediaEntity entity,
-    final MovingContext context,
-  );
-
-  Future<List<MediaEntityMovingResult>> finalize(
-    final MovingContext context,
-    final List<MediaEntity> processedEntities,
-  ) async => [];
-
-  void validateContext(final MovingContext context) {}
-}
-
-/// Factory to create strategy by AlbumBehavior
-class MediaEntityMovingStrategyFactory {
-  const MediaEntityMovingStrategyFactory(
-    this._fileService,
-    this._pathService,
-    this._symlinkService,
-  );
-
-  final FileOperationService _fileService;
-  final PathGeneratorService _pathService;
-  final SymlinkService _symlinkService;
-
-  MediaEntityMovingStrategy createStrategy(final AlbumBehavior albumBehavior) {
-    switch (albumBehavior) {
-      case AlbumBehavior.shortcut:
-        return ShortcutMovingStrategy(_fileService, _pathService, _symlinkService);
-      case AlbumBehavior.duplicateCopy:
-        return DuplicateCopyMovingStrategy(_fileService, _pathService);
-      case AlbumBehavior.reverseShortcut:
-        return ReverseShortcutMovingStrategy(_fileService, _pathService, _symlinkService);
-      case AlbumBehavior.json:
-        return JsonMovingStrategy(_fileService, _pathService);
-      case AlbumBehavior.nothing:
-        return NothingMovingStrategy(_fileService, _pathService);
-      case AlbumBehavior.ignoreAlbums: // NEW: wire the new strategy
-        return IgnoreAlbumsMovingStrategy(_fileService, _pathService);
-    }
-  }
+  final int entitiesProcessed;
+  final int transformedCount;
+  final String albumBehaviorValue;
+  final int primaryMovedCount;
+  final int nonPrimaryMoves;
+  final int symlinksCreated;
+  final int deletesCount;
+  final String message;
 }

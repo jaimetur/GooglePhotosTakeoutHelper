@@ -395,6 +395,9 @@ gpth --input "~/Takeout" --output "~/Photos" --divide-partner-shared
 - Preserve or reorganize album structure
 - Move files efficiently from input to organized output structure
 
+## Changelog
+- Find the whole changelog file [here](CHANGELOG.md)
+
 ## Troubleshooting
 
 ### Common Issues

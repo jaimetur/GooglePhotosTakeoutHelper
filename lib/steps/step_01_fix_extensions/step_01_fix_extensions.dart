@@ -60,7 +60,7 @@ class FixExtensionsStep extends ProcessingStep with LoggerMixin {
       logPrint('[Step 1/8] Fixing file extensions (this may take a while)...');
       final extensionFixingService = FixExtensionService()
         ..logger = LoggingService.fromConfig(context.config);
-      final fixedCount = await extensionFixingService.fixIncorrectExtensions(
+      final fixedCount = await extensionFixingService.fixIncorrectExtensions(   // This is the method that contains all the logic for this step
         context.inputDirectory,
         skipJpegFiles:
             context.config.extensionFixing == ExtensionFixingMode.conservative,

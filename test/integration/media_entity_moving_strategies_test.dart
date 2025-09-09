@@ -60,10 +60,10 @@ void main() {
       );
 
     group('MediaEntityMovingStrategyFactory', () {
-      late MediaEntityMovingStrategyFactory factory;
+      late MoveMediaEntityStrategyFactory factory;
 
       setUp(() {
-        factory = MediaEntityMovingStrategyFactory(
+        factory = MoveMediaEntityStrategyFactory(
           fileService,
           pathService,
           symlinkService,
@@ -134,7 +134,7 @@ void main() {
         ]);
         final entity = merged.single;
 
-        final results = <MediaEntityMovingResult>[];
+        final results = <MoveMediaEntityResult>[];
         await for (final r in strategy.processMediaEntity(entity, context)) {
           results.add(r);
         }
@@ -168,7 +168,7 @@ void main() {
         final sourceFile = fixture.createFile('test.jpg', [1, 2, 3]);
         final entity = entityFromFile(sourceFile, DateTime(2023, 6, 15));
 
-        final results = <MediaEntityMovingResult>[];
+        final results = <MoveMediaEntityResult>[];
         await for (final r in strategy.processMediaEntity(entity, context)) {
           results.add(r);
         }
@@ -199,7 +199,7 @@ void main() {
         ]);
         final entity = merged.single;
 
-        final results = <MediaEntityMovingResult>[];
+        final results = <MoveMediaEntityResult>[];
         await for (final r in strategy.processMediaEntity(entity, context)) {
           results.add(r);
         }
@@ -258,11 +258,11 @@ void main() {
         ]);
 
         // Process both merged entities
-        final results1 = <MediaEntityMovingResult>[];
+        final results1 = <MoveMediaEntityResult>[];
         await for (final r in strategy.processMediaEntity(merged[0], context)) {
           results1.add(r);
         }
-        final results2 = <MediaEntityMovingResult>[];
+        final results2 = <MoveMediaEntityResult>[];
         await for (final r in strategy.processMediaEntity(merged[1], context)) {
           results2.add(r);
         }
@@ -299,7 +299,7 @@ void main() {
         final sourceFile = fixture.createFile('test.jpg', [1, 2, 3]);
         final entity = entityFromFile(sourceFile, DateTime(2023, 6, 15));
 
-        final results = <MediaEntityMovingResult>[];
+        final results = <MoveMediaEntityResult>[];
         await for (final r in strategy.processMediaEntity(entity, context)) {
           results.add(r);
         }
@@ -314,7 +314,7 @@ void main() {
         final albumOnly = fixture.createFile('Albums/Vacation/test.jpg', [1, 2, 3]);
         final entity = entityFromFile(albumOnly, DateTime(2023, 6, 15));
 
-        final results = <MediaEntityMovingResult>[];
+        final results = <MoveMediaEntityResult>[];
         await for (final r in strategy.processMediaEntity(entity, context)) {
           results.add(r);
         }
@@ -327,7 +327,7 @@ void main() {
 
     group('Integration Tests', () {
       test('all strategies can be created and validate context', () {
-        final factory = MediaEntityMovingStrategyFactory(
+        final factory = MoveMediaEntityStrategyFactory(
           fileService,
           pathService,
           symlinkService,
@@ -335,7 +335,7 @@ void main() {
 
         for (final behavior in AlbumBehavior.values) {
           final strategy = factory.createStrategy(behavior);
-          expect(strategy, isA<MediaEntityMovingStrategy>());
+          expect(strategy, isA<MoveMediaEntityStrategy>());
           expect(() => strategy.validateContext(context), returnsNormally);
         }
       });
@@ -350,7 +350,7 @@ void main() {
         final nonExistentFile = File('${fixture.basePath}/nonexistent.jpg');
         final entity = entityFromFile(nonExistentFile, DateTime(2023, 6, 15));
 
-        final results = <MediaEntityMovingResult>[];
+        final results = <MoveMediaEntityResult>[];
         await for (final r in strategy.processMediaEntity(entity, context)) {
           results.add(r);
         }

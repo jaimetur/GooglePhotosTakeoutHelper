@@ -100,7 +100,7 @@ class DiscoverMediaStep extends ProcessingStep with LoggerMixin {
     try {
       logPrint('[Step 2/8] Discovering media files (this may take a while)...');
 
-      final result = await const DiscoverMediaService().discover(context);
+      final result = await const DiscoverMediaService().discover(context);  // This is the method that contains all the logic for this step
 
       final totalFiles = result.yearFolderFiles + result.albumFolderFiles;
 

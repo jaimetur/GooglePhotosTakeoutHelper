@@ -1,11 +1,13 @@
 ## 5.0.5
 
 ### ✨ **New Features**
+  - None
 
 ### 🚀 **Improvements**
-  - Moved logic of each Step to another step's service module.
+  - Moved logic of each Step to step's service module. Now each step has a service associated to it which includes all the logic and interation with other services used by this step.
 
 ### 🐛 **Bug Fixes**
+  - None
 
 
 ## 5.0.4

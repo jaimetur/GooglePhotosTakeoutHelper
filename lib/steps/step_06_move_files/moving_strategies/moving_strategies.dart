@@ -9,7 +9,7 @@ import 'package:path/path.dart' as path;
 /// - After each operation: update fe.targetPath (for moved), fe.isShortcut=false, fe.isMoved=true on moves,
 ///   and fe.isDeleted=true on deletions.
 /// - Uses a snapshot of primary and secondaries to avoid in-loop modifications side effects.
-class IgnoreAlbumsMovingStrategy extends MediaEntityMovingStrategy {
+class IgnoreAlbumsMovingStrategy extends MoveMediaEntityStrategy {
   const IgnoreAlbumsMovingStrategy(this._fileService, this._pathService);
 
   final FileOperationService _fileService;
@@ -25,7 +25,7 @@ class IgnoreAlbumsMovingStrategy extends MediaEntityMovingStrategy {
   bool get createsDuplicates => false;
 
   @override
-  Stream<MediaEntityMovingResult> processMediaEntity(
+  Stream<MoveMediaEntityResult> processMediaEntity(
     final MediaEntity entity,
     final MovingContext context,
   ) async* {
@@ -57,8 +57,8 @@ class IgnoreAlbumsMovingStrategy extends MediaEntityMovingStrategy {
           fe.isShortcut = false;
           fe.isMoved = true;
 
-          yield MediaEntityMovingResult.success(
-            operation: MediaEntityMovingOperation(
+          yield MoveMediaEntityResult.success(
+            operation: MoveMediaEntityOperation(
               sourceFile: src,
               targetDirectory: allPhotosDir,
               operationType: MediaEntityOperationType.move,
@@ -69,8 +69,8 @@ class IgnoreAlbumsMovingStrategy extends MediaEntityMovingStrategy {
           );
         } catch (e) {
           final elapsed = sw.elapsed;
-          yield MediaEntityMovingResult.failure(
-            operation: MediaEntityMovingOperation(
+          yield MoveMediaEntityResult.failure(
+            operation: MoveMediaEntityOperation(
               sourceFile: src,
               targetDirectory: allPhotosDir,
               operationType: MediaEntityOperationType.move,
@@ -93,8 +93,8 @@ class IgnoreAlbumsMovingStrategy extends MediaEntityMovingStrategy {
           fe.isShortcut = false;
           fe.targetPath = null;
 
-          yield MediaEntityMovingResult.success(
-            operation: MediaEntityMovingOperation(
+          yield MoveMediaEntityResult.success(
+            operation: MoveMediaEntityOperation(
               sourceFile: src,
               targetDirectory: Directory(MovingStrategyUtils.dirOf(src.path)),
               operationType: MediaEntityOperationType.delete,
@@ -105,8 +105,8 @@ class IgnoreAlbumsMovingStrategy extends MediaEntityMovingStrategy {
           );
         } catch (e) {
           final elapsed = dsw.elapsed;
-          yield MediaEntityMovingResult.failure(
-            operation: MediaEntityMovingOperation(
+          yield MoveMediaEntityResult.failure(
+            operation: MoveMediaEntityOperation(
               sourceFile: src,
               targetDirectory: Directory(MovingStrategyUtils.dirOf(src.path)),
               operationType: MediaEntityOperationType.delete,
@@ -128,7 +128,7 @@ class IgnoreAlbumsMovingStrategy extends MediaEntityMovingStrategy {
 /// - Move **primary** to ALL_PHOTOS (date-structured if needed).
 /// - Delete **all secondaries** from source (they will not appear in Output).
 /// - After each operation: update fe.targetPath and flags (isShortcut=false; isMoved=true for moved; isDeleted=true for deleted).
-class NothingMovingStrategy extends MediaEntityMovingStrategy {
+class NothingMovingStrategy extends MoveMediaEntityStrategy {
   const NothingMovingStrategy(this._fileService, this._pathService);
 
   final FileOperationService _fileService;
@@ -144,7 +144,7 @@ class NothingMovingStrategy extends MediaEntityMovingStrategy {
   bool get createsDuplicates => false;
 
   @override
-  Stream<MediaEntityMovingResult> processMediaEntity(
+  Stream<MoveMediaEntityResult> processMediaEntity(
     final MediaEntity entity,
     final MovingContext context,
   ) async* {
@@ -174,8 +174,8 @@ class NothingMovingStrategy extends MediaEntityMovingStrategy {
         primary.isShortcut = false;
         primary.isMoved = true;
 
-        yield MediaEntityMovingResult.success(
-          operation: MediaEntityMovingOperation(
+        yield MoveMediaEntityResult.success(
+          operation: MoveMediaEntityOperation(
             sourceFile: src,
             targetDirectory: allPhotosDir,
             operationType: MediaEntityOperationType.move,
@@ -186,8 +186,8 @@ class NothingMovingStrategy extends MediaEntityMovingStrategy {
         );
       } catch (e) {
         final elapsed = sw.elapsed;
-        yield MediaEntityMovingResult.failure(
-          operation: MediaEntityMovingOperation(
+        yield MoveMediaEntityResult.failure(
+          operation: MoveMediaEntityOperation(
             sourceFile: src,
             targetDirectory: allPhotosDir,
             operationType: MediaEntityOperationType.move,
@@ -211,8 +211,8 @@ class NothingMovingStrategy extends MediaEntityMovingStrategy {
         sec.isShortcut = false;
         sec.targetPath = null;
 
-        yield MediaEntityMovingResult.success(
-          operation: MediaEntityMovingOperation(
+        yield MoveMediaEntityResult.success(
+          operation: MoveMediaEntityOperation(
             sourceFile: src,
             targetDirectory: Directory(MovingStrategyUtils.dirOf(src.path)),
             operationType: MediaEntityOperationType.delete,
@@ -223,8 +223,8 @@ class NothingMovingStrategy extends MediaEntityMovingStrategy {
         );
       } catch (e) {
         final elapsed = dsw.elapsed;
-        yield MediaEntityMovingResult.failure(
-          operation: MediaEntityMovingOperation(
+        yield MoveMediaEntityResult.failure(
+          operation: MoveMediaEntityOperation(
             sourceFile: src,
             targetDirectory: Directory(MovingStrategyUtils.dirOf(src.path)),
             operationType: MediaEntityOperationType.delete,
@@ -264,7 +264,7 @@ class NothingMovingStrategy extends MediaEntityMovingStrategy {
 ///     },
 ///     "metadata": { ... }
 ///   }
-class JsonMovingStrategy extends MediaEntityMovingStrategy {
+class JsonMovingStrategy extends MoveMediaEntityStrategy {
   JsonMovingStrategy(this._fileService, this._pathService);
 
   final FileOperationService _fileService;
@@ -283,7 +283,7 @@ class JsonMovingStrategy extends MediaEntityMovingStrategy {
   bool get createsDuplicates => false;
 
   @override
-  Stream<MediaEntityMovingResult> processMediaEntity(
+  Stream<MoveMediaEntityResult> processMediaEntity(
     final MediaEntity entity,
     final MovingContext context,
   ) async* {
@@ -316,8 +316,8 @@ class JsonMovingStrategy extends MediaEntityMovingStrategy {
       primary.isShortcut = false;
       primary.isMoved = true;
 
-      yield MediaEntityMovingResult.success(
-        operation: MediaEntityMovingOperation(
+      yield MoveMediaEntityResult.success(
+        operation: MoveMediaEntityOperation(
           sourceFile: src,
           targetDirectory: allPhotosDir,
           operationType: MediaEntityOperationType.move,
@@ -328,8 +328,8 @@ class JsonMovingStrategy extends MediaEntityMovingStrategy {
       );
     } catch (e) {
       final elapsed = sw.elapsed;
-      yield MediaEntityMovingResult.failure(
-        operation: MediaEntityMovingOperation(
+      yield MoveMediaEntityResult.failure(
+        operation: MoveMediaEntityOperation(
           sourceFile: src,
           targetDirectory: allPhotosDir,
           operationType: MediaEntityOperationType.move,
@@ -399,8 +399,8 @@ class JsonMovingStrategy extends MediaEntityMovingStrategy {
         sec.isShortcut = false;
         sec.targetPath = null;
 
-        yield MediaEntityMovingResult.success(
-          operation: MediaEntityMovingOperation(
+        yield MoveMediaEntityResult.success(
+          operation: MoveMediaEntityOperation(
             sourceFile: srcSec,
             targetDirectory: Directory(MovingStrategyUtils.dirOf(srcSec.path)),
             operationType: MediaEntityOperationType.delete,
@@ -411,8 +411,8 @@ class JsonMovingStrategy extends MediaEntityMovingStrategy {
         );
       } catch (e) {
         final elapsed = dsw.elapsed;
-        yield MediaEntityMovingResult.failure(
-          operation: MediaEntityMovingOperation(
+        yield MoveMediaEntityResult.failure(
+          operation: MoveMediaEntityOperation(
             sourceFile: srcSec,
             targetDirectory: Directory(MovingStrategyUtils.dirOf(srcSec.path)),
             operationType: MediaEntityOperationType.delete,
@@ -426,7 +426,7 @@ class JsonMovingStrategy extends MediaEntityMovingStrategy {
   }
 
   @override
-  Future<List<MediaEntityMovingResult>> finalize(
+  Future<List<MoveMediaEntityResult>> finalize(
     final MovingContext context,
     final List<MediaEntity> processedEntities,
   ) async {
@@ -451,11 +451,11 @@ class JsonMovingStrategy extends MediaEntityMovingStrategy {
       );
       sw.stop();
 
-      if (processedEntities.isEmpty) return const <MediaEntityMovingResult>[];
+      if (processedEntities.isEmpty) return const <MoveMediaEntityResult>[];
 
       return [
-        MediaEntityMovingResult.success(
-          operation: MediaEntityMovingOperation(
+        MoveMediaEntityResult.success(
+          operation: MoveMediaEntityOperation(
             sourceFile: jsonFile,
             targetDirectory: context.outputDirectory,
             operationType: MediaEntityOperationType.createJsonReference,
@@ -467,10 +467,10 @@ class JsonMovingStrategy extends MediaEntityMovingStrategy {
       ];
     } catch (e) {
       sw.stop();
-      if (processedEntities.isEmpty) return const <MediaEntityMovingResult>[];
+      if (processedEntities.isEmpty) return const <MoveMediaEntityResult>[];
       return [
-        MediaEntityMovingResult.failure(
-          operation: MediaEntityMovingOperation(
+        MoveMediaEntityResult.failure(
+          operation: MoveMediaEntityOperation(
             sourceFile: jsonFile,
             targetDirectory: context.outputDirectory,
             operationType: MediaEntityOperationType.createJsonReference,
@@ -500,7 +500,7 @@ class JsonMovingStrategy extends MediaEntityMovingStrategy {
 /// - Flags:
 ///   - Moved file: isMoved=true, isShortcut=false.
 ///   - For represented NON-CANONICAL files by a shortcut: original deleted → isDeleted=true; shortcut entries use isShortcut=true.
-class ShortcutMovingStrategy extends MediaEntityMovingStrategy {
+class ShortcutMovingStrategy extends MoveMediaEntityStrategy {
   const ShortcutMovingStrategy(
     this._fileService,
     this._pathService,
@@ -521,7 +521,7 @@ class ShortcutMovingStrategy extends MediaEntityMovingStrategy {
   bool get createsDuplicates => false;
 
   @override
-  Stream<MediaEntityMovingResult> processMediaEntity(
+  Stream<MoveMediaEntityResult> processMediaEntity(
     final MediaEntity entity,
     final MovingContext context,
   ) async* {
@@ -561,8 +561,8 @@ class ShortcutMovingStrategy extends MediaEntityMovingStrategy {
       chosen.isShortcut = false;
       chosen.isMoved = true;
 
-      yield MediaEntityMovingResult.success(
-        operation: MediaEntityMovingOperation(
+      yield MoveMediaEntityResult.success(
+        operation: MoveMediaEntityOperation(
           sourceFile: src,
           targetDirectory: allPhotosDir,
           operationType: MediaEntityOperationType.move,
@@ -573,8 +573,8 @@ class ShortcutMovingStrategy extends MediaEntityMovingStrategy {
       );
     } catch (e) {
       final elapsed = sw.elapsed;
-      yield MediaEntityMovingResult.failure(
-        operation: MediaEntityMovingOperation(
+      yield MoveMediaEntityResult.failure(
+        operation: MoveMediaEntityOperation(
           sourceFile: src,
           targetDirectory: allPhotosDir,
           operationType: MediaEntityOperationType.move,
@@ -624,8 +624,8 @@ class ShortcutMovingStrategy extends MediaEntityMovingStrategy {
             primary.isDeleted = true;
           } catch (_) {}
 
-          yield MediaEntityMovingResult.success(
-            operation: MediaEntityMovingOperation(
+          yield MoveMediaEntityResult.success(
+            operation: MoveMediaEntityOperation(
               sourceFile: movedPrimary,
               targetDirectory: albumDir,
               operationType: MediaEntityOperationType.createSymlink,
@@ -637,8 +637,8 @@ class ShortcutMovingStrategy extends MediaEntityMovingStrategy {
           );
         } catch (e) {
           final elapsed = ssw.elapsed;
-          yield MediaEntityMovingResult.failure(
-            operation: MediaEntityMovingOperation(
+          yield MoveMediaEntityResult.failure(
+            operation: MoveMediaEntityOperation(
               sourceFile: movedPrimary,
               targetDirectory: albumDir,
               operationType: MediaEntityOperationType.createSymlink,
@@ -685,8 +685,8 @@ class ShortcutMovingStrategy extends MediaEntityMovingStrategy {
             sec.isDeleted = true;
           } catch (_) {}
 
-          yield MediaEntityMovingResult.success(
-            operation: MediaEntityMovingOperation(
+          yield MoveMediaEntityResult.success(
+            operation: MoveMediaEntityOperation(
               sourceFile: movedPrimary,
               targetDirectory: albumDir,
               operationType: MediaEntityOperationType.createSymlink,
@@ -698,8 +698,8 @@ class ShortcutMovingStrategy extends MediaEntityMovingStrategy {
           );
         } catch (e) {
           final elapsed = ssw.elapsed;
-          yield MediaEntityMovingResult.failure(
-            operation: MediaEntityMovingOperation(
+          yield MoveMediaEntityResult.failure(
+            operation: MoveMediaEntityOperation(
               sourceFile: movedPrimary,
               targetDirectory: albumDir,
               operationType: MediaEntityOperationType.createSymlink,
@@ -757,7 +757,7 @@ class ShortcutMovingStrategy extends MediaEntityMovingStrategy {
 ///   then delete the original canonical source (its representation in Output becomes the shortcut).
 /// - If there are NO NON-CANONICAL files at all, move the canonical primary to ALL_PHOTOS (fallback).
 /// - Flags are updated as: moved.isMoved=true; represented-by-shortcut.isShortcut=true and originals deleted (isDeleted=true).
-class ReverseShortcutMovingStrategy extends MediaEntityMovingStrategy {
+class ReverseShortcutMovingStrategy extends MoveMediaEntityStrategy {
   const ReverseShortcutMovingStrategy(
     this._fileService,
     this._pathService,
@@ -778,7 +778,7 @@ class ReverseShortcutMovingStrategy extends MediaEntityMovingStrategy {
   bool get createsDuplicates => false;
 
   @override
-  Stream<MediaEntityMovingResult> processMediaEntity(
+  Stream<MoveMediaEntityResult> processMediaEntity(
     final MediaEntity entity,
     final MovingContext context,
   ) async* {
@@ -828,8 +828,8 @@ class ReverseShortcutMovingStrategy extends MediaEntityMovingStrategy {
 
           movedMap[fe] = m;
 
-          yield MediaEntityMovingResult.success(
-            operation: MediaEntityMovingOperation(
+          yield MoveMediaEntityResult.success(
+            operation: MoveMediaEntityOperation(
               sourceFile: src,
               targetDirectory: albumDir,
               operationType: MediaEntityOperationType.move,
@@ -841,8 +841,8 @@ class ReverseShortcutMovingStrategy extends MediaEntityMovingStrategy {
           );
         } catch (e) {
           final elapsed = sw.elapsed;
-          yield MediaEntityMovingResult.failure(
-            operation: MediaEntityMovingOperation(
+          yield MoveMediaEntityResult.failure(
+            operation: MoveMediaEntityOperation(
               sourceFile: src,
               targetDirectory: albumDir,
               operationType: MediaEntityOperationType.move,
@@ -898,8 +898,8 @@ class ReverseShortcutMovingStrategy extends MediaEntityMovingStrategy {
             fe.isDeleted = true;
           } catch (_) {}
 
-          yield MediaEntityMovingResult.success(
-            operation: MediaEntityMovingOperation(
+          yield MoveMediaEntityResult.success(
+            operation: MoveMediaEntityOperation(
               sourceFile: anchorMoved,
               targetDirectory: allPhotosDir,
               operationType: MediaEntityOperationType.createReverseSymlink,
@@ -910,8 +910,8 @@ class ReverseShortcutMovingStrategy extends MediaEntityMovingStrategy {
           );
         } catch (e) {
           final elapsed = ssw.elapsed;
-          yield MediaEntityMovingResult.failure(
-            operation: MediaEntityMovingOperation(
+          yield MoveMediaEntityResult.failure(
+            operation: MoveMediaEntityOperation(
               sourceFile: anchorMoved,
               targetDirectory: allPhotosDir,
               operationType: MediaEntityOperationType.createReverseSymlink,
@@ -944,8 +944,8 @@ class ReverseShortcutMovingStrategy extends MediaEntityMovingStrategy {
         primary.isShortcut = false;
         primary.isMoved = true;
 
-        yield MediaEntityMovingResult.success(
-          operation: MediaEntityMovingOperation(
+        yield MoveMediaEntityResult.success(
+          operation: MoveMediaEntityOperation(
             sourceFile: src,
             targetDirectory: allPhotosDir,
             operationType: MediaEntityOperationType.move,
@@ -956,8 +956,8 @@ class ReverseShortcutMovingStrategy extends MediaEntityMovingStrategy {
         );
       } catch (e) {
         final elapsed = sw.elapsed;
-        yield MediaEntityMovingResult.failure(
-          operation: MediaEntityMovingOperation(
+        yield MoveMediaEntityResult.failure(
+          operation: MoveMediaEntityOperation(
             sourceFile: src,
             targetDirectory: allPhotosDir,
             operationType: MediaEntityOperationType.move,
@@ -1000,7 +1000,7 @@ class ReverseShortcutMovingStrategy extends MediaEntityMovingStrategy {
 ///     as a new synthetic secondary with `isDuplicateCopy=true` and `isMoved=false`.
 ///   - Move originals to their primary album and copy to other albums they belonged to.
 /// - Always update targetPath and flags accordingly.
-class DuplicateCopyMovingStrategy extends MediaEntityMovingStrategy {
+class DuplicateCopyMovingStrategy extends MoveMediaEntityStrategy {
   const DuplicateCopyMovingStrategy(this._fileService, this._pathService);
 
   final FileOperationService _fileService;
@@ -1016,7 +1016,7 @@ class DuplicateCopyMovingStrategy extends MediaEntityMovingStrategy {
   bool get createsDuplicates => true;
 
   @override
-  Stream<MediaEntityMovingResult> processMediaEntity(
+  Stream<MoveMediaEntityResult> processMediaEntity(
     final MediaEntity entity,
     final MovingContext context,
   ) async* {
@@ -1082,8 +1082,8 @@ class DuplicateCopyMovingStrategy extends MediaEntityMovingStrategy {
           fe.isShortcut = false;
           fe.isMoved = true;
 
-          yield MediaEntityMovingResult.success(
-            operation: MediaEntityMovingOperation(
+          yield MoveMediaEntityResult.success(
+            operation: MoveMediaEntityOperation(
               sourceFile: src,
               targetDirectory: allPhotosDir,
               operationType: MediaEntityOperationType.move,
@@ -1093,8 +1093,8 @@ class DuplicateCopyMovingStrategy extends MediaEntityMovingStrategy {
             duration: elapsed,
           );
         } else {
-          yield MediaEntityMovingResult.failure(
-            operation: MediaEntityMovingOperation(
+          yield MoveMediaEntityResult.failure(
+            operation: MoveMediaEntityOperation(
               sourceFile: src,
               targetDirectory: allPhotosDir,
               operationType: MediaEntityOperationType.move,
@@ -1129,8 +1129,8 @@ class DuplicateCopyMovingStrategy extends MediaEntityMovingStrategy {
           fe.isShortcut = false;
           fe.isMoved = true;
 
-          yield MediaEntityMovingResult.success(
-            operation: MediaEntityMovingOperation(
+          yield MoveMediaEntityResult.success(
+            operation: MoveMediaEntityOperation(
               sourceFile: srcMove,
               targetDirectory: primaryAlbumDir,
               operationType: MediaEntityOperationType.move,
@@ -1141,8 +1141,8 @@ class DuplicateCopyMovingStrategy extends MediaEntityMovingStrategy {
             duration: moveElapsed,
           );
         } else {
-          yield MediaEntityMovingResult.failure(
-            operation: MediaEntityMovingOperation(
+          yield MoveMediaEntityResult.failure(
+            operation: MoveMediaEntityOperation(
               sourceFile: srcMove,
               targetDirectory: primaryAlbumDir,
               operationType: MediaEntityOperationType.move,
@@ -1166,8 +1166,8 @@ class DuplicateCopyMovingStrategy extends MediaEntityMovingStrategy {
           final (File? copied, Duration copyElapsed) =
               await _copyWithTiming(movedToAlbum, albumDir);
           if (copied != null) {
-            yield MediaEntityMovingResult.success(
-              operation: MediaEntityMovingOperation(
+            yield MoveMediaEntityResult.success(
+              operation: MoveMediaEntityOperation(
                 sourceFile: movedToAlbum,
                 targetDirectory: albumDir,
                 operationType: MediaEntityOperationType.copy,
@@ -1178,8 +1178,8 @@ class DuplicateCopyMovingStrategy extends MediaEntityMovingStrategy {
               duration: copyElapsed,
             );
           } else {
-            yield MediaEntityMovingResult.failure(
-              operation: MediaEntityMovingOperation(
+            yield MoveMediaEntityResult.failure(
+              operation: MoveMediaEntityOperation(
                 sourceFile: movedToAlbum,
                 targetDirectory: albumDir,
                 operationType: MediaEntityOperationType.copy,
@@ -1217,8 +1217,8 @@ class DuplicateCopyMovingStrategy extends MediaEntityMovingStrategy {
         )..isDuplicateCopy = true, // mark duplicate copy
       );
 
-      yield MediaEntityMovingResult.success(
-        operation: MediaEntityMovingOperation(
+      yield MoveMediaEntityResult.success(
+        operation: MoveMediaEntityOperation(
           sourceFile: srcBest,
           targetDirectory: allPhotosDir,
           operationType: MediaEntityOperationType.copy,
@@ -1228,8 +1228,8 @@ class DuplicateCopyMovingStrategy extends MediaEntityMovingStrategy {
         duration: copyElapsed,
       );
     } else {
-      yield MediaEntityMovingResult.failure(
-        operation: MediaEntityMovingOperation(
+      yield MoveMediaEntityResult.failure(
+        operation: MoveMediaEntityOperation(
           sourceFile: srcBest,
           targetDirectory: allPhotosDir,
           operationType: MediaEntityOperationType.copy,
@@ -1263,8 +1263,8 @@ class DuplicateCopyMovingStrategy extends MediaEntityMovingStrategy {
         fe.isShortcut = false;
         fe.isMoved = true;
 
-        yield MediaEntityMovingResult.success(
-          operation: MediaEntityMovingOperation(
+        yield MoveMediaEntityResult.success(
+          operation: MoveMediaEntityOperation(
             sourceFile: srcMove,
             targetDirectory: primaryAlbumDir,
             operationType: MediaEntityOperationType.move,
@@ -1275,8 +1275,8 @@ class DuplicateCopyMovingStrategy extends MediaEntityMovingStrategy {
           duration: moveElapsed,
         );
       } else {
-        yield MediaEntityMovingResult.failure(
-          operation: MediaEntityMovingOperation(
+        yield MoveMediaEntityResult.failure(
+          operation: MoveMediaEntityOperation(
             sourceFile: srcMove,
             targetDirectory: primaryAlbumDir,
             operationType: MediaEntityOperationType.move,
@@ -1300,8 +1300,8 @@ class DuplicateCopyMovingStrategy extends MediaEntityMovingStrategy {
         final (File? copied, Duration copyElapsed2) =
             await _copyWithTiming(movedToAlbum, albumDir);
         if (copied != null) {
-          yield MediaEntityMovingResult.success(
-            operation: MediaEntityMovingOperation(
+          yield MoveMediaEntityResult.success(
+            operation: MoveMediaEntityOperation(
               sourceFile: movedToAlbum,
               targetDirectory: albumDir,
               operationType: MediaEntityOperationType.copy,
@@ -1312,8 +1312,8 @@ class DuplicateCopyMovingStrategy extends MediaEntityMovingStrategy {
             duration: copyElapsed2,
           );
         } else {
-          yield MediaEntityMovingResult.failure(
-            operation: MediaEntityMovingOperation(
+          yield MoveMediaEntityResult.failure(
+            operation: MoveMediaEntityOperation(
               sourceFile: movedToAlbum,
               targetDirectory: albumDir,
               operationType: MediaEntityOperationType.copy,

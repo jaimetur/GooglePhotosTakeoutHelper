@@ -1,4 +1,4 @@
-import 'dart:io';
+// Step 5 (wrapper) - FindAlbumsStep
 import 'package:gpth/gpth_lib_exports.dart';
 
 /// Step 5: Find and merge album relationships
@@ -139,131 +139,15 @@ class FindAlbumsStep extends ProcessingStep with LoggerMixin {
     final sw = Stopwatch()..start();
 
     try {
-      logPrint('[Step 5/8] Finding albums (this may take a while)...');
-
-      final collection = context.mediaCollection;
-      final initial = collection.length;
-
-      if (collection.isEmpty) {
-        sw.stop();
-        return StepResult.success(
-          stepName: name,
-          duration: sw.elapsed,
-          data: {
-            'initialCount': 0,
-            'finalCount': 0,
-            'mergedCount': 0,
-            'albumsMerged': 0,
-            'groupsMerged': 0,
-            'mediaWithAlbums': 0,
-            'distinctAlbums': 0,
-            'albumCounts': const <String, int>{},
-            'enrichedAlbumInfos': 0,
-          },
-          message: 'No media to process.',
-        );
-      }
-
-      // Consolidation over current entities (no content merges; Step 3 already did it)
-      int mediaWithAlbums = 0;
-      int enrichedAlbumInfos = 0;
-      final Map<String, int> albumCounts = <String, int>{};
-
-      for (int i = 0; i < collection.length; i++) {
-        final mediaEntity = collection[i];
-        final Map<String, AlbumEntity> albumsMap = mediaEntity.albumsMap;
-
-        if (albumsMap.isEmpty) continue;
-        mediaWithAlbums++;
-
-        Map<String, AlbumEntity> updatedAlbumsMap = albumsMap;
-        bool changed = false;
-
-        // 1) Sanitize album names (trim) and merge if the normalized key collides.
-        for (final album in albumsMap.entries) {
-          final String origName = album.key;
-          final String sanitized = _sanitizeAlbumName(origName);
-          if (sanitized != origName) {
-            final AlbumEntity existing = album.value;
-            final AlbumEntity merged = (updatedAlbumsMap[sanitized] == null)
-                ? existing
-                : updatedAlbumsMap[sanitized]!.merge(existing);
-            if (identical(updatedAlbumsMap, albumsMap)) {
-              updatedAlbumsMap = Map<String, AlbumEntity>.from(albumsMap)
-                ..remove(origName)
-                ..[sanitized] = merged;
-            } else {
-              updatedAlbumsMap
-                ..remove(origName)
-                ..[sanitized] = merged;
-            }
-            changed = true;
-          }
-        }
-
-        // 2) Ensure at least one sourceDirectory per existing membership.
-        for (final entry in updatedAlbumsMap.entries) {
-          final AlbumEntity info = entry.value;
-          if (info.sourceDirectories.isEmpty) {
-            final String parent = _safeParentDir(mediaEntity.primaryFile);
-            final AlbumEntity patched = info.addSourceDir(parent);
-            if (!identical(updatedAlbumsMap, albumsMap) || changed) {
-              updatedAlbumsMap = Map<String, AlbumEntity>.from(updatedAlbumsMap)
-                ..[entry.key] = patched;
-            } else {
-              updatedAlbumsMap = Map<String, AlbumEntity>.from(albumsMap)
-                ..[entry.key] = patched;
-            }
-            enrichedAlbumInfos++;
-            changed = true;
-          }
-        }
-
-        // Apply updates if any
-        if (changed) {
-          final updatedEntity = MediaEntity(
-            primaryFile: mediaEntity.primaryFile,
-            secondaryFiles: mediaEntity.secondaryFiles,
-            albumsMap: updatedAlbumsMap,
-            dateTaken: mediaEntity.dateTaken,
-            dateAccuracy: mediaEntity.dateAccuracy,
-            dateTimeExtractionMethod: mediaEntity.dateTimeExtractionMethod,
-            partnershared: mediaEntity.partnerShared,
-          );
-          collection.replaceAt(i, updatedEntity);
-        }
-
-        // Stats (use sanitized keys from the possibly updated entity)
-        for (final albumName in collection[i].albumsMap.keys) {
-          if (albumName.trim().isEmpty) continue;
-          albumCounts[albumName] = (albumCounts[albumName] ?? 0) + 1;
-        }
-      }
-
-      final int totalAlbums = albumCounts.length;
-      final int finalCount = collection.length;
-      const int mergedCount = 0; // no entity-level merges in the new model
-
-      logPrint('[Step 5/8] Media with album associations: $mediaWithAlbums');
-      logPrint('[Step 5/8] Distinct album folders detected: $totalAlbums');
+      final service = const FindAlbumService()..logger = LoggingService.fromConfig(context.config);
+      final FindAlbumSummary summary = await service.findAlbums(context);
 
       sw.stop();
       return StepResult.success(
         stepName: name,
         duration: sw.elapsed,
-        data: {
-          'initialCount': initial,
-          'finalCount': finalCount,
-          'mergedCount': mergedCount,
-          'albumsMerged': 0,
-          'groupsMerged': 0,
-          'mediaWithAlbums': mediaWithAlbums,
-          'distinctAlbums': totalAlbums,
-          'albumCounts': albumCounts,
-          'enrichedAlbumInfos': enrichedAlbumInfos,
-        },
-        message:
-            'Found $totalAlbums different albums ($mergedCount albums were merged)',
+        data: summary.toMap(),
+        message: summary.message,
       );
     } catch (e) {
       sw.stop();
@@ -279,21 +163,4 @@ class FindAlbumsStep extends ProcessingStep with LoggerMixin {
   @override
   bool shouldSkip(final ProcessingContext context) =>
       context.mediaCollection.isEmpty;
-
-  // ───────────────────────────── Helpers ─────────────────────────────
-
-  String _sanitizeAlbumName(final String name) {
-    final n = name.trim();
-    return n.isEmpty ? name : n;
-  }
-
-  /// Returns parent directory path from a FileEntity effective path (targetPath if present, else sourcePath).
-  String _safeParentDir(final FileEntity fe) {
-    try {
-      final String p = fe.path; // effective path (target if moved)
-      return File(p).parent.path;
-    } catch (_) {
-      return '';
-    }
-  }
 }

@@ -59,7 +59,7 @@ void main() {
         albumBehavior: AlbumBehavior.shortcut,
       );
 
-      final movingService = MediaEntityMovingService();
+      final movingService = MoveMediaEntityService();
 
       // Should not throw UnimplementedError
       expect(() async {
@@ -96,7 +96,7 @@ void main() {
         albumBehavior: AlbumBehavior.shortcut,
       );
 
-      final movingService = MediaEntityMovingService();
+      final movingService = MoveMediaEntityService();
 
       var processedCount = 0;
       await for (final progress in movingService.moveMediaEntities(collection, context)) {
@@ -140,7 +140,7 @@ void main() {
         dateDivision: DateDivisionLevel.year,
         albumBehavior: AlbumBehavior.json,
       );
-      final movingService = MediaEntityMovingService();
+      final movingService = MoveMediaEntityService();
 
       await for (final _ in movingService.moveMediaEntities(collection, context)) {
         // progress
@@ -167,7 +167,7 @@ void main() {
           dateDivision: DateDivisionLevel.year,
           albumBehavior: behavior,
         );
-        final movingService = MediaEntityMovingService();
+        final movingService = MoveMediaEntityService();
 
         expect(
           () async {

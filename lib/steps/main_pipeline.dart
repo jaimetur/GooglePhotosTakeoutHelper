@@ -54,7 +54,7 @@ class ProcessingPipeline with LoggerMixin{
       const MergeMediaEntitiesStep(), // Step 3
       const ExtractDatesStep(), // Step 4
       const FindAlbumsStep(), // Step 5
-      const MoveFilesStep(), // Step 6
+      const MoveMediaEntitiesStep(), // Step 6
       const WriteExifStep(), // Step 7  (after moving)
       const UpdateCreationTimeStep(), // Step 8
     ];
@@ -221,7 +221,7 @@ class ProcessingPipeline with LoggerMixin{
   ///
   /// Critical steps will stop the pipeline if they fail
   bool _isCriticalStep(final ProcessingStep step) =>
-      step is DiscoverMediaStep || step is MoveFilesStep;
+      step is DiscoverMediaStep || step is MoveMediaEntitiesStep;
 
   /// Extract statistics from individual step results
   void _extractStepStatistics(
