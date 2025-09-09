@@ -36,43 +36,74 @@ class ExifDateExtractor with LoggerMixin {
   static int _dictTried = 0; // tries of dictionary lookups
   static int _dictHit = 0; // found a valid date
   static int _dictMiss = 0; // not found or not valid date
-  static Duration _dictDuration = Duration.zero;
 
   static int _nativeSupported = 0; // files with a native-supported MIME
-  static int _nativeUnsupported =
-      0; // files routed to exiftool due to unsupported/unknown MIME
+  static int _nativeUnsupported = 0; // files routed to exiftool due to unsupported/unknown MIME
   static int _nativeHeadReads = 0; // native fast head-only reads
   static int _nativeFullReads = 0; // native full-file reads
   static int _nativeTried = 0; // equals _mimeNativeSupported
   static int _nativeHit = 0; // native returned a valid DateTime
   static int _nativeMiss = 0; // native returned null
 
-  static int _exiftoolDirectTried =
-      0; // tried exiftool directly (videos/unsupported)
+  static int _exiftoolDirectTried = 0; // tried exiftool directly (videos/unsupported)
   static int _exiftoolDirectHit = 0; // exiftool direct found a date
   static int _exiftoolFallbackTried = 0; // native miss re-tried via exiftool
   static int _exiftoolFallbackHit = 0; // fallback succeeded
-  static int _exiftoolFail = 0; // exiftool returned null or threw
 
+  static Duration _dictDuration = Duration.zero;
   static Duration _nativeDuration = Duration.zero;
   static Duration _exiftoolDuration = Duration.zero;
+  static Duration _totalDuration = _dictDuration+_nativeDuration+_exiftoolDuration;
 
-  static String _fmtSec(final Duration d) =>
-      '${(d.inMilliseconds / 1000.0).toStringAsFixed(3)}s';
+
+  // Helpers for Telemetry alligment
+  static String _p6(final int v) => v.toString().padLeft(6);
+  static String _secs(final Duration d) => '${d.inSeconds}s';
 
   // Cache of dictionary indices (one index per dictionary instance)
   static final Map<Map<String, dynamic>, Map<String, Map<String, dynamic>>>
   _dictIndexCache = {};
 
+  /// dumpStats and Telemetry:
   static void dumpStats({
     final bool reset = false,
     final LoggerMixin? loggerMixin,
     final bool exiftoolFallbackEnabled = false,
   }) {
-    final lineCalls     = '[Step 4/8]     [READ-EXIF] Calls=$_total | videos=$_videoDirect | nativeSupported=$_nativeSupported | unsupported=$_nativeUnsupported';
-    final lineDict      = '[Step 4/8]     [READ-EXIF] ExternalDict: tried=$_dictTried, hit=$_dictHit, miss=$_dictMiss, time=${_fmtSec(_dictDuration)}';
-    final lineNative    = '[Step 4/8]     [READ-EXIF] Native: tried=$_nativeTried, hit=$_nativeHit, miss=$_nativeMiss, headReads=$_nativeHeadReads, fullReads=$_nativeFullReads, time=${_fmtSec(_nativeDuration)}';
-    final lineExiftool  = '[Step 4/8]     [READ-EXIF] Exiftool: directTried=$_exiftoolDirectTried , directHit=$_exiftoolDirectHit, fallbackTried=$_exiftoolFallbackTried, fallbackHit=$_exiftoolFallbackHit, errors=$_exiftoolFail, time=${_fmtSec(_exiftoolDuration)} (exiftoolFallbackEnabled = $exiftoolFallbackEnabled)';
+    // Prepare aligned values
+    final String calls       = _p6(_total);
+    final String videos      = _videoDirect.toString();
+    final String nativeSup   = _nativeSupported.toString();
+    final String unsupported = _nativeUnsupported.toString();
+    final String totalTimeS  = _secs(_totalDuration);
+
+    final String dictTried = _p6(_dictTried);
+    final String dictHit   = _p6(_dictHit);
+    final String dictMiss  = _p6(_dictMiss);
+    final String dictTimeS = _secs(_dictDuration);
+
+    final String nativeTried = _p6(_nativeTried);
+    final String nativeHit   = _p6(_nativeHit);
+    final String nativeMiss  = _p6(_nativeMiss);
+    final String headReads   = _nativeHeadReads.toString();
+    final String fullReads   = _nativeFullReads.toString();
+    final String nativeTimeS = _secs(_nativeDuration);
+
+    final String exifDirTried = _p6(_exiftoolDirectTried);
+    final String exifDirHit   = _p6(_exiftoolDirectHit);
+    final int    exifDirFailN = _exiftoolDirectTried - _exiftoolDirectHit;
+    final String exifDirFail  = _p6(exifDirFailN < 0 ? 0 : exifDirFailN);
+
+    final String exifFbTried = _p6(_exiftoolFallbackTried);
+    final String exifFbHit   = _p6(_exiftoolFallbackHit);
+    final int    exifFbFailN = _exiftoolFallbackTried - _exiftoolFallbackHit;
+    final String exifFbFail  = _p6(exifFbFailN < 0 ? 0 : exifFbFailN);
+    final String exifTimeS   = _secs(_exiftoolDuration);
+
+    final String exifTotTried = _p6(_exiftoolDirectTried + _exiftoolFallbackTried);
+    final String exifTotHit   = _p6(_exiftoolDirectHit + _exiftoolFallbackHit);
+    final String exifTotFail  = _p6((exifDirFailN < 0 ? 0 : exifDirFailN) + (exifFbFailN < 0 ? 0 : exifFbFailN));
+
 
     // Only show the dictionary stats line when a global jsonDatesDictionary is present
     bool showDictLine = false;
@@ -82,23 +113,29 @@ class ExifDateExtractor with LoggerMixin {
       showDictLine = false;
     }
 
-    if (loggerMixin != null) {
-      loggerMixin.logInfo('[Step 4/8] === Telemetry Summary ===', forcePrint: true);
-      loggerMixin.logInfo(lineCalls, forcePrint: true);
-      if (showDictLine) {
-        loggerMixin.logInfo(lineDict, forcePrint: true);
+    void out(final String s) {
+      if (loggerMixin != null) {
+        loggerMixin.logPrint(s);
+      } else {
+        LoggingService().info(s);
       }
-      loggerMixin.logInfo(lineNative, forcePrint: true);
-      loggerMixin.logInfo(lineExiftool, forcePrint: true);
-    } else {
-      LoggingService().info('[Step 4/8] === Telemetry Summary ===');
-      LoggingService().info(lineCalls);
-      if (showDictLine) {
-        LoggingService().info(lineDict);
-      }
-      LoggingService().info(lineNative);
-      LoggingService().info(lineExiftool);
     }
+
+    // Output in the exact requested shape
+    out('[Step 4/8] === Telemetry Summary ===');
+    out('[Step 4/8]     [READ-EXIF] Total Calls           : $calls (videos=$videos | nativeSupported=$nativeSup | unsupported=$unsupported) - Total Time: $totalTimeS');
+    if (showDictLine) {
+    out('[Step 4/8]     [READ-EXIF] External Dict         : $dictTried (Success: $dictHit, Fails: $dictMiss) - Time: ${dictTimeS.padLeft(6)}');
+    }
+    out('[Step 4/8]     [READ-EXIF] Native Direct         : $nativeTried (Success: $nativeHit, Fails: $nativeMiss) - Time: ${nativeTimeS.padLeft(6)} - (headReads: $headReads, fullReads: $fullReads)');
+    out('[Step 4/8]     [READ-EXIF] Exiftool Total        : $exifTotTried (Success: $exifTotHit, Fails: $exifTotFail) - Time: ${exifTimeS.padLeft(6)}');
+    out('[Step 4/8]     [READ-EXIF]   Direct              : $exifDirTried (Success: $exifDirHit, Fails: $exifDirFail)');
+    if (exiftoolFallbackEnabled) {
+    out('[Step 4/8]     [READ-EXIF]   Fallback (enabled)  : $exifFbTried (Success: $exifFbHit, Fails: $exifFbFail)');
+    } else{
+    out('[Step 4/8]     [READ-EXIF]   Fallback (disabled) : $exifFbTried (Success: $exifFbHit, Fails: $exifFbFail)');
+    }
+
 
     if (reset) {
       _total = 0;
@@ -121,14 +158,16 @@ class ExifDateExtractor with LoggerMixin {
       _exiftoolDirectHit = 0;
       _exiftoolFallbackTried = 0;
       _exiftoolFallbackHit = 0;
-      _exiftoolFail = 0;
 
       _nativeDuration = Duration.zero;
       _exiftoolDuration = Duration.zero;
+      _totalDuration = Duration.zero;
 
       _dictIndexCache.clear();
     }
   }
+
+
 
   /// Extract DateTime from EXIF for [file] using native fast-path and optional fallback.
   /// If [datesDict] is provided (or GlobalConfig has one), it tries to read "OldestDate" from there first.
@@ -188,7 +227,6 @@ class ExifDateExtractor with LoggerMixin {
           _exiftoolDirectHit++;
           return result;
         } else {
-          _exiftoolFail++;
         }
       }
       logWarning('[Step 4/8] Reading exif from ${file.path} with mimeType $mimeType skipped. Only supported with ExifTool.');
@@ -222,7 +260,6 @@ class ExifDateExtractor with LoggerMixin {
           _exiftoolFallbackHit++;
           return result;
         } else {
-          _exiftoolFail++;
         }
       }
       return null;
@@ -239,7 +276,6 @@ class ExifDateExtractor with LoggerMixin {
         _exiftoolDirectHit++;
         return result;
       } else {
-        _exiftoolFail++;
       }
     }
 

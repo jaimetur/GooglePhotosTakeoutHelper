@@ -511,6 +511,7 @@ class WriteExifProcessingService with LoggerMixin {
       desc: '[ INFO  ] [Step 7/8] Writing EXIF data',
       total: collection.length,
       width: 50,
+      percentage: true
     );
 
     int completedEntities = 0;
@@ -583,6 +584,7 @@ class WriteExifProcessingService with LoggerMixin {
           desc: '[ INFO  ] [Step 7/8] Flushing pending EXIF writes',
           total: finalFlushTotal,
           width: 50,
+          percentage: true
         );
       }
 
@@ -1077,7 +1079,7 @@ class WriteExifAuxiliaryService with LoggerMixin {
     // Helper for output respecting the original LoggerMixin pattern
     void out(final String s) {
       if (logger != null) {
-        logger.logInfo(s, forcePrint: true);
+        logger.logPrint(s);
       } else {
         LoggingService().info(s);
       }

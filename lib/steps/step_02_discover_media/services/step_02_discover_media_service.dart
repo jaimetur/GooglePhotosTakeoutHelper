@@ -83,7 +83,7 @@ class DiscoverMediaService with LoggerMixin {
       plannedTotal += await _countMediaFiles(d, context);
     }
     final FillingBar? bar = (plannedTotal > 0)
-        ? FillingBar(total: plannedTotal, width: 40, percentage: true, desc: '[ INFO  ] [Step 2/8] Indexing')
+        ? FillingBar(total: plannedTotal, width: 50, percentage: true, desc: '[ INFO  ] [Step 2/8] Indexing')
         : null;
     int progressed = 0;
 

@@ -41,7 +41,7 @@ class FixExtensionService with LoggerMixin {
 
     // NEW (progress): initialize the progress bar only when there is work to do.
     final FillingBar? bar = (total > 0)
-        ? FillingBar(total: total, width: 40, percentage: true, desc: '[ INFO  ] [Step 1/8] Fixing extensions')
+        ? FillingBar(total: total, width: 50, percentage: true, desc: '[ INFO  ] [Step 1/8] Fixing extensions')
         : null;
 
     int done = 0;

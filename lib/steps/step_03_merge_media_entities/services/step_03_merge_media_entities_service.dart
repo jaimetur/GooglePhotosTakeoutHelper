@@ -514,7 +514,7 @@ class DuplicateDetectionService with LoggerMixin {
     final _Telemetry telem = _Telemetry();
 
     // Overall stopwatch for the whole merge step
-    final Stopwatch _totalSw = Stopwatch()..start();
+    final Stopwatch totalSw = Stopwatch()..start();
 
     logPrint('[Step 3/8] Merging identical media entities and removing duplicates (this may take a while)...');
     if (context.config.keepDuplicates) {
@@ -920,14 +920,15 @@ class DuplicateDetectionService with LoggerMixin {
     logPrint('[Step 3/8] Merge Media Entities finished, total entities merged: $mergedEntities');
 
     // Stop overall stopwatch and store total time BEFORE printing telemetry
-    _totalSw.stop();
-    telem.msTotal = _totalSw.elapsedMilliseconds;
+    totalSw.stop();
+    telem.msTotal = totalSw.elapsedMilliseconds;
     // telem.msTotal = telem.msSizeScan + telem.msExtBucket + telem.msQuickSig + telem.msHashGroups + telem.msMergeReplace + telem.msRemoveIO; // Optional fallback by summing phases
 
     // Telemetry summary
     if (ServiceContainer.instance.globalConfig.enableTelemetryInMergeMediaEntitiesStep) {
       _printTelemetry(
         telem,
+        loggerMixin: this,
         secondaryFilesInCollection: totalSecondaryFiles,
         duplicateFilesRemovedIO: duplicateFilesRemoved,
         primaryFilesInCollection: totalPrimaryFiles,
@@ -1203,6 +1204,7 @@ class DuplicateDetectionService with LoggerMixin {
 
   void _printTelemetry(
     final _Telemetry t, {
+    final LoggerMixin? loggerMixin,
     required final int secondaryFilesInCollection,
     required final int duplicateFilesRemovedIO,
     required final int primaryFilesInCollection,
@@ -1210,26 +1212,35 @@ class DuplicateDetectionService with LoggerMixin {
     required final int nonCanonicalFilesInCollection,
     required final bool printTelemetry,
   }) {
+
+    void out(final String s) {
+      if (loggerMixin != null) {
+        loggerMixin.logPrint(s, forcePrint: printTelemetry);
+      } else {
+        LoggingService().info(s);
+      }
+    }
+
     String ms(final num v) => '${v.toStringAsFixed(0)} ms';
-    logInfo('[Step 3/8] === Telemetry Summary ===', forcePrint: printTelemetry);
-    logInfo('[Step 3/8]     Files total                        : ${t.filesTotal}', forcePrint: printTelemetry);
-    logInfo('[Step 3/8]     Size buckets                       : ${t.sizeBuckets}', forcePrint: printTelemetry);
-    logInfo('[Step 3/8]     Ext buckets                        : ${t.extBuckets}', forcePrint: printTelemetry);
-    logInfo('[Step 3/8]     Quick buckets                      : ${t.quickBuckets}', forcePrint: printTelemetry);
-    logInfo('[Step 3/8]     Hash groups                        : ${t.hashGroups}', forcePrint: printTelemetry);
-    logInfo('[Step 3/8]     Merged media entities (by content) : ${t.entitiesMergedByContent}', forcePrint: printTelemetry);
-    logInfo('[Step 3/8]     Primary files in collection        : $primaryFilesInCollection', forcePrint: printTelemetry);
-    logInfo('[Step 3/8]     Secondary files in collection      : $secondaryFilesInCollection', forcePrint: printTelemetry);
-    logInfo('[Step 3/8]     Canonical files (ALL_PHOTOS/Year)  : $canonicalFilesInCollection', forcePrint: printTelemetry);
-    logInfo('[Step 3/8]     Non-Canonical files (Albums)       : $nonCanonicalFilesInCollection', forcePrint: printTelemetry);
-    logInfo('[Step 3/8]     Duplicate files removed (I/O)      : $duplicateFilesRemovedIO', forcePrint: printTelemetry);
-    logInfo('[Step 3/8]     Time total                         : ${ms(t.msTotal)}', forcePrint: printTelemetry);
-    logInfo('[Step 3/8]       - Size scan                      : ${ms(t.msSizeScan)}', forcePrint: printTelemetry);
-    logInfo('[Step 3/8]       - Ext bucketing                  : ${ms(t.msExtBucket)}', forcePrint: printTelemetry);
-    logInfo('[Step 3/8]       - Quick signature                : ${ms(t.msQuickSig)}', forcePrint: printTelemetry);
-    logInfo('[Step 3/8]       - Hash grouping                  : ${ms(t.msHashGroups)}', forcePrint: printTelemetry);
-    logInfo('[Step 3/8]       - Merge/replace                  : ${ms(t.msMergeReplace)}', forcePrint: printTelemetry);
-    logInfo('[Step 3/8]       - Remove/IO                      : ${ms(t.msRemoveIO)}', forcePrint: printTelemetry);
+    out('[Step 3/8] === Telemetry Summary ===');
+    out('[Step 3/8]     Files total                        : ${t.filesTotal}');
+    out('[Step 3/8]     Size buckets                       : ${t.sizeBuckets}');
+    out('[Step 3/8]     Ext buckets                        : ${t.extBuckets}');
+    out('[Step 3/8]     Quick buckets                      : ${t.quickBuckets}');
+    out('[Step 3/8]     Hash groups                        : ${t.hashGroups}');
+    out('[Step 3/8]     Merged media entities (by content) : ${t.entitiesMergedByContent}');
+    out('[Step 3/8]     Primary files in collection        : $primaryFilesInCollection');
+    out('[Step 3/8]     Secondary files in collection      : $secondaryFilesInCollection');
+    out('[Step 3/8]     Canonical files (ALL_PHOTOS/Year)  : $canonicalFilesInCollection');
+    out('[Step 3/8]     Non-Canonical files (Albums)       : $nonCanonicalFilesInCollection');
+    out('[Step 3/8]     Duplicate files removed (I/O)      : $duplicateFilesRemovedIO');
+    out('[Step 3/8]     Time total                         : ${ms(t.msTotal)}');
+    out('[Step 3/8]       - Size scan                      : ${ms(t.msSizeScan)}');
+    out('[Step 3/8]       - Ext bucketing                  : ${ms(t.msExtBucket)}');
+    out('[Step 3/8]       - Quick signature                : ${ms(t.msQuickSig)}');
+    out('[Step 3/8]       - Hash grouping                  : ${ms(t.msHashGroups)}');
+    out('[Step 3/8]       - Merge/replace                  : ${ms(t.msMergeReplace)}');
+    out('[Step 3/8]       - Remove/IO                      : ${ms(t.msRemoveIO)}');
   }
 
   Future<Map<String, List<MediaEntity>>> _fullHashGroup(final List<MediaEntity> files) async {

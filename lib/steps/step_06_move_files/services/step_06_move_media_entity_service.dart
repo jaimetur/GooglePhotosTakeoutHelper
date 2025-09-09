@@ -433,6 +433,7 @@ class MoveMediaEntityService with LoggerMixin {
       desc: '[ INFO  ] [Step 6/8] Moving entities',
       total: context.mediaCollection.length,
       width: 50,
+      percentage: true
     );
 
     final movingContext = MovingContext(

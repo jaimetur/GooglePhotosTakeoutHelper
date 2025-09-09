@@ -56,6 +56,7 @@ class ExtractDateService with LoggerMixin {
       desc: '[ INFO  ] [Step 4/8] Processing media files',
       total: collection.length,
       width: 50,
+      percentage: true
     );
 
     for (int i = 0; i < collection.length; i += maxConcurrency) {

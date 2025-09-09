@@ -68,6 +68,7 @@ class UpdateCreationTimeService with LoggerMixin {
       desc: '[ INFO  ] [Step 8/8] Updating creation times',
       total: filesToTouch.length,
       width: 50,
+      percentage: true
     );
 
     int updated = 0;
