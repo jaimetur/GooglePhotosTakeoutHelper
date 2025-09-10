@@ -822,7 +822,7 @@ Future<void> _configureDependencies(final ProcessingConfig config) async {
   if (dict != null) {
     logPrint('JSON Dates Dictionary is loaded with ${dict.length} entries.');
   } else {
-    logPrint('JSON Dates Dictionary not loaded. Mising JSON dates will be extracted from EXIF info or other fallback methods.');
+    logPrint('JSON Dates Dictionary not loaded. Missing JSON dates will be extracted from EXIF info or other fallback methods.');
   }
 
   sleep(const Duration(seconds: 3));
