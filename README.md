@@ -177,7 +177,6 @@ GPTH offers several ways to handle your Google Photos albums:
 - No visual album folders
 - Requires custom software to utilize album information
 - Not user-friendly for manual browsing
-- ⚠️ `Trash` and `Archive` content will be also move to `ALL_PHOTOS` since both folders are considered as Album folders and this strategy moves them to `ALL_PHOTOS`
 
 **Best for:** Developers, users migrating to photo management software that can read JSON metadata, or those who don't care about visual album organization.
 
@@ -194,7 +193,6 @@ GPTH offers several ways to handle your Google Photos albums:
 **Disadvantages:**
 - ⚠️ Completely loses album organization
 - ⚠️ No way to recover album information later
-- ⚠️ `Trash` and `Archive` content will be also move to `ALL_PHOTOS` since both folders are considered as Album folders and this strategy moves them to `ALL_PHOTOS`
 
 **Best for:** Users who don't care about album organization and just want all photos in chronological order.
 
@@ -210,16 +208,18 @@ GPTH offers several ways to handle your Google Photos albums:
 **Disadvantages:**
 - ⚠️ Completely loses album organization
 - ⚠️ No way to recover album information later
-- ⚠️ `Trash` and `Archive` content will be deleted since both folders are considered as Album folders and this strategy delete all albums
 
 **Best for:** Users who don't care about album organization and just want all photos in chronological order.
 
 
 ## Important Notes
 
-- **File Movement:** GPTH moves files from the input to output directory to save space. Files are moved, not copied, which means the input directory structure will be modified as files are relocated.
-- **Album-Only Photos:** Some photos exist only in albums (not in year folders). GPTH handles these differently depending on the mode chosen.
-- **Duplicate Handling:** If a photo appears in multiple albums, the behavior varies by mode (shortcuts link to same file, duplicate-copy creates multiple copies, etc.).
+> [!IMPORTANT]  
+> - **File Movement:** GPTH moves files from the input to output directory to save space. Files are moved, not copied, which means the input directory structure will be modified as files are relocated.
+> - **Album-Only Photos:** Some photos exist only in albums (not in year folders). GPTH handles these differently depending on the mode chosen.
+> - **Duplicate Handling:** If a photo appears in multiple albums, the behavior varies by mode (shortcuts link to same file, duplicate-copy creates multiple copies, etc.).
+> - ⚠️ **Special Folders:** Special folders (`Archive`, `Trash`, `Locked Folder`...) will be excluded from any album strategy and will be directly moved to output folder within `Special Folders` subfolder.
+> 
 
 ## Command Line Usage
 

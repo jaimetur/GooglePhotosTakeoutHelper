@@ -7,17 +7,26 @@ library;
 /// Application version
 const String version = '5.0.5';
 
-/// Default width for progress bars in console output
-const int defaultBarWidth = 40;
-
-/// Default maximum file size for processing (64MB)
-const int defaultMaxFileSize = 64 * 1024 * 1024;
+/// Special folders
+const List<String> specialFolders = <String>[
+    'locked folder',
+    'archive',
+    'archivo',
+    'trash',
+    'papelera',
+  ];
 
 /// File extensions for additional media formats not covered by MIME types
 class MediaExtensions {
   /// Raw camera formats and special video formats
   static const List<String> additional = <String>['.mp', '.mv', '.dng', '.cr2'];
 }
+
+/// Default width for progress bars in console output
+const int defaultBarWidth = 40;
+
+/// Default maximum file size for processing (64MB)
+const int defaultMaxFileSize = 64 * 1024 * 1024;
 
 /// Processing limits and thresholds
 class ProcessingLimits {

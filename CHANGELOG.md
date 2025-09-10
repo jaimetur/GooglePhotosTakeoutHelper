@@ -1,13 +1,16 @@
 ## 5.0.5
 
 ### ✨ **New Features**
-  - None
+  - Added support for Special Folders management such as `Archive`, `Trash`, `Locked folder`. Now those folders are excluded from all album strategies and are moved directly to the output folder.
 
 ### 🚀 **Improvements**
   - Moved logic of each Step to step's service module. Now each step has a service associated to it which includes all the logic and interation with other services used by this step.
+  - Added percentages to all progress bars.
+  - Added Total time to Telemetry Summary in Step 3.
+  - Fixed _extractBadPathsFromExifError method to detect from exiftool output bad files with relative paths.
 
 ### 🐛 **Bug Fixes**
-  - None
+  - Fixed duplicated files/symlinks in Albums when a file belong to more than 1 album (affected strategies: shortcut, reverse-shortcut & duplicate-copy)
 
 
 ## 5.0.4

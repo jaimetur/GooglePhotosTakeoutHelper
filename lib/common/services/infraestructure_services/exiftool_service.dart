@@ -255,7 +255,7 @@ class ExifToolService with LoggerMixin {
       logWarning('[ExifToolService] Timeout: $e');
       rethrow;
     } catch (e) {
-      logWarning('[ExifToolService] ExifTool command execution failed: $e');
+      // logWarning('[ExifToolService] ExifTool command execution failed: $e');
       rethrow;
     } finally {
       sw.stop();
