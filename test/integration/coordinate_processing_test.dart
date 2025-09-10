@@ -397,7 +397,7 @@ class MockExifToolService extends ExifToolService {
   MockExifToolService() : super('mock_exiftool_path');
 
   @override
-  Future<void> writeExifData(final File file, final Map<String, dynamic> data) async {
+  Future<void> writeExifDataSingle(final File file, final Map<String, dynamic> data) async {
     // Simulate successful write
     // ignore: avoid_print
     print('[MOCK] Writing EXIF data to ${file.path}: $data');

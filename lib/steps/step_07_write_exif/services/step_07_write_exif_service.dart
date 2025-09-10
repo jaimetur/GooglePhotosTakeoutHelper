@@ -126,7 +126,7 @@ class WriteExifProcessingService with LoggerMixin {
           final snap = snapshotMtimes(chunk);
           try {
             await preserveMTime(entry.key, () async {
-              await exifWriter.writeTagsWithExifTool(entry.key, entry.value);
+              await exifWriter.writeTagsWithExifToolSingle(entry.key, entry.value);
             });
           } catch (e) {
             if (!shouldSilenceExiftoolError(e)) {
@@ -154,7 +154,7 @@ class WriteExifProcessingService with LoggerMixin {
         final snap = snapshotMtimes(chunk);
 
         try {
-          await exifWriter.writeTagsWithExifToolUsingBatch(chunk, useArgFileWhenLarge: useArgFile);
+          await exifWriter.writeTagsWithExifToolBatch(chunk, useArgFileWhenLarge: useArgFile);
         } catch (e) {
           await _tryDeleteTmpForChunk(chunk);
 
@@ -194,7 +194,7 @@ class WriteExifProcessingService with LoggerMixin {
               final singleSnap = snapshotMtimes([entry]);
               try {
                 await preserveMTime(entry.key, () async {
-                  await exifWriter.writeTagsWithExifTool(entry.key, entry.value);
+                  await exifWriter.writeTagsWithExifToolSingle(entry.key, entry.value);
                 });
               } catch (e2) {
                 if (!shouldSilenceExiftoolError(e2)) {
@@ -468,7 +468,7 @@ class WriteExifProcessingService with LoggerMixin {
                 try {
                   await preserveMTime(file, () async {
                     WriteExifAuxiliaryService.setPrimaryHint(file, markAsPrimary);
-                    await exifWriter!.writeTagsWithExifTool(file, tagsToWrite);
+                    await exifWriter!.writeTagsWithExifToolSingle(file, tagsToWrite);
                   });
                 } catch (e) {
                   if (!shouldSilenceExiftoolError(e)) {
@@ -1260,7 +1260,7 @@ class WriteExifAuxiliaryService with LoggerMixin {
 
   /// Single-exec write for arbitrary tags (counts success/fail and duration).
   /// Time and routing attribution preserved exactly as before.
-  Future<bool> writeTagsWithExifTool(
+  Future<bool> writeTagsWithExifToolSingle(
     final File file,
     final Map<String, dynamic> tags, {
     final bool countAsCombined = false, // kept for backward compat, but classification below is preferred
@@ -1277,7 +1277,7 @@ class WriteExifAuxiliaryService with LoggerMixin {
     final bool asGps = isGps || cls.isGps;
 
     try {
-      await _exifTool.writeExifData(file, tags);
+      await _exifTool.writeExifDataSingle(file, tags);
 
       final elapsed = sw.elapsed;
       final wasMarkedFallback = _consumeMarkedFallback(
@@ -1384,7 +1384,7 @@ class WriteExifAuxiliaryService with LoggerMixin {
   /// Batch write: list of (file -> tags). Counts one exiftool call.
   /// Time attribution is **proportional** across categories to avoid overcount.
   /// Also splits "direct vs fallback" using the same heuristic per entry.
-  Future<void> writeTagsWithExifToolUsingBatch(
+  Future<void> writeTagsWithExifToolBatch(
     final List<MapEntry<File, Map<String, dynamic>>> batch, {
     required final bool useArgFileWhenLarge,
   }) async {

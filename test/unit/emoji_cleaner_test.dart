@@ -438,7 +438,7 @@ void main() {
 
           final Map<String, String> map = {};
           map['Artist'] = 'TestArtist';
-          await exiftool!.writeExifData(hexImg, map);
+          await exiftool!.writeExifDataSingle(hexImg, map);
 
           // Verify the data was written
           final updatedTags = await exiftool!.readExifData(hexImg);

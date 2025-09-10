@@ -20,7 +20,7 @@ class MockExifToolService extends ExifToolService {
   File? lastWrittenFile;
 
   @override
-  Future<void> writeExifData(
+  Future<void> writeExifDataSingle(
     final File file,
     final Map<String, dynamic> exifData,
   ) async {
@@ -74,7 +74,7 @@ class MockExifToolService extends ExifToolService {
   }
 
   @override
-  Future<String> executeExiftoolCommand(final List<String> args) async {
+  Future<String> executeExifToolCommand(final List<String> args, {final Duration? timeout}) async {
     if (shouldFail) {
       throw Exception('Mock ExifTool command failure');
     }
@@ -97,7 +97,7 @@ void main() {
     final Map<String, dynamic> exifData,
   ) async {
     try {
-      await exifTool.writeExifData(file, exifData);
+      await exifTool.writeExifDataSingle(file, exifData);
 
       final jsonData = await jsonFile.readAsString();
       final Map<String, dynamic> jsonMap = jsonDecode(jsonData);
@@ -133,7 +133,7 @@ void main() {
 
         mockExifTool.shouldFail = false;
 
-        final result = await service.writeTagsWithExifTool(
+        final result = await service.writeTagsWithExifToolSingle(
           file,
           exifData,
           isDate: true,
@@ -150,7 +150,7 @@ void main() {
 
         mockExifTool.shouldFail = true;
 
-        final result = await service.writeTagsWithExifTool(
+        final result = await service.writeTagsWithExifToolSingle(
           file,
           exifData,
           isDate: true,
@@ -165,7 +165,7 @@ void main() {
 
         mockExifTool.shouldFail = false;
 
-        final result = await service.writeTagsWithExifTool(
+        final result = await service.writeTagsWithExifToolSingle(
           file,
           exifData,
           isDate: true,
@@ -371,7 +371,7 @@ void main() {
 
         mockExifTool.shouldFail = true;
 
-        final ok = await service.writeTagsWithExifTool(
+        final ok = await service.writeTagsWithExifToolSingle(
           file,
           exifData,
           isDate: true,

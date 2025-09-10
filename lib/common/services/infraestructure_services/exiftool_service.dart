@@ -193,18 +193,15 @@ class ExifToolService with LoggerMixin {
     logPrint('[ExifToolService] ExifTool error: $line');
   }
 
-  /// One-shot execution. Batch minimizes launches, but we still use one-shot here.
-  Future<String> executeExiftoolCommand(final List<String> args) async => _executeExifoolCommand(args);
+  // /// One-shot execution. Batch minimizes launches, but we still use one-shot here.
+  // Future<String> old_executeExifToolCommand(final List<String> args) async => executeExifToolCommand(args);  // Keep in the API for compatibility with tests
 
-  // NEW: one-shot runner with timeout support and proper kill on expiration.
-  Future<String> _executeExifoolCommand(
-    final List<String> args, {
-    final Duration? timeout,
-  }) async {
+  /// NEW: ExifTool runner with timeout support and proper kill on expiration.
+  Future<String> executeExifToolCommand(final List<String> args, {final Duration? timeout}) async {
     final sw = Stopwatch()..start();
     Process? proc;
     try {
-      logDebug('[ExifToolService] Running: $exiftoolPath ${args.join(' ')}');
+      logDebug('[ExifToolService] Running command: $exiftoolPath ${args.join(' ')}');
 
       // NOTE #1: Don't' use detachedWithStdio. We need live pipes to read stdout/stderr.
       proc = await Process.start(
@@ -233,7 +230,7 @@ class ExifToolService with LoggerMixin {
               });
             }
           } catch (_) {}
-          throw TimeoutException('ExifTool execution timed out after ${timeout!.inSeconds}s');
+          throw TimeoutException('ExifTool command execution timed out after ${timeout!.inSeconds}s');
         },
       );
 
@@ -242,31 +239,31 @@ class ExifToolService with LoggerMixin {
 
       if (exitCode != 0) {
         logWarning('[ExifToolService] ExifTool command failed with exit code $exitCode. | Command: $exiftoolPath ${args.join(' ')}. | Stderr: $err');
-        throw Exception('ExifTool command failed: $err');
+        throw Exception('ExifTool failed: $err');
       }
 
       if (err.trim().isNotEmpty) {
         // ExifTool often writes warnings to stderr even on success; keep as warning.
-        logWarning('[ExifToolService] exiftool stderr (non-fatal): ${err.trim()}');
+        logDebug('[ExifToolService] ExifTool command stderr (non-fatal): ${err.trim()}');
       }
 
       return out.toString();
     } on TimeoutException catch (e) {
-      logWarning('[ExifToolService] Timeout: $e');
+      logWarning('[ExifToolService] ExifTool command Timeout: $e');
       rethrow;
     } catch (e) {
       // logWarning('[ExifToolService] ExifTool command execution failed: $e');
       rethrow;
     } finally {
       sw.stop();
-      logDebug('[ExifToolService] Elapsed: ${(sw.elapsedMilliseconds / 1000.0).toStringAsFixed(3)}s');
+      logDebug('[ExifToolService] ExifTool command Elapsed: ${(sw.elapsedMilliseconds / 1000.0).toStringAsFixed(3)}s');
     }
   }
 
   /// Read EXIF (fast path).
   Future<Map<String, dynamic>> readExifData(final File file) async {
     final args = ['-fast', '-j', '-n', file.path];
-    final output = await _executeExifoolCommand(args, timeout: _readTimeout);
+    final output = await executeExifToolCommand(args, timeout: _readTimeout);
     if (output.trim().isEmpty) return {};
     try {
       final List<dynamic> jsonList = jsonDecode(output);
@@ -276,7 +273,7 @@ class ExifToolService with LoggerMixin {
       }
       return {};
     } catch (e) {
-      logWarning('[ExifToolService] Failed to parse ExifTool JSON output: $e');
+      logWarning('[ExifToolService] Failed to parse ExifTool JSON output during readExifData: $e');
       logWarning('[ExifToolService] Raw output: "$output"');
       return {};
     }
@@ -291,7 +288,7 @@ class ExifToolService with LoggerMixin {
   //  - -api QuickTimeUTC=1 normalizes QuickTime time handling to UTC (no measurable slowdown).
   //  - NEW: -m to allow minor warnings (avoid aborting on recoverable EXIF issues).
   //  - NEW: -F to fix broken IFD/offsets (A: often converts “Truncated InteropIFD” into success).
-  List<String> _commonWriteArgs() => <String>[
+  List<String> commonWriteArgs() => <String>[
         '-P',
         '-charset',
         'filename=UTF8',
@@ -303,24 +300,24 @@ class ExifToolService with LoggerMixin {
       ];
 
   /// Write EXIF data to a single file (classic argv).
-  Future<void> writeExifData(
+  Future<void> writeExifDataSingle(
     final File file,
     final Map<String, dynamic> exifData,
   ) async {
     if (exifData.isEmpty) return;
 
     final args = <String>[];
-    args.addAll(_commonWriteArgs());
+    args.addAll(commonWriteArgs());
     for (final entry in exifData.entries) {
       args.add('-${entry.key}=${entry.value}');
     }
     args.add(file.path);
 
-    final output = await _executeExifoolCommand(args, timeout: _singleWriteTimeout);
+    final output = await executeExifToolCommand(args, timeout: _singleWriteTimeout);
     if (output.contains('error') ||
         output.contains('Error') ||
         output.contains("weren't updated due to errors")) {
-      throw Exception('[ExifToolService] ExifTool failed to write metadata to ${file.path}: $output');
+      throw Exception('[ExifToolService] ExifTool single-mode failed to write metadata to ${file.path}: $output');
     }
   }
 
@@ -330,7 +327,7 @@ class ExifToolService with LoggerMixin {
   ) async {
     if (batch.isEmpty) return;
     final args = <String>[];
-    args.addAll(_commonWriteArgs());
+    args.addAll(commonWriteArgs());
 
     for (final fileAndTags in batch) {
       final file = fileAndTags.key;
@@ -343,11 +340,11 @@ class ExifToolService with LoggerMixin {
       args.add(file.path);
     }
 
-    final output = await _executeExifoolCommand(args, timeout: _batchWriteTimeout);
+    final output = await executeExifToolCommand(args, timeout: _batchWriteTimeout);
     if (output.contains('error') ||
         output.contains('Error') ||
         output.contains("weren't updated due to errors")) {
-      throw Exception('[ExifToolService] ExifTool failed in batch write: $output');
+      throw Exception('[ExifToolService] ExifTool batch-mode failed to write metadata to some file in the batch: $output');
     }
   }
 
@@ -361,7 +358,7 @@ class ExifToolService with LoggerMixin {
     final StringBuffer buf = StringBuffer();
 
     // Common args (applies to the whole single invocation)
-    for (final a in _commonWriteArgs()) {
+    for (final a in commonWriteArgs()) {
       if (a.contains(' ')) {
         final parts = a.split(' ');
         for (final p in parts) {
@@ -390,11 +387,11 @@ class ExifToolService with LoggerMixin {
     await tmp.writeAsString(buf.toString());
 
     try {
-      final output = await _executeExifoolCommand(['-@', tmp.path], timeout: _batchWriteTimeout);
+      final output = await executeExifToolCommand(['-@', tmp.path], timeout: _batchWriteTimeout);
       if (output.contains('error') ||
           output.contains('Error') ||
           output.contains("weren't updated due to errors")) {
-        throw Exception('[ExifToolService] ExifTool failed in batch (argfile) write: $output');
+        throw Exception('[ExifToolService] ExifTool batch-mode failed to write metadata (using argfile): $output');
       }
     } finally {
       try {

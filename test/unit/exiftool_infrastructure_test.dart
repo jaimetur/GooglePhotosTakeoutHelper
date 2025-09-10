@@ -81,7 +81,7 @@ void main() {
 
         // Should handle writing basic metadata without throwing
         await expectLater(
-          exiftool!.writeExifData(testImage, testData),
+          exiftool!.writeExifDataSingle(testImage, testData),
           completes,
         );
 
@@ -93,7 +93,7 @@ void main() {
         if (exiftool == null) return; // Skip if exiftool not available
 
         // Test basic version command
-        final output = await exiftool!.executeExiftoolCommand(['-ver']);
+        final output = await exiftool!.executeExifToolCommand(['-ver']);
 
         expect(output, isNotEmpty);
         expect(output.trim(), matches(r'^\d+\.\d+'));
