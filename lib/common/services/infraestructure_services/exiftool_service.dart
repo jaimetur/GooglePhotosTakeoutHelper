@@ -155,12 +155,12 @@ class ExifToolService with LoggerMixin {
       ]);
 
       _outputSubscription = _persistentProcess!.stdout
-          .transform(utf8.decoder)
+          .transform(const Utf8Decoder(allowMalformed: true))
           .transform(const LineSplitter())
           .listen(_handleOutput);
 
       _errorSubscription = _persistentProcess!.stderr
-          .transform(utf8.decoder)
+          .transform(const Utf8Decoder(allowMalformed: true))
           .transform(const LineSplitter())
           .listen(_handleError);
     } catch (e) {
@@ -210,8 +210,10 @@ class ExifToolService with LoggerMixin {
       );
 
       // NOTE #2: Drain stdout/stderr from the beginning to no block by back-pressure.
-      final stdoutFuture = proc.stdout.transform(utf8.decoder).join();
-      final stderrFuture = proc.stderr.transform(utf8.decoder).join();
+      // final stdoutFuture = proc.stdout.transform(utf8.decoder).join();
+      final stdoutFuture = proc.stdout.transform(const Utf8Decoder(allowMalformed: true)).join();
+      // final stderrFuture = proc.stderr.transform(utf8.decoder).join();
+      final stderrFuture = proc.stderr.transform(const Utf8Decoder(allowMalformed: true)).join();
 
       // Wait for exit (with optional timeout)
       final exitCode = await proc.exitCode.timeout(
@@ -262,8 +264,19 @@ class ExifToolService with LoggerMixin {
 
   /// Read EXIF (fast path).
   Future<Map<String, dynamic>> readExifData(final File file) async {
-    final args = ['-fast', '-j', '-n', file.path];
-    final output = await executeExifToolCommand(args, timeout: _readTimeout);
+  final args = [
+    '-q', '-q',                // ← silence banners/noise on stdout
+    '-fast',
+    '-j',
+    '-n',
+    '-charset', 'filename=UTF8',
+    '-charset', 'exiftool=UTF8',
+    '-charset', 'iptc=UTF8',
+    '-charset', 'id3=UTF8',
+    '-charset', 'quicktime=UTF8',
+    file.path
+  ];
+  final output = await executeExifToolCommand(args, timeout: _readTimeout);
     if (output.trim().isEmpty) return {};
     try {
       final List<dynamic> jsonList = jsonDecode(output);
