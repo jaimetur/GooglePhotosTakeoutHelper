@@ -445,6 +445,7 @@ Future<ProcessingConfig> _buildConfigFromArgs(final ArgResults res) async {
 
   // IMPORTANT (Option A): set the global flag explicitly from CLI args
   ServiceContainer.instance.globalConfig.saveLog = res['save-log'];
+  if (!res['save-log']) configBuilder.saveLog = false;
 
   if (res['verbose']) configBuilder.verboseOutput = true;
   if (res['skip-extras']) configBuilder.skipExtras = true;

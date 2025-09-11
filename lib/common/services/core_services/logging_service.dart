@@ -18,6 +18,7 @@ class LoggingService {
         isVerbose: config.verbose,
         enableColors: !Platform.isWindows || Platform.environment['TERM'] != null,
         preferredLogDir: config.outputPath,
+        saveLog: config.saveLog
       );
 
   /// Test override for quit/exit to prevent actual process termination in tests

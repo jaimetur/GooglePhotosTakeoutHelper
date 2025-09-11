@@ -43,7 +43,7 @@ class ProcessingConfig {
     this.transformPixelMp = false,
     this.updateCreationTime = false,
     this.limitFileSize = false,
-    this.saveLog = false,
+    this.saveLog = true,
     this.verbose = false,
     this.isInteractiveMode = false,
     this.dividePartnerShared = false,
@@ -203,7 +203,7 @@ class ProcessingConfigBuilder {
   bool _transformPixelMp = false;
   bool _updateCreationTime = false;
   bool _limitFileSize = false;
-  // bool _saveLog = false;
+  bool _saveLog = true;
   bool _verbose = false;
   bool _isInteractiveMode = false;
   bool _dividePartnerShared = false;
@@ -274,10 +274,10 @@ class ProcessingConfigBuilder {
     _limitFileSize = enable;
   }
 
-  // /// Enable save-log output
-  // set saveLog(final bool enable) {
-  //   _saveLog = enable;
-  // }
+  /// Enable save-log output
+  set saveLog(final bool enable) {
+    _saveLog = enable;
+  }
 
   /// Enable verbose output
   set verboseOutput(final bool enable) {
@@ -328,7 +328,7 @@ class ProcessingConfigBuilder {
       transformPixelMp: _transformPixelMp,
       updateCreationTime: _updateCreationTime,
       limitFileSize: _limitFileSize,
-      // saveLog : _saveLog,
+      saveLog : _saveLog,
       verbose: _verbose,
       isInteractiveMode: _isInteractiveMode,
       dividePartnerShared: _dividePartnerShared,
