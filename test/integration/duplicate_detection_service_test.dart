@@ -12,13 +12,13 @@ import '../setup/test_setup.dart';
 
 void main() {
   group('DuplicateDetectionService', () {
-    late DuplicateDetectionService service;
+    late MergeMediaEntitiesService service;
     late TestFixture fixture;
     late MockMediaHashService mockHashService;
 
     setUp(() async {
       mockHashService = MockMediaHashService();
-      service = DuplicateDetectionService(hashService: mockHashService);
+      service = MergeMediaEntitiesService(hashService: mockHashService);
       fixture = TestFixture();
       await fixture.setUp();
     });

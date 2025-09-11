@@ -13,7 +13,7 @@ class ServiceContainer {
   FormattingService? _utilityService;
   ConsolidatedDiskSpaceService? _diskSpaceService;
   ConsolidatedInteractiveService? _interactiveService;
-  DuplicateDetectionService? _duplicateDetectionService;
+  MergeMediaEntitiesService? _duplicateDetectionService;
   AlbumRelationshipService? _albumRelationshipService;
 
   /// ExifTool service (may be null if not found)
@@ -76,7 +76,7 @@ class ServiceContainer {
     return _interactiveService!;
   }
 
-  DuplicateDetectionService get duplicateDetectionService {
+  MergeMediaEntitiesService get duplicateDetectionService {
     if (_duplicateDetectionService == null) {
       throw StateError(
         'ServiceContainer not initialized. Call initialize() first.',
@@ -116,7 +116,7 @@ class ServiceContainer {
 
     // Media services
     final mediaHashService = MediaHashService()..logger = _loggingService!;
-    _duplicateDetectionService = DuplicateDetectionService(
+    _duplicateDetectionService = MergeMediaEntitiesService(
       hashService: mediaHashService,
     )..logger = _loggingService!;
     _albumRelationshipService = AlbumRelationshipService()
