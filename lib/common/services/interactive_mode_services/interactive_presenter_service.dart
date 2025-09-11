@@ -514,13 +514,13 @@ class InteractivePresenterService with LoggerMixin {
 
   /// Shows unzip progress
   Future<void> showUnzipProgress(final String fileName) async {
-    logPrint('Unpacking: $fileName');
+    logPrint('Extracting: $fileName');
     if (enableSleep) await _sleep(1);
   }
 
   /// Shows unzip success
   Future<void> showUnzipSuccess(final String fileName) async {
-    logPrint('Successfully unpacked: $fileName');
+    logPrint('Successfully extracted: $fileName');
     if (enableSleep) await _sleep(1);
   }
 

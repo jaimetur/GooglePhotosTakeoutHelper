@@ -167,7 +167,7 @@ class ZipExtractionService with LoggerMixin{
     final Directory destinationDir,
   ) async {
     final String zipName = p.basename(zip.path);
-    logPrint('Starting extraction strategy for $zipName');
+    logDebug('Starting extraction strategy for $zipName');
 
     if (!Platform.isWindows) {
       // macOS / Linux (Try with Unzip first)
@@ -175,7 +175,7 @@ class ZipExtractionService with LoggerMixin{
       try {
         final ok = await _timed('unzip', () => _tryExtractWithUnzip(zip, destinationDir));
         if (ok) {
-          logPrint('Extraction succeeded for $zipName using Unzip extractor');
+          logDebug('Extraction succeeded for $zipName using Unzip extractor');
           return true;
         } else {
           logWarning('Unzip failed for $zipName, trying 7-Zip extractor...');
@@ -190,7 +190,7 @@ class ZipExtractionService with LoggerMixin{
     try {
       final ok = await _timed('7-Zip', () => _tryExtractWith7zip(zip, destinationDir));
       if (ok) {
-        logPrint('Extraction succeeded for $zipName using 7-Zip extractor');
+        logDebug('Extraction succeeded for $zipName using 7-Zip extractor');
         return true;
       } else {
         logWarning('7-Zip failed or not found for $zipName, trying Native extractor...');
@@ -206,7 +206,7 @@ class ZipExtractionService with LoggerMixin{
         return true;
       });
       if (ok) {
-        logPrint('Extraction succeeded for $zipName using Native extractor');
+        logDebug('Extraction succeeded for $zipName using Native extractor');
         return true;
       } else {
         logWarning('Native extractor failed for $zipName, extraction unsuccessful.');
