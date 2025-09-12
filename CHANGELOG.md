@@ -14,6 +14,7 @@
 ### 🐛 **Bug Fixes**
   - Fixed duplicated files/symlinks in Albums when a file belong to more than 1 album (affected strategies: shortcut, reverse-shortcut & duplicate-copy).
   - Fixed error decoding Exiftool output with UTF-8/latin chars.
+  - Fix exiftool reader fails on path with mojibake.
 
 
 ## 5.0.4
