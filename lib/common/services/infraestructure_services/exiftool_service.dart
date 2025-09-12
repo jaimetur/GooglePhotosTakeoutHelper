@@ -264,33 +264,47 @@ class ExifToolService with LoggerMixin {
 
   /// Read EXIF (fast path).
   Future<Map<String, dynamic>> readExifData(final File file) async {
-  final args = [
-    '-q', '-q',                // ← silence banners/noise on stdout
-    '-fast',
-    '-j',
-    '-n',
-    '-charset', 'filename=UTF8',
-    '-charset', 'exiftool=UTF8',
-    '-charset', 'iptc=UTF8',
-    '-charset', 'id3=UTF8',
-    '-charset', 'quicktime=UTF8',
-    file.path
-  ];
-  final output = await executeExifToolCommand(args, timeout: _readTimeout);
-    if (output.trim().isEmpty) return {};
+    // Build base exiftool args WITHOUT the file path (we will pass it via UTF-8 argfile to avoid Windows mojibake issues).
+    final List<String> baseArgs = [
+      '-q', '-q',
+      '-fast',
+      '-j',
+      '-n',
+      '-charset', 'filename=UTF8',
+      '-charset', 'exiftool=UTF8',
+      '-charset', 'iptc=UTF8',
+      '-charset', 'id3=UTF8',
+      '-charset', 'quicktime=UTF8',
+    ];
+
+    String? argfilePath;
     try {
-      final List<dynamic> jsonList = jsonDecode(output);
-      if (jsonList.isNotEmpty && jsonList[0] is Map<String, dynamic>) {
-        final data = Map<String, dynamic>.from(jsonList[0]);
-        return data;
+      // Create a UTF-8 (with BOM) argfile so exiftool receives the path correctly on Windows with Latin characters.
+      argfilePath = await _createUtf8Argfile(baseArgs, [file.path]);
+
+      // Call exiftool using the argfile. Keep your timeout behavior.
+      final output = await executeExifToolCommand(['-@', argfilePath], timeout: _readTimeout);
+
+      if (output.trim().isEmpty) return {};
+      try {
+        final List<dynamic> jsonList = jsonDecode(output);
+        if (jsonList.isNotEmpty && jsonList[0] is Map<String, dynamic>) {
+          final Map<String, dynamic> data = Map<String, dynamic>.from(jsonList[0] as Map);
+          return data;
+        }
+        return {};
+      } catch (e) {
+        logWarning('[Step 4/8] JSON decode failed in readExifData: $e', forcePrint: true);
+        return {};
       }
-      return {};
-    } catch (e) {
-      logWarning('[ExifToolService] Failed to parse ExifTool JSON output during readExifData: $e');
-      logWarning('[ExifToolService] Raw output: "$output"');
-      return {};
+    } finally {
+      // Best-effort cleanup of the temporary argfile
+      if (argfilePath != null) {
+        try { File(argfilePath).deleteSync(); } catch (_) {}
+      }
     }
   }
+
 
   // ───────────────────────────────────────────────────────────────────────────
   // Common write flags for stability/consistency
@@ -453,4 +467,36 @@ class ExifToolService with LoggerMixin {
       }
     }
   }
+
+  /// Create a temporary exiftool argfile encoded as UTF-8 WITH BOM to ensure non-ASCII paths are read correctly on Windows.
+  /// - Each argument is written in its own line.
+  /// - File paths are quoted to preserve spaces.
+  /// Returns the path to the argfile (caller must delete it).
+  Future<String> _createUtf8Argfile(final List<String> baseArgs, final List<String> filePaths) async {
+    final Directory tmpDir = await Directory.systemTemp.createTemp('exif_args_');
+    final String argfilePath = path.join(tmpDir.path, 'args.txt');
+    final IOSink sink = File(argfilePath).openWrite();
+
+    try {
+      // Write UTF-8 BOM explicitly to make exiftool parse the file as UTF-8 on Windows.
+      // (Without BOM, exiftool may assume the local code page and break ñ/á/…)
+      sink.add([0xEF, 0xBB, 0xBF]);
+
+      // Write base args (one per line)
+      baseArgs.forEach(sink.writeln);
+
+      // Write file paths (quoted). exiftool treats each line as a token.
+      for (final p in filePaths) {
+        // Normalize to absolute, but do NOT change separators; exiftool accepts both.
+        final String abs = path.normalize(File(p).absolute.path);
+        sink.writeln('"$abs"');
+      }
+    } finally {
+      await sink.flush();
+      await sink.close();
+    }
+
+    return argfilePath;
+  }
+
 }
