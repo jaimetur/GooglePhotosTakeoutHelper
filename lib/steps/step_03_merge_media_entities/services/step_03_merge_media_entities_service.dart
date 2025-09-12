@@ -266,8 +266,8 @@ class MergeMediaEntitiesService with LoggerMixin {
     // Phase 1: identification & grouping (select ONE strategy)
     // NOTE: all grouping functions return a Map<String, List<MediaEntity>> with the same API.
     // To compare strategies, replace the next line with:
-    //   final Map<String, List<MediaEntity>> groups = await groupIdenticalFast(mediaCollection.entities.toList(), telemetryOut: telem);
-    //   final Map<String, List<MediaEntity>> groups = await groupIdentical(mediaCollection.entities.toList(), telemetryOut: telem);
+    //   final Map<String, List<MediaEntity>> groups = await groupIdenticalFast(mediaCollection.entities.toList(), telemetryObject: telem);
+    //   final Map<String, List<MediaEntity>> groups = await groupIdentical(mediaCollection.entities.toList(), telemetryObject: telem);
     final Map<String, List<MediaEntity>> groups = await groupIdenticalNew(mediaCollection.entities.toList(), telemetryObject: telem);
 
     // ────────────────────────────────────────────────────────────────────────
