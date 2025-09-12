@@ -146,22 +146,18 @@ class MergeMediaEntitiesService with LoggerMixin {
       );
     }
 
-    // Progress summary (NOT telemetry)
-    logPrint('[Step 3/8] Primary files in collection: $totalPrimaryFiles ($primaryCanonical canonical | $primaryFromAlbums from albums)');
-    logPrint('[Step 3/8] Secondary files in collection: $totalSecondaryFiles ($secondaryCanonical canonical | $secondaryFromAlbums from albums)');
-    logPrint('[Step 3/8] Canonical files (within \'Photos from...\' folder): $canonicalAll');
-    logPrint('[Step 3/8] Non-Canonical files (Albums)       : $nonCanonicalAll');
-    logPrint('[Step 3/8] Duplicate files removed/moved     : ${removal.duplicateFilesRemoved}');
-    logPrint('[Step 3/8] Merge Media Entities finished, total entities merged: $mergedEntities');
-
     // Final “summary” block (NOT telemetry)
     logPrint('[Step 3/8] === Merge Media Entity Summary ===');
-    logPrint('[Step 3/8]     Initial Entities: ${mediaCollection.length + mergedEntities}');
-    logPrint('[Step 3/8]     Merged Entities : $mergedEntities');
-    logPrint('[Step 3/8]     Primary files   : $totalPrimaryFiles');
-    logPrint('[Step 3/8]     Secondary files : $totalSecondaryFiles');
-    logPrint('[Step 3/8]     Duplicate files removed/moved: ${removal.duplicateFilesRemoved}');
-    logPrint('[Step 3/8]     Media Entities remain in collection: ${mediaCollection.length}');
+    logPrint('[Step 3/8]     Initial Entities in collection               : ${mediaCollection.length + mergedEntities}');
+    logPrint('[Step 3/8]         Duplicate files removed/moved            : ${removal.duplicateFilesRemoved}');
+    logPrint('[Step 3/8]         Primary + Secondary files                : ${totalPrimaryFiles + totalSecondaryFiles}');
+    logPrint('[Step 3/8]             Primary files in collection          : $totalPrimaryFiles ($primaryCanonical canonical | $primaryFromAlbums from albums)');
+    logPrint('[Step 3/8]             Secondary files in collection        : $totalSecondaryFiles ($secondaryCanonical canonical | $secondaryFromAlbums from albums)');
+    logPrint('[Step 3/8]         Canonical + Non-Canonical files          : ${canonicalAll + nonCanonicalAll}');
+    logPrint('[Step 3/8]             Canonical files (within year folder) : $canonicalAll ($primaryCanonical primary | $secondaryCanonical secondary)');
+    logPrint('[Step 3/8]             Non-Canonical files (Albums)         : $nonCanonicalAll ($primaryFromAlbums primary | $secondaryFromAlbums secondary)');
+    logPrint('[Step 3/8]     Total Entities merged                        : $mergedEntities');
+    logPrint('[Step 3/8]     Media Entities remain in collection          : ${mediaCollection.length}');
 
     return MergeMediaEntitiesSummary(
       message: 'Media Entities remain in collection: ${mediaCollection.length}',
