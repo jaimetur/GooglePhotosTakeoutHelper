@@ -271,7 +271,7 @@ void main() {
         ]);
 
         final duplicateService = ServiceContainer.instance.duplicateDetectionService;
-        final grouped = await duplicateService.groupIdentical(collection.entities.toList());
+        final grouped = await duplicateService.groupIdenticalLegacy(collection.entities.toList());
 
         expect(grouped.length, 2);
 

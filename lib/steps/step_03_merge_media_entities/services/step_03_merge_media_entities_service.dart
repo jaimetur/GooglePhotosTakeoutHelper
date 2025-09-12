@@ -29,14 +29,10 @@ class MergeMediaEntitiesService with LoggerMixin {
   static int get baseConcurrency => ConcurrencyManager().cpuCoreCount;
 
   /// Adaptive concurrency based on recent performance
-  int get adaptiveConcurrency => ConcurrencyManager().getAdaptiveConcurrency(
-        _recentPerformanceMetrics,
-        baseLevel: ConcurrencyManager().conservative,
-      );
+  int get adaptiveConcurrency => ConcurrencyManager().getAdaptiveConcurrency(_recentPerformanceMetrics, baseLevel: ConcurrencyManager().conservative);
 
   /// Maximum number of concurrent operations to prevent overwhelming the system
-  static int get maxConcurrency =>
-      ConcurrencyManager().concurrencyFor(ConcurrencyOperation.duplicate);
+  static int get maxConcurrency => ConcurrencyManager().concurrencyFor(ConcurrencyOperation.duplicate);
 
   /// Records performance metric for adaptive optimization
   void _recordPerformance(final int filesProcessed, final Duration elapsed) {
@@ -52,204 +48,18 @@ class MergeMediaEntitiesService with LoggerMixin {
   }
 
 
-  /// Removes duplicate media from list of media entities with enhanced logging
-  ///
-  /// This method is designed for early-stage processing before album merging.
-  /// It preserves duplicated files that have different album associations,
-  /// ensuring no album relationships are lost during deduplication.
-  ///
-  /// [mediaList] List of media entities to deduplicate
-  /// [progressCallback] Optional callback for progress updates (processed, total)
-  /// Returns list with duplicates removed, keeping the highest quality version
-  Future<List<MediaEntity>> removeDuplicates(
-    final List<MediaEntity> mediaList, {
-    final void Function(int processed, int total)? progressCallback,
-  }) async {
-    if (mediaList.length <= 1) return mediaList;
-
-    logInfo('[Step 3/8] Starting duplicate removal for ${mediaList.length} media entities...');
-
-    // final grouped = await groupIdentical(mediaList);
-    final grouped = await groupIdentical(mediaList);
-    final result = <MediaEntity>[];
-    int processed = 0;
-    int duplicatesRemoved = 0;
-
-    for (final group in grouped.values) {
-      if (group.length == 1) {
-        // No duplicates, keep the single file
-        result.add(group.first);
-      } else {
-        // Multiple files with same content, keep the best one
-        final best = _selectBestMedia(group);
-        MediaEntity merged = best;
-        for (final m in group) {
-          if (!identical(m, best)) merged = merged.mergeWith(m);
-        }
-        result.add(merged);
-
-        // Log which duplicates are being removed
-        final duplicatesToRemove = group.where((final media) => media != best).toList();
-        duplicatesRemoved += duplicatesToRemove.length;
-
-        if (duplicatesToRemove.isNotEmpty) {
-          final keptFile = best.primaryFile.sourcePath;
-          logDebug('[Step 3/8] Found ${group.length} identical files, keeping: $keptFile');
-          for (final duplicate in duplicatesToRemove) {
-            logDebug('[Step 3/8]   Removing duplicate: ${duplicate.primaryFile.sourcePath}');
-          }
-        }
-      }
-
-      processed++;
-      progressCallback?.call(processed, grouped.length);
-    }
-
-    logInfo('[Step 3/8] Duplicate removal completed: removed $duplicatesRemoved files, kept ${result.length}');
-
-    // Log cache performance
-    final cacheStats = _hashService.getCacheStats();
-    logDebug('[Step 3/8] Final cache statistics: $cacheStats');
-
-    return result;
-  }
-
-  /// Selects the best media entity from a group of duplicates
-  ///
-  /// Priority order:
-  /// 1. Media with most accurate date information
-  /// 2. Media with more album associations (metadata-only, as a proxy for richer context)
-  /// 3. Media with shorter file path (likely original location)
-  MediaEntity _selectBestMedia(final List<MediaEntity> duplicates) {
-    if (duplicates.length == 1) {
-      return duplicates.first;
-    }
-    // Sort by quality criteria (adapted to the new model)
-    final sorted = duplicates.toList()
-      ..sort((final a, final b) {
-        // 1. Prefer media with more accurate date
-        final aHasDate = a.dateTaken != null && a.dateAccuracy != null;
-        final bHasDate = b.dateTaken != null && b.dateAccuracy != null;
-
-        if (aHasDate && bHasDate) {
-          final dateComparison = a.dateTakenAccuracy!.compareTo(b.dateTakenAccuracy!);
-          if (dateComparison != 0) return dateComparison;
-        } else if (aHasDate && !bHasDate) {
-          return -1; // a is better
-        } else if (!aHasDate && bHasDate) {
-          return 1; // b is better
-        }
-
-        // 2. Prefer media with more album associations (metadata)
-        final albumComparison = b.albumsMap.length.compareTo(a.albumsMap.length);
-        if (albumComparison != 0) return albumComparison;
-
-        // 3. Prefer media with shorter path (likely more original)
-        final pathA = a.primaryFile.sourcePath;
-        final pathB = b.primaryFile.sourcePath;
-        return pathA.length.compareTo(pathB.length);
-      });
-
-    return sorted.first;
-  }
-
-  /// Finds exact duplicates based on file content
-  ///
-  /// Returns a list of duplicate groups, where each group contains
-  /// media entities with identical file content.
-  Future<List<List<MediaEntity>>> findDuplicateGroups(
-    final List<MediaEntity> mediaList,
-  ) async {
-    final grouped = await groupIdentical(mediaList);
-    return grouped.values.where((final group) => group.length > 1).toList();
-  }
-
-  /// Checks if two media entities are duplicates based on content
-  Future<bool> areDuplicates(
-    final MediaEntity media1,
-    final MediaEntity media2,
-  ) async {
-    // Quick size check first
-    final size1 = await _hashService.calculateFileSize(
-      File(media1.primaryFile.sourcePath),
-    );
-    final size2 = await _hashService.calculateFileSize(
-      File(media2.primaryFile.sourcePath),
-    );
-
-    if (size1 != size2) return false;
-
-    // If sizes match, compare hashes
-    final hash1 = await _hashService.calculateFileHash(
-      File(media1.primaryFile.sourcePath),
-    );
-    final hash2 = await _hashService.calculateFileHash(
-      File(media2.primaryFile.sourcePath),
-    );
-
-    return hash1 == hash2;
-  }
-
-  /// Statistics about duplicate detection results
-  DuplicateStats calculateStats(
-    final Map<String, List<MediaEntity>> groupedResults,
-  ) {
-    int totalFiles = 0;
-    int uniqueFiles = 0;
-    int duplicateGroups = 0;
-    int duplicateFiles = 0;
-    int spaceWastedBytes = 0;
-
-    for (final group in groupedResults.values) {
-      totalFiles += group.length;
-
-      if (group.length == 1) {
-        uniqueFiles++;
-      } else {
-        duplicateGroups++;
-        duplicateFiles += group.length;
-
-        // Calculate wasted space (all but one file in each group)
-        for (int i = 1; i < group.length; i++) {
-          // Note: This is an approximation - we'd need to actually calculate sizes
-          // For now, we'll use the file size from the first file as estimate
-          try {
-            final size = File(group.first.primaryFile.sourcePath).lengthSync();
-            spaceWastedBytes += size;
-          } catch (e) {
-            // Ignore files that can't be read
-          }
-        }
-      }
-    }
-
-    return DuplicateStats(
-      totalFiles: totalFiles,
-      uniqueFiles: uniqueFiles,
-      duplicateGroups: duplicateGroups,
-      duplicateFiles: duplicateFiles,
-      spaceWastedBytes: spaceWastedBytes,
-    );
-  }
-
-
-
-  /// Optional convenience alias if you prefer this name in callers.
-  Future<String> computeSha256(final MediaEntity media) =>
-      _hashService.calculateFileHash(File(media.primaryFile.sourcePath));
-
   // ─────────────────────────────── NEW: full Step-3 logic moved from the wrapper's execute ───────────────────────────────
   /// Full Step 3 business logic moved from the wrapper:
   /// Orchestrator: keeps the public API stable and do the below actions.
   /// - Builds size/extension/quick buckets
-  /// - Groups by content using groupIdenticalNew (you can swap to groupIdenticalFast or groupIdentical)
+  /// - Groups by content using groupIdenticalFast2/groupIdenticalFast/groupIdenticalLegacy (you can swap to groupIdenticalFast or groupIdenticalLegacy)
   /// - Verifies selected groups based on environment flag
   /// - Merges MediaEntity instances, removes merged-away entities from collection
   /// - Removes or quarantines duplicate files on disk based on configuration
   /// - Emits telemetry and detailed logs (printed here in the orchestrator)
   ///
   /// Returns a summary with all counters and timings expected by the wrapper.
-  Future<MergeMediaEntitiesSummary> mergeMediaEntities(final ProcessingContext context) async {
+  Future<MergeMediaEntitiesSummary> executeMergeMediaEntitiesLogic(final ProcessingContext context) async {
     final mediaCollection = context.mediaCollection;
 
     // Overall stopwatch for the whole merge step
@@ -504,7 +314,7 @@ class MergeMediaEntitiesService with LoggerMixin {
             try {
               groups = await _fullHashGroup(q);
             } catch (_) {
-              groups = await groupIdentical(q.toList(), telemetryObject: telem); // safe fallback
+              groups = await groupIdenticalLegacy(q.toList(), telemetryObject: telem); // safe fallback
             }
             hashSw.stop();
             return _HashBatchResult(groups, hashSw.elapsedMilliseconds);
@@ -685,7 +495,7 @@ class MergeMediaEntitiesService with LoggerMixin {
   /// - Value: List of MediaEntity objects sharing that size/hash
   ///
   /// Single-item groups indicate unique files, multi-item groups are duplicates
-  Future<Map<String, List<MediaEntity>>> groupIdentical(final List<MediaEntity> mediaList, {final TelemetryLike? telemetryObject}) async {
+  Future<Map<String, List<MediaEntity>>> groupIdenticalLegacy(final List<MediaEntity> mediaList, {final TelemetryLike? telemetryObject}) async {
     final _Telemetry telem = telemetryObject ?? _Telemetry();
     telem.filesTotal = mediaList.length;
 
@@ -1023,7 +833,7 @@ class MergeMediaEntitiesService with LoggerMixin {
 
 
 
-  // —————————————————————————————————————— NEW DTOs / helpers for this refactor ——————————————————————————————————————
+  // —————————————————————————————————————— NEW DTOs / helpers for this class ——————————————————————————————————————
   /// Full telemetry printer restored to the original complete output (always prints all fields).
   void _printTelemetryFull(
     final _Telemetry t, {
@@ -1313,6 +1123,184 @@ class MergeMediaEntitiesService with LoggerMixin {
     final s = v.toUnsigned(64).toRadixString(16);
     return s.padLeft(16, '0');
   }
+
+  // —————————————————————————————————————— Following methods kept for legacy API compatibility for Tests ——————————————————————————————————————
+  /// Removes duplicate media from list of media entities with enhanced logging
+  ///
+  /// This method is designed for early-stage processing before album merging.
+  /// It preserves duplicated files that have different album associations,
+  /// ensuring no album relationships are lost during deduplication.
+  ///
+  /// [mediaList] List of media entities to deduplicate
+  /// [progressCallback] Optional callback for progress updates (processed, total)
+  /// Returns list with duplicates removed, keeping the highest quality version
+  Future<List<MediaEntity>> removeDuplicates(final List<MediaEntity> mediaList, {final void Function(int processed, int total)? progressCallback}) async {
+    if (mediaList.length <= 1) return mediaList;
+
+    logInfo('[Step 3/8] Starting duplicate removal for ${mediaList.length} media entities...');
+
+    // final grouped = await groupIdentical(mediaList);
+    final grouped = await groupIdenticalLegacy(mediaList);
+    final result = <MediaEntity>[];
+    int processed = 0;
+    int duplicatesRemoved = 0;
+
+    for (final group in grouped.values) {
+      if (group.length == 1) {
+        // No duplicates, keep the single file
+        result.add(group.first);
+      } else {
+        // Multiple files with same content, keep the best one
+        final best = _selectBestMedia(group);
+        MediaEntity merged = best;
+        for (final m in group) {
+          if (!identical(m, best)) merged = merged.mergeWith(m);
+        }
+        result.add(merged);
+
+        // Log which duplicates are being removed
+        final duplicatesToRemove = group.where((final media) => media != best).toList();
+        duplicatesRemoved += duplicatesToRemove.length;
+
+        if (duplicatesToRemove.isNotEmpty) {
+          final keptFile = best.primaryFile.sourcePath;
+          logDebug('[Step 3/8] Found ${group.length} identical files, keeping: $keptFile');
+          for (final duplicate in duplicatesToRemove) {
+            logDebug('[Step 3/8]   Removing duplicate: ${duplicate.primaryFile.sourcePath}');
+          }
+        }
+      }
+
+      processed++;
+      progressCallback?.call(processed, grouped.length);
+    }
+
+    logInfo('[Step 3/8] Duplicate removal completed: removed $duplicatesRemoved files, kept ${result.length}');
+
+    // Log cache performance
+    final cacheStats = _hashService.getCacheStats();
+    logDebug('[Step 3/8] Final cache statistics: $cacheStats');
+
+    return result;
+  }
+
+  /// Selects the best media entity from a group of duplicates
+  ///
+  /// Priority order:
+  /// 1. Media with most accurate date information
+  /// 2. Media with more album associations (metadata-only, as a proxy for richer context)
+  /// 3. Media with shorter file path (likely original location)
+  MediaEntity _selectBestMedia(final List<MediaEntity> duplicates) {
+    if (duplicates.length == 1) {
+      return duplicates.first;
+    }
+    // Sort by quality criteria (adapted to the new model)
+    final sorted = duplicates.toList()
+      ..sort((final a, final b) {
+        // 1. Prefer media with more accurate date
+        final aHasDate = a.dateTaken != null && a.dateAccuracy != null;
+        final bHasDate = b.dateTaken != null && b.dateAccuracy != null;
+
+        if (aHasDate && bHasDate) {
+          final dateComparison = a.dateTakenAccuracy!.compareTo(b.dateTakenAccuracy!);
+          if (dateComparison != 0) return dateComparison;
+        } else if (aHasDate && !bHasDate) {
+          return -1; // a is better
+        } else if (!aHasDate && bHasDate) {
+          return 1; // b is better
+        }
+
+        // 2. Prefer media with more album associations (metadata)
+        final albumComparison = b.albumsMap.length.compareTo(a.albumsMap.length);
+        if (albumComparison != 0) return albumComparison;
+
+        // 3. Prefer media with shorter path (likely more original)
+        final pathA = a.primaryFile.sourcePath;
+        final pathB = b.primaryFile.sourcePath;
+        return pathA.length.compareTo(pathB.length);
+      });
+
+    return sorted.first;
+  }
+
+  /// Finds exact duplicates based on file content
+  ///
+  /// Returns a list of duplicate groups, where each group contains
+  /// media entities with identical file content.
+  Future<List<List<MediaEntity>>> findDuplicateGroups(final List<MediaEntity> mediaList) async {
+    // Chose only one of the following 3 methods:
+    // final grouped = await groupIdentical(mediaList);
+    // final grouped = await groupIdenticalFast(mediaList);
+    final grouped = await groupIdenticalFast2(mediaList);
+    return grouped.values.where((final group) => group.length > 1).toList();
+  }
+
+  /// Checks if two media entities are duplicates based on content
+  Future<bool> areDuplicates(final MediaEntity media1, final MediaEntity media2) async {
+    // Quick size check first
+    final size1 = await _hashService.calculateFileSize(
+      File(media1.primaryFile.sourcePath),
+    );
+    final size2 = await _hashService.calculateFileSize(
+      File(media2.primaryFile.sourcePath),
+    );
+
+    if (size1 != size2) return false;
+
+    // If sizes match, compare hashes
+    final hash1 = await _hashService.calculateFileHash(
+      File(media1.primaryFile.sourcePath),
+    );
+    final hash2 = await _hashService.calculateFileHash(
+      File(media2.primaryFile.sourcePath),
+    );
+
+    return hash1 == hash2;
+  }
+
+  /// Statistics about duplicate detection results
+  DuplicateStats calculateStats(final Map<String, List<MediaEntity>> groupedResults) {
+    int totalFiles = 0;
+    int uniqueFiles = 0;
+    int duplicateGroups = 0;
+    int duplicateFiles = 0;
+    int spaceWastedBytes = 0;
+
+    for (final group in groupedResults.values) {
+      totalFiles += group.length;
+
+      if (group.length == 1) {
+        uniqueFiles++;
+      } else {
+        duplicateGroups++;
+        duplicateFiles += group.length;
+
+        // Calculate wasted space (all but one file in each group)
+        for (int i = 1; i < group.length; i++) {
+          // Note: This is an approximation - we'd need to actually calculate sizes
+          // For now, we'll use the file size from the first file as estimate
+          try {
+            final size = File(group.first.primaryFile.sourcePath).lengthSync();
+            spaceWastedBytes += size;
+          } catch (e) {
+            // Ignore files that can't be read
+          }
+        }
+      }
+    }
+
+    return DuplicateStats(
+      totalFiles: totalFiles,
+      uniqueFiles: uniqueFiles,
+      duplicateGroups: duplicateGroups,
+      duplicateFiles: duplicateFiles,
+      spaceWastedBytes: spaceWastedBytes,
+    );
+  }
+
+  /// Optional convenience alias if you prefer this name in callers.
+  Future<String> computeSha256(final MediaEntity media) => _hashService.calculateFileHash(File(media.primaryFile.sourcePath));
+
 }
 
 /// Statistics about duplicate detection results

@@ -170,7 +170,7 @@ class MergeMediaEntitiesStep extends ProcessingStep with LoggerMixin {
       final duplicateService = ServiceContainer.instance.duplicateDetectionService
         ..logger = LoggingService.fromConfig(context.config);
 
-      final MergeMediaEntitiesSummary s = await duplicateService.mergeMediaEntities(context); // This is the method that contains all the logic for this step
+      final MergeMediaEntitiesSummary s = await duplicateService.executeMergeMediaEntitiesLogic(context); // This is the method that contains all the logic for this step
 
       totalSw.stop();
       return StepResult.success(

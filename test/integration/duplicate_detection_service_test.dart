@@ -46,7 +46,7 @@ void main() {
         mockHashService.mockFileHash(file2, 'hash1');
         mockHashService.mockFileHash(file3, 'hash2');
 
-        final result = await service.groupIdentical([media1, media2, media3]);
+        final result = await service.groupIdenticalLegacy([media1, media2, media3]);
 
         expect(result.length, equals(2));
         expect(result['hash1']?.length, equals(2));
@@ -56,7 +56,7 @@ void main() {
       });
 
       test('handles empty list', () async {
-        final result = await service.groupIdentical([]);
+        final result = await service.groupIdenticalLegacy([]);
         expect(result, isEmpty);
       });
 
@@ -66,7 +66,7 @@ void main() {
 
         mockHashService.mockFileSize(file, 1000);
 
-        final result = await service.groupIdentical([media]);
+        final result = await service.groupIdenticalLegacy([media]);
 
         expect(result.length, equals(1));
         expect(result['1000bytes'], contains(media));
@@ -83,7 +83,7 @@ void main() {
         mockHashService.mockFileSize(file1, 1000);
         mockHashService.mockFileSize(file2, 2000);
 
-        final result = await service.groupIdentical([media1, media2]);
+        final result = await service.groupIdenticalLegacy([media1, media2]);
 
         expect(result.length, equals(2));
         expect(result['1000bytes'], contains(media1));
