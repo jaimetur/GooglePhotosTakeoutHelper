@@ -468,9 +468,9 @@ class ExifToolService with LoggerMixin {
     }
   }
 
-  /// Create a temporary exiftool argfile encoded as UTF-8 WITH BOM to ensure non-ASCII paths are read correctly on Windows.
-  /// - Each argument is written in its own line.
-  /// - File paths are quoted to preserve spaces.
+  /// Create a temporary exiftool argfile encoded as UTF-8 WITH BOM to ensure non-ASCII paths are read correctly on all platforms.
+  /// - Each argument is written on its own line.
+  /// - IMPORTANT: Do NOT quote file paths; exiftool treats each line as a full token and quotes would become part of the filename.
   /// Returns the path to the argfile (caller must delete it).
   Future<String> _createUtf8Argfile(final List<String> baseArgs, final List<String> filePaths) async {
     final Directory tmpDir = await Directory.systemTemp.createTemp('exif_args_');
@@ -478,18 +478,17 @@ class ExifToolService with LoggerMixin {
     final IOSink sink = File(argfilePath).openWrite();
 
     try {
-      // Write UTF-8 BOM explicitly to make exiftool parse the file as UTF-8 on Windows.
-      // (Without BOM, exiftool may assume the local code page and break ñ/á/…)
-      sink.add([0xEF, 0xBB, 0xBF]);
+      // Write UTF-8 BOM explicitly so exiftool reads the argfile as UTF-8 on Windows; it is safe on macOS/Linux too.
+      sink.add(<int>[0xEF, 0xBB, 0xBF]);
 
       // Write base args (one per line)
       baseArgs.forEach(sink.writeln);
 
-      // Write file paths (quoted). exiftool treats each line as a token.
-      for (final p in filePaths) {
-        // Normalize to absolute, but do NOT change separators; exiftool accepts both.
-        final String abs = path.normalize(File(p).absolute.path);
-        sink.writeln('"$abs"');
+      // Write file paths unquoted, normalized per-OS.
+      for (final original in filePaths) {
+        final String abs = path.normalize(File(original).absolute.path);
+        final String norm = _normalizePathForExifTool(abs);
+        sink.writeln(norm);
       }
     } finally {
       await sink.flush();
@@ -497,6 +496,28 @@ class ExifToolService with LoggerMixin {
     }
 
     return argfilePath;
+  }
+
+  /// Normalize a filesystem path for ExifTool in a cross-platform way.
+  /// - Windows: use backslashes and add \\?\ prefix for very long paths to bypass MAX_PATH legacy limits.
+  /// - macOS/Linux: keep forward slashes; do not add Windows-specific prefixes.
+  String _normalizePathForExifTool(final String absolutePath) {
+    if (Platform.isWindows) {
+      // Convert to backslashes for consistency on Windows
+      String pWin = absolutePath.replaceAll('/', '\\');
+
+      // Add \\?\ long-path prefix if needed and not already present
+      //  - 248 is a conservative threshold for directories; MAX_PATH is 260 including filename.
+      if (!pWin.startsWith(r'\\?\') && pWin.length >= 248) {
+        pWin = r'\\?\' + pWin;
+      }
+
+      // Do NOT quote; each argfile line is a single token for ExifTool
+      return pWin;
+    }
+
+    // On Unix-like systems leave the normalized absolute path as-is (forward slashes).
+    return absolutePath;
   }
 
 }
