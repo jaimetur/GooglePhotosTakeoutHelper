@@ -1,3 +1,4 @@
+import 'dart:collection';
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
@@ -265,17 +266,17 @@ class MergeMediaEntitiesService with LoggerMixin {
     // ────────────────────────────────────────────────────────────────────────
     // Phase 1: identification & grouping (select ONE strategy)
     // NOTE: all grouping functions return a Map<String, List<MediaEntity>> with the same API.
-    // To compare strategies, replace the next line with:
-    //   final Map<String, List<MediaEntity>> groups = await groupIdenticalFast(mediaCollection.entities.toList(), telemetryObject: telem);
-    //   final Map<String, List<MediaEntity>> groups = await groupIdentical(mediaCollection.entities.toList(), telemetryObject: telem);
-    final Map<String, List<MediaEntity>> groups = await groupIdenticalNew(mediaCollection.entities.toList(), telemetryObject: telem);
+    // To compare strategies, chose only one of the following 3 lines:
+    // final Map<String, List<MediaEntity>> groups = await groupIdentical(mediaCollection.entities.toList(), telemetryObject: telem);
+    // final Map<String, List<MediaEntity>> groups = await groupIdenticalFast(mediaCollection.entities.toList(), telemetryObject: telem);
+    final Map<String, List<MediaEntity>> groups = await groupIdenticalFast2(mediaCollection.entities.toList(), telemetryObject: telem);
 
     // ────────────────────────────────────────────────────────────────────────
     // Phase 2: apply merges into the collection (mutates collection)
     final Stopwatch mergeSw = Stopwatch()..start();
     final int mergedEntities = await mergeDuplicateEntities(mediaCollection, groups);
     mergeSw.stop();
-    telem.msMergeReplace += mergeSw.elapsedMilliseconds;
+    telem.msMergeReplace = mergeSw.elapsedMilliseconds;
     telem.entitiesMergedByContent = mergedEntities; // feed classic telemetry field
 
     // ────────────────────────────────────────────────────────────────────────
@@ -284,7 +285,7 @@ class MergeMediaEntitiesService with LoggerMixin {
     final removal = await removeQuarantineDuplicates(context, mediaCollection, telemetryObject: telem);
 
     ioSw.stop();
-    telem.msRemoveIO += ioSw.elapsedMilliseconds;
+    telem.msRemoveIO = ioSw.elapsedMilliseconds;
 
     // Primary counts (with canonical vs albums split)
     final int totalPrimaryFiles = mediaCollection.length;
@@ -382,9 +383,12 @@ class MergeMediaEntitiesService with LoggerMixin {
   /// Same API as groupIdentical and groupIdenticalFast: returns a Map.
   /// This phase does NOT mutate the collection; it only builds groups.
   /// —————————————————————————————————————————————————————————————————————————————
-  Future<Map<String, List<MediaEntity>>> groupIdenticalNew(final List<MediaEntity> mediaList, {final TelemetryLike? telemetryObject}) async {
+  Future<Map<String, List<MediaEntity>>> groupIdenticalFast2(final List<MediaEntity> mediaList, {final TelemetryLike? telemetryObject}) async {
     final _Telemetry telem = telemetryObject ?? _Telemetry();
     telem.filesTotal = mediaList.length;
+
+    // Total time of grouping strategy
+    final Stopwatch groupingSw = Stopwatch()..start();
 
     // ────────────────────────────────────────────────────────────────────────
     // 1) SIZE BUCKETS (cheap pre-partition)
@@ -533,6 +537,10 @@ class MergeMediaEntitiesService with LoggerMixin {
       }
     }
 
+    // close groupingSw
+    groupingSw.stop();
+    telem.msGrouping += groupingSw.elapsedMilliseconds;
+
     return output;
   }
 
@@ -651,7 +659,7 @@ class MergeMediaEntitiesService with LoggerMixin {
     }
 
     stopwatchTotal.stop();
-    telem.msTotal += stopwatchTotal.elapsedMilliseconds;
+    telem.msGrouping += stopwatchTotal.elapsedMilliseconds;
 
     _recordPerformance(mediaList.length, stopwatchTotal.elapsed);
 
@@ -685,8 +693,6 @@ class MergeMediaEntitiesService with LoggerMixin {
 
     final Map<String, List<MediaEntity>> output = <String, List<MediaEntity>>{};
     final stopwatch = Stopwatch()..start();
-
-    logInfo('[Step 3/8] Starting duplicate detection for ${mediaList.length} files...');
 
     // Step 1: Calculate all sizes in parallel with optimal batching
     final Stopwatch sizeSw = Stopwatch()..start();
@@ -790,7 +796,7 @@ class MergeMediaEntitiesService with LoggerMixin {
     telem.msHashGroups += hashAllSw.elapsedMilliseconds;
 
     stopwatch.stop();
-    telem.msTotal += stopwatch.elapsedMilliseconds;
+    telem.msGrouping += stopwatch.elapsedMilliseconds;
 
     // Record performance metrics for adaptive optimization
     _recordPerformance(mediaList.length, stopwatch.elapsed);
@@ -802,14 +808,12 @@ class MergeMediaEntitiesService with LoggerMixin {
     logDebug('[Step 3/8] Files requiring hash calculation: $hashCalculationsNeeded');
     logDebug('[Step 3/8] Cache statistics: $cacheStats');
 
-    // Count and log duplicate groups found
-    final duplicateGroups = output.values.where((final group) => group.length > 1);
-    final totalDuplicates =
-        duplicateGroups.fold<int>(0, (final sum, final group) => sum + group.length - 1);
-
-    if (duplicateGroups.isNotEmpty) {
-      logInfo('[Step 3/8] Found ${duplicateGroups.length} duplicate groups with $totalDuplicates duplicate files');
-    }
+    // // Count and log duplicate groups found
+    // final duplicateGroups = output.values.where((final group) => group.length > 1);
+    // final totalDuplicates =  duplicateGroups.fold<int>(0, (final sum, final group) => sum + group.length - 1);
+    // if (duplicateGroups.isNotEmpty) {
+    //   logInfo('[Step 3/8] Found ${duplicateGroups.length} duplicate groups with $totalDuplicates duplicate files');
+    // }
 
     return output;
   }
@@ -830,7 +834,8 @@ class MergeMediaEntitiesService with LoggerMixin {
     final MediaHashService verifier = verifyLocal ? MediaHashService() : MediaHashService(maxCacheSize: 1);
 
     final List<_Replacement> pendingReplacements = <_Replacement>[];
-    final Set<MediaEntity> entitiesToMerge = <MediaEntity>{};
+    final Set<MediaEntity> entitiesToMerge = HashSet<MediaEntity>.identity();
+
 
     for (final entry in groups.entries){
       final List<MediaEntity> group = entry.value;
@@ -927,12 +932,15 @@ class MergeMediaEntitiesService with LoggerMixin {
     }
 
     // Apply replacements sequentially (safe mutation of collection)
+    // OPTIMIZATION: single pass over the collection using a mapping O(N)
+    final Map<MediaEntity, MediaEntity> map = LinkedHashMap<MediaEntity, MediaEntity>.identity();
     for (final r in pendingReplacements) {
-      _replaceEntityInCollection(mediaCollection, r.kept0, r.kept);
+      map[r.kept0] = r.kept; // kept0 → kept
     }
+    mediaCollection.applyReplacements(map);
+
 
     // Just before creating multi-path entities line
-    // final int initialEntitiesCount = mediaCollection.length + entitiesToMerge.length;
     final int initialEntitiesCount = mediaCollection.length;
     logPrint('[Step 3/8] Processing $initialEntitiesCount media entities from media entities collection');
 
@@ -946,17 +954,16 @@ class MergeMediaEntitiesService with LoggerMixin {
     if (entitiesToMerge.isNotEmpty) {
       // NEW (progress): show a progress bar while compacting the collection.
       final FillingBar pbar = FillingBar(total: mergedEntities, width: 50, percentage: true, desc: '[ INFO  ] [Step 3/8] Merging entities');
+
+      // Keep visual progress (cheap) without doing O(R) removals one-by-one
       int done = 0;
-      for (final e in entitiesToMerge) {
-        try {
-          mediaCollection.remove(e);
-        } catch (err) {
-          logWarning('[Step 3/8] Failed to remove entity ${_safeEntity(e)}: $err', forcePrint: true);
-        } finally {
-          done++;
-          if ((done % 250) == 0 || done == mergedEntities) pbar.update(done); // note: throttle updates to keep console smooth.
-        }
+      for (final _ in entitiesToMerge) {
+        done++;
+        if ((done % 250) == 0 || done == mergedEntities) pbar.update(done);
       }
+
+      // Single-pass removal O(N + R)
+      mediaCollection.removeAll(entitiesToMerge); // ← add this method to your collection (see apartado 2)
       stdout.writeln(); // note: ensure the next logs start in a new line after the bar.
     }
 
@@ -1050,10 +1057,11 @@ class MergeMediaEntitiesService with LoggerMixin {
     out('[Step 3/8]     Non-Canonical files (Albums)       : $nonCanonicalFilesInCollection');
     out('[Step 3/8]     Duplicate files removed (I/O)      : $duplicateFilesRemovedIO');
     out('[Step 3/8]     Time total                         : ${ms(t.msTotal)}');
-    out('[Step 3/8]       - Size scan                      : ${ms(t.msSizeScan)}');
-    out('[Step 3/8]       - Ext bucketing                  : ${ms(t.msExtBucket)}');
-    out('[Step 3/8]       - Quick signature                : ${ms(t.msQuickSig)}');
-    out('[Step 3/8]       - Hash grouping                  : ${ms(t.msHashGroups)}');
+    out('[Step 3/8]       - Find duplicates                : ${ms(t.msGrouping)}');
+    out('[Step 3/8]         - Size scan                    : ${ms(t.msSizeScan)}');
+    out('[Step 3/8]         - Ext bucketing                : ${ms(t.msExtBucket)}');
+    out('[Step 3/8]         - Quick signature              : ${ms(t.msQuickSig)}');
+    out('[Step 3/8]         - Hash grouping                : ${ms(t.msHashGroups)}');
     out('[Step 3/8]       - Merge/replace                  : ${ms(t.msMergeReplace)}');
     out('[Step 3/8]       - Remove/IO                      : ${ms(t.msRemoveIO)}');
   }
@@ -1094,30 +1102,6 @@ class MergeMediaEntitiesService with LoggerMixin {
       return f.path;
     } catch (_) {
       return '<unknown-file>';
-    }
-  }
-
-  String _safeEntity(final MediaEntity e) {
-    try {
-      return e.primaryFile.path;
-    } catch (_) {
-      return '<unknown-entity>';
-    }
-  }
-
-  void _replaceEntityInCollection(
-    final MediaEntityCollection col,
-    final MediaEntity oldE,
-    final MediaEntity newE,
-  ) {
-    // Cheap linear replace using operators exposed by your collection
-    for (int i = 0; i < col.length; i++) {
-      try {
-        if (identical(col[i], oldE) || col[i] == oldE) {
-          col[i] = newE;
-          return;
-        }
-      } catch (_) {}
     }
   }
 
@@ -1177,7 +1161,7 @@ class MergeMediaEntitiesService with LoggerMixin {
     return base.substring(dot + 1).toLowerCase();
   }
 
-  // Helper: quick signature (tri-sample FNV-1a 32-bit of 3×4 KiB at head/middle/tail)
+  // Helper: quick signature (tri-sample FNV-1a 32-bit of 3×4 KiB at head/mid/tail)
   // NOTE (perf): this replaces a large head-read (e.g. 64–128 KiB) with only 12 KiB total,
   // while being more discriminative for formats with heavy headers (JPEG/MP4/etc.).
   //
@@ -1387,6 +1371,8 @@ class _Telemetry {
   num msHashGroups = 0;
   num msMergeReplace = 0;
   num msRemoveIO = 0;
+
+  num msGrouping = 0;
 
   void addStats(final _BucketStats s) {
     extBuckets += s.extBuckets;

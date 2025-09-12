@@ -1,3 +1,4 @@
+import 'dart:collection';
 import 'dart:io';
 import 'package:gpth/gpth_lib_exports.dart';
 
@@ -304,6 +305,26 @@ class MediaEntityCollection with LoggerMixin {
     }
     return null;
   }
+
+  // Remove a set of entities in a single pass O(N + R)
+  void removeAll(final Iterable<MediaEntity> items) {
+    // Convert to Set for O(1) membership checks
+    final Set<MediaEntity> s = HashSet<MediaEntity>.identity()..addAll(items);
+    // IMPORTANT: operate over the internal mutable list
+    _media.removeWhere(s.contains);
+  }
+
+  // Apply kept0 → kept replacements in one linear scan O(N)
+  void applyReplacements(final Map<MediaEntity, MediaEntity> mapping) {
+    for (int i = 0; i < _media.length; i++) {
+      final MediaEntity current = _media[i];
+      final MediaEntity? repl = mapping[current];
+      if (repl != null) {
+        _media[i] = repl;
+      }
+    }
+  }
+
 }
 
 /// Statistics about processed media collection

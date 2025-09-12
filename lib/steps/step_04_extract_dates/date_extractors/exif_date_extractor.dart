@@ -124,17 +124,17 @@ class ExifDateExtractor with LoggerMixin {
     // Output in the exact requested shape
     out('[Step 4/8] === Telemetry Summary ===');
     out('[Step 4/8]     [READ-EXIF]');
-    out('[Step 4/8]          Total Calls           : $calls (videos=$videos | nativeSupported=$nativeSup | unsupported=$unsupported) - Total Time: $totalTimeS');
+    out('[Step 4/8]         Total Calls             : $calls (videos=$videos | nativeSupported=$nativeSup | unsupported=$unsupported) - Total Time: $totalTimeS');
     if (showDictLine) {
-    out('[Step 4/8]          External Dict         : $dictTried (Success: $dictHit, Fails: $dictMiss) - Time: ${dictTimeS.padLeft(6)}');
+    out('[Step 4/8]         External Dict           : $dictTried (Success: $dictHit, Fails: $dictMiss) - Time: ${dictTimeS.padLeft(6)}');
     }
-    out('[Step 4/8]          Native Direct         : $nativeTried (Success: $nativeHit, Fails: $nativeMiss) - Time: ${nativeTimeS.padLeft(6)} - (headReads: $headReads, fullReads: $fullReads)');
-    out('[Step 4/8]          Exiftool Total        : $exifTotTried (Success: $exifTotHit, Fails: $exifTotFail) - Time: ${exifTimeS.padLeft(6)}');
-    out('[Step 4/8]            Direct              : $exifDirTried (Success: $exifDirHit, Fails: $exifDirFail)');
+    out('[Step 4/8]         Native Direct           : $nativeTried (Success: $nativeHit, Fails: $nativeMiss) - Time: ${nativeTimeS.padLeft(6)} - (headReads: $headReads, fullReads: $fullReads)');
+    out('[Step 4/8]         Exiftool Total          : $exifTotTried (Success: $exifTotHit, Fails: $exifTotFail) - Time: ${exifTimeS.padLeft(6)}');
+    out('[Step 4/8]             Direct              : $exifDirTried (Success: $exifDirHit, Fails: $exifDirFail)');
     if (exiftoolFallbackEnabled) {
-    out('[Step 4/8]            Fallback (enabled)  : $exifFbTried (Success: $exifFbHit, Fails: $exifFbFail)');
+    out('[Step 4/8]             Fallback (enabled)  : $exifFbTried (Success: $exifFbHit, Fails: $exifFbFail)');
     } else{
-    out('[Step 4/8]            Fallback (disabled) : $exifFbTried (Success: $exifFbHit, Fails: $exifFbFail)');
+    out('[Step 4/8]             Fallback (disabled) : $exifFbTried (Success: $exifFbHit, Fails: $exifFbFail)');
     }
 
 
