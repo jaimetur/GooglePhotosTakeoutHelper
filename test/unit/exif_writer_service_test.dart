@@ -5,10 +5,8 @@ library;
 
 import 'dart:convert';
 import 'dart:io';
-
 import 'package:coordinate_converter/coordinate_converter.dart';
-import 'package:gpth/domain/services/metadata/exif_writer_service.dart';
-import 'package:gpth/infrastructure/exiftool_service.dart';
+import 'package:gpth/gpth_lib_exports.dart';
 import 'package:test/test.dart';
 
 import '../setup/test_setup.dart';
@@ -22,7 +20,7 @@ class MockExifToolService extends ExifToolService {
   File? lastWrittenFile;
 
   @override
-  Future<void> writeExifData(
+  Future<void> writeExifDataSingle(
     final File file,
     final Map<String, dynamic> exifData,
   ) async {
@@ -76,7 +74,7 @@ class MockExifToolService extends ExifToolService {
   }
 
   @override
-  Future<String> executeCommand(final List<String> args) async {
+  Future<String> executeExifToolCommand(final List<String> args, {final Duration? timeout}) async {
     if (shouldFail) {
       throw Exception('Mock ExifTool command failure');
     }
@@ -92,14 +90,14 @@ class MockExifToolService extends ExifToolService {
 void main() {
   /// Helper only used in this test: writes EXIF with exiftool and mirrors it to JSON
   Future<bool> writeExifDataWithJsonHelper(
-    final ExifWriterService service,
+    final WriteExifAuxiliaryService service,
     final ExifToolService exifTool,
     final File file,
     final File jsonFile,
     final Map<String, dynamic> exifData,
   ) async {
     try {
-      await exifTool.writeExifData(file, exifData);
+      await exifTool.writeExifDataSingle(file, exifData);
 
       final jsonData = await jsonFile.readAsString();
       final Map<String, dynamic> jsonMap = jsonDecode(jsonData);
@@ -113,13 +111,13 @@ void main() {
   }
 
   group('ExifWriterService', () {
-    late ExifWriterService service;
+    late WriteExifAuxiliaryService service;
     late MockExifToolService mockExifTool;
     late TestFixture fixture;
 
     setUp(() async {
       mockExifTool = MockExifToolService();
-      service = ExifWriterService(mockExifTool);
+      service = WriteExifAuxiliaryService(mockExifTool);
       fixture = TestFixture();
       await fixture.setUp();
     });
@@ -135,7 +133,7 @@ void main() {
 
         mockExifTool.shouldFail = false;
 
-        final result = await service.writeTagsWithExifTool(
+        final result = await service.writeTagsWithExifToolSingle(
           file,
           exifData,
           isDate: true,
@@ -152,7 +150,7 @@ void main() {
 
         mockExifTool.shouldFail = true;
 
-        final result = await service.writeTagsWithExifTool(
+        final result = await service.writeTagsWithExifToolSingle(
           file,
           exifData,
           isDate: true,
@@ -167,7 +165,7 @@ void main() {
 
         mockExifTool.shouldFail = false;
 
-        final result = await service.writeTagsWithExifTool(
+        final result = await service.writeTagsWithExifToolSingle(
           file,
           exifData,
           isDate: true,
@@ -373,7 +371,7 @@ void main() {
 
         mockExifTool.shouldFail = true;
 
-        final ok = await service.writeTagsWithExifTool(
+        final ok = await service.writeTagsWithExifToolSingle(
           file,
           exifData,
           isDate: true,
