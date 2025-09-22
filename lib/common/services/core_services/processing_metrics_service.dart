@@ -30,7 +30,9 @@ class ProcessingMetricsService {
         {
           int total = 0;
           for (final MediaEntity e in collection.media) {
-            total += 1 + e.secondaryCount; // 1 physical primary + N shortcuts (counted)
+            total +=
+                1 +
+                e.secondaryCount; // 1 physical primary + N shortcuts (counted)
           }
           return total;
         }
@@ -39,7 +41,8 @@ class ProcessingMetricsService {
         {
           int total = 0;
           for (final MediaEntity e in collection.media) {
-            total += 1 + e.secondaryCount; // 1 physical primary + N physical copies
+            total +=
+                1 + e.secondaryCount; // 1 physical primary + N physical copies
           }
           return total;
         }
@@ -57,8 +60,6 @@ class ProcessingMetricsService {
         );
     }
   }
-
-
 
   /// Calculates basic statistics for the current collection.
   ///
@@ -108,5 +109,4 @@ class ProcessingMetricsService {
 
     return stats;
   }
-
 }

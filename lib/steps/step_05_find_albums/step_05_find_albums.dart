@@ -139,7 +139,8 @@ class FindAlbumsStep extends ProcessingStep with LoggerMixin {
     final sw = Stopwatch()..start();
 
     try {
-      final service = const FindAlbumService()..logger = LoggingService.fromConfig(context.config);
+      final service = const FindAlbumService()
+        ..logger = LoggingService.fromConfig(context.config);
       final FindAlbumSummary summary = await service.findAlbums(context);
 
       sw.stop();

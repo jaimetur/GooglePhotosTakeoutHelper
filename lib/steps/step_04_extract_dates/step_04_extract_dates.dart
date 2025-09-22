@@ -131,7 +131,8 @@ class ExtractDatesStep extends ProcessingStep with LoggerMixin {
   Future<StepResult> execute(final ProcessingContext context) async {
     final sw = Stopwatch()..start();
     try {
-      final service = const ExtractDateService()..logger = LoggingService.fromConfig(context.config);
+      final service = const ExtractDateService()
+        ..logger = LoggingService.fromConfig(context.config);
       final ExtractDateSummary summary = await service.extractDates(context);
       sw.stop();
       return StepResult.success(
@@ -152,6 +153,6 @@ class ExtractDatesStep extends ProcessingStep with LoggerMixin {
   }
 
   @override
-  bool shouldSkip(final ProcessingContext context) => context.mediaCollection.isEmpty;
-
+  bool shouldSkip(final ProcessingContext context) =>
+      context.mediaCollection.isEmpty;
 }

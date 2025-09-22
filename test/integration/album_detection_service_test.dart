@@ -2,6 +2,8 @@
 ///
 /// Verifies album detection/normalization and statistics against the
 /// Google Photos Takeout processing model (new data model with FileEntity).
+// ignore_for_file: avoid_redundant_argument_values
+
 library;
 
 import 'dart:io';

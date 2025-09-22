@@ -1,4 +1,3 @@
-
 import 'package:gpth/gpth_lib_exports.dart';
 
 /// Step 7: Write EXIF data to output files (physical files only)
@@ -173,7 +172,9 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
     final sw = Stopwatch()..start();
 
     try {
-      logPrint('[Step 7/8] Writing EXIF data on physical files in output (this may take a while)...');
+      logPrint(
+        '[Step 7/8] Writing EXIF data on physical files in output (this may take a while)...',
+      );
       if (!context.config.writeExif) {
         sw.stop();
         return StepResult.success(
@@ -229,5 +230,6 @@ class WriteExifStep extends ProcessingStep with LoggerMixin {
   }
 
   @override
-  bool shouldSkip(final ProcessingContext context) => context.mediaCollection.isEmpty;
+  bool shouldSkip(final ProcessingContext context) =>
+      context.mediaCollection.isEmpty;
 }
