@@ -11,12 +11,18 @@ import 'package:path/path.dart' as path;
 class _TopLevelLogger with LoggerMixin {
   const _TopLevelLogger();
 }
+
 const _TopLevelLogger _kTopLogger = _TopLevelLogger();
-void logPrint(final String message, {final bool forcePrint = true}) => _kTopLogger.logPrint(message, forcePrint: forcePrint);
-void logDebug(final String message, {final bool forcePrint = false}) => _kTopLogger.logDebug(message, forcePrint: forcePrint);
-void logInfo(final String message, {final bool forcePrint = false}) => _kTopLogger.logInfo(message, forcePrint: forcePrint);
-void logWarning(final String message, {final bool forcePrint = false}) => _kTopLogger.logWarning(message, forcePrint: forcePrint);
-void logError(final String message, {final bool forcePrint = false}) => _kTopLogger.logError(message, forcePrint: forcePrint);
+void logPrint(final String message, {final bool forcePrint = true}) =>
+    _kTopLogger.logPrint(message, forcePrint: forcePrint);
+void logDebug(final String message, {final bool forcePrint = false}) =>
+    _kTopLogger.logDebug(message, forcePrint: forcePrint);
+void logInfo(final String message, {final bool forcePrint = false}) =>
+    _kTopLogger.logInfo(message, forcePrint: forcePrint);
+void logWarning(final String message, {final bool forcePrint = false}) =>
+    _kTopLogger.logWarning(message, forcePrint: forcePrint);
+void logError(final String message, {final bool forcePrint = false}) =>
+    _kTopLogger.logError(message, forcePrint: forcePrint);
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Infrastructure service for ExifTool external process management.
@@ -75,7 +81,9 @@ class ExifToolService with LoggerMixin {
     } catch (_) {}
 
     final scriptPath = Platform.script.toFilePath();
-    final scriptDir = scriptPath.isNotEmpty ? File(scriptPath).parent.path : null;
+    final scriptDir = scriptPath.isNotEmpty
+        ? File(scriptPath).parent.path
+        : null;
     if (scriptDir != null && showDiscoveryMessage) {
       logPrint('Script directory: $scriptDir');
     }
@@ -102,7 +110,9 @@ class ExifToolService with LoggerMixin {
             if (result.exitCode == 0) {
               if (showDiscoveryMessage) {
                 final version = result.stdout.toString().trim();
-                logPrint('[ExifToolService] ExifTool found: ${exiftoolFile.path} (version $version)');
+                logPrint(
+                  '[ExifToolService] ExifTool found: ${exiftoolFile.path} (version $version)',
+                );
               }
               return ExifToolService(exiftoolFile.path);
             }
@@ -131,7 +141,9 @@ class ExifToolService with LoggerMixin {
           if (result.exitCode == 0) {
             if (showDiscoveryMessage) {
               final version = result.stdout.toString().trim();
-              logPrint('[ExifToolService] ExifTool found: $p (version $version)');
+              logPrint(
+                '[ExifToolService] ExifTool found: $p (version $version)',
+              );
             }
             return ExifToolService(p);
           }
@@ -164,7 +176,9 @@ class ExifToolService with LoggerMixin {
           .transform(const LineSplitter())
           .listen(_handleError);
     } catch (e) {
-      logWarning('[ExifToolService] Failed to start ExifTool persistent process: $e');
+      logWarning(
+        '[ExifToolService] Failed to start ExifTool persistent process: $e',
+      );
       _persistentProcess = null;
     } finally {
       _isStarting = false;
@@ -197,27 +211,36 @@ class ExifToolService with LoggerMixin {
   // Future<String> old_executeExifToolCommand(final List<String> args) async => executeExifToolCommand(args);  // Keep in the API for compatibility with tests
 
   /// NEW: ExifTool runner with timeout support and proper kill on expiration.
-  Future<String> executeExifToolCommand(final List<String> args, {final Duration? timeout}) async {
+  Future<String> executeExifToolCommand(
+    final List<String> args, {
+    final Duration? timeout,
+  }) async {
     final sw = Stopwatch()..start();
     Process? proc;
     try {
-      logDebug('[ExifToolService] Running command: $exiftoolPath ${args.join(' ')}');
+      logDebug(
+        '[ExifToolService] Running command: $exiftoolPath ${args.join(' ')}',
+      );
 
       // NOTE #1: Don't' use detachedWithStdio. We need live pipes to read stdout/stderr.
-      proc = await Process.start(
-        exiftoolPath,
-        args,
-      );
+      proc = await Process.start(exiftoolPath, args);
 
       // NOTE #2: Drain stdout/stderr from the beginning to no block by back-pressure.
       // final stdoutFuture = proc.stdout.transform(utf8.decoder).join();
-      final stdoutFuture = proc.stdout.transform(const Utf8Decoder(allowMalformed: true)).join();
+      final stdoutFuture = proc.stdout
+          .transform(const Utf8Decoder(allowMalformed: true))
+          .join();
       // final stderrFuture = proc.stderr.transform(utf8.decoder).join();
-      final stderrFuture = proc.stderr.transform(const Utf8Decoder(allowMalformed: true)).join();
+      final stderrFuture = proc.stderr
+          .transform(const Utf8Decoder(allowMalformed: true))
+          .join();
 
       // Wait for exit (with optional timeout)
       final exitCode = await proc.exitCode.timeout(
-        timeout ?? const Duration(days: 365), // effectively "no timeout" if not provided
+        timeout ??
+            const Duration(
+              days: 365,
+            ), // effectively "no timeout" if not provided
         onTimeout: () {
           try {
             if (Platform.isWindows) {
@@ -225,14 +248,18 @@ class ExifToolService with LoggerMixin {
               proc?.kill();
             } else {
               // POSIX: try to finish process with SIGTERM, if not use SIGKILL as fallback.
-              proc?.kill(ProcessSignal.sigterm);
+              proc?.kill();
               // Second try "best effort" later on
               Future<void>.delayed(const Duration(milliseconds: 300), () {
-                try { proc?.kill(ProcessSignal.sigkill); } catch (_) {}
+                try {
+                  proc?.kill(ProcessSignal.sigkill);
+                } catch (_) {}
               });
             }
           } catch (_) {}
-          throw TimeoutException('ExifTool command execution timed out after ${timeout!.inSeconds}s');
+          throw TimeoutException(
+            'ExifTool command execution timed out after ${timeout!.inSeconds}s',
+          );
         },
       );
 
@@ -240,13 +267,17 @@ class ExifToolService with LoggerMixin {
       final err = await stderrFuture;
 
       if (exitCode != 0) {
-        logWarning('[ExifToolService] ExifTool command failed with exit code $exitCode. | Command: $exiftoolPath ${args.join(' ')}. | Stderr: $err');
+        logWarning(
+          '[ExifToolService] ExifTool command failed with exit code $exitCode. | Command: $exiftoolPath ${args.join(' ')}. | Stderr: $err',
+        );
         throw Exception('ExifTool failed: $err');
       }
 
       if (err.trim().isNotEmpty) {
         // ExifTool often writes warnings to stderr even on success; keep as warning.
-        logDebug('[ExifToolService] ExifTool command stderr (non-fatal): ${err.trim()}');
+        logDebug(
+          '[ExifToolService] ExifTool command stderr (non-fatal): ${err.trim()}',
+        );
       }
 
       return out.toString();
@@ -258,7 +289,9 @@ class ExifToolService with LoggerMixin {
       rethrow;
     } finally {
       sw.stop();
-      logDebug('[ExifToolService] ExifTool command Elapsed: ${(sw.elapsedMilliseconds / 1000.0).toStringAsFixed(3)}s');
+      logDebug(
+        '[ExifToolService] ExifTool command Elapsed: ${(sw.elapsedMilliseconds / 1000.0).toStringAsFixed(3)}s',
+      );
     }
   }
 
@@ -266,15 +299,21 @@ class ExifToolService with LoggerMixin {
   Future<Map<String, dynamic>> readExifData(final File file) async {
     // Build base exiftool args WITHOUT the file path (we will pass it via UTF-8 argfile to avoid Windows mojibake issues).
     final List<String> baseArgs = [
-      '-q', '-q',
+      '-q',
+      '-q',
       '-fast',
       '-j',
       '-n',
-      '-charset', 'filename=UTF8',
-      '-charset', 'exiftool=UTF8',
-      '-charset', 'iptc=UTF8',
-      '-charset', 'id3=UTF8',
-      '-charset', 'quicktime=UTF8',
+      '-charset',
+      'filename=UTF8',
+      '-charset',
+      'exiftool=UTF8',
+      '-charset',
+      'iptc=UTF8',
+      '-charset',
+      'id3=UTF8',
+      '-charset',
+      'quicktime=UTF8',
     ];
 
     String? argfilePath;
@@ -283,28 +322,37 @@ class ExifToolService with LoggerMixin {
       argfilePath = await _createUtf8Argfile(baseArgs, [file.path]);
 
       // Call exiftool using the argfile. Keep your timeout behavior.
-      final output = await executeExifToolCommand(['-@', argfilePath], timeout: _readTimeout);
+      final output = await executeExifToolCommand([
+        '-@',
+        argfilePath,
+      ], timeout: _readTimeout);
 
       if (output.trim().isEmpty) return {};
       try {
         final List<dynamic> jsonList = jsonDecode(output);
         if (jsonList.isNotEmpty && jsonList[0] is Map<String, dynamic>) {
-          final Map<String, dynamic> data = Map<String, dynamic>.from(jsonList[0] as Map);
+          final Map<String, dynamic> data = Map<String, dynamic>.from(
+            jsonList[0] as Map,
+          );
           return data;
         }
         return {};
       } catch (e) {
-        logWarning('[Step 4/8] JSON decode failed in readExifData: $e', forcePrint: true);
+        logWarning(
+          '[Step 4/8] JSON decode failed in readExifData: $e',
+          forcePrint: true,
+        );
         return {};
       }
     } finally {
       // Best-effort cleanup of the temporary argfile
       if (argfilePath != null) {
-        try { File(argfilePath).deleteSync(); } catch (_) {}
+        try {
+          File(argfilePath).deleteSync();
+        } catch (_) {}
       }
     }
   }
-
 
   // ───────────────────────────────────────────────────────────────────────────
   // Common write flags for stability/consistency
@@ -316,15 +364,15 @@ class ExifToolService with LoggerMixin {
   //  - NEW: -m to allow minor warnings (avoid aborting on recoverable EXIF issues).
   //  - NEW: -F to fix broken IFD/offsets (A: often converts “Truncated InteropIFD” into success).
   List<String> commonWriteArgs() => <String>[
-        '-P',
-        '-charset',
-        'filename=UTF8',
-        '-overwrite_original',
-        '-api',
-        'QuickTimeUTC=1',
-        '-m',
-        '-F', // NEW (A): ask exiftool to fix bad IFD offsets and continue
-      ];
+    '-P',
+    '-charset',
+    'filename=UTF8',
+    '-overwrite_original',
+    '-api',
+    'QuickTimeUTC=1',
+    '-m',
+    '-F', // NEW (A): ask exiftool to fix bad IFD offsets and continue
+  ];
 
   /// Write EXIF data to a single file (classic argv).
   Future<void> writeExifDataSingle(
@@ -340,11 +388,16 @@ class ExifToolService with LoggerMixin {
     }
     args.add(file.path);
 
-    final output = await executeExifToolCommand(args, timeout: _singleWriteTimeout);
+    final output = await executeExifToolCommand(
+      args,
+      timeout: _singleWriteTimeout,
+    );
     if (output.contains('error') ||
         output.contains('Error') ||
         output.contains("weren't updated due to errors")) {
-      throw Exception('[ExifToolService] ExifTool single-mode failed to write metadata to ${file.path}: $output');
+      throw Exception(
+        '[ExifToolService] ExifTool single-mode failed to write metadata to ${file.path}: $output',
+      );
     }
   }
 
@@ -367,11 +420,16 @@ class ExifToolService with LoggerMixin {
       args.add(file.path);
     }
 
-    final output = await executeExifToolCommand(args, timeout: _batchWriteTimeout);
+    final output = await executeExifToolCommand(
+      args,
+      timeout: _batchWriteTimeout,
+    );
     if (output.contains('error') ||
         output.contains('Error') ||
         output.contains("weren't updated due to errors")) {
-      throw Exception('[ExifToolService] ExifTool batch-mode failed to write metadata to some file in the batch: $output');
+      throw Exception(
+        '[ExifToolService] ExifTool batch-mode failed to write metadata to some file in the batch: $output',
+      );
     }
   }
 
@@ -414,11 +472,16 @@ class ExifToolService with LoggerMixin {
     await tmp.writeAsString(buf.toString());
 
     try {
-      final output = await executeExifToolCommand(['-@', tmp.path], timeout: _batchWriteTimeout);
+      final output = await executeExifToolCommand([
+        '-@',
+        tmp.path,
+      ], timeout: _batchWriteTimeout);
       if (output.contains('error') ||
           output.contains('Error') ||
           output.contains("weren't updated due to errors")) {
-        throw Exception('[ExifToolService] ExifTool batch-mode failed to write metadata (using argfile): $output');
+        throw Exception(
+          '[ExifToolService] ExifTool batch-mode failed to write metadata (using argfile): $output',
+        );
       }
     } finally {
       try {
@@ -439,10 +502,14 @@ class ExifToolService with LoggerMixin {
     _pendingCommands.clear();
     _commandOutputs.clear();
 
-    try { await _outputSubscription?.cancel(); } catch (_) {}
+    try {
+      await _outputSubscription?.cancel();
+    } catch (_) {}
     _outputSubscription = null;
 
-    try { await _errorSubscription?.cancel(); } catch (_) {}
+    try {
+      await _errorSubscription?.cancel();
+    } catch (_) {}
     _errorSubscription = null;
 
     if (_persistentProcess != null) {
@@ -461,7 +528,9 @@ class ExifToolService with LoggerMixin {
           },
         );
       } catch (_) {
-        try { _persistentProcess!.kill(); } catch (_) {}
+        try {
+          _persistentProcess!.kill();
+        } catch (_) {}
       } finally {
         _persistentProcess = null;
       }
@@ -472,8 +541,13 @@ class ExifToolService with LoggerMixin {
   /// - Each argument is written on its own line.
   /// - IMPORTANT: Do NOT quote file paths; exiftool treats each line as a full token and quotes would become part of the filename.
   /// Returns the path to the argfile (caller must delete it).
-  Future<String> _createUtf8Argfile(final List<String> baseArgs, final List<String> filePaths) async {
-    final Directory tmpDir = await Directory.systemTemp.createTemp('exif_args_');
+  Future<String> _createUtf8Argfile(
+    final List<String> baseArgs,
+    final List<String> filePaths,
+  ) async {
+    final Directory tmpDir = await Directory.systemTemp.createTemp(
+      'exif_args_',
+    );
     final String argfilePath = path.join(tmpDir.path, 'args.txt');
     final IOSink sink = File(argfilePath).openWrite();
 
@@ -519,5 +593,4 @@ class ExifToolService with LoggerMixin {
     // On Unix-like systems leave the normalized absolute path as-is (forward slashes).
     return absolutePath;
   }
-
 }

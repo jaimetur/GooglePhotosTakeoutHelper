@@ -12,12 +12,18 @@ import 'package:path/path.dart' as path;
 class _TopLevelLogger with LoggerMixin {
   const _TopLevelLogger();
 }
+
 const _TopLevelLogger _kTopLogger = _TopLevelLogger();
-void logPrint(final String message, {final bool forcePrint = true}) => _kTopLogger.logPrint(message, forcePrint: forcePrint);
-void logDebug(final String message, {final bool forcePrint = false}) => _kTopLogger.logDebug(message, forcePrint: forcePrint);
-void logInfo(final String message, {final bool forcePrint = false}) => _kTopLogger.logInfo(message, forcePrint: forcePrint);
-void logWarning(final String message, {final bool forcePrint = false}) => _kTopLogger.logWarning(message, forcePrint: forcePrint);
-void logError(final String message, {final bool forcePrint = false}) => _kTopLogger.logError(message, forcePrint: forcePrint);
+void logPrint(final String message, {final bool forcePrint = true}) =>
+    _kTopLogger.logPrint(message, forcePrint: forcePrint);
+void logDebug(final String message, {final bool forcePrint = false}) =>
+    _kTopLogger.logDebug(message, forcePrint: forcePrint);
+void logInfo(final String message, {final bool forcePrint = false}) =>
+    _kTopLogger.logInfo(message, forcePrint: forcePrint);
+void logWarning(final String message, {final bool forcePrint = false}) =>
+    _kTopLogger.logWarning(message, forcePrint: forcePrint);
+void logError(final String message, {final bool forcePrint = false}) =>
+    _kTopLogger.logError(message, forcePrint: forcePrint);
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Parses hidden test-only flags from argv, applies them, and returns a list
@@ -112,18 +118,22 @@ List<String> _applyAndStripTestMultipliers(final List<String> args) {
 Future<void> main(final List<String> arguments) async {
   // Initialize logger early with default settings
   _logger = LoggingService();
-  LoggerMixin.sharedDefaultLogger = _logger; // NEW: make this the shared default
+  LoggerMixin.sharedDefaultLogger =
+      _logger; // NEW: make this the shared default
 
   // Apply & strip hidden test-only concurrency multiplier flags before parsing normal args.
   final parsedArguments = _applyAndStripTestMultipliers(arguments);
   try {
     // Initialize ServiceContainer early to support interactive mode during argument parsing
     // await ServiceContainer.instance.initialize();
-    await ServiceContainer.instance.initialize(loggingService: LoggingService(saveLog: false));
+    await ServiceContainer.instance.initialize(
+      loggingService: LoggingService(),
+    );
 
     // IMPORTANT (Option A): ensure no early default logger opens a file in ./Logs
     // by forcing global saveLog OFF until we explicitly set it from CLI args later.
-    ServiceContainer.instance.globalConfig.saveLog = false; // <- critical to avoid early file sink in ./Logs
+    ServiceContainer.instance.globalConfig.saveLog =
+        false; // <- critical to avoid early file sink in ./Logs
 
     // Parse command line arguments
     final config = await _parseArguments(parsedArguments);
@@ -143,10 +153,14 @@ Future<void> main(final List<String> arguments) async {
     // the new log file inside that directory. This avoids file-lock errors on Windows.
     final Directory preCleanOut = Directory(config.outputPath);
     if (await preCleanOut.exists()) {
-      final bool needsClean = !await _isOutputDirectoryEmpty(preCleanOut, config);
+      final bool needsClean = !await _isOutputDirectoryEmpty(
+        preCleanOut,
+        config,
+      );
       if (needsClean) {
         if (config.isInteractiveMode) {
-          if (await ServiceContainer.instance.interactiveService.askForCleanOutput()) {
+          if (await ServiceContainer.instance.interactiveService
+              .askForCleanOutput()) {
             await _cleanOutputDirectory(preCleanOut, config);
           }
         } else {
@@ -160,11 +174,15 @@ Future<void> main(final List<String> arguments) async {
     // Update logger with correct verbosity and reinitialize services with it
     _logger = LoggingService(
       isVerbose: config.verbose,
-      saveLog: ServiceContainer.instance.globalConfig.saveLog, // now reflects CLI args
+      saveLog: ServiceContainer
+          .instance
+          .globalConfig
+          .saveLog, // now reflects CLI args
       preferredLogDir: config.outputPath,
     );
 
-    LoggerMixin.sharedDefaultLogger = _logger; // NEW: propagate final logger to everyone
+    LoggerMixin.sharedDefaultLogger =
+        _logger; // NEW: propagate final logger to everyone
 
     // Reinitialize ServiceContainer with the properly configured logger
     await ServiceContainer.instance.initialize(loggingService: _logger);
@@ -173,7 +191,10 @@ Future<void> main(final List<String> arguments) async {
     if (ServiceContainer.instance.globalConfig.saveLog) {
       // Using the same preview again guarantees the same filename thanks to the primed global timestamp.
       final plannedPath = LoggingService.previewLogFilePath(config.outputPath);
-      _logger.printPlain('Messages Log will be saved to: $plannedPath', forcePrint: false);
+      _logger.printPlain(
+        'Messages Log will be saved to: $plannedPath',
+        forcePrint: false,
+      );
     }
 
     // Configure dependencies with the parsed config
@@ -232,7 +253,9 @@ Never _exitWithMessage(
   } catch (_) {}
 
   if (showInteractivePrompt && Platform.environment['INTERACTIVE'] == 'true') {
-    logPrint('[gpth ${code != 0 ? 'quitted :(' : 'finished :)'} (code $code) - press enter to close]');
+    logPrint(
+      '[gpth ${code != 0 ? 'quitted :(' : 'finished :)'} (code $code) - press enter to close]',
+    );
     stdin.readLineSync();
   }
 
@@ -306,7 +329,12 @@ ArgParser _createArgumentParser() => ArgParser()
   ..addFlag('help', abbr: 'h', negatable: false)
   ..addOption('fix', help: 'Folder with any photos to fix dates (special mode)')
   ..addFlag('interactive', help: 'Use interactive mode')
-  ..addFlag('save-log', abbr: 'l', help: 'Save log messages into a log file within Logs folder', defaultsTo: true)
+  ..addFlag(
+    'save-log',
+    abbr: 'l',
+    help: 'Save log messages into a log file within Logs folder',
+    defaultsTo: true,
+  )
   ..addFlag('verbose', abbr: 'v', help: 'Shows extensive output')
   ..addOption('input', abbr: 'i', help: 'Input folder with extracted takeouts')
   ..addOption('output', abbr: 'o', help: 'Output folder for organized photos')
@@ -368,11 +396,13 @@ ArgParser _createArgumentParser() => ArgParser()
   // NEW: keep the original input folder untouched by working on a sibling copy "<input>_tmp"
   ..addFlag(
     'keep-input',
-    help: 'Work on a temporary sibling copy of --input (suffix _tmp), keeping the original untouched',
+    help:
+        'Work on a temporary sibling copy of --input (suffix _tmp), keeping the original untouched',
   )
   ..addFlag(
     'keep-duplicates',
-    help: 'Keeps all duplicates files found in "_Duplicates" subfolder within in output folder instead of remove them totally',
+    help:
+        'Keeps all duplicates files found in "_Duplicates" subfolder within in output folder instead of remove them totally',
   );
 
 /// **HELP TEXT DISPLAY**
@@ -431,7 +461,8 @@ Future<ProcessingConfig> _buildConfigFromArgs(final ArgResults res) async {
     return _handleFixMode(res);
   }
   // Set up interactive mode if needed
-  final isInteractiveMode = res['interactive'] || (res.arguments.isEmpty && stdin.hasTerminal);
+  final isInteractiveMode =
+      res['interactive'] || (res.arguments.isEmpty && stdin.hasTerminal);
   // Get input/output paths (interactive or from args)
   final paths = await _getInputOutputPaths(res, isInteractiveMode);
 
@@ -466,50 +497,65 @@ Future<ProcessingConfig> _buildConfigFromArgs(final ArgResults res) async {
   if (isInteractiveMode) {
     // Ask whether to keep the original input (work on "<input>_tmp")
     print('');
-    final keepInputFlag = await ServiceContainer.instance.interactiveService.askKeepInput();
+    final keepInputFlag = await ServiceContainer.instance.interactiveService
+        .askKeepInput();
     configBuilder.keepInput = keepInputFlag;
 
     // Ask whether to keep the original input (work on "<input>_tmp")
     print('');
-    final keepDuplicates= await ServiceContainer.instance.interactiveService.askKeepDuplicates();
+    final keepDuplicates = await ServiceContainer.instance.interactiveService
+        .askKeepDuplicates();
     configBuilder.keepDuplicates = keepDuplicates;
 
     // Ask user for date division preference in interactive mode
     print('');
-    final dateDivision = await ServiceContainer.instance.interactiveService.askDivideDates();
+    final dateDivision = await ServiceContainer.instance.interactiveService
+        .askDivideDates();
     final divisionLevel = DateDivisionLevel.fromInt(dateDivision);
     configBuilder.dateDivision = divisionLevel;
 
     // Ask user for extension fixing preference in interactive mode
     print('');
-    final extensionFixingChoice = await ServiceContainer.instance.interactiveService.askFixExtensions();
+    final extensionFixingChoice = await ServiceContainer
+        .instance
+        .interactiveService
+        .askFixExtensions();
     extensionFixingMode = ExtensionFixingMode.fromString(extensionFixingChoice);
 
     // Ask user for EXIF writing preference in interactive mode
     print('');
-    final writeExif = await ServiceContainer.instance.interactiveService.askIfWriteExif();
+    final writeExif = await ServiceContainer.instance.interactiveService
+        .askIfWriteExif();
     configBuilder.exifWriting = writeExif;
 
     // Ask user for Album mode
     print('');
-    final albumModeString = await ServiceContainer.instance.interactiveService.askAlbums();
-    final AlbumBehavior albumBehaviour = AlbumBehavior.fromString(albumModeString);
+    final albumModeString = await ServiceContainer.instance.interactiveService
+        .askAlbums();
+    final AlbumBehavior albumBehaviour = AlbumBehavior.fromString(
+      albumModeString,
+    );
     configBuilder.albumBehavior = albumBehaviour;
 
     // Ask user for Pixel/MP file transformation in interactive mode
     print('');
-    final transformPixelMP = await ServiceContainer.instance.interactiveService.askTransformPixelMP();
+    final transformPixelMP = await ServiceContainer.instance.interactiveService
+        .askTransformPixelMP();
     configBuilder.pixelTransformation = transformPixelMP;
 
     // Ask user for file size limiting in interactive mode
     print('');
-    final limitFileSize = await ServiceContainer.instance.interactiveService.askIfLimitFileSize();
+    final limitFileSize = await ServiceContainer.instance.interactiveService
+        .askIfLimitFileSize();
     configBuilder.fileSizeLimit = limitFileSize;
 
     // Ask user for creation time update in interactive mode (Windows only)
     if (Platform.isWindows) {
       print('');
-      final updateCreationTime = await ServiceContainer.instance.interactiveService.askChangeCreationTime();
+      final updateCreationTime = await ServiceContainer
+          .instance
+          .interactiveService
+          .askChangeCreationTime();
       configBuilder.creationTimeUpdate = updateCreationTime;
     }
     configBuilder.interactiveMode = true;
@@ -614,36 +660,48 @@ Future<InputOutputPaths> _getInputOutputPaths(
     await ServiceContainer.instance.interactiveService.showGreeting();
     print('');
 
-    final bool shouldUnzip = await ServiceContainer.instance.interactiveService.askIfUnzip();
+    final bool shouldUnzip = await ServiceContainer.instance.interactiveService
+        .askIfUnzip();
     print('');
 
     late Directory inDir;
     if (shouldUnzip) {
-      final zips = await ServiceContainer.instance.interactiveService.selectZipFiles();
+      final zips = await ServiceContainer.instance.interactiveService
+          .selectZipFiles();
       print('');
 
-      final extractDir = await ServiceContainer.instance.interactiveService.selectExtractionDirectory();
+      final extractDir = await ServiceContainer.instance.interactiveService
+          .selectExtractionDirectory();
       print('');
 
-      final out = await ServiceContainer.instance.interactiveService.selectOutputDirectory();
+      final out = await ServiceContainer.instance.interactiveService
+          .selectOutputDirectory();
       print('');
       // Calculate space requirements
-      final cumZipsSize =
-          zips.map((final e) => e.lengthSync()).reduce((final a, final b) => a + b);
+      final cumZipsSize = zips
+          .map((final e) => e.lengthSync())
+          .reduce((final a, final b) => a + b);
       final requiredSpace =
           (cumZipsSize * 2) +
           256 * 1024 * 1024; // Double because original ZIPs remain
-      await ServiceContainer.instance.interactiveService.freeSpaceNotice(requiredSpace, extractDir);
+      await ServiceContainer.instance.interactiveService.freeSpaceNotice(
+        requiredSpace,
+        extractDir,
+      );
       print('');
       inDir = extractDir;
       outputPath = out.path;
 
-      await ServiceContainer.instance.interactiveService.extractAll(zips, extractDir);
+      await ServiceContainer.instance.interactiveService.extractAll(
+        zips,
+        extractDir,
+      );
       print('');
       extractedFromZip = true;
     } else {
       try {
-        inDir = await ServiceContainer.instance.interactiveService.selectInputDirectory();
+        inDir = await ServiceContainer.instance.interactiveService
+            .selectInputDirectory();
       } catch (e) {
         logWarning('⚠️  INTERACTIVE DIRECTORY SELECTION FAILED');
         logWarning(
@@ -660,7 +718,8 @@ Future<InputOutputPaths> _getInputOutputPaths(
         );
       }
       print('');
-      final out = await ServiceContainer.instance.interactiveService.selectOutputDirectory();
+      final out = await ServiceContainer.instance.interactiveService
+          .selectOutputDirectory();
       outputPath = out.path;
       print('');
     }
@@ -683,14 +742,16 @@ Future<InputOutputPaths> _getInputOutputPaths(
           path.extension(provided.path).toLowerCase() == '.zip') {
         // Single zip file provided as --input
         zips.add(provided);
-        extractDir = Directory(path.join(path.dirname(provided.path), '.gpth-unzipped'),
+        extractDir = Directory(
+          path.join(path.dirname(provided.path), '.gpth-unzipped'),
         );
       } else {
         final providedDir = Directory(inputPath);
         if (await providedDir.exists()) {
           // Find zip files in directory (non-recursive)
           for (final ent in providedDir.listSync()) {
-            if (ent is File && path.extension(ent.path).toLowerCase() == '.zip') {
+            if (ent is File &&
+                path.extension(ent.path).toLowerCase() == '.zip') {
               zips.add(ent);
             }
           }
@@ -699,7 +760,9 @@ Future<InputOutputPaths> _getInputOutputPaths(
       }
 
       if (zips.isNotEmpty) {
-        logPrint('Detected ${zips.length} ZIP file(s) in input path - extracting before processing...');
+        logPrint(
+          'Detected ${zips.length} ZIP file(s) in input path - extracting before processing...',
+        );
 
         // Compute rough required space and warn
         var cumZipsSize = 0;
@@ -709,7 +772,9 @@ Future<InputOutputPaths> _getInputOutputPaths(
           } catch (_) {}
         }
         final requiredSpace = (cumZipsSize * 2) + 256 * 1024 * 1024;
-        logPrint('Estimated required temporary space for extraction: ${requiredSpace ~/ (1024 * 1024)} MB');
+        logPrint(
+          'Estimated required temporary space for extraction: ${requiredSpace ~/ (1024 * 1024)} MB',
+        );
 
         try {
           await ServiceContainer.instance.interactiveService.extractAll(
@@ -717,7 +782,8 @@ Future<InputOutputPaths> _getInputOutputPaths(
             extractDir,
           );
           inputPath = extractDir.path;
-          userInputRoot = inputPath; // keep original root (extraction root) for completeness
+          userInputRoot =
+              inputPath; // keep original root (extraction root) for completeness
           extractedFromZip = true;
           logPrint('Extraction complete. Using extracted folder: $inputPath');
         } catch (e) {
@@ -823,7 +889,9 @@ Future<void> _configureDependencies(final ProcessingConfig config) async {
   if (dict != null) {
     logPrint('JSON Dates Dictionary is loaded with ${dict.length} entries.');
   } else {
-    logPrint('JSON Dates Dictionary not loaded. Missing JSON dates will be extracted from EXIF info or other fallback methods.');
+    logPrint(
+      'JSON Dates Dictionary not loaded. Missing JSON dates will be extracted from EXIF info or other fallback methods.',
+    );
   }
 
   sleep(const Duration(seconds: 3));
@@ -865,9 +933,9 @@ Future<void> _configureDependencies(final ProcessingConfig config) async {
 /// @param config Validated processing configuration
 /// @returns ProcessingResult with comprehensive statistics and status
 Future<ProcessingResult> _executeProcessing(
-  final ProcessingConfig config,
-    { final bool precleanedOutput = false } // If true, skip internal output cleaning
-) async {
+  final ProcessingConfig config, {
+  final bool precleanedOutput = false, // If true, skip internal output cleaning
+}) async {
   Directory inputDir = Directory(config.inputPath);
   final outputDir = Directory(config.outputPath);
 
@@ -897,58 +965,88 @@ Future<ProcessingResult> _executeProcessing(
         }
         if (zips.isNotEmpty) {
           final extractDir = Directory(path.join(root.path, '.gpth-unzipped'));
-          logPrint('Found ${zips.length} ZIP file(s) under userInputRoot - extracting to ${extractDir.path} before processing');
+          logPrint(
+            'Found ${zips.length} ZIP file(s) under userInputRoot - extracting to ${extractDir.path} before processing',
+          );
 
           // Compute rough required space and log
           var cumZipsSize = 0;
           for (final z in zips) {
-            try { cumZipsSize += z.lengthSync(); } catch (_) {}
+            try {
+              cumZipsSize += z.lengthSync();
+            } catch (_) {}
           }
           final requiredSpace = (cumZipsSize * 2) + 256 * 1024 * 1024;
-          logPrint('Estimated required temporary space for extraction: ${requiredSpace ~/ (1024 * 1024)} MB');
+          logPrint(
+            'Estimated required temporary space for extraction: ${requiredSpace ~/ (1024 * 1024)} MB',
+          );
 
-          await ServiceContainer.instance.interactiveService.extractAll(zips, extractDir);
+          await ServiceContainer.instance.interactiveService.extractAll(
+            zips,
+            extractDir,
+          );
           effectiveUserRoot = extractDir.path;
 
           // Re-resolve Google Photos path inside the extraction dir
-          final resolvedInside = PathResolverService.resolveGooglePhotosPath(extractDir.path);
+          final resolvedInside = PathResolverService.resolveGooglePhotosPath(
+            extractDir.path,
+          );
           inputDir = Directory(resolvedInside);
           extractedNow = true;
-          logPrint('Extraction completed in execute(); effective input is now $resolvedInside');
+          logPrint(
+            'Extraction completed in execute(); effective input is now $resolvedInside',
+          );
         }
       }
     } catch (e) {
-      logError('Late ZIP extraction failed inside execute(): $e', forcePrint: true);
+      logError(
+        'Late ZIP extraction failed inside execute(): $e',
+        forcePrint: true,
+      );
       _exitWithMessage(12, 'Late ZIP extraction failed: ${e.toString()}');
     }
   }
 
   // NEW: honor keep-input but avoid cloning when input was (now) extracted from ZIPs
-  final bool inputExtractedFromZipFlag = config.inputExtractedFromZip || extractedNow;
+  final bool inputExtractedFromZipFlag =
+      config.inputExtractedFromZip || extractedNow;
 
   // Diagnostic Log to veryfy if we should clone InputDir
   final bool shouldClone = config.keepInput && !inputExtractedFromZipFlag;
-  logPrint('--keep-input = ${config.keepInput}, inputExtractedFromZip = $inputExtractedFromZipFlag => shouldClone = $shouldClone');
+  logPrint(
+    '--keep-input = ${config.keepInput}, inputExtractedFromZip = $inputExtractedFromZipFlag => shouldClone = $shouldClone',
+  );
 
   Directory effectiveInputDir = inputDir;
 
   if (shouldClone) {
-    logPrint('Input folder will be cloned as working copy because --keep-input = ${config.keepInput} and input does not come from ZIP extraction (inputExtractedFromZip = $inputExtractedFromZipFlag).');
+    logPrint(
+      'Input folder will be cloned as working copy because --keep-input = ${config.keepInput} and input does not come from ZIP extraction (inputExtractedFromZip = $inputExtractedFromZipFlag).',
+    );
     final cloner = InputCloneService();
     // Clone the **original user root**, not the already resolved Google Photos subfolder
-    final Directory clonedRoot = await cloner.cloneToSiblingTmp(Directory(effectiveUserRoot));
+    final Directory clonedRoot = await cloner.cloneToSiblingTmp(
+      Directory(effectiveUserRoot),
+    );
     logPrint('Using temporary input copy root: ${clonedRoot.path}');
     effectiveUserRoot = clonedRoot.path;
 
     // Now resolve the Google Photos subfolder INSIDE the clone for the pipeline
-    final String resolvedInsideClone = PathResolverService.resolveGooglePhotosPath(clonedRoot.path);
+    final String resolvedInsideClone =
+        PathResolverService.resolveGooglePhotosPath(clonedRoot.path);
     effectiveInputDir = Directory(resolvedInsideClone);
     logPrint('Effective input inside clone: $resolvedInsideClone');
   } else if (config.keepInput && inputExtractedFromZipFlag) {
     // Explicit message explaining why we skip clone
-    logWarning('Skipping clone input folder because input comes from ZIP extraction (inputExtractedFromZip = $inputExtractedFromZipFlag).', forcePrint: true);
+    logWarning(
+      'Skipping clone input folder because input comes from ZIP extraction (inputExtractedFromZip = $inputExtractedFromZipFlag).',
+      forcePrint: true,
+    );
   } else {
-    logWarning('Skipping clone input folder (--keep-input = ${config.keepInput}, inputExtractedFromZip = $inputExtractedFromZipFlag).', forcePrint: true);
+    logWarning(
+      'Skipping clone input folder (--keep-input = ${config.keepInput}, inputExtractedFromZip = $inputExtractedFromZipFlag).',
+      forcePrint: true,
+    );
   }
 
   // IMPORTANT: from here on, use a runtimeConfig that reflects the effective input dir
@@ -962,13 +1060,17 @@ Future<ProcessingResult> _executeProcessing(
 
   // Skip internal cleaning if it was already done before logger creation
   if (!precleanedOutput) {
-    if (await outputDir.exists() && !await _isOutputDirectoryEmpty(outputDir, runtimeConfig)) {
+    if (await outputDir.exists() &&
+        !await _isOutputDirectoryEmpty(outputDir, runtimeConfig)) {
       if (runtimeConfig.isInteractiveMode) {
-        if (await ServiceContainer.instance.interactiveService.askForCleanOutput()) {
+        if (await ServiceContainer.instance.interactiveService
+            .askForCleanOutput()) {
           await _cleanOutputDirectory(outputDir, runtimeConfig);
         }
       } else {
-        logWarning('Output directory is not empty. Cleaning it automatically (non-interactive mode).');
+        logWarning(
+          'Output directory is not empty. Cleaning it automatically (non-interactive mode).',
+        );
         await _cleanOutputDirectory(outputDir, runtimeConfig);
       }
     }
@@ -982,11 +1084,12 @@ Future<ProcessingResult> _executeProcessing(
   );
   return pipeline.execute(
     config: runtimeConfig,
-    inputDirectory: Directory(runtimeConfig.inputPath), // passes the effective folder (cloned/extracted if applies)
+    inputDirectory: Directory(
+      runtimeConfig.inputPath,
+    ), // passes the effective folder (cloned/extracted if applies)
     outputDirectory: outputDir,
   );
 }
-
 
 /// **OUTPUT DIRECTORY VALIDATION**
 ///
@@ -1008,7 +1111,9 @@ Future<bool> _isOutputDirectoryEmpty(
   final ProcessingConfig config,
 ) => outputDir
     .list()
-    .where((final e) => path.absolute(e.path) != path.absolute(config.inputPath))
+    .where(
+      (final e) => path.absolute(e.path) != path.absolute(config.inputPath),
+    )
     .isEmpty;
 
 /// **OUTPUT DIRECTORY CLEANUP**
@@ -1035,7 +1140,8 @@ Future<void> _cleanOutputDirectory(
     (final e) => path.absolute(e.path) != path.absolute(config.inputPath),
   )) {
     final basename = path.basename(file.path);
-    if (basename.toLowerCase().contains('photomigrator')) continue; // Avoid remove PhotoMigrator Logs stored in Output folder.
+    if (basename.toLowerCase().contains('photomigrator'))
+      continue; // Avoid remove PhotoMigrator Logs stored in Output folder.
     await file.delete(recursive: true);
   }
 }
@@ -1086,23 +1192,35 @@ void _showResults(
   logPrint('Some statistics for the achievement hunters:');
 
   if (result.creationTimesUpdated > 0) {
-    logPrint('\t${result.creationTimesUpdated} files had their CreationDate updated');
+    logPrint(
+      '\t${result.creationTimesUpdated} files had their CreationDate updated',
+    );
   }
   if (result.duplicatesRemoved > 0) {
     if (config.keepDuplicates) {
-      logPrint('\t${result.duplicatesRemoved} duplicates were found and moved to `_Duplicates` subfolder');
+      logPrint(
+        '\t${result.duplicatesRemoved} duplicates were found and moved to `_Duplicates` subfolder',
+      );
     } else {
-      logPrint('\t${result.duplicatesRemoved} duplicates were found and removed');
+      logPrint(
+        '\t${result.duplicatesRemoved} duplicates were found and removed',
+      );
     }
   }
   if (result.dateTimesWrittenToExif > 0) {
-    logPrint('\t${result.dateTimesWrittenToExif}/${result.mediaProcessed} files got their DateTime set in EXIF data');
+    logPrint(
+      '\t${result.dateTimesWrittenToExif}/${result.mediaProcessed} files got their DateTime set in EXIF data',
+    );
   }
   if (result.coordinatesWrittenToExif > 0) {
-    logPrint('\t${result.coordinatesWrittenToExif}/${result.mediaProcessed} files got their coordinates set in EXIF data (from json)');
+    logPrint(
+      '\t${result.coordinatesWrittenToExif}/${result.mediaProcessed} files got their coordinates set in EXIF data (from json)',
+    );
   }
   if (result.extensionsFixed > 0) {
-    logPrint('\t${result.extensionsFixed}/${result.mediaProcessed} files got their extensions fixed');
+    logPrint(
+      '\t${result.extensionsFixed}/${result.mediaProcessed} files got their extensions fixed',
+    );
   }
   if (result.extrasSkipped > 0) {
     logPrint('\t${result.extrasSkipped} extras were skipped');
@@ -1124,14 +1242,15 @@ void _showResults(
   }
 
   // Calculate Total Processing Time
-    final d = result.totalProcessingTime;
-    final hours = d.inHours;
-    final minutes = d.inMinutes.remainder(60);
-    final seconds = d.inSeconds.remainder(60);
+  final d = result.totalProcessingTime;
+  final hours = d.inHours;
+  final minutes = d.inMinutes.remainder(60);
+  final seconds = d.inSeconds.remainder(60);
 
-    final durationPretty = '${hours}h '
-               '${minutes.toString().padLeft(2, '0')}m '
-               '${seconds.toString().padLeft(2, '0')}s';
+  final durationPretty =
+      '${hours}h '
+      '${minutes.toString().padLeft(2, '0')}m '
+      '${seconds.toString().padLeft(2, '0')}s';
 
   logPrint('');
   logPrint('In total GPTH took $durationPretty to complete');
@@ -1158,7 +1277,7 @@ void _showResults(
 Future<void> _loadSaveLogIntoGlobalConfigFromArgs(
   final List<String> parsedArguments, {
   // NEW: allow previewing the exact log path and show it at startup without touching disk.
-  String? preferredLogDirForPreview,
+  final String? preferredLogDirForPreview,
 }) async {
   final parser = _createArgumentParser();
   final res = parser.parse(parsedArguments);
@@ -1169,16 +1288,23 @@ Future<void> _loadSaveLogIntoGlobalConfigFromArgs(
       // If we know the output dir, preview the exact file path using the same timestamp
       // the logger will reuse later (no I/O performed here).
       if (preferredLogDirForPreview != null) {
-        final plannedPath = LoggingService.previewLogFilePath(preferredLogDirForPreview);
-        logPrint('Messages Log will be saved to: $plannedPath', forcePrint: true);
+        final plannedPath = LoggingService.previewLogFilePath(
+          preferredLogDirForPreview,
+        );
+        logPrint('Messages Log will be saved to: $plannedPath');
       } else {
-        logPrint('Messages Log enabled by default (will use output folder).', forcePrint: true);
+        logPrint('Messages Log enabled by default (will use output folder).');
       }
     } else {
-      logPrint('--no-save-log flag detected; skipping save log messages into disk.', forcePrint: true);
+      logPrint(
+        '--no-save-log flag detected; skipping save log messages into disk.',
+      );
     }
   } catch (e) {
-    logError('Failed to load --save-log flag into GlobalConfig: $e', forcePrint: true);
+    logError(
+      'Failed to load --save-log flag into GlobalConfig: $e',
+      forcePrint: true,
+    );
   }
 }
 
@@ -1192,7 +1318,9 @@ Future<void> _loadFileDatesIntoGlobalConfigFromArgs(
     final res = parser.parse(parsedArguments);
     final String? jsonPath = res['json-dates'] as String?;
     if (jsonPath == null) {
-      logPrint('--json-dates argument not given; skipping external dates dictionary load.');
+      logPrint(
+        '--json-dates argument not given; skipping external dates dictionary load.',
+      );
       return;
     }
 
@@ -1200,7 +1328,10 @@ Future<void> _loadFileDatesIntoGlobalConfigFromArgs(
 
     final file = File(jsonPath);
     if (!await file.exists()) {
-      logWarning('Failed to load JSON Dates Dictionary: file does not exist at "$jsonPath"', forcePrint: true);
+      logWarning(
+        'Failed to load JSON Dates Dictionary: file does not exist at "$jsonPath"',
+        forcePrint: true,
+      );
       return;
     }
 
@@ -1229,6 +1360,6 @@ Future<void> _loadFileDatesIntoGlobalConfigFromArgs(
     ServiceContainer.instance.globalConfig.jsonDatesDictionary = normalized;
     logPrint('Loaded ${normalized.length} entries from $jsonPath');
   } catch (e) {
-      logWarning('Failed to load JSON Dates Dictionary: $e', forcePrint: true);
+    logWarning('Failed to load JSON Dates Dictionary: $e', forcePrint: true);
   }
 }

@@ -92,7 +92,7 @@ class MediaEntityCollection with LoggerMixin {
     final Directory? outputDirectory,
   }) async {
     final StepResult res = await _runStep(
-      step: WriteExifStep(),
+      step: const WriteExifStep(),
       config: config,
       inputDirectory: inputDirectory,
       outputDirectory: outputDirectory,
@@ -115,7 +115,7 @@ class MediaEntityCollection with LoggerMixin {
     final Directory? outputDirectory,
   }) async {
     final StepResult res = await _runStep(
-      step: MergeMediaEntitiesStep(),
+      step: const MergeMediaEntitiesStep(),
       config: config,
       inputDirectory: inputDirectory,
       outputDirectory: outputDirectory,
@@ -125,9 +125,11 @@ class MediaEntityCollection with LoggerMixin {
     if (data.isEmpty) return 0;
 
     if (data.containsKey('removed')) return _asInt(data['removed']);
-    if (data.containsKey('duplicatesRemoved')) return _asInt(data['duplicatesRemoved']);
+    if (data.containsKey('duplicatesRemoved'))
+      return _asInt(data['duplicatesRemoved']);
     if (data.containsKey('removedCount')) return _asInt(data['removedCount']);
-    if (data.containsKey('duplicateFilesRemoved')) return _asInt(data['duplicateFilesRemoved']);
+    if (data.containsKey('duplicateFilesRemoved'))
+      return _asInt(data['duplicateFilesRemoved']);
     return 0;
   }
 
@@ -142,7 +144,7 @@ class MediaEntityCollection with LoggerMixin {
     final Directory? outputDirectory,
   }) async {
     final StepResult res = await _runStep(
-      step: ExtractDatesStep(),
+      step: const ExtractDatesStep(),
       config: config,
       inputDirectory: inputDirectory,
       outputDirectory: outputDirectory,
@@ -174,7 +176,7 @@ class MediaEntityCollection with LoggerMixin {
     final Directory? outputDirectory,
   }) async {
     final StepResult res = await _runStep(
-      step: FindAlbumsStep(),
+      step: const FindAlbumsStep(),
       config: config,
       inputDirectory: inputDirectory,
       outputDirectory: outputDirectory,
@@ -278,7 +280,9 @@ class MediaEntityCollection with LoggerMixin {
   Map<String, dynamic> _asMap(final Object? data) {
     if (data is Map<String, dynamic>) return data;
     if (data is Map) {
-      return Map<String, dynamic>.from(data.map((final k, final v) => MapEntry('$k', v)));
+      return Map<String, dynamic>.from(
+        data.map((final k, final v) => MapEntry('$k', v)),
+      );
     }
     return const <String, dynamic>{};
   }
@@ -324,7 +328,6 @@ class MediaEntityCollection with LoggerMixin {
       }
     }
   }
-
 }
 
 /// Statistics about processed media collection

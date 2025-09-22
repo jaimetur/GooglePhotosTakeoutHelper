@@ -17,7 +17,7 @@ class FindAlbumService with LoggerMixin {
 
     if (collection.isEmpty) {
       sw.stop();
-      return FindAlbumSummary(
+      return const FindAlbumSummary(
         message: 'No media to process.',
         initialCount: 0,
         finalCount: 0,
@@ -26,7 +26,7 @@ class FindAlbumService with LoggerMixin {
         groupsMerged: 0,
         mediaWithAlbums: 0,
         distinctAlbums: 0,
-        albumCounts: const <String, int>{},
+        albumCounts: <String, int>{},
         enrichedAlbumInfos: 0,
       );
     }
@@ -75,9 +75,11 @@ class FindAlbumService with LoggerMixin {
           final String parent = _safeParentDir(mediaEntity.primaryFile);
           final AlbumEntity patched = info.addSourceDir(parent);
           if (!identical(updatedAlbumsMap, albumsMap) || changed) {
-            updatedAlbumsMap = Map<String, AlbumEntity>.from(updatedAlbumsMap)..[entry.key] = patched;
+            updatedAlbumsMap = Map<String, AlbumEntity>.from(updatedAlbumsMap)
+              ..[entry.key] = patched;
           } else {
-            updatedAlbumsMap = Map<String, AlbumEntity>.from(albumsMap)..[entry.key] = patched;
+            updatedAlbumsMap = Map<String, AlbumEntity>.from(albumsMap)
+              ..[entry.key] = patched;
           }
           enrichedAlbumInfos++;
           changed = true;
@@ -114,7 +116,8 @@ class FindAlbumService with LoggerMixin {
 
     sw.stop();
     return FindAlbumSummary(
-      message: 'Found $totalAlbums different albums ($mergedCount albums were merged)',
+      message:
+          'Found $totalAlbums different albums ($mergedCount albums were merged)',
       initialCount: initial,
       finalCount: finalCount,
       mergedCount: mergedCount,
@@ -172,14 +175,14 @@ class FindAlbumSummary {
   final int enrichedAlbumInfos;
 
   Map<String, dynamic> toMap() => {
-        'initialCount': initialCount,
-        'finalCount': finalCount,
-        'mergedCount': mergedCount,
-        'albumsMerged': albumsMerged,
-        'groupsMerged': groupsMerged,
-        'mediaWithAlbums': mediaWithAlbums,
-        'distinctAlbums': distinctAlbums,
-        'albumCounts': albumCounts,
-        'enrichedAlbumInfos': enrichedAlbumInfos,
-      };
+    'initialCount': initialCount,
+    'finalCount': finalCount,
+    'mergedCount': mergedCount,
+    'albumsMerged': albumsMerged,
+    'groupsMerged': groupsMerged,
+    'mediaWithAlbums': mediaWithAlbums,
+    'distinctAlbums': distinctAlbums,
+    'albumCounts': albumCounts,
+    'enrichedAlbumInfos': enrichedAlbumInfos,
+  };
 }

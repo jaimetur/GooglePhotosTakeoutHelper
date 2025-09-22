@@ -6,8 +6,9 @@
 library;
 
 import 'dart:typed_data';
-import 'package:path/path.dart' as path;
+
 import 'package:gpth/gpth_lib_exports.dart';
+import 'package:path/path.dart' as path;
 import 'package:test/test.dart';
 
 import '../setup/test_setup.dart';
@@ -33,12 +34,22 @@ void main() {
           'test.jpg',
           Uint8List.fromList([1, 2, 3]),
         );
-        final entity = MediaEntity.single(file: FileEntity(sourcePath: file.path));
-        final expectedAlbum = path.basename(path.dirname(file.path)); // p.ej. "Vacation" o "fixture_..."
+        final entity = MediaEntity.single(
+          file: FileEntity(sourcePath: file.path),
+        );
+        final expectedAlbum = path.basename(
+          path.dirname(file.path),
+        ); // p.ej. "Vacation" o "fixture_..."
 
         expect(entity.primaryFile.path, file.path);
-        expect(entity.hasAlbumAssociations, isTrue); // the parent folder of any file will always be consideer as Album, except for those cannonical year folder ("Photos from yyyy", "yyyy", "yyyy/mm", "yyyy-mm")
-        expect(entity.albumNames, contains(expectedAlbum)); // The album name is the name of the parent folder (in this case always start with 'fixture_')
+        expect(
+          entity.hasAlbumAssociations,
+          isTrue,
+        ); // the parent folder of any file will always be consideer as Album, except for those cannonical year folder ("Photos from yyyy", "yyyy", "yyyy/mm", "yyyy-mm")
+        expect(
+          entity.albumNames,
+          contains(expectedAlbum),
+        ); // The album name is the name of the parent folder (in this case always start with 'fixture_')
         expect(entity.dateTaken, isNull);
         expect(entity.dateAccuracy, isNull);
       });
@@ -66,22 +77,24 @@ void main() {
         // after detection, a single entity with that album
         final bytes = Uint8List.fromList([4, 5, 6]);
         final yearFile = fixture.createFile('2023/test.jpg', bytes);
-        final albumFile = fixture.createFile('Albums/Album Name/test.jpg', bytes);
+        final albumFile = fixture.createFile(
+          'Albums/Album Name/test.jpg',
+          bytes,
+        );
 
-        final merged = await ServiceContainer
-            .instance.albumRelationshipService
+        final merged = await ServiceContainer.instance.albumRelationshipService
             .detectAndMergeAlbums([
-          MediaEntity.single(
-            file: FileEntity(sourcePath: yearFile.path),
-            dateTaken: DateTime(2023, 1, 15),
-            dateAccuracy: DateAccuracy.good,
-            dateTimeExtractionMethod: DateTimeExtractionMethod.exif,
-          ),
-          MediaEntity.single(
-            file: FileEntity(sourcePath: albumFile.path),
-            dateTaken: DateTime(2023, 1, 15),
-          ),
-        ]);
+              MediaEntity.single(
+                file: FileEntity(sourcePath: yearFile.path),
+                dateTaken: DateTime(2023, 1, 15),
+                dateAccuracy: DateAccuracy.good,
+                dateTimeExtractionMethod: DateTimeExtractionMethod.exif,
+              ),
+              MediaEntity.single(
+                file: FileEntity(sourcePath: albumFile.path),
+                dateTaken: DateTime(2023, 1, 15),
+              ),
+            ]);
 
         expect(merged.length, 1);
         final entity = merged.first;
@@ -110,8 +123,12 @@ void main() {
           Uint8List.fromList([4, 5, 6]),
         );
 
-        final entity1 = MediaEntity.single(file: FileEntity(sourcePath: file1.path));
-        final entity2 = MediaEntity.single(file: FileEntity(sourcePath: file2.path));
+        final entity1 = MediaEntity.single(
+          file: FileEntity(sourcePath: file1.path),
+        );
+        final entity2 = MediaEntity.single(
+          file: FileEntity(sourcePath: file2.path),
+        );
 
         final collection = MediaEntityCollection([entity1, entity2]);
 
@@ -127,7 +144,9 @@ void main() {
           'test.jpg',
           Uint8List.fromList([1, 2, 3]),
         );
-        final entity = MediaEntity.single(file: FileEntity(sourcePath: file.path));
+        final entity = MediaEntity.single(
+          file: FileEntity(sourcePath: file.path),
+        );
 
         collection.add(entity);
 
@@ -140,7 +159,9 @@ void main() {
           'test.jpg',
           Uint8List.fromList([1, 2, 3]),
         );
-        final entity = MediaEntity.single(file: FileEntity(sourcePath: file.path));
+        final entity = MediaEntity.single(
+          file: FileEntity(sourcePath: file.path),
+        );
         final collection = MediaEntityCollection([entity]);
 
         final removed = collection.remove(entity);
@@ -171,9 +192,15 @@ void main() {
           Uint8List.fromList([6, 7, 8, 9, 10]),
         ); // different content
 
-        final entity1 = MediaEntity.single(file: FileEntity(sourcePath: file1.path));
-        final entity2 = MediaEntity.single(file: FileEntity(sourcePath: file2.path));
-        final entity3 = MediaEntity.single(file: FileEntity(sourcePath: file3.path));
+        final entity1 = MediaEntity.single(
+          file: FileEntity(sourcePath: file1.path),
+        );
+        final entity2 = MediaEntity.single(
+          file: FileEntity(sourcePath: file2.path),
+        );
+        final entity3 = MediaEntity.single(
+          file: FileEntity(sourcePath: file3.path),
+        );
 
         final collection = MediaEntityCollection([entity1, entity2, entity3]);
 
@@ -198,8 +225,12 @@ void main() {
           Uint8List.fromList([4, 5, 6]),
         );
 
-        final entity1 = MediaEntity.single(file: FileEntity(sourcePath: file1.path));
-        final entity2 = MediaEntity.single(file: FileEntity(sourcePath: file2.path));
+        final entity1 = MediaEntity.single(
+          file: FileEntity(sourcePath: file1.path),
+        );
+        final entity2 = MediaEntity.single(
+          file: FileEntity(sourcePath: file2.path),
+        );
 
         final collection = MediaEntityCollection([entity1, entity2]);
 
@@ -227,8 +258,12 @@ void main() {
           Uint8List.fromList([4, 5, 6]),
         );
 
-        final entity1 = MediaEntity.single(file: FileEntity(sourcePath: file1.path));
-        final entity2 = MediaEntity.single(file: FileEntity(sourcePath: file2.path));
+        final entity1 = MediaEntity.single(
+          file: FileEntity(sourcePath: file1.path),
+        );
+        final entity2 = MediaEntity.single(
+          file: FileEntity(sourcePath: file2.path),
+        );
 
         final collection = MediaEntityCollection([entity1, entity2]);
 
@@ -237,31 +272,37 @@ void main() {
         expect(collection.length, 2);
       });
 
-      test('processes entities with album associations after detection', () async {
-        // Explicit config for this test (pass required paths; other options use defaults)
-        final cfg = ProcessingConfig(
-          inputPath: fixture.basePath,
-          outputPath: fixture.basePath,
-        );
+      test(
+        'processes entities with album associations after detection',
+        () async {
+          // Explicit config for this test (pass required paths; other options use defaults)
+          final cfg = ProcessingConfig(
+            inputPath: fixture.basePath,
+            outputPath: fixture.basePath,
+          );
 
-        final bytesA = Uint8List.fromList([7, 7, 7]);
-        final year = fixture.createFile('2023/test.jpg', bytesA);
-        final album = fixture.createFile('Albums/Vacation 2023/test.jpg', bytesA);
+          final bytesA = Uint8List.fromList([7, 7, 7]);
+          final year = fixture.createFile('2023/test.jpg', bytesA);
+          final album = fixture.createFile(
+            'Albums/Vacation 2023/test.jpg',
+            bytesA,
+          );
 
-        final collection = MediaEntityCollection([
-          MediaEntity.single(file: FileEntity(sourcePath: year.path)),
-          MediaEntity.single(file: FileEntity(sourcePath: album.path)),
-        ]);
+          final collection = MediaEntityCollection([
+            MediaEntity.single(file: FileEntity(sourcePath: year.path)),
+            MediaEntity.single(file: FileEntity(sourcePath: album.path)),
+          ]);
 
-        await collection.findAlbums(config: cfg);
+          await collection.findAlbums(config: cfg);
 
-        expect(collection.length, 2);
-        final entity1 = collection.entities.first;
-        final entity2 = collection.entities.last;
-        expect(entity1.hasAlbumAssociations, isFalse);
-        expect(entity2.hasAlbumAssociations, isTrue);
-        expect(entity2.albumNames, contains('Vacation 2023'));
-      });
+          expect(collection.length, 2);
+          final entity1 = collection.entities.first;
+          final entity2 = collection.entities.last;
+          expect(entity1.hasAlbumAssociations, isFalse);
+          expect(entity2.hasAlbumAssociations, isTrue);
+          expect(entity2.albumNames, contains('Vacation 2023'));
+        },
+      );
     });
 
     group('MediaFilesCollection - File Management', () {
