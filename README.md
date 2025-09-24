@@ -395,6 +395,10 @@ gpth --input "~/Takeout" --output "~/Photos" --divide-partner-shared
 - Preserve or reorganize album structure
 - Move files efficiently from input to organized output structure
 
+### 🔄 Auto-Resume Capability
+- The tool detects if a previous execution was interrupted, and if so, when running again over the same output folder, it tries to resume from the step where it was interrupted.
+- For this function to work, the input and ouput folders should be the same as the previous execution.
+
 ## Changelog
 - Find the whole changelog file [here](CHANGELOG.md)
 

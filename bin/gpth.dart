@@ -948,7 +948,7 @@ Future<ProcessingResult> _executeProcessing(
     // Explicit message explaining why we skip clone
     logWarning('Skipping clone input folder because input comes from ZIP extraction (inputExtractedFromZip = $inputExtractedFromZipFlag).', forcePrint: true);
   } else {
-    logWarning('Skipping clone input folder (--keep-input = ${config.keepInput}, inputExtractedFromZip = $inputExtractedFromZipFlag).', forcePrint: true);
+    logDebug('Skipping clone input folder (--keep-input = ${config.keepInput}, inputExtractedFromZip = $inputExtractedFromZipFlag).', forcePrint: true);
   }
 
   // IMPORTANT: from here on, use a runtimeConfig that reflects the effective input dir
@@ -1030,15 +1030,18 @@ Future<void> _cleanOutputDirectory(
   final Directory outputDir,
   final ProcessingConfig config,
 ) async {
-  // Skip deleting any file/directory whose basename contains "PhotoMigrator" (case-insensitive).
+  // Skip deleting any file/directory whose basename contains "PhotoMigrator" (case-insensitive)
+  // or is exactly "progress.json" (case-insensitive).
   await for (final file in outputDir.list().where(
     (final e) => path.absolute(e.path) != path.absolute(config.inputPath),
   )) {
-    final basename = path.basename(file.path);
-    if (basename.toLowerCase().contains('photomigrator')) continue; // Avoid remove PhotoMigrator Logs stored in Output folder.
+    final basename = path.basename(file.path).toLowerCase();
+    if (basename.contains('photomigrator')) continue; // Avoid removing PhotoMigrator Logs stored in Output folder.
+    if (basename == 'progress.json') continue;        // Avoid removing progress.json file.
     await file.delete(recursive: true);
   }
 }
+
 
 /// **FINAL RESULTS DISPLAY**
 ///
