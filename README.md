@@ -399,6 +399,10 @@ gpth --input "~/Takeout" --output "~/Photos" --divide-partner-shared
 - The tool detects if a previous execution was interrupted, and if so, when running again over the same output folder, it tries to resume from the step where it was interrupted.
 - For this function to work, the input and ouput folders should be the same as the previous execution.
 
+> [!IMPORTANT]  
+> - This feature only works if you maitain your input and output folder from previous execution and if the files in your input folder are not in Zip format.
+> - If you used the flag `--keep-input` in your first execution, then for the resume to take effect you need to use as input folder the folder where your input was cloned (tipically with the same name as your input folder and a suffix like `_tmp`).
+
 ## Changelog
 - Find the whole changelog file [here](CHANGELOG.md)
 
