@@ -1,5 +1,3 @@
-// ignore_for_file: strict_top_level_inference
-
 import 'package:gpth/gpth_lib_exports.dart';
 
 /// Service for managing global application configuration and state

@@ -41,9 +41,7 @@ void main() {
       test('calculates count for shortcut album option', () async {
         // media1: year-only → 1 association
         final f1 = fixture.createFile('2023/test1.jpg', [1, 1, 1]);
-        final media1 = MediaEntity.single(
-          file: FileEntity(sourcePath: f1.path),
-        );
+        final media1 = MediaEntity.single(file: FileEntity(sourcePath: f1.path));
 
         // media2: year + 2 albums → 3 associations
         final bytes2 = [2, 2, 2];
@@ -57,10 +55,10 @@ void main() {
         ]);
         final media2 = merged2.single;
 
-        final count = service.calculateOutputFileCount([
-          media1,
-          media2,
-        ], 'shortcut');
+        final count = service.calculateOutputFileCount(
+          [media1, media2],
+          'shortcut',
+        );
 
         // media1 has 1, media2 has 3 → total 4
         expect(count, equals(4));
@@ -69,9 +67,7 @@ void main() {
       test('calculates count for duplicate-copy album option', () async {
         // media1: year-only → 1
         final f1 = fixture.createFile('2023/test1.jpg', [3, 3, 3]);
-        final media1 = MediaEntity.single(
-          file: FileEntity(sourcePath: f1.path),
-        );
+        final media1 = MediaEntity.single(file: FileEntity(sourcePath: f1.path));
 
         // media2: year + 1 album → 2
         final bytes2 = [4, 4, 4];
@@ -80,12 +76,13 @@ void main() {
         final media2 = (await albumSvc.detectAndMergeAlbums([
           MediaEntity.single(file: FileEntity(sourcePath: y2.path)),
           MediaEntity.single(file: FileEntity(sourcePath: a21.path)),
-        ])).single;
+        ]))
+            .single;
 
-        final count = service.calculateOutputFileCount([
-          media1,
-          media2,
-        ], 'duplicate-copy');
+        final count = service.calculateOutputFileCount(
+          [media1, media2],
+          'duplicate-copy',
+        );
 
         // 1 + 2 = 3
         expect(count, equals(3));
@@ -94,9 +91,7 @@ void main() {
       test('calculates count for reverse-shortcut album option', () async {
         // Same as the previous case
         final f1 = fixture.createFile('2023/test1.jpg', [5, 5, 5]);
-        final media1 = MediaEntity.single(
-          file: FileEntity(sourcePath: f1.path),
-        );
+        final media1 = MediaEntity.single(file: FileEntity(sourcePath: f1.path));
 
         final bytes2 = [6, 6, 6];
         final y2 = fixture.createFile('2023/test2.jpg', bytes2);
@@ -104,12 +99,13 @@ void main() {
         final media2 = (await albumSvc.detectAndMergeAlbums([
           MediaEntity.single(file: FileEntity(sourcePath: y2.path)),
           MediaEntity.single(file: FileEntity(sourcePath: a21.path)),
-        ])).single;
+        ]))
+            .single;
 
-        final count = service.calculateOutputFileCount([
-          media1,
-          media2,
-        ], 'reverse-shortcut');
+        final count = service.calculateOutputFileCount(
+          [media1, media2],
+          'reverse-shortcut',
+        );
 
         expect(count, equals(3));
       });
@@ -117,9 +113,7 @@ void main() {
       test('calculates count for json album option', () async {
         // media1: year-only
         final f1 = fixture.createFile('2023/test1.jpg', [7]);
-        final media1 = MediaEntity.single(
-          file: FileEntity(sourcePath: f1.path),
-        );
+        final media1 = MediaEntity.single(file: FileEntity(sourcePath: f1.path));
 
         // media2: year + 2 albums (but JSON counts 1 per entity)
         final bytes2 = [8];
@@ -130,48 +124,38 @@ void main() {
           MediaEntity.single(file: FileEntity(sourcePath: y2.path)),
           MediaEntity.single(file: FileEntity(sourcePath: a21.path)),
           MediaEntity.single(file: FileEntity(sourcePath: a22.path)),
-        ])).single;
+        ]))
+            .single;
 
-        final count = service.calculateOutputFileCount([
-          media1,
-          media2,
-        ], 'json');
+        final count = service.calculateOutputFileCount(
+          [media1, media2],
+          'json',
+        );
 
         // For json, count entities: 2
         expect(count, equals(2));
       });
 
-      test(
-        'calculates count for nothing album option with year-based files',
-        () async {
-          // media1: year-only → counts
-          final f1 = fixture.createFile('2023/test1.jpg', [9]);
-          final media1 = MediaEntity.single(
-            file: FileEntity(sourcePath: f1.path),
-          );
+      test('calculates count for nothing album option with year-based files',
+          () async {
+        // media1: year-only → counts
+        final f1 = fixture.createFile('2023/test1.jpg', [9]);
+        final media1 = MediaEntity.single(file: FileEntity(sourcePath: f1.path));
 
-          // media2: album-only (no year) → also count for "nothing" with the new strategy implementation because all Albums files are now moved into ALL_PHOTOS folder but no associated to any Album.
-          final bytes2 = [10];
-          final a21 = fixture.createFile('Albums/Album1/test2.jpg', bytes2);
-          final media2 = (await albumSvc.detectAndMergeAlbums([
-            MediaEntity.single(file: FileEntity(sourcePath: a21.path)),
-          ])).single;
+        // media2: album-only (no year) → also count for "nothing" with the new strategy implementation because all Albums files are now moved into ALL_PHOTOS folder but no associated to any Album.
+        final bytes2 = [10];
+        final a21 = fixture.createFile('Albums/Album1/test2.jpg', bytes2);
+        final media2 = (await albumSvc.detectAndMergeAlbums([MediaEntity.single(file: FileEntity(sourcePath: a21.path))])).single;
 
-          final count = service.calculateOutputFileCount([
-            media1,
-            media2,
-          ], 'nothing');
+        final count = service.calculateOutputFileCount([media1, media2], 'nothing');
 
-          // Expected 1 + 1 → 2
-          expect(count, equals(2));
-        },
-      );
+        // Expected 1 + 1 → 2
+        expect(count, equals(2));
+      });
 
       test('throws ArgumentError for invalid album option', () {
         final file = fixture.createFile('2023/test.jpg', [11]);
-        final media = MediaEntity.single(
-          file: FileEntity(sourcePath: file.path),
-        );
+        final media = MediaEntity.single(file: FileEntity(sourcePath: file.path));
 
         expect(
           () => service.calculateOutputFileCount([media], 'invalid-option'),
@@ -267,14 +251,12 @@ void main() {
             allOf([
               isA<Exception>(),
               predicate<Exception>(
-                (final e) => e.toString().contains(
-                  'Program attempted to exit with code 0',
-                ),
+                (final e) =>
+                    e.toString().contains('Program attempted to exit with code 0'),
               ),
               predicate<Exception>(
-                (final e) => e.toString().contains(
-                  'Check logs above for the specific cause',
-                ),
+                (final e) =>
+                    e.toString().contains('Check logs above for the specific cause'),
               ),
             ]),
           ),

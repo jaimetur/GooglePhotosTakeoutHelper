@@ -249,9 +249,7 @@ void main() {
         final mediaFile = fixture.createImageWithExif('protected.jpg');
 
         // Create a JSON file
-        final jsonFile = File(
-          path.join(fixture.basePath, 'protected.jpg.json'),
-        );
+        final jsonFile = File(path.join(fixture.basePath, 'protected.jpg.json'));
         await jsonFile.writeAsString('{"test": "protected"}');
 
         final result = await JsonMetadataMatcherService.findJsonForFile(

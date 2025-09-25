@@ -112,11 +112,8 @@ class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
     final stopWatch = Stopwatch()..start();
 
     try {
-      final service = UpdateCreationTimeService()
-        ..logger = LoggingService.fromConfig(context.config);
-      final UpdateCreationTimeSummary s = await service.updateCreationTimes(
-        context,
-      );
+      final service = UpdateCreationTimeService()..logger = LoggingService.fromConfig(context.config);
+      final UpdateCreationTimeSummary s = await service.updateCreationTimes(context);
 
       stopWatch.stop();
       final stepResult = StepResult.success(
@@ -155,10 +152,7 @@ class UpdateCreationTimeStep extends ProcessingStep with LoggerMixin {
 
     if (shouldSkipStep) {
       const reason = 'disabled in configuration';
-      logWarning(
-        '[Step 8/8] Skipping creation time update ($reason).',
-        forcePrint: true,
-      );
+      logWarning('[Step 8/8] Skipping creation time update ($reason).', forcePrint: true);
     }
 
     return shouldSkipStep;

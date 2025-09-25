@@ -28,6 +28,7 @@ import 'package:test/test.dart';
 
 import '../setup/test_setup.dart';
 
+
 void main() {
   group('E2E Tests - GitHub Issues & README Features', () {
     late TestFixture fixture;
@@ -1252,9 +1253,7 @@ void main() {
         // Check album directories
         final albumDirs = outputContents
             .whereType<Directory>()
-            .where(
-              (final dir) => !path.basename(dir.path).contains('ALL_PHOTOS'),
-            )
+            .where((final dir) => !path.basename(dir.path).contains('ALL_PHOTOS'))
             .toList();
         print('[DEBUG] Album directories: ${albumDirs.length}');
         for (final albumDir in albumDirs.take(3)) {

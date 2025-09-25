@@ -115,7 +115,9 @@ class PathResolverService {
       final contents = directory.listSync();
 
       // Look for "Photos from YYYY" pattern
-      final hasYearFolders = contents.whereType<Directory>().any(_isYearFolder);
+      final hasYearFolders = contents.whereType<Directory>().any(
+        _isYearFolder,
+      );
 
       if (hasYearFolders) {
         return true;

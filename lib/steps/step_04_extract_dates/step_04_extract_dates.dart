@@ -148,8 +148,7 @@ class ExtractDatesStep extends ProcessingStep with LoggerMixin {
     final stopWatch = Stopwatch()..start();
 
     try {
-      final service = const ExtractDateService()
-        ..logger = LoggingService.fromConfig(context.config);
+      final service = const ExtractDateService()..logger = LoggingService.fromConfig(context.config);
       final ExtractDateSummary summary = await service.extractDates(context);
       stopWatch.stop();
 

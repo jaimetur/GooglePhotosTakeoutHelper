@@ -367,9 +367,11 @@ void main() {
         final specialDirs = outputContents
             .whereType<Directory>()
             .where(
-              (final dir) => ['Archive', 'Trash', 'Screenshots'].any(
-                (final special) => path.basename(dir.path).contains(special),
-              ),
+              (final dir) => [
+                'Archive',
+                'Trash',
+                'Screenshots',
+              ].any((final special) => path.basename(dir.path).contains(special)),
             )
             .toList();
 
@@ -820,9 +822,7 @@ void main() {
               'Expected ${albumOnlyFiles.length} album-only files, found ${inputFilesAfter.length} total remaining files.',
         ); // Verify output files were created (only count actual moved files in ALL_PHOTOS)
         // In shortcut/symlink mode, album directories contain symlinks, not actual files
-        final allPhotosDirectory = Directory(
-          path.join(outputPath, 'ALL_PHOTOS'),
-        );
+        final allPhotosDirectory = Directory(path.join(outputPath, 'ALL_PHOTOS'));
         final outputFiles = await allPhotosDirectory
             .list()
             .where(

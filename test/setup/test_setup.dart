@@ -516,9 +516,7 @@ Future<void> generateRealisticDataset({
   await takeoutDir.create(recursive: true);
   createdEntities.add(takeoutDir);
 
-  final googlePhotosDir = Directory(
-    path.join(takeoutDir.path, 'Google Photos'),
-  );
+  final googlePhotosDir = Directory(path.join(takeoutDir.path, 'Google Photos'));
   await googlePhotosDir.create(recursive: true);
   createdEntities.add(googlePhotosDir);
 
@@ -738,9 +736,7 @@ Future<void> generateRealisticDataset({
             nameUpper.endsWith('.DNG'))) {
           continue;
         }
-        final target = File(
-          path.join(firstYearDir.path, path.basename(entity.path)),
-        );
+        final target = File(path.join(firstYearDir.path, path.basename(entity.path)));
         if (!await target.exists()) {
           await entity.copy(target.path);
           createdEntities.add(target);

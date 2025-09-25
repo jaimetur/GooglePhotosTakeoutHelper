@@ -38,10 +38,7 @@ void main() {
             isPartnerShared: true,
           );
 
-          expect(
-            targetDir.path,
-            equals(path.join('/output', 'PARTNER_SHARED', 'ALL_PHOTOS')),
-          );
+          expect(targetDir.path, equals(path.join('/output', 'PARTNER_SHARED', 'ALL_PHOTOS')));
         },
       );
 
@@ -79,9 +76,7 @@ void main() {
 
         expect(
           targetDir.path,
-          equals(
-            path.join('/output', 'PARTNER_SHARED', 'ALL_PHOTOS', '2023', '01'),
-          ),
+          equals(path.join('/output', 'PARTNER_SHARED', 'ALL_PHOTOS', '2023', '01')),
         );
       });
 
@@ -101,12 +96,7 @@ void main() {
         );
 
         // Album folders don't get date division
-        expect(
-          targetDir.path,
-          equals(
-            path.join('/output', 'PARTNER_SHARED', 'Albums', 'Family Album'),
-          ),
-        );
+        expect(targetDir.path, equals(path.join('/output', 'PARTNER_SHARED', 'Albums', 'Family Album')));
       });
 
       test('ignores partner sharing when dividePartnerShared is disabled', () {
@@ -228,10 +218,7 @@ void main() {
             context,
           );
 
-          expect(
-            partnerDir.path,
-            equals(path.join('/output', 'PARTNER_SHARED', 'ALL_PHOTOS')),
-          );
+          expect(partnerDir.path, equals(path.join('/output', 'PARTNER_SHARED', 'ALL_PHOTOS')));
           expect(personalDir.path, equals(path.join('/output', 'ALL_PHOTOS')));
         },
       );
@@ -255,14 +242,7 @@ void main() {
 
         expect(
           targetDir.path,
-          equals(
-            path.join(
-              '/output',
-              'PARTNER_SHARED',
-              'ALL_PHOTOS',
-              'date-unknown',
-            ),
-          ),
+          equals(path.join('/output', 'PARTNER_SHARED', 'ALL_PHOTOS', 'date-unknown')),
         );
       });
 
@@ -283,16 +263,7 @@ void main() {
 
         expect(
           targetDir.path,
-          equals(
-            path.join(
-              '/output',
-              'PARTNER_SHARED',
-              'ALL_PHOTOS',
-              '2023',
-              '05',
-              '15',
-            ),
-          ),
+          equals(path.join('/output', 'PARTNER_SHARED', 'ALL_PHOTOS', '2023', '05', '15')),
         );
       });
     });
