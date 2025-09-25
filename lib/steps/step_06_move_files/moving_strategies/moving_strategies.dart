@@ -372,7 +372,7 @@ class JsonMovingStrategy extends MoveMediaEntityStrategy {
 
       // Build JSON entries per album
       for (final albumName in entity.albumNames) {
-        final Directory albumDir = MovingStrategyUtils.albumDir(
+        final Directory albumDir = MovingStrategyUtils.albumDirConsideringUntitled(
           _pathService,
           albumName,
           entity,
@@ -632,7 +632,7 @@ class ShortcutMovingStrategy extends MoveMediaEntityStrategy {
 
       // Iterate unique album names to avoid duplicate passes on the same album
       for (final albumName in {...entity.albumNames}) {
-        final Directory albumDir = MovingStrategyUtils.albumDir(
+        final Directory albumDir = MovingStrategyUtils.albumDirConsideringUntitled(
           _pathService,
           albumName,
           entity,
@@ -945,7 +945,7 @@ class ReverseShortcutMovingStrategy extends MoveMediaEntityStrategy {
             ? albumsForThisFile.first
             : (entity.albumNames.isNotEmpty ? entity.albumNames.first : 'Unknown Album');
 
-        final Directory albumDir = MovingStrategyUtils.albumDir(
+        final Directory albumDir = MovingStrategyUtils.albumDirConsideringUntitled(
           _pathService,
           primaryAlbum,
           entity,
@@ -1314,7 +1314,7 @@ class DuplicateCopyMovingStrategy extends MoveMediaEntityStrategy {
             : (entity.albumNames.isNotEmpty ? entity.albumNames.first : 'Unknown Album');
 
         // Move original to primary album
-        final Directory primaryAlbumDir = MovingStrategyUtils.albumDir(
+        final Directory primaryAlbumDir = MovingStrategyUtils.albumDirConsideringUntitled(
           _pathService,
           primaryAlbum,
           entity,
@@ -1356,7 +1356,7 @@ class DuplicateCopyMovingStrategy extends MoveMediaEntityStrategy {
 
         // Copy to remaining albums
         for (final albumName in albumsForThisFile.skip(1)) {
-          final Directory albumDir = MovingStrategyUtils.albumDir(
+          final Directory albumDir = MovingStrategyUtils.albumDirConsideringUntitled(
             _pathService,
             albumName,
             entity,
@@ -1447,7 +1447,7 @@ class DuplicateCopyMovingStrategy extends MoveMediaEntityStrategy {
           : (entity.albumNames.isNotEmpty ? entity.albumNames.first : 'Unknown Album');
 
       // Move original to primary album
-      final Directory primaryAlbumDir = MovingStrategyUtils.albumDir(
+      final Directory primaryAlbumDir = MovingStrategyUtils.albumDirConsideringUntitled(
         _pathService,
         primaryAlbum,
         entity,
@@ -1489,7 +1489,7 @@ class DuplicateCopyMovingStrategy extends MoveMediaEntityStrategy {
 
       // Copy to remaining albums
       for (final albumName in albumsForThisFile.skip(1)) {
-        final Directory albumDir = MovingStrategyUtils.albumDir(
+        final Directory albumDir = MovingStrategyUtils.albumDirConsideringUntitled(
           _pathService,
           albumName,
           entity,
@@ -1579,6 +1579,44 @@ class MovingStrategyUtils {
         context,
         isPartnerShared: entity.partnerShared,
       );
+
+  /// Generate album directory but reroute to "Untitled Albums" if albumName starts with any entry in untitledAlbums (case-insensitive).
+  /// Note: keeps date-structured path produced by pathService; only swaps the top-level 'Albums' with 'Untitled Albums' when present.
+  static Directory albumDirConsideringUntitled(
+    final PathGeneratorService pathService,
+    final String albumName,
+    final MediaEntity entity,
+    final MovingContext context,
+  ) {
+    final Directory base = albumDir(pathService, albumName, entity, context);
+
+    // Fast check against untitled list (case-insensitive "startsWith")
+    final String nameLower = albumName.toLowerCase();
+    bool isUntitled = false;
+    for (final u in untitledAlbums) {
+      if (nameLower.startsWith(u.toLowerCase())) {
+        isUntitled = true;
+        break;
+      }
+    }
+    if (!isUntitled) return base;
+
+    // Build a sibling path under "<output>/Untitled Albums/..." preserving the relative structure after "Albums"
+    final String outPath = context.outputDirectory.path;
+    final String basePath = base.path;
+
+    // Compute relative path to output and swap the first segment if it is "Albums"
+    final String rel = path.relative(basePath, from: outPath);
+    final List<String> parts = rel.replaceAll('\\', '/').split('/');
+    if (parts.isNotEmpty && parts.first.toLowerCase() == 'albums') {
+      parts[0] = 'Untitled Albums';
+      final String newRel = parts.join('/');
+      return Directory(path.join(outPath, newRel));
+    }
+
+    // Fallback: if we cannot detect the 'Albums' segment, place under "Untitled Albums/<albumName>"
+    return Directory(path.join(outPath, 'Untitled Albums', albumName));
+  }
 
   /// Returns true if 'child' path equals or is a subpath of 'parent'.
   static bool isSubPath(final String child, final String parent) {

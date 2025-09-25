@@ -394,6 +394,8 @@ gpth --input "~/Takeout" --output "~/Photos" --divide-partner-shared
 - Multiple date-based folder structures
 - Preserve or reorganize album structure
 - Move files efficiently from input to organized output structure
+- Group Special Folders (`Trash`, `Archive`, `Locked Folder`) into `Special Folder` directory
+- Group Untitled Albums into `Untitled Albums` directory
 
 ### 🔄 Auto-Resume Capability
 - The tool detects if a previous execution was interrupted, and if so, when running again over the same output folder, it tries to resume from the step where it was interrupted.
