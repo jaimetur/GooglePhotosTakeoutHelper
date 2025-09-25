@@ -61,7 +61,8 @@ class StepProgressSaver with LoggerMixin {
         'iso8601': _formatDurationIso8601(duration),
         'seconds': duration.inSeconds,
       },
-      'result': stepResult.data,
+      // JSON-safe deep normalization of stepResult.data
+      'result': _jsonSafe(stepResult.data),
       'message': stepResult.message ?? '',
     };
 
@@ -226,6 +227,38 @@ class StepProgressSaver with LoggerMixin {
   }
 
   static String _toForwardSlashes(final String path) => path.replaceAll('\\', '/');
+
+  /// Deep JSON-safe conversion for any value (maps enums, sets, durations, etc.).
+  static dynamic _jsonSafe(final dynamic value) {
+    if (value == null) return null;
+    if (value is num || value is String || value is bool) return value;
+    if (value is DateTime) return value.toIso8601String();
+    if (value is Duration) return <String, dynamic>{'iso8601': _formatDurationIso8601(value), 'seconds': value.inSeconds};
+    if (value is Enum) {
+      try { return (value as dynamic).name; } catch (_) { final String s = '$value'; final int i = s.indexOf('.'); return i >= 0 ? s.substring(i + 1) : s; }
+    }
+    if (value is Iterable) return value.map(_jsonSafe).toList(growable: false);
+    if (value is Set) return value.map(_jsonSafe).toList(growable: false);
+    if (value is Map) {
+      final Map<String, dynamic> out = <String, dynamic>{};
+      value.forEach((final k, final v) {
+        String key;
+        if (k == null) {
+          key = 'null';
+        } else if (k is String) { key = k; }
+        else if (k is Enum) {
+          try { key = (k as dynamic).name; } catch (_) { key = '$k'; }
+        } else { key = '$k'; }
+        out[key] = _jsonSafe(v);
+      });
+      return out;
+    }
+    try {
+      final dynamic tj = (value as dynamic).toJson?.call();
+      if (tj != null) return _jsonSafe(tj);
+    } catch (_) {}
+    return '$value';
+  }
 }
 
 class StepProgressLoader with LoggerMixin {
@@ -237,7 +270,7 @@ class StepProgressLoader with LoggerMixin {
       final String full = '${out.path}${Platform.pathSeparator}progress.json';
       final File f = File(full);
       if (!await f.exists()) {
-        logWarning('[Progress] No progress.json found at $full');
+        logDebug('[Progress] No progress.json found at $full');
         return null;
       }
       final String raw = await f.readAsString();
@@ -332,55 +365,78 @@ class StepProgressLoader with LoggerMixin {
     return '';
   }
 
-  /// Apply saved media snapshot into context.mediaCollection.
-  /// - Rebase paths across OS using dataset_root/output_root.
-  /// - Rebuild domain objects if no deserializers are provided by the context.
-  static void applyMediaSnapshot(final ProcessingContext context, final dynamic snapshot, {final Map<String, dynamic>? progressJson}) {
+  static bool updateMediaEntityCollection(final ProcessingContext context, final dynamic snapshot, {final Map<String, dynamic>? progressJson, final bool onlyIfEmpty = true}) {
     try {
-      if (snapshot == null) return;
+      if (snapshot == null) return false;
 
-      // Rebase snapshot to current roots and separators
-      final String oldInFs = _stringOrEmpty(progressJson?['dataset_root']);
-      final String oldOutFs = _stringOrEmpty(progressJson?['output_root']);
+      // Early-out: if onlyIfEmpty and there is already a non-empty collection, do not touch it
+      if (onlyIfEmpty) {
+        try {
+          final dynamic coll = (context as dynamic).mediaCollection;
+          if (coll != null) {
+            bool nonEmpty = false;
+            // MediaEntityCollection fast path
+            if (coll is MediaEntityCollection) {
+              nonEmpty = coll.isNotEmpty;
+            } else {
+              // Generic containers: isNotEmpty / length
+              try { nonEmpty = coll.isNotEmpty as bool? ?? false; } catch (_) {}
+              if (!nonEmpty) {
+                try { final int len = coll.length as int? ?? 0; nonEmpty = len > 0; } catch (_) {}
+              }
+            }
+            if (nonEmpty) { logInfo('[Resume] Media snapshot not applied: existing collection is already populated (onlyIfEmpty=true)', forcePrint: true); return true; }
+          }
+        } catch (_) {}
+      }
+
+      // Optional rebase across OS (requires dataset_root/output_root in progressJson)
+      final String oldInFs = (progressJson != null && progressJson['dataset_root'] is String) ? progressJson['dataset_root'] as String : '';
+      final String oldOutFs = (progressJson != null && progressJson['output_root'] is String) ? progressJson['output_root'] as String : '';
       final String newInPlat = context.inputDirectory.path;
       final String newOutPlat = context.outputDirectory.path;
       final dynamic rebased = _rebaseSnapshot(snapshot, oldInFs, oldOutFs, newInPlat, newOutPlat);
 
-      // 1) Let the context handle it if it provides deserializers
-      try {
-        final dynamic maybe = (context as dynamic).deserializeMediaCollection?.call(rebased);
-        if (maybe != null) return;
-      } catch (_) {}
-      try {
-        final dynamic maybe2 = (context as dynamic).loadMediaCollectionFromJson?.call(rebased);
-        if (maybe2 != null) return;
-      } catch (_) {}
-
-      // 2) Build domain objects here (MediaEntity/FileEntity/AlbumEntity) if needed
+      // Build a strongly-typed List<MediaEntity> when the snapshot is a List
+      List<MediaEntity>? restoredList;
       if (rebased is List) {
-        final List<dynamic> restored = rebased.map((final e) {
+        restoredList = rebased.map((final e) {
           if (e is Map<String, dynamic>) return _buildMediaEntityFromMap(e);
           if (e is Map) return _buildMediaEntityFromMap(Map<String, dynamic>.from(e));
-          return e;
+          return e as MediaEntity;
         }).toList(growable: false);
-
-        // Try to inject into an existing collection or assign directly
-        try {
-          final dynamic coll = (context as dynamic).mediaCollection;
-          try { coll.clear(); coll.addAll(restored); return; } catch (_) {}
-        } catch (_) {}
-        try { (context as dynamic).mediaCollection = restored; return; } catch (_) {}
-      }
-
-      if (rebased is Map<String, dynamic> || rebased is Map) {
-        // Some implementations might store the collection as a map; pass it through
+      } else if (rebased is Map<String, dynamic> || rebased is Map) {
         final Map<String, dynamic> snap = rebased is Map<String, dynamic> ? rebased : Map<String, dynamic>.from(rebased as Map);
-        try { (context as dynamic).mediaCollection = snap; return; } catch (_) {}
+        try { final dynamic maybe = (context as dynamic).deserializeMediaCollection?.call(snap); if (maybe != null) return true; } catch (_) {}
+        try { final dynamic maybe2 = (context as dynamic).loadMediaCollectionFromJson?.call(snap); if (maybe2 != null) return true; } catch (_) {}
+        try { (context as dynamic).mediaCollection = snap; return true; } catch (_) {}
+        return false;
+      } else {
+        return false;
       }
+
+      // Try context-provided hooks before raw assignment
+      try { final dynamic maybe = (context as dynamic).deserializeMediaCollection?.call(restoredList); if (maybe != null) return true; } catch (_) {}
+      try { final dynamic maybe2 = (context as dynamic).loadMediaCollectionFromJson?.call(restoredList); if (maybe2 != null) return true; } catch (_) {}
+
+      // Inject into a MediaEntityCollection if present
+      try {
+        final dynamic coll = (context as dynamic).mediaCollection;
+        if (coll is MediaEntityCollection) { coll.replaceAll(restoredList); return true; }
+        try { coll.clear(); coll.addAll(restoredList); return true; } catch (_) {}
+      } catch (_) {}
+
+      // As last resort, assign a brand new MediaEntityCollection
+      try { (context as dynamic).mediaCollection = MediaEntityCollection(restoredList); return true; } catch (_) {}
+
+      logWarning('[Resume] Unable to apply media snapshot into context.mediaCollection: incompatible type', forcePrint: true);
+      return false;
     } catch (e) {
       logWarning('[Resume] Failed to apply media snapshot: $e', forcePrint: true);
+      return false;
     }
   }
+
 
   // ───────────────────────────── Domain rebuild helpers ─────────────────────────────
 
@@ -409,7 +465,6 @@ class StepProgressLoader with LoggerMixin {
       }
     } catch (_) {}
 
-    // Albums map
     final Map<String, AlbumEntity> albums = <String, AlbumEntity>{};
     try {
       final dynamic am = m['albumsMap'];
@@ -423,26 +478,20 @@ class StepProgressLoader with LoggerMixin {
       }
     } catch (_) {}
 
-    // Dates
     DateTime? dateTaken;
     try {
       final String? iso = m['dateTaken'] as String?;
       if (iso != null && iso.isNotEmpty) dateTaken = DateTime.tryParse(iso);
     } catch (_) {}
 
-    // DateAccuracy / ExtractionMethod are optional; if you need to map them, add your own adapters.
     DateAccuracy? dateAccuracy;
     try {
-      // If your DateAccuracy exposes a factory from value, plug it here.
-      // final int? accVal = m['dateAccuracy'] is int ? m['dateAccuracy'] as int : null;
-      // dateAccuracy = accVal != null ? DateAccuracy.fromValue(accVal) : null;
+      // hook for restoring DateAccuracy from stored value if needed
     } catch (_) {}
 
     DateTimeExtractionMethod? extractionMethod;
     try {
-      // If your enum can be parsed by name, plug it here.
-      // final String? name = m['dateTimeExtractionMethod'] as String?;
-      // extractionMethod = name != null ? DateTimeExtractionMethod.values.firstWhereOrNull((e)=> e.name == name) : null;
+      // hook for restoring enum by name if needed
     } catch (_) {}
 
     bool partner = false;
@@ -466,7 +515,6 @@ class StepProgressLoader with LoggerMixin {
     String src = f['sourcePath'] is String ? f['sourcePath'] as String : '';
     String? tgt = f['targetPath'] is String ? f['targetPath'] as String : null;
 
-    // Convert stored forward-slash paths to platform separators
     src = _toPlatformSeparators(src);
     if (tgt != null && tgt.isNotEmpty) tgt = _toPlatformSeparators(tgt);
 
@@ -476,8 +524,7 @@ class StepProgressLoader with LoggerMixin {
     final bool isDuplicateCopy = f['isDuplicateCopy'] is bool ? f['isDuplicateCopy'] as bool : false;
     final int ranking = f['ranking'] is int ? f['ranking'] as int : (f['ranking'] is num ? (f['ranking'] as num).toInt() : 0);
 
-    // If you need to restore DateAccuracy at file-level, add adapter here.
-    final DateAccuracy? fileAcc = null;
+    const DateAccuracy? fileAcc = null;
 
     final fe = FileEntity(
       sourcePath: src,
@@ -490,7 +537,6 @@ class StepProgressLoader with LoggerMixin {
       ranking: ranking,
     );
 
-    // isCanonical is recalculated in FileEntity constructor; no need to set manually
     return fe;
   }
 
@@ -503,8 +549,6 @@ class StepProgressLoader with LoggerMixin {
   }
 
   // ───────────────────────────── Rebase helpers ─────────────────────────────
-
-  static String _stringOrEmpty(final dynamic v) => (v is String) ? v : '';
 
   static String _toForwardSlashes(final String p) => p.replaceAll('\\', '/');
 
@@ -521,7 +565,7 @@ class StepProgressLoader with LoggerMixin {
     if (fullFs.isEmpty || prefixFs.isEmpty) return null;
     final String full = _normalizeNoTrailingSlash(fullFs);
     final String pref = _normalizeNoTrailingSlash(prefixFs);
-    final bool winLike = pref.contains(':'); // heuristic for Windows drive prefixes
+    final bool winLike = pref.contains(':');
     final bool starts = winLike ? full.toLowerCase().startsWith(pref.toLowerCase()) : full.startsWith(pref);
     if (!starts) return null;
     final String rel = full.substring(pref.length);

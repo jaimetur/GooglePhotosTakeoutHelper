@@ -24,8 +24,8 @@ class MoveMediaEntitiesStep extends ProcessingStep with LoggerMixin {
         final dur = StepProgressLoader.readDurationForStep(progress, stepId);
         final data = StepProgressLoader.readResultDataForStep(progress, stepId);
         final msg = StepProgressLoader.readMessageForStep(progress, stepId);
-        StepProgressLoader.applyMediaSnapshot(context, progress['media_entity_collection_object']);
-        logPrint('[Step $stepId/8] Resume enabled: step already completed previously, loading results from progress.json');
+        StepProgressLoader.updateMediaEntityCollection(context, progress['media_entity_collection_object'], progressJson: progress);
+        logPrint('[Step $stepId/8] Auto-Resume enabled: step already completed previously, loading results from progress.json');
         return StepResult.success(stepName: name, duration: dur, data: data, message: msg.isEmpty ? 'Resume: loaded Step $stepId results from progress.json' : msg);
       }
     } catch (_) {
@@ -70,6 +70,5 @@ class MoveMediaEntitiesStep extends ProcessingStep with LoggerMixin {
   }
 
   @override
-  bool shouldSkip(final ProcessingContext context) =>
-      context.mediaCollection.isEmpty;
+  bool shouldSkip(final ProcessingContext context) => context.mediaCollection.isEmpty;
 }
