@@ -1,7 +1,7 @@
 ## 5.0.6
 
 ### ✨ **New Features**
-  - Added Auto-Resume support to avoid repeat successful steps when tool is interrupted and executed again on the same output folder.
+  - Added Auto-Resume support to avoid repeat successful steps when tool is interrupted and executed again on the same output folder. (#87)
 
 ### 🚀 **Improvements**
 
