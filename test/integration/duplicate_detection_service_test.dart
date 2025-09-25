@@ -46,7 +46,11 @@ void main() {
         mockHashService.mockFileHash(file2, 'hash1');
         mockHashService.mockFileHash(file3, 'hash2');
 
-        final result = await service.groupIdenticalLegacy([media1, media2, media3]);
+        final result = await service.groupIdenticalLegacy([
+          media1,
+          media2,
+          media3,
+        ]);
 
         expect(result.length, equals(2));
         expect(result['hash1']?.length, equals(2));
@@ -123,7 +127,10 @@ void main() {
         expect(resultMedia.dateAccuracy, equals(media1.dateAccuracy));
 
         // Primary file equality by path (FileEntity does not override ==)
-        expect(resultMedia.primaryFile.sourcePath, equals(media1.primaryFile.sourcePath));
+        expect(
+          resultMedia.primaryFile.sourcePath,
+          equals(media1.primaryFile.sourcePath),
+        );
 
         // Album associations preserved from the best entity
         expect(resultMedia.albumNames, equals(media1.albumNames));
@@ -131,14 +138,15 @@ void main() {
         // Duplicates are recorded: exactly one duplicate coming from media2
         expect(resultMedia.duplicatesCount, equals(1));
         expect(
-          resultMedia.duplicatesFiles.any((f) => f.sourcePath == media2.primaryFile.sourcePath),
+          resultMedia.duplicatesFiles.any(
+            (final f) => f.sourcePath == media2.primaryFile.sourcePath,
+          ),
           isTrue,
         );
 
         // No secondaries in this scenario
         expect(resultMedia.secondaryCount, equals(0));
       });
-
 
       test('handles empty list', () async {
         final result = await service.removeDuplicates([]);
@@ -261,22 +269,25 @@ void main() {
         expect(result, isFalse);
       });
 
-      test('returns false for files with same size but different hash', () async {
-        final file1 = fixture.createImageWithExif('image1.jpg');
-        final file2 = fixture.createImageWithExif('image2.jpg');
+      test(
+        'returns false for files with same size but different hash',
+        () async {
+          final file1 = fixture.createImageWithExif('image1.jpg');
+          final file2 = fixture.createImageWithExif('image2.jpg');
 
-        final media1 = createTestMediaEntity(file1);
-        final media2 = createTestMediaEntity(file2);
+          final media1 = createTestMediaEntity(file1);
+          final media2 = createTestMediaEntity(file2);
 
-        mockHashService.mockFileSize(file1, 1000);
-        mockHashService.mockFileSize(file2, 1000);
-        mockHashService.mockFileHash(file1, 'hash1');
-        mockHashService.mockFileHash(file2, 'hash2');
+          mockHashService.mockFileSize(file1, 1000);
+          mockHashService.mockFileSize(file2, 1000);
+          mockHashService.mockFileHash(file1, 'hash1');
+          mockHashService.mockFileHash(file2, 'hash2');
 
-        final result = await service.areDuplicates(media1, media2);
+          final result = await service.areDuplicates(media1, media2);
 
-        expect(result, isFalse);
-      });
+          expect(result, isFalse);
+        },
+      );
     });
 
     group('calculateStats', () {
@@ -412,14 +423,18 @@ class MockMediaHashService implements MediaHashService {
   }
 
   @override
-  Future<({String hash, int size})> calculateHashAndSize(final File file) async {
+  Future<({String hash, int size})> calculateHashAndSize(
+    final File file,
+  ) async {
     final String hash = await calculateFileHash(file);
     final int size = await calculateFileSize(file);
     return (hash: hash, size: size);
   }
 
   @override
-  Future<Map<String, String>> calculateMultipleHashes(final List<File> files) async {
+  Future<Map<String, String>> calculateMultipleHashes(
+    final List<File> files,
+  ) async {
     final results = <String, String>{};
     for (final file in files) {
       try {
@@ -445,7 +460,7 @@ class MockMediaHashService implements MediaHashService {
 
   @override
   Future<List<({String path, String hash, int size, bool success})>>
-      calculateHashAndSizeBatch(final List<File> files) async {
+  calculateHashAndSizeBatch(final List<File> files) async {
     final results = <({String path, String hash, int size, bool success})>[];
     for (final file in files) {
       try {
@@ -461,11 +476,11 @@ class MockMediaHashService implements MediaHashService {
 
   @override
   Map<String, dynamic> getCacheStats() => {
-        'hashCacheSize': _fileHashes.length,
-        'sizeCacheSize': _fileSizes.length,
-        'maxCacheSize': maxCacheSize,
-        'cacheUtilization': '0.0%',
-      };
+    'hashCacheSize': _fileHashes.length,
+    'sizeCacheSize': _fileSizes.length,
+    'maxCacheSize': maxCacheSize,
+    'cacheUtilization': '0.0%',
+  };
 
   @override
   void clearCache() {
@@ -473,7 +488,6 @@ class MockMediaHashService implements MediaHashService {
     _fileSizes.clear();
   }
 }
-
 
 /// Helper function to create test MediaEntity
 MediaEntity createTestMediaEntity(final File file) =>
@@ -484,9 +498,8 @@ MediaEntity createTestMediaEntityWithDate(
   final File file, {
   final DateTime? dateTaken,
   final DateAccuracy? dateAccuracy,
-}) =>
-    MediaEntity.single(
-      file: FileEntity(sourcePath: file.path),
-      dateTaken: dateTaken,
-      dateAccuracy: dateAccuracy,
-    );
+}) => MediaEntity.single(
+  file: FileEntity(sourcePath: file.path),
+  dateTaken: dateTaken,
+  dateAccuracy: dateAccuracy,
+);

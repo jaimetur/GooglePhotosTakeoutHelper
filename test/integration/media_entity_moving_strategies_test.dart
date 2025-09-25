@@ -50,14 +50,12 @@ void main() {
 
     /// Helper: build a MediaEntity with the new FileEntity-based model.
     MediaEntity entityFromFile(final File f, final DateTime dt) => MediaEntity(
-        primaryFile: FileEntity(sourcePath: f.path),
-        secondaryFiles: const <FileEntity>[],
-        albumsMap: const <String, AlbumEntity>{},
-        dateTaken: dt,
-        dateAccuracy: null,
-        dateTimeExtractionMethod: DateTimeExtractionMethod.none,
-        partnershared: false,
-      );
+      primaryFile: FileEntity(sourcePath: f.path),
+      secondaryFiles: const <FileEntity>[],
+      albumsMap: const <String, AlbumEntity>{},
+      dateTaken: dt,
+      dateTimeExtractionMethod: DateTimeExtractionMethod.none,
+    );
 
     group('MediaEntityMovingStrategyFactory', () {
       late MoveMediaEntityStrategyFactory factory;
@@ -126,7 +124,10 @@ void main() {
         // Same content in year and album → after merge there is 1 entity with albumNames=['Vacation']
         final content = [1, 2, 3];
         final yearFile = fixture.createFile('2023/test.jpg', content);
-        final albumFile = fixture.createFile('Albums/Vacation/test.jpg', content);
+        final albumFile = fixture.createFile(
+          'Albums/Vacation/test.jpg',
+          content,
+        );
 
         final merged = await albumSvc.detectAndMergeAlbums([
           entityFromFile(yearFile, DateTime(2023, 6, 15)),
@@ -141,9 +142,15 @@ void main() {
 
         expect(results.length, equals(2)); // move + symlink
         expect(results[0].success, isTrue);
-        expect(results[0].operation.operationType, equals(MediaEntityOperationType.move));
+        expect(
+          results[0].operation.operationType,
+          equals(MediaEntityOperationType.move),
+        );
         expect(results[1].success, isTrue);
-        expect(results[1].operation.operationType, equals(MediaEntityOperationType.createSymlink));
+        expect(
+          results[1].operation.operationType,
+          equals(MediaEntityOperationType.createSymlink),
+        );
 
         // Validate ALL_PHOTOS directory using the path generator (avoid hardcoded structure)
         final allPhotosDir = pathService.generateTargetDirectory(
@@ -164,21 +171,33 @@ void main() {
         expect(albumDir.existsSync(), isTrue);
       });
 
-      test('handles entity without album associations but not in cannonical folder', () async {
-        final sourceFile = fixture.createFile('test.jpg', [1, 2, 3]);
-        final entity = entityFromFile(sourceFile, DateTime(2023, 6, 15));
+      test(
+        'handles entity without album associations but not in cannonical folder',
+        () async {
+          final sourceFile = fixture.createFile('test.jpg', [1, 2, 3]);
+          final entity = entityFromFile(sourceFile, DateTime(2023, 6, 15));
 
-        final results = <MoveMediaEntityResult>[];
-        await for (final r in strategy.processMediaEntity(entity, context)) {
-          results.add(r);
-        }
+          final results = <MoveMediaEntityResult>[];
+          await for (final r in strategy.processMediaEntity(entity, context)) {
+            results.add(r);
+          }
 
-        expect(results.length, equals(2)); // strategy used: shortcut (default). results should be two files (one in ALL_PHOTOS (created with move) and other in Albums folder (created as symlink))
-        expect(results[0].success, isTrue);
-        expect(results[0].operation.operationType, equals(MediaEntityOperationType.move));
-        expect(results[1].success, isTrue);
-        expect(results[1].operation.operationType, equals(MediaEntityOperationType.createSymlink));
-      });
+          expect(
+            results.length,
+            equals(2),
+          ); // strategy used: shortcut (default). results should be two files (one in ALL_PHOTOS (created with move) and other in Albums folder (created as symlink))
+          expect(results[0].success, isTrue);
+          expect(
+            results[0].operation.operationType,
+            equals(MediaEntityOperationType.move),
+          );
+          expect(results[1].success, isTrue);
+          expect(
+            results[1].operation.operationType,
+            equals(MediaEntityOperationType.createSymlink),
+          );
+        },
+      );
     });
 
     group('DuplicateCopyMovingStrategy', () {
@@ -188,48 +207,59 @@ void main() {
         strategy = DuplicateCopyMovingStrategy(fileService, pathService);
       });
 
-      test('moves canonical file to ALL_PHOTOS and moves (not copies) non-canonical files to album folders', () async {
-        final content = [1, 2, 3];
-        final yearFile = fixture.createFile('2023/test.jpg', content);
-        final albumFile = fixture.createFile('Albums/Vacation/test.jpg', content);
+      test(
+        'moves canonical file to ALL_PHOTOS and moves (not copies) non-canonical files to album folders',
+        () async {
+          final content = [1, 2, 3];
+          final yearFile = fixture.createFile('2023/test.jpg', content);
+          final albumFile = fixture.createFile(
+            'Albums/Vacation/test.jpg',
+            content,
+          );
 
-        final merged = await albumSvc.detectAndMergeAlbums([
-          entityFromFile(yearFile, DateTime(2023, 6, 15)),
-          entityFromFile(albumFile, DateTime(2023, 6, 15)),
-        ]);
-        final entity = merged.single;
+          final merged = await albumSvc.detectAndMergeAlbums([
+            entityFromFile(yearFile, DateTime(2023, 6, 15)),
+            entityFromFile(albumFile, DateTime(2023, 6, 15)),
+          ]);
+          final entity = merged.single;
 
-        final results = <MoveMediaEntityResult>[];
-        await for (final r in strategy.processMediaEntity(entity, context)) {
-          results.add(r);
-        }
+          final results = <MoveMediaEntityResult>[];
+          await for (final r in strategy.processMediaEntity(entity, context)) {
+            results.add(r);
+          }
 
-        expect(results.length, equals(2)); // move + copy
-        expect(results[0].success, isTrue);
-        expect(results[0].operation.operationType, equals(MediaEntityOperationType.move));
-        expect(results[1].success, isTrue);
-        // expect(results[1].operation.operationType, equals(MediaEntityOperationType.copy));
-        expect(results[1].operation.operationType, equals(MediaEntityOperationType.move));  // Now is move operaions expected
+          expect(results.length, equals(2)); // move + copy
+          expect(results[0].success, isTrue);
+          expect(
+            results[0].operation.operationType,
+            equals(MediaEntityOperationType.move),
+          );
+          expect(results[1].success, isTrue);
+          // expect(results[1].operation.operationType, equals(MediaEntityOperationType.copy));
+          expect(
+            results[1].operation.operationType,
+            equals(MediaEntityOperationType.move),
+          ); // Now is move operaions expected
 
+          // Validate ALL_PHOTOS directory using the path generator
+          final allPhotosDir = pathService.generateTargetDirectory(
+            null,
+            entity.dateTaken,
+            context,
+            isPartnerShared: entity.partnerShared,
+          );
+          expect(allPhotosDir.existsSync(), isTrue);
 
-        // Validate ALL_PHOTOS directory using the path generator
-        final allPhotosDir = pathService.generateTargetDirectory(
-          null,
-          entity.dateTaken,
-          context,
-          isPartnerShared: entity.partnerShared,
-        );
-        expect(allPhotosDir.existsSync(), isTrue);
-
-        // Validate album directory using the path generator
-        final albumDir = pathService.generateTargetDirectory(
-          'Vacation',
-          entity.dateTaken,
-          context,
-          isPartnerShared: entity.partnerShared,
-        );
-        expect(albumDir.existsSync(), isTrue);
-      });
+          // Validate album directory using the path generator
+          final albumDir = pathService.generateTargetDirectory(
+            'Vacation',
+            entity.dateTaken,
+            context,
+            isPartnerShared: entity.partnerShared,
+          );
+          expect(albumDir.existsSync(), isTrue);
+        },
+      );
     });
 
     group('JsonMovingStrategy', () {
@@ -266,9 +296,15 @@ void main() {
         await for (final r in strategy.processMediaEntity(merged[1], context)) {
           results2.add(r);
         }
-  
-        expect(results1.length, equals(2));   // 2 operarions (1. MOVE for the primary and 2. DELETE for the secondary)
-        expect(results2.length, equals(2));   // 2 operarions (1. MOVE for the primary and 2. DELETE for the secondary)
+
+        expect(
+          results1.length,
+          equals(2),
+        ); // 2 operarions (1. MOVE for the primary and 2. DELETE for the secondary)
+        expect(
+          results2.length,
+          equals(2),
+        ); // 2 operarions (1. MOVE for the primary and 2. DELETE for the secondary)
         expect(results1[0].success, isTrue);
         expect(results2[0].success, isTrue);
 
@@ -306,12 +342,19 @@ void main() {
 
         expect(results.length, equals(1));
         expect(results[0].success, isTrue);
-        expect(results[0].operation.operationType, equals(MediaEntityOperationType.move));
+        expect(
+          results[0].operation.operationType,
+          equals(MediaEntityOperationType.move),
+        );
       });
 
       test('processes album-only files (fixed behavior)', () async {
         // Exists only in album → should still be processed (move)
-        final albumOnly = fixture.createFile('Albums/Vacation/test.jpg', [1, 2, 3]);
+        final albumOnly = fixture.createFile('Albums/Vacation/test.jpg', [
+          1,
+          2,
+          3,
+        ]);
         final entity = entityFromFile(albumOnly, DateTime(2023, 6, 15));
 
         final results = <MoveMediaEntityResult>[];
@@ -321,7 +364,10 @@ void main() {
 
         expect(results.length, equals(1));
         expect(results[0].success, isTrue);
-        expect(results[0].operation.operationType, equals(MediaEntityOperationType.move));
+        expect(
+          results[0].operation.operationType,
+          equals(MediaEntityOperationType.move),
+        );
       });
     });
 
@@ -357,7 +403,10 @@ void main() {
 
         expect(results.length, equals(1));
         expect(results[0].success, isFalse);
-        expect(results[0].errorMessage, contains('Failed to move primary file'));
+        expect(
+          results[0].errorMessage,
+          contains('Failed to move primary file'),
+        );
       });
     });
   });

@@ -9,7 +9,7 @@ void main() {
     late Directory tempInputDir;
     late Directory tempOutputDir;
     setUp(() async {
-      pipeline = ProcessingPipeline();
+      pipeline = const ProcessingPipeline();
       tempInputDir = await Directory.systemTemp.createTemp(
         'pipeline_input_test',
       );

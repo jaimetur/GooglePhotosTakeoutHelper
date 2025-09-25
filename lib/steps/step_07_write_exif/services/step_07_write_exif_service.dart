@@ -33,29 +33,44 @@ class WriteExifProcessingService with LoggerMixin {
     final collection = context.mediaCollection;
     final bool nativeOnly = exifTool == null;
     if (nativeOnly) {
-      logWarning('[Step 7/8] ExifTool not available, native-only support.', forcePrint: true);
+      logWarning(
+        '[Step 7/8] ExifTool not available, native-only support.',
+        forcePrint: true,
+      );
     } else {
       logPrint('[Step 7/8] ExifTool enabled');
     }
 
     // Concurrency selection is kept identical
-    final int maxConcurrency = ConcurrencyManager().concurrencyFor(ConcurrencyOperation.exif);
+    final int maxConcurrency = ConcurrencyManager().concurrencyFor(
+      ConcurrencyOperation.exif,
+    );
     logPrint('[Step 7/8] Starting $maxConcurrency threads (exif concurrency)');
 
     final bool enableExifToolBatch = _resolveBatchingPreference(exifTool);
     final _UnsupportedPolicy unsupportedPolicy = _resolveUnsupportedPolicy();
 
     // Writer may be null if native-only
-    final WriteExifAuxiliaryService? exifWriter = (exifTool != null) ? WriteExifAuxiliaryService(exifTool as ExifToolService) : null;
+    final WriteExifAuxiliaryService? exifWriter = (exifTool != null)
+        ? WriteExifAuxiliaryService(exifTool as ExifToolService)
+        : null;
 
     // Batch queues and helpers (moved here from the step; unchanged logic)
     final bool isWindows = Platform.isWindows;
     final int baseBatchSize = isWindows ? 100 : 200;
-    final int maxImageBatch = _resolveInt('maxExifImageBatchSize', defaultValue: 500);
-    final int maxVideoBatch = _resolveInt('maxExifVideoBatchSize', defaultValue: 24);
+    final int maxImageBatch = _resolveInt(
+      'maxExifImageBatchSize',
+      defaultValue: 500,
+    );
+    final int maxVideoBatch = _resolveInt(
+      'maxExifVideoBatchSize',
+      defaultValue: 24,
+    );
 
-    final Map<String, List<MapEntry<File, Map<String, dynamic>>>> pendingImagesByTagset = {};
-    final Map<String, List<MapEntry<File, Map<String, dynamic>>>> pendingVideosByTagset = {};
+    final Map<String, List<MapEntry<File, Map<String, dynamic>>>>
+    pendingImagesByTagset = {};
+    final Map<String, List<MapEntry<File, Map<String, dynamic>>>>
+    pendingVideosByTagset = {};
 
     String stableTagsetKey(final Map<String, dynamic> tags) {
       final keys = tags.keys.toList()..sort();
@@ -70,7 +85,9 @@ class WriteExifProcessingService with LoggerMixin {
       return buf.toString();
     }
 
-    int totalQueued(final Map<String, List<MapEntry<File, Map<String, dynamic>>>> byTagset) {
+    int totalQueued(
+      final Map<String, List<MapEntry<File, Map<String, dynamic>>>> byTagset,
+    ) {
       int n = 0;
       for (final list in byTagset.values) {
         n += list.length;
@@ -79,27 +96,44 @@ class WriteExifProcessingService with LoggerMixin {
     }
 
     // Preserve OS mtimes around writes
-    Future<T> preserveMTime<T>(final File f, final Future<T> Function() op) async {
+    Future<T> preserveMTime<T>(
+      final File f,
+      final Future<T> Function() op,
+    ) async {
       DateTime? before;
-      try { before = await f.lastModified(); } catch (_) {}
+      try {
+        before = await f.lastModified();
+      } catch (_) {}
       T out;
-      try { out = await op(); } finally {
-        if (before != null) { try { await f.setLastModified(before); } catch (_) {} }
+      try {
+        out = await op();
+      } finally {
+        if (before != null) {
+          try {
+            await f.setLastModified(before);
+          } catch (_) {}
+        }
       }
       return out;
     }
 
-    Map<File, DateTime> snapshotMtimes(final List<MapEntry<File, Map<String, dynamic>>> chunk) {
+    Map<File, DateTime> snapshotMtimes(
+      final List<MapEntry<File, Map<String, dynamic>>> chunk,
+    ) {
       final m = <File, DateTime>{};
       for (final e in chunk) {
-        try { m[e.key] = e.key.lastModifiedSync(); } catch (_) {}
+        try {
+          m[e.key] = e.key.lastModifiedSync();
+        } catch (_) {}
       }
       return m;
     }
 
     Future<void> restoreMtimes(final Map<File, DateTime> snap) async {
       for (final kv in snap.entries) {
-        try { await kv.key.setLastModified(kv.value); } catch (_) {}
+        try {
+          await kv.key.setLastModified(kv.value);
+        } catch (_) {}
       }
     }
 
@@ -119,14 +153,19 @@ class WriteExifProcessingService with LoggerMixin {
     }) async {
       if (queue.isEmpty || exifWriter == null) return;
 
-      Future<void> splitAndWrite(final List<MapEntry<File, Map<String, dynamic>>> chunk) async {
+      Future<void> splitAndWrite(
+        final List<MapEntry<File, Map<String, dynamic>>> chunk,
+      ) async {
         if (chunk.isEmpty) return;
         if (chunk.length == 1) {
           final entry = chunk.first;
           final snap = snapshotMtimes(chunk);
           try {
             await preserveMTime(entry.key, () async {
-              await exifWriter.writeTagsWithExifToolSingle(entry.key, entry.value);
+              await exifWriter.writeTagsWithExifToolSingle(
+                entry.key,
+                entry.value,
+              );
             });
           } catch (e) {
             if (!shouldSilenceExiftoolError(e)) {
@@ -154,7 +193,10 @@ class WriteExifProcessingService with LoggerMixin {
         final snap = snapshotMtimes(chunk);
 
         try {
-          await exifWriter.writeTagsWithExifToolBatch(chunk, useArgFileWhenLarge: useArgFile);
+          await exifWriter.writeTagsWithExifToolBatch(
+            chunk,
+            useArgFileWhenLarge: useArgFile,
+          );
         } catch (e) {
           await _tryDeleteTmpForChunk(chunk);
 
@@ -163,8 +205,10 @@ class WriteExifProcessingService with LoggerMixin {
           final bool truncated = errStr.contains('Truncated InteropIFD');
 
           if (badPaths.isNotEmpty) {
-            final List<MapEntry<File, Map<String, dynamic>>> bad = <MapEntry<File, Map<String, dynamic>>>[];
-            final List<MapEntry<File, Map<String, dynamic>>> good = <MapEntry<File, Map<String, dynamic>>>[];
+            final List<MapEntry<File, Map<String, dynamic>>> bad =
+                <MapEntry<File, Map<String, dynamic>>>[];
+            final List<MapEntry<File, Map<String, dynamic>>> good =
+                <MapEntry<File, Map<String, dynamic>>>[];
             for (final entry in chunk) {
               final lower = entry.key.path.toLowerCase();
               if (badPaths.contains(lower)) {
@@ -187,14 +231,21 @@ class WriteExifProcessingService with LoggerMixin {
             await restoreMtimes(snap);
 
             if (good.isNotEmpty) {
-              await writeBatchSafe(good, useArgFile: useArgFile, isVideoBatch: isVideoBatch);
+              await writeBatchSafe(
+                good,
+                useArgFile: useArgFile,
+                isVideoBatch: isVideoBatch,
+              );
             }
 
             for (final entry in bad) {
               final singleSnap = snapshotMtimes([entry]);
               try {
                 await preserveMTime(entry.key, () async {
-                  await exifWriter.writeTagsWithExifToolSingle(entry.key, entry.value);
+                  await exifWriter.writeTagsWithExifToolSingle(
+                    entry.key,
+                    entry.value,
+                  );
                 });
               } catch (e2) {
                 if (!shouldSilenceExiftoolError(e2)) {
@@ -264,34 +315,62 @@ class WriteExifProcessingService with LoggerMixin {
 
         while (list.length > capPerChunk) {
           final sub = list.sublist(0, capPerChunk);
-          await writeBatchSafe(sub, useArgFile: true, isVideoBatch: isVideoBatch);
+          await writeBatchSafe(
+            sub,
+            useArgFile: true,
+            isVideoBatch: isVideoBatch,
+          );
           list.removeRange(0, sub.length);
         }
 
-        await writeBatchSafe(list, useArgFile: useArgFile, isVideoBatch: isVideoBatch);
+        await writeBatchSafe(
+          list,
+          useArgFile: useArgFile,
+          isVideoBatch: isVideoBatch,
+        );
         byTagset.remove(k);
       }
     }
 
     Future<void> flushImageBatch({required final bool useArgFile}) =>
-        flushMapByTagset(pendingImagesByTagset, useArgFile: useArgFile, isVideoBatch: false, capPerChunk: maxImageBatch);
+        flushMapByTagset(
+          pendingImagesByTagset,
+          useArgFile: useArgFile,
+          isVideoBatch: false,
+          capPerChunk: maxImageBatch,
+        );
     Future<void> flushVideoBatch({required final bool useArgFile}) =>
-        flushMapByTagset(pendingVideosByTagset, useArgFile: useArgFile, isVideoBatch: true, capPerChunk: maxVideoBatch);
+        flushMapByTagset(
+          pendingVideosByTagset,
+          useArgFile: useArgFile,
+          isVideoBatch: true,
+          capPerChunk: maxVideoBatch,
+        );
 
     Future<void> maybeFlushThresholds() async {
       if (nativeOnly || !enableExifToolBatch) return;
-      final int targetImageBatch = baseBatchSize.clamp(1, maxImageBatch).toInt();
+      final int targetImageBatch = baseBatchSize
+          .clamp(1, maxImageBatch)
+          .toInt();
       final int targetVideoBatch = 12.clamp(1, maxVideoBatch).toInt();
 
       for (final entry in pendingImagesByTagset.entries.toList()) {
         if (entry.value.length >= targetImageBatch) {
-          await writeBatchSafe(entry.value, useArgFile: true, isVideoBatch: false);
+          await writeBatchSafe(
+            entry.value,
+            useArgFile: true,
+            isVideoBatch: false,
+          );
           pendingImagesByTagset.remove(entry.key);
         }
       }
       for (final entry in pendingVideosByTagset.entries.toList()) {
         if (entry.value.length >= targetVideoBatch) {
-          await writeBatchSafe(entry.value, useArgFile: true, isVideoBatch: true);
+          await writeBatchSafe(
+            entry.value,
+            useArgFile: true,
+            isVideoBatch: true,
+          );
           pendingVideosByTagset.remove(entry.key);
         }
       }
@@ -352,7 +431,14 @@ class WriteExifProcessingService with LoggerMixin {
             if (isJpeg && !forceXmpJpeg) {
               if (!nativeOnly && exifWriter != null) {
                 if (effectiveDate != null) {
-                  final ok = await preserveMTime(file, () async => exifWriter.writeCombinedNativeJpeg(file, effectiveDate, coords));
+                  final ok = await preserveMTime(
+                    file,
+                    () async => exifWriter.writeCombinedNativeJpeg(
+                      file,
+                      effectiveDate,
+                      coords,
+                    ),
+                  );
                   if (ok) {
                     gpsWrittenThis = true;
                     dtWrittenThis = true;
@@ -362,46 +448,101 @@ class WriteExifProcessingService with LoggerMixin {
                     tagsToWrite['DateTimeOriginal'] = '"$dt"';
                     tagsToWrite['DateTimeDigitized'] = '"$dt"';
                     tagsToWrite['DateTime'] = '"$dt"';
-                    tagsToWrite['GPSLatitude'] = coords.toDD().latitude.toString();
-                    tagsToWrite['GPSLongitude'] = coords.toDD().longitude.toString();
-                    tagsToWrite['GPSLatitudeRef'] = coords.latDirection.abbreviation.toString();
-                    tagsToWrite['GPSLongitudeRef'] = coords.longDirection.abbreviation.toString();
+                    tagsToWrite['GPSLatitude'] = coords
+                        .toDD()
+                        .latitude
+                        .toString();
+                    tagsToWrite['GPSLongitude'] = coords
+                        .toDD()
+                        .longitude
+                        .toString();
+                    tagsToWrite['GPSLatitudeRef'] = coords
+                        .latDirection
+                        .abbreviation
+                        .toString();
+                    tagsToWrite['GPSLongitudeRef'] = coords
+                        .longDirection
+                        .abbreviation
+                        .toString();
                     WriteExifAuxiliaryService.markFallbackCombinedTried(file);
                   }
                 } else {
-                  final ok = await preserveMTime(file, () async => exifWriter.writeGpsNativeJpeg(file, coords));
+                  final ok = await preserveMTime(
+                    file,
+                    () async => exifWriter.writeGpsNativeJpeg(file, coords),
+                  );
                   if (ok) {
                     gpsWrittenThis = true;
                   } else {
-                    tagsToWrite['GPSLatitude'] = coords.toDD().latitude.toString();
-                    tagsToWrite['GPSLongitude'] = coords.toDD().longitude.toString();
-                    tagsToWrite['GPSLatitudeRef'] = coords.latDirection.abbreviation.toString();
-                    tagsToWrite['GPSLongitudeRef'] = coords.longDirection.abbreviation.toString();
+                    tagsToWrite['GPSLatitude'] = coords
+                        .toDD()
+                        .latitude
+                        .toString();
+                    tagsToWrite['GPSLongitude'] = coords
+                        .toDD()
+                        .longitude
+                        .toString();
+                    tagsToWrite['GPSLatitudeRef'] = coords
+                        .latDirection
+                        .abbreviation
+                        .toString();
+                    tagsToWrite['GPSLongitudeRef'] = coords
+                        .longDirection
+                        .abbreviation
+                        .toString();
                     WriteExifAuxiliaryService.markFallbackGpsTried(file);
                   }
                 }
               } else {
                 tagsToWrite['GPSLatitude'] = coords.toDD().latitude.toString();
-                tagsToWrite['GPSLongitude'] = coords.toDD().longitude.toString();
-                tagsToWrite['GPSLatitudeRef'] = coords.latDirection.abbreviation.toString();
-                tagsToWrite['GPSLongitudeRef'] = coords.longDirection.abbreviation.toString();
+                tagsToWrite['GPSLongitude'] = coords
+                    .toDD()
+                    .longitude
+                    .toString();
+                tagsToWrite['GPSLatitudeRef'] = coords.latDirection.abbreviation
+                    .toString();
+                tagsToWrite['GPSLongitudeRef'] = coords
+                    .longDirection
+                    .abbreviation
+                    .toString();
               }
             } else {
               if (!nativeOnly) {
                 if (isPng || forceXmpJpeg) {
-                  tagsToWrite['XMP:GPSLatitude'] = coords.toDD().latitude.toString();
-                  tagsToWrite['XMP:GPSLongitude'] = coords.toDD().longitude.toString();
+                  tagsToWrite['XMP:GPSLatitude'] = coords
+                      .toDD()
+                      .latitude
+                      .toString();
+                  tagsToWrite['XMP:GPSLongitude'] = coords
+                      .toDD()
+                      .longitude
+                      .toString();
                 } else {
-                  tagsToWrite['GPSLatitude'] = coords.toDD().latitude.toString();
-                  tagsToWrite['GPSLongitude'] = coords.toDD().longitude.toString();
-                  tagsToWrite['GPSLatitudeRef'] = coords.latDirection.abbreviation.toString();
-                  tagsToWrite['GPSLongitudeRef'] = coords.longDirection.abbreviation.toString();
+                  tagsToWrite['GPSLatitude'] = coords
+                      .toDD()
+                      .latitude
+                      .toString();
+                  tagsToWrite['GPSLongitude'] = coords
+                      .toDD()
+                      .longitude
+                      .toString();
+                  tagsToWrite['GPSLatitudeRef'] = coords
+                      .latDirection
+                      .abbreviation
+                      .toString();
+                  tagsToWrite['GPSLongitudeRef'] = coords
+                      .longDirection
+                      .abbreviation
+                      .toString();
                 }
               }
             }
           }
         } catch (e) {
-          logWarning('[Step 7/8] Failed to prepare GPS tags for ${file.path}: $e', forcePrint: true);
+          logWarning(
+            '[Step 7/8] Failed to prepare GPS tags for ${file.path}: $e',
+            forcePrint: true,
+          );
         }
 
         // Date/time handling (same as step)
@@ -409,7 +550,11 @@ class WriteExifProcessingService with LoggerMixin {
           if (effectiveDate != null) {
             if (isJpeg && !forceXmpJpeg) {
               if (!dtWrittenThis && !nativeOnly && exifWriter != null) {
-                final ok = await preserveMTime(file, () async => exifWriter.writeDateTimeNativeJpeg(file, effectiveDate));
+                final ok = await preserveMTime(
+                  file,
+                  () async =>
+                      exifWriter.writeDateTimeNativeJpeg(file, effectiveDate),
+                );
                 if (ok) {
                   dtWrittenThis = true;
                 } else {
@@ -440,7 +585,10 @@ class WriteExifProcessingService with LoggerMixin {
             }
           }
         } catch (e) {
-          logWarning('[Step 7/8] Failed to prepare DateTime tags for ${file.path}: $e', forcePrint: true);
+          logWarning(
+            '[Step 7/8] Failed to prepare DateTime tags for ${file.path}: $e',
+            forcePrint: true,
+          );
         }
 
         // Write using exiftool (per-file or enqueue for batch)
@@ -453,26 +601,39 @@ class WriteExifProcessingService with LoggerMixin {
               pathLower: lower,
             );
 
-            if (isUnsupported && !unsupportedPolicy.forceProcessUnsupportedFormats) {
+            if (isUnsupported &&
+                !unsupportedPolicy.forceProcessUnsupportedFormats) {
               if (!unsupportedPolicy.silenceUnsupportedWarnings) {
                 final detectedFmt = _describeUnsupported(
                   mimeHeader: mimeHeader,
                   mimeExt: mimeExt,
                   pathLower: lower,
                 );
-                logWarning('[Step 7/8] Skipping $detectedFmt file - ExifTool cannot write $detectedFmt: ${file.path}', forcePrint: true);
+                logWarning(
+                  '[Step 7/8] Skipping $detectedFmt file - ExifTool cannot write $detectedFmt: ${file.path}',
+                  forcePrint: true,
+                );
               }
-            }
-            else {
+            } else {
               if (!enableExifToolBatch) {
                 try {
                   await preserveMTime(file, () async {
-                    WriteExifAuxiliaryService.setPrimaryHint(file, markAsPrimary);
-                    await exifWriter!.writeTagsWithExifToolSingle(file, tagsToWrite);
+                    WriteExifAuxiliaryService.setPrimaryHint(
+                      file,
+                      markAsPrimary,
+                    );
+                    await exifWriter!.writeTagsWithExifToolSingle(
+                      file,
+                      tagsToWrite,
+                    );
                   });
                 } catch (e) {
                   if (!shouldSilenceExiftoolError(e)) {
-                    logWarning(isVideo ? '[Step 7/8] Per-file video write failed: ${file.path} -> $e' : '[Step 7/8] Per-file write failed: ${file.path} -> $e');
+                    logWarning(
+                      isVideo
+                          ? '[Step 7/8] Per-file video write failed: ${file.path} -> $e'
+                          : '[Step 7/8] Per-file write failed: ${file.path} -> $e',
+                    );
                   }
                   await _tryDeleteTmp(file);
                 }
@@ -480,27 +641,42 @@ class WriteExifProcessingService with LoggerMixin {
                 WriteExifAuxiliaryService.setPrimaryHint(file, markAsPrimary);
                 final key = stableTagsetKey(tagsToWrite);
                 if (isVideo) {
-                  (pendingVideosByTagset[key] ??= <MapEntry<File, Map<String, dynamic>>>[]).add(MapEntry(file, tagsToWrite));
+                  (pendingVideosByTagset[key] ??=
+                          <MapEntry<File, Map<String, dynamic>>>[])
+                      .add(MapEntry(file, tagsToWrite));
                 } else {
-                  (pendingImagesByTagset[key] ??= <MapEntry<File, Map<String, dynamic>>>[]).add(MapEntry(file, tagsToWrite));
+                  (pendingImagesByTagset[key] ??=
+                          <MapEntry<File, Map<String, dynamic>>>[])
+                      .add(MapEntry(file, tagsToWrite));
                 }
               }
             }
           }
         } catch (e) {
           if (!shouldSilenceExiftoolError(e)) {
-            logWarning('[Step 7/8] Failed to enqueue EXIF tags for ${file.path}: $e');
+            logWarning(
+              '[Step 7/8] Failed to enqueue EXIF tags for ${file.path}: $e',
+            );
           }
         }
 
         if (gpsWrittenThis) {
-          WriteExifAuxiliaryService.markGpsTouchedFromStep5(file, isPrimary: markAsPrimary);
+          WriteExifAuxiliaryService.markGpsTouchedFromStep5(
+            file,
+            isPrimary: markAsPrimary,
+          );
         }
         if (dtWrittenThis) {
-          WriteExifAuxiliaryService.markDateTouchedFromStep5(file, isPrimary: markAsPrimary);
+          WriteExifAuxiliaryService.markDateTouchedFromStep5(
+            file,
+            isPrimary: markAsPrimary,
+          );
         }
       } catch (e) {
-        logError('[Step 7/8] EXIF write failed for ${file.path}: $e', forcePrint: true);
+        logError(
+          '[Step 7/8] EXIF write failed for ${file.path}: $e',
+          forcePrint: true,
+        );
       }
 
       return {'gps': gpsWrittenThis, 'date': dtWrittenThis};
@@ -511,7 +687,7 @@ class WriteExifProcessingService with LoggerMixin {
       desc: '[ INFO  ] [Step 7/8] Writing EXIF data',
       total: collection.length,
       width: 50,
-      percentage: true
+      percentage: true,
     );
 
     int completedEntities = 0;
@@ -520,7 +696,11 @@ class WriteExifProcessingService with LoggerMixin {
 
     // Process with bounded concurrency (same pattern as in your step)
     for (int i = 0; i < collection.length; i += maxConcurrency) {
-      final slice = collection.asList().skip(i).take(maxConcurrency).toList(growable: false);
+      final slice = collection
+          .asList()
+          .skip(i)
+          .take(maxConcurrency)
+          .toList(growable: false);
 
       final results = await Future.wait(
         slice.map((final entity) async {
@@ -530,7 +710,9 @@ class WriteExifProcessingService with LoggerMixin {
           dynamic coordsFromPrimary;
           try {
             final primarySourceFile = File(entity.primaryFile.sourcePath);
-            coordsFromPrimary = await jsonCoordinatesExtractor(primarySourceFile);
+            coordsFromPrimary = await jsonCoordinatesExtractor(
+              primarySourceFile,
+            );
           } catch (_) {
             coordsFromPrimary = null;
           }
@@ -576,7 +758,9 @@ class WriteExifProcessingService with LoggerMixin {
       final int imagesQueued = totalQueued(pendingImagesByTagset);
       final int videosQueued = totalQueued(pendingVideosByTagset);
       print('');
-      logPrint('[Step 7/8] Pending before final flush → Images: $imagesQueued, Videos: $videosQueued');
+      logPrint(
+        '[Step 7/8] Pending before final flush → Images: $imagesQueued, Videos: $videosQueued',
+      );
 
       finalFlushTotal = imagesQueued + videosQueued;
       if (finalFlushTotal > 0) {
@@ -584,11 +768,12 @@ class WriteExifProcessingService with LoggerMixin {
           desc: '[ INFO  ] [Step 7/8] Flushing pending EXIF writes',
           total: finalFlushTotal,
           width: 50,
-          percentage: true
+          percentage: true,
         );
       }
 
-      final bool flushImagesWithArg = imagesQueued > (Platform.isWindows ? 30 : 60);
+      final bool flushImagesWithArg =
+          imagesQueued > (Platform.isWindows ? 30 : 60);
       final bool flushVideosWithArg = videosQueued > 6;
       await flushImageBatch(useArgFile: flushImagesWithArg);
       await flushVideoBatch(useArgFile: flushVideosWithArg);
@@ -613,12 +798,18 @@ class WriteExifProcessingService with LoggerMixin {
 
     print('');
     if (gpsTotal > 0) {
-      logPrint('[Step 7/8] $gpsTotal files got GPS set in EXIF data (primary=$gpsPrim, secondary=$gpsSec)');
+      logPrint(
+        '[Step 7/8] $gpsTotal files got GPS set in EXIF data (primary=$gpsPrim, secondary=$gpsSec)',
+      );
     }
     if (dtTotal > 0) {
-      logPrint('[Step 7/8] $dtTotal files got DateTime set in EXIF data (primary=$dtPrim, secondary=$dtSec)');
+      logPrint(
+        '[Step 7/8] $dtTotal files got DateTime set in EXIF data (primary=$dtPrim, secondary=$dtSec)',
+      );
     }
-    logPrint('[Step 7/8] Processed ${collection.entities.length} entities; touched ${WriteExifAuxiliaryService.uniqueFilesTouchedCount} files');
+    logPrint(
+      '[Step 7/8] Processed ${collection.entities.length} entities; touched ${WriteExifAuxiliaryService.uniqueFilesTouchedCount} files',
+    );
 
     // Provide outcome for StepResult mapping
     return WriteExifRunOutcome(
@@ -676,7 +867,8 @@ class WriteExifProcessingService with LoggerMixin {
     if (mimeHeader == 'video/x-msvideo' || mimeExt == 'video/x-msvideo') {
       return true; // AVI
     }
-    if ((mimeHeader ?? '').contains('mpeg') || (mimeExt ?? '').contains('mpeg')) {
+    if ((mimeHeader ?? '').contains('mpeg') ||
+        (mimeExt ?? '').contains('mpeg')) {
       return true; // MPG/MPEG
     }
     if ((mimeHeader ?? '') == 'image/bmp' || (mimeExt ?? '') == 'image/bmp') {
@@ -768,21 +960,31 @@ class WriteExifProcessingService with LoggerMixin {
 
     // Quick extension whitelist to recognize simple 'filename.ext' cases
     final exts = <String>{
-      '.jpg', '.jpeg', '.png', '.heic', '.tif', '.tiff',
-      '.mp4', '.mov', '.avi', '.mpg', '.mpeg'
+      '.jpg',
+      '.jpeg',
+      '.png',
+      '.heic',
+      '.tif',
+      '.tiff',
+      '.mp4',
+      '.mov',
+      '.avi',
+      '.mpg',
+      '.mpeg',
     };
 
-    bool _looksLikePath(final String p) {
+    bool looksLikePath(final String p) {
       final lp = p.toLowerCase();
-      if (lp.contains('/') || lp.contains('\\')) return true;       // has a separator
-      if (lp.length >= 3 && lp[1] == ':' && (lp[2] == '\\' || lp[2] == '/')) return true; // "c:\..."
+      if (lp.contains('/') || lp.contains('\\')) return true; // has a separator
+      if (lp.length >= 3 && lp[1] == ':' && (lp[2] == '\\' || lp[2] == '/'))
+        return true; // "c:\..."
       for (final e in exts) {
         if (lp.endsWith(e)) return true;
       }
       return false;
     }
 
-    String _stripQuotesAndPunct(String p) {
+    String stripQuotesAndPunct(final String p) {
       var t = p.trim();
 
       // Strip surrounding single/double quotes
@@ -812,19 +1014,23 @@ class WriteExifProcessingService with LoggerMixin {
       if (line.isEmpty) continue;
 
       // Only consider typical diagnostic lines to reduce false positives
-      final hasDiag = line.startsWith('Error:') || line.startsWith('Warning:') || line.contains('Error:') || line.contains('Warning:');
+      final hasDiag =
+          line.startsWith('Error:') ||
+          line.startsWith('Warning:') ||
+          line.contains('Error:') ||
+          line.contains('Warning:');
       if (!hasDiag) continue;
 
       // ExifTool format usually:  "Error: <message> - <path>"
       // We take the substring after the LAST " - " to be safe if the message contains hyphens.
-      final sep = ' - ';
+      const sep = ' - ';
       final idx = line.lastIndexOf(sep);
       if (idx <= 0 || idx + sep.length >= line.length) continue;
 
-      final after = _stripQuotesAndPunct(line.substring(idx + sep.length));
+      final after = stripQuotesAndPunct(line.substring(idx + sep.length));
 
       if (after.isEmpty) continue;
-      if (!_looksLikePath(after)) continue;
+      if (!looksLikePath(after)) continue;
 
       // Lowercase for matching with entry.key.path.toLowerCase()
       final lower = after.toLowerCase();
@@ -838,13 +1044,17 @@ class WriteExifProcessingService with LoggerMixin {
     return out;
   }
 
-
-  void _retagEntryToXmpIfJpeg(final MapEntry<File, Map<String, dynamic>> entry) {
+  void _retagEntryToXmpIfJpeg(
+    final MapEntry<File, Map<String, dynamic>> entry,
+  ) {
     final lower = entry.key.path.toLowerCase();
     if (!(lower.endsWith('.jpg') || lower.endsWith('.jpeg'))) return;
     final tags = entry.value;
 
-    final dynamic dtVal = tags['DateTimeOriginal'] ?? tags['DateTimeDigitized'] ?? tags['DateTime'];
+    final dynamic dtVal =
+        tags['DateTimeOriginal'] ??
+        tags['DateTimeDigitized'] ??
+        tags['DateTime'];
     tags.remove('DateTimeOriginal');
     tags.remove('DateTimeDigitized');
     tags.remove('DateTime');
@@ -909,7 +1119,9 @@ class WriteExifAuxiliaryService with LoggerMixin {
   static void setPrimaryHint(final File file, final bool isPrimary) {
     _primaryHint[file.path] = isPrimary;
   }
-  static bool? _consumePrimaryHint(final File file) => _primaryHint.remove(file.path);
+
+  static bool? _consumePrimaryHint(final File file) =>
+      _primaryHint.remove(file.path);
 
   static void _markTouched(
     final File file, {
@@ -1103,16 +1315,24 @@ class WriteExifAuxiliaryService with LoggerMixin {
       final totalFallback = xtFallbackRecovered + xtFallbackFail;
 
       out('[Step 7/8]    $title');
-      out('[Step 7/8]         Native Direct    : Total: $totalNative (Success: $nativeOk, Fails: $nativeFail) - Time: ${_fmtSec(nativeDur)}');
-      out('[Step 7/8]         Exiftool Direct  : Total: $totalDirect (Success: $xtDirectOk, Fails: $xtDirectFail) - Time: ${_fmtSec(xtDirectDur)}');
-      out('[Step 7/8]         Exiftool Fallback: Total: $totalFallback (Recovered: $xtFallbackRecovered, Fails: $xtFallbackFail) - Time: ${_fmtSec(xtFallbackDur)}');
+      out(
+        '[Step 7/8]         Native Direct    : Total: $totalNative (Success: $nativeOk, Fails: $nativeFail) - Time: ${_fmtSec(nativeDur)}',
+      );
+      out(
+        '[Step 7/8]         Exiftool Direct  : Total: $totalDirect (Success: $xtDirectOk, Fails: $xtDirectFail) - Time: ${_fmtSec(xtDirectDur)}',
+      );
+      out(
+        '[Step 7/8]         Exiftool Fallback: Total: $totalFallback (Recovered: $xtFallbackRecovered, Fails: $xtFallbackFail) - Time: ${_fmtSec(xtFallbackDur)}',
+      );
 
       // Total excludes fallbacks to avoid double counting the same files twice.
       final totalOk = nativeOk + xtDirectOk;
       final totalFail = nativeFail + xtDirectFail;
       final total = totalOk + totalFail;
       final totalTime = _fmtSec(nativeDur + xtDirectDur);
-      out('[Step 7/8]         Total Files      : Total: $total (Success: $totalOk, Fails: $totalFail) - Time: $totalTime');
+      out(
+        '[Step 7/8]         Total Files      : Total: $total (Success: $totalOk, Fails: $totalFail) - Time: $totalTime',
+      );
     }
 
     // Header
@@ -1263,7 +1483,8 @@ class WriteExifAuxiliaryService with LoggerMixin {
   Future<bool> writeTagsWithExifToolSingle(
     final File file,
     final Map<String, dynamic> tags, {
-    final bool countAsCombined = false, // kept for backward compat, but classification below is preferred
+    final bool countAsCombined =
+        false, // kept for backward compat, but classification below is preferred
     final bool isDate = false, // kept for backward compat
     final bool isGps = false, // kept for backward compat
   }) async {
@@ -1292,7 +1513,9 @@ class WriteExifAuxiliaryService with LoggerMixin {
         if (wasMarkedFallback || looksFallback) {
           xtCombinedFallbackRecovered++;
           xtCombinedFallbackDur += elapsed;
-          logDebug('[Step 7/8] [WRITE-EXIF] Date+GPS written with ExifTool as Fallback of Native writter: ${file.path}');
+          logDebug(
+            '[Step 7/8] [WRITE-EXIF] Date+GPS written with ExifTool as Fallback of Native writter: ${file.path}',
+          );
         } else {
           xtCombinedDirectSuccess++;
           xtCombinedDirectDur += elapsed;
@@ -1301,7 +1524,9 @@ class WriteExifAuxiliaryService with LoggerMixin {
         if (wasMarkedFallback || looksFallback) {
           xtDateFallbackRecovered++;
           xtDateFallbackDur += elapsed;
-          logDebug('[Step 7/8] [WRITE-EXIF] Date written with ExifTool as Fallback of Native writter: ${file.path}');
+          logDebug(
+            '[Step 7/8] [WRITE-EXIF] Date written with ExifTool as Fallback of Native writter: ${file.path}',
+          );
         } else {
           xtDateDirectSuccess++;
           xtDateDirectDur += elapsed;
@@ -1310,7 +1535,9 @@ class WriteExifAuxiliaryService with LoggerMixin {
         if (wasMarkedFallback || looksFallback) {
           xtGpsFallbackRecovered++;
           xtGpsFallbackDur += elapsed;
-          logDebug('[Step 7/8] [WRITE-EXIF] GPS written with ExifTool as Fallback of Native writter: ${file.path}');
+          logDebug(
+            '[Step 7/8] [WRITE-EXIF] GPS written with ExifTool as Fallback of Native writter: ${file.path}',
+          );
         } else {
           xtGpsDirectSuccess++;
           xtGpsDirectDur += elapsed;
@@ -1376,7 +1603,9 @@ class WriteExifAuxiliaryService with LoggerMixin {
         }
       }
 
-      logWarning('[ExifToolService] Failed to write tags: ${tags.keys.toList()} to ${file.path}: $e');
+      logWarning(
+        '[ExifToolService] Failed to write tags: ${tags.keys.toList()} to ${file.path}: $e',
+      );
       return false;
     }
   }
@@ -1392,15 +1621,15 @@ class WriteExifAuxiliaryService with LoggerMixin {
 
     // Pre-classify entries for accurate proportional attribution and fallback/direct split.
     final entriesMeta =
-        <(
-          {
+        <
+          ({
             File file,
             bool isDate,
             bool isGps,
             bool isCombined,
             bool isFallbackMarked,
-          }
-        )>[];
+          })
+        >[];
     int countDateDirect = 0, countGpsDirect = 0, countCombinedDirect = 0;
     int countDateFallback = 0, countGpsFallback = 0, countCombinedFallback = 0;
 
@@ -1442,8 +1671,12 @@ class WriteExifAuxiliaryService with LoggerMixin {
     }
 
     final totalTagged =
-        (countDateDirect + countGpsDirect + countCombinedDirect +
-                countDateFallback + countGpsFallback + countCombinedFallback)
+        (countDateDirect +
+                countGpsDirect +
+                countCombinedDirect +
+                countDateFallback +
+                countGpsFallback +
+                countCombinedFallback)
             .clamp(1, 1 << 30);
 
     final sw = Stopwatch()..start();
@@ -1463,7 +1696,8 @@ class WriteExifAuxiliaryService with LoggerMixin {
       }
       if (countCombinedFallback > 0) {
         xtCombinedFallbackRecovered += countCombinedFallback;
-        xtCombinedFallbackDur += elapsed * (countCombinedFallback / totalTagged);
+        xtCombinedFallbackDur +=
+            elapsed * (countCombinedFallback / totalTagged);
       }
       if (countDateDirect > 0) {
         xtDateDirectSuccess += countDateDirect;
@@ -1492,21 +1726,36 @@ class WriteExifAuxiliaryService with LoggerMixin {
           } else {
             _markTouched(m.file, date: true, gps: true);
           }
-          _consumeMarkedFallback(m.file, asDate: false, asGps: false, asCombined: true);
+          _consumeMarkedFallback(
+            m.file,
+            asDate: false,
+            asGps: false,
+            asCombined: true,
+          );
         } else if (m.isDate) {
           if (hintIsPrimary != null) {
             markDateTouchedFromStep5(m.file, isPrimary: hintIsPrimary);
           } else {
             _markTouched(m.file, date: true, gps: false);
           }
-          _consumeMarkedFallback(m.file, asDate: true, asGps: false, asCombined: false);
+          _consumeMarkedFallback(
+            m.file,
+            asDate: true,
+            asGps: false,
+            asCombined: false,
+          );
         } else if (m.isGps) {
           if (hintIsPrimary != null) {
             markGpsTouchedFromStep5(m.file, isPrimary: hintIsPrimary);
           } else {
             _markTouched(m.file, date: false, gps: true);
           }
-          _consumeMarkedFallback(m.file, asDate: false, asGps: true, asCombined: false);
+          _consumeMarkedFallback(
+            m.file,
+            asDate: false,
+            asGps: true,
+            asCombined: false,
+          );
         }
       }
     } catch (e) {
@@ -1595,12 +1844,16 @@ class WriteExifAuxiliaryService with LoggerMixin {
       nativeDateSuccess++;
       nativeDateDur += sw.elapsed;
       _markTouched(file, date: true, gps: false);
-      logDebug('[Step 7/8] [WRITE-EXIF] Date written natively (JPEG): ${file.path}');
+      logDebug(
+        '[Step 7/8] [WRITE-EXIF] Date written natively (JPEG): ${file.path}',
+      );
       return true;
     } catch (e) {
       nativeDateFail++;
       nativeDateDur += sw.elapsed;
-      logWarning('[Step 7/8] [WRITE-EXIF] Native JPEG DateTime write failed for ${file.path}: $e');
+      logWarning(
+        '[Step 7/8] [WRITE-EXIF] Native JPEG DateTime write failed for ${file.path}: $e',
+      );
       return false;
     }
   }
@@ -1622,7 +1875,11 @@ class WriteExifAuxiliaryService with LoggerMixin {
       _putGps(data.gpsIfd, 'GPSLatitude', coords.toDD().latitude);
       _putGps(data.gpsIfd, 'GPSLongitude', coords.toDD().longitude);
       _putGps(data.gpsIfd, 'GPSLatitudeRef', coords.latDirection.abbreviation);
-      _putGps(data.gpsIfd, 'GPSLongitudeRef', coords.longDirection.abbreviation);
+      _putGps(
+        data.gpsIfd,
+        'GPSLongitudeRef',
+        coords.longDirection.abbreviation,
+      );
 
       final Uint8List? out = injectJpgExif(orig, data);
       if (out == null) {
@@ -1635,12 +1892,16 @@ class WriteExifAuxiliaryService with LoggerMixin {
       nativeGpsSuccess++;
       nativeGpsDur += sw.elapsed;
       _markTouched(file, date: false, gps: true);
-      logDebug('[Step 7/8] [WRITE-EXIF] GPS written natively (JPEG): ${file.path}');
+      logDebug(
+        '[Step 7/8] [WRITE-EXIF] GPS written natively (JPEG): ${file.path}',
+      );
       return true;
     } catch (e) {
       nativeGpsFail++;
       nativeGpsDur += sw.elapsed;
-      logWarning('[Step 7/8] [WRITE-EXIF] Native JPEG GPS write failed for ${file.path}: $e');
+      logWarning(
+        '[Step 7/8] [WRITE-EXIF] Native JPEG GPS write failed for ${file.path}: $e',
+      );
       return false;
     }
   }
@@ -1669,7 +1930,11 @@ class WriteExifAuxiliaryService with LoggerMixin {
       _putGps(data.gpsIfd, 'GPSLatitude', coords.toDD().latitude);
       _putGps(data.gpsIfd, 'GPSLongitude', coords.toDD().longitude);
       _putGps(data.gpsIfd, 'GPSLatitudeRef', coords.latDirection.abbreviation);
-      _putGps(data.gpsIfd, 'GPSLongitudeRef', coords.longDirection.abbreviation);
+      _putGps(
+        data.gpsIfd,
+        'GPSLongitudeRef',
+        coords.longDirection.abbreviation,
+      );
 
       final Uint8List? out = injectJpgExif(orig, data);
       if (out == null) {
@@ -1682,12 +1947,16 @@ class WriteExifAuxiliaryService with LoggerMixin {
       nativeCombinedSuccess++;
       nativeCombinedDur += sw.elapsed;
       _markTouched(file, date: true, gps: true);
-      logDebug('[Step 7/8] [WRITE-EXIF] Date+GPS written natively (JPEG): ${file.path}');
+      logDebug(
+        '[Step 7/8] [WRITE-EXIF] Date+GPS written natively (JPEG): ${file.path}',
+      );
       return true;
     } catch (e) {
       nativeCombinedFail++;
       nativeCombinedDur += sw.elapsed;
-      logWarning('[Step 7/8] [WRITE-EXIF] Native JPEG combined write failed for ${file.path}: $e');
+      logWarning(
+        '[Step 7/8] [WRITE-EXIF] Native JPEG combined write failed for ${file.path}: $e',
+      );
       return false;
     }
   }
@@ -1695,17 +1964,30 @@ class WriteExifAuxiliaryService with LoggerMixin {
   /// Normalizes GPS container access for both typed and map-like models.
   void _putGps(final Object? gpsIfd, final String key, final Object? value) {
     try {
-      if (key == 'GPSLatitude') { (gpsIfd as dynamic).gpsLatitude = value; return; }
-      if (key == 'GPSLongitude') { (gpsIfd as dynamic).gpsLongitude = value; return; }
-      if (key == 'GPSLatitudeRef') { (gpsIfd as dynamic).gpsLatitudeRef = value; return; }
-      if (key == 'GPSLongitudeRef') { (gpsIfd as dynamic).gpsLongitudeRef = value; return; }
+      if (key == 'GPSLatitude') {
+        (gpsIfd as dynamic).gpsLatitude = value;
+        return;
+      }
+      if (key == 'GPSLongitude') {
+        (gpsIfd as dynamic).gpsLongitude = value;
+        return;
+      }
+      if (key == 'GPSLatitudeRef') {
+        (gpsIfd as dynamic).gpsLatitudeRef = value;
+        return;
+      }
+      if (key == 'GPSLongitudeRef') {
+        (gpsIfd as dynamic).gpsLongitudeRef = value;
+        return;
+      }
     } catch (_) {
       // ignore and try map-like access
     }
-    if (gpsIfd is Map) { gpsIfd[key] = value; }
+    if (gpsIfd is Map) {
+      gpsIfd[key] = value;
+    }
   }
 }
-
 
 /// Simple data holder for StepResult mapping (kept explicit for clarity).
 class WriteExifRunOutcome {
@@ -1723,7 +2005,6 @@ class WriteExifRunOutcome {
   final int rawGpsWrites;
   final int rawDateWrites;
 }
-
 
 /// _UnsupportedPolicy
 class _UnsupportedPolicy {

@@ -28,7 +28,8 @@ class GlobalConfigService {
   bool skipPrecheckForNonJpegInWriter = false;
 
   // Seppeds up Step 7: Write EXIF by sending files by batches to ExifTool on evey ExifTool call
-  bool enableExifToolBatch = true; // Disable this if you observe any abnormal dates in your output files.
+  bool enableExifToolBatch =
+      true; // Disable this if you observe any abnormal dates in your output files.
   int maxExifImageBatchSize = 100;
   int maxExifVideoBatchSize = 24;
 
@@ -122,7 +123,10 @@ class GlobalConfigService {
       );
     }
     if (overrides.containsKey('enableExifToolBatch')) {
-      enableExifToolBatch = _asBool(overrides['enableExifToolBatch'], enableExifToolBatch);
+      enableExifToolBatch = _asBool(
+        overrides['enableExifToolBatch'],
+        enableExifToolBatch,
+      );
     }
     // if (overrides.containsKey('moveDuplicatesToDuplicatesFolder')) moveDuplicatesToDuplicatesFolder = _asBool(overrides['moveDuplicatesToDuplicatesFolder'], moveDuplicatesToDuplicatesFolder);
 
@@ -198,7 +202,8 @@ class GlobalConfigService {
     'forceProcessUnsupportedFormats': forceProcessUnsupportedFormats,
     'silenceUnsupportedWarnings': silenceUnsupportedWarnings,
     'moveDuplicatesToDuplicatesFolder': moveDuplicatesToDuplicatesFolder,
-    'enableTelemetryInMergeMediaEntitiesStep': enableTelemetryInMergeMediaEntitiesStep,
+    'enableTelemetryInMergeMediaEntitiesStep':
+        enableTelemetryInMergeMediaEntitiesStep,
     // NOTE: jsonDatesDictionary can be very large; usually not needed here.
   };
 
@@ -216,7 +221,7 @@ class GlobalConfigService {
     return fallback;
   }
 
-  int _asInt(final dynamic v, final int fallback) {
+  int _asInt(final v, final int fallback) {
     if (v is int) return v;
     if (v is String) {
       final parsed = int.tryParse(v.trim());
