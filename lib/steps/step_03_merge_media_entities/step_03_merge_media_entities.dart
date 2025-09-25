@@ -185,10 +185,14 @@ class MergeMediaEntitiesStep extends ProcessingStep with LoggerMixin {
       }
 
       // Wrapper orchestration only: delegate all business logic to the service.
-      final duplicateService = ServiceContainer.instance.duplicateDetectionService
-        ..logger = LoggingService.fromConfig(context.config);
+      final duplicateService =
+          ServiceContainer.instance.duplicateDetectionService
+            ..logger = LoggingService.fromConfig(context.config);
 
-      final MergeMediaEntitiesSummary s = await duplicateService.executeMergeMediaEntitiesLogic(context); // This is the method that contains all the logic for this step
+      final MergeMediaEntitiesSummary s = await duplicateService
+          .executeMergeMediaEntitiesLogic(
+            context,
+          ); // This is the method that contains all the logic for this step
 
       stopWatch.stop();
       final stepResult = StepResult.success(
@@ -235,5 +239,6 @@ class MergeMediaEntitiesStep extends ProcessingStep with LoggerMixin {
   }
 
   @override
-  bool shouldSkip(final ProcessingContext context) => context.mediaCollection.isEmpty;
+  bool shouldSkip(final ProcessingContext context) =>
+      context.mediaCollection.isEmpty;
 }

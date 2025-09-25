@@ -1,3 +1,5 @@
+// ignore_for_file: non_constant_identifier_names
+
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -27,8 +29,10 @@ class ExifGpsExtractor with LoggerMixin {
     final bool reset = false,
     final LoggerMixin? loggerMixin,
   }) {
-    final lineNative   = '[GPS-EXTRACT] Native  : hitNative=$hitNative, missNative=$missNative, nativeTime=${_fmtSec(nativeDur)}';
-    final lineExiftool = '[GPS-EXTRACT] Exiftool: hitExifTool=$hitExiftool, missExifTool=$missExiftool, exiftoolTime=${_fmtSec(exiftoolDur)} (fallbackTried=$fallbackTried)';
+    final lineNative =
+        '[GPS-EXTRACT] Native  : hitNative=$hitNative, missNative=$missNative, nativeTime=${_fmtSec(nativeDur)}';
+    final lineExiftool =
+        '[GPS-EXTRACT] Exiftool: hitExifTool=$hitExiftool, missExifTool=$missExiftool, exiftoolTime=${_fmtSec(exiftoolDur)} (fallbackTried=$fallbackTried)';
 
     if (loggerMixin != null) {
       loggerMixin.logInfo(lineNative, forcePrint: true);

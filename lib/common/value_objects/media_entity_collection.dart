@@ -1,3 +1,5 @@
+// ignore_for_file: unintended_html_in_doc_comment
+
 import 'dart:collection';
 import 'dart:io';
 import 'package:gpth/gpth_lib_exports.dart';
@@ -125,11 +127,13 @@ class MediaEntityCollection with LoggerMixin {
     if (data.isEmpty) return 0;
 
     if (data.containsKey('removed')) return _asInt(data['removed']);
-    if (data.containsKey('duplicatesRemoved'))
+    if (data.containsKey('duplicatesRemoved')) {
       return _asInt(data['duplicatesRemoved']);
+    }
     if (data.containsKey('removedCount')) return _asInt(data['removedCount']);
-    if (data.containsKey('duplicateFilesRemoved'))
+    if (data.containsKey('duplicateFilesRemoved')) {
       return _asInt(data['duplicateFilesRemoved']);
+    }
     return 0;
   }
 

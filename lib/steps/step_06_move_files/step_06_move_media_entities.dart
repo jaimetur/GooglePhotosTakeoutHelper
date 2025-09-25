@@ -1,4 +1,6 @@
 // Step 6 (wrapper) - MoveMediaEntitiesStep
+// ignore_for_file: unintended_html_in_doc_comment
+
 import 'package:gpth/gpth_lib_exports.dart';
 
 /// Step 6: Move files to output directory
@@ -35,7 +37,8 @@ class MoveMediaEntitiesStep extends ProcessingStep with LoggerMixin {
     final stopWatch = Stopwatch()..start();
 
     try {
-      final service = MoveMediaEntityService()..logger = LoggingService.fromConfig(context.config);
+      final service = MoveMediaEntityService()
+        ..logger = LoggingService.fromConfig(context.config);
       final MoveFilesSummary summary = await service.moveAll(context);
 
       stopWatch.stop();
@@ -45,7 +48,8 @@ class MoveMediaEntitiesStep extends ProcessingStep with LoggerMixin {
         data: {
           'entitiesProcessed': summary.entitiesProcessed,
           'transformedCount': summary.transformedCount,
-          'albumBehavior': summary.albumBehaviorValue, // keep original behavior: String
+          'albumBehavior':
+              summary.albumBehaviorValue, // keep original behavior: String
           'primaryMovedCount': summary.primaryMovedCount,
           'nonPrimaryMoves': summary.nonPrimaryMoves,
           'symlinksCreated': summary.symlinksCreated,

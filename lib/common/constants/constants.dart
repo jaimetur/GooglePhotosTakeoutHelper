@@ -9,12 +9,12 @@ const String version = '5.0.6';
 
 /// Special folders
 const List<String> specialFolders = <String>[
-    'locked folder',
-    'archive',
-    'archivo',
-    'trash',
-    'papelera',
-  ];
+  'locked folder',
+  'archive',
+  'archivo',
+  'trash',
+  'papelera',
+];
 
 /// File extensions for additional media formats not covered by MIME types
 class MediaExtensions {
